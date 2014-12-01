@@ -12,6 +12,9 @@ import sys
 import os
 import subprocess
 
+from AppKit import *
+from Cocoa import *
+
 from PySide import QtGui
 from sgtk_file_dialog import SGTKFileDialog
 
@@ -147,5 +150,27 @@ class ProcessManager:
             for f in files:
                 if os.path.isdir(f):
                     f += '/'
+
+        return files
+
+    def pick_file_or_directory_mac(self, multi=False):
+        panel = NSOpenPanel.openPanel()
+
+        panel.setAllowsMultipleSelection_(multi)
+        panel.setCanChooseFiles_(True)
+        panel.setCanChooseDirectories_(True)
+        panel.setResolvesAliases_(False)
+
+        result = panel.runModal()
+
+        files = []
+        if result == NSOKButton:
+            filesToOpen = panel.filenames()
+            for f in filesToOpen:
+                out = f
+                if os.path.isdir(f):
+                    out += "/"
+
+                files.append(out)
 
         return files

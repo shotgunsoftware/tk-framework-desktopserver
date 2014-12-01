@@ -24,13 +24,21 @@ if __name__ == '__main__':
     Server TODO:
         - Test on all Platforms
         - Fix File Picker to be OS native (also needs to get proper focus)
-        - Make repo: tk-framework-toolkit-server --> see: editorial framework for blank framework
+        - unit tests
         - uft-8 unit testing internationalization
     """
     sys.path.append("../resources/python")
     sys.path.append("../")
 
     from python.tk_server import Server
+
+
+    # Process manager
+    import python
+    pm = python.tk_server.ProcessManager()
+    pm.pick_file_or_directory_mac(True)
+
+    sys.exit(0)
 
     # Get debug info
     if len(sys.argv) > 1 and sys.argv[1] == 'debug':
