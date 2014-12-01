@@ -40,7 +40,7 @@ class ServerProtocol(WebSocketServerProtocol):
             origin_str = response.origin
 
             # No origin would be a local html file
-            if origin_str == 'null' and response.host == 'localhost':
+            if (origin_str == 'null' and response.host == 'localhost') or (origin_str == "file://"):
                 origin_str = "http://localhost"
             else:
                 raise Exception("Invalid or unknown origin.")

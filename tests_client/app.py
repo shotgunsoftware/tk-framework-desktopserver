@@ -10,11 +10,6 @@
 
 import sys
 
-from twisted.internet import reactor, ssl
-from twisted.web.static import File
-from twisted.web.server import Site
-from twisted.python import log
-
 if __name__ == '__main__':
     """
     Simple application for client/server development and testing.
@@ -23,12 +18,24 @@ if __name__ == '__main__':
 
     Server TODO:
         - Test on all Platforms
+            - Dependencies:
+                [cryptography, cffi, six, pycparser]
+                [service-identity, pyasn1, pyasn1-modules, pyopens, sl, characteristic]
         - Fix File Picker to be OS native (also needs to get proper focus)
-        - Make repo: tk-framework-toolkit-server --> see: editorial framework for blank framework
+            * win32api depends on python version (ie: 2.6 64-bit), so this will be complicated.
+                - Also needs function pointers which I don't know how to pass (even possible?)
+                - Should we instead compile our own c++ dll to be used with python for the file dialog? (unless we know how to pass hook)
+
+                - When do we actually need both files/folder selection?
         - uft-8 unit testing internationalization
     """
     sys.path.append("../resources/python")
     sys.path.append("../")
+
+    from twisted.internet import reactor, ssl
+    from twisted.web.static import File
+    from twisted.web.server import Site
+    from twisted.python import log
 
     from python.tk_server import Server
 
