@@ -35,6 +35,8 @@ class ProcessManagerMac(ProcessManager):
         # Note: Using Popen install of call for asynchronous behavior
         subprocess.Popen([launcher, filepath])
 
+        return True
+
     def pick_file_or_directory(self, multi=False):
         """
         Pop-up a file selection window.

@@ -38,3 +38,5 @@ class ProcessManagerWin(ProcessManager):
         else:
             # Note: Using Popen install of call for asynchronous behavior
             subprocess.Popen([launcher, filepath])
+
+        return True

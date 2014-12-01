@@ -27,7 +27,6 @@ if __name__ == '__main__':
                 - Should we instead compile our own c++ dll to be used with python for the file dialog? (unless we know how to pass hook)
 
                 - When do we actually need both files/folder selection?
-        - Make repo: tk-framework-toolkit-server --> see: editorial framework for blank framework
         - uft-8 unit testing internationalization
     """
     sys.path.append("../resources/python")

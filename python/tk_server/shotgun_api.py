@@ -57,7 +57,13 @@ class ShotgunAPI():
         """
 
         try:
-            self.pm.open(data["filepath"])
+            result = self.pm.open(data["filepath"])
+
+            # Send back information regarding the success of the operation.
+            reply = {}
+            reply["result"] = result
+
+            self.host.json_reply(reply)
         except Exception, e:
             self.host.report_error(e.message)
 
