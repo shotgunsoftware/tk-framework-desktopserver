@@ -21,10 +21,16 @@ class ProcessManager:
     """
 
     def _get_toolkit_script_name(self):
-        return "shotgun"
+        if os.name == "nt":
+            return "shotgun.bat"
+        else:
+            return "shotgun"
 
     def _get_toolkit_fallback_script_name(self):
-        return "tank"
+        if os.name == "nt":
+            return "tank.bat"
+        else:
+            return "tank"
 
     def _get_full_toolkit_path(self, pipeline_config_path):
         """
