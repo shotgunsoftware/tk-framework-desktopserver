@@ -19,7 +19,7 @@ from shotgun_api import ShotgunAPI
 from autobahn import websocket
 from autobahn.twisted.websocket import WebSocketServerProtocol
 
-DEFAULT_DOMAIN_RESTRICTION = '*.shotgunstudio.com,localhost'
+DEFAULT_DOMAIN_RESTRICTION = "*.shotgunstudio.com,localhost"
 
 
 class ServerProtocol(WebSocketServerProtocol):
@@ -40,7 +40,7 @@ class ServerProtocol(WebSocketServerProtocol):
             origin_str = response.origin
 
             # No origin would be a local html file
-            if origin_str == 'null' and response.host == 'localhost':
+            if (origin_str == "null" and response.host == "localhost") or (origin_str == "file://"):
                 origin_str = "http://localhost"
             else:
                 raise Exception("Invalid or unknown origin.")
@@ -52,7 +52,7 @@ class ServerProtocol(WebSocketServerProtocol):
 
         if not domain_valid:
             # Don't accept connection
-            raise websocket.http.HttpException(403, 'Domain origin was rejected by server.')
+            raise websocket.http.HttpException(403, "Domain origin was rejected by server.")
 
     def onMessage(self, payload, isBinary):
         """
@@ -69,14 +69,14 @@ class ServerProtocol(WebSocketServerProtocol):
             return
 
         # Process json response (every message is expected to be in json format)
-        command = json.loads(payload.decode('utf8'))
+        command = json.loads(payload.decode("utf8"))
         data = {}
 
         # Retrieve command data from message
-        if 'data' in command:
-            data = command['data']
+        if "data" in command:
+            data = command["data"]
 
-        cmd_name = command['name']
+        cmd_name = command["name"]
 
         # Make sure the command is in the public API
         if cmd_name in self.shotgun.public_api:
@@ -94,9 +94,9 @@ class ServerProtocol(WebSocketServerProtocol):
         :param data: Object Optional Additional information regarding the error.
         """
         error = {}
-        error['error'] = True
-        if data: error['error_data'] = data
-        error['error_message'] = message
+        error["error"] = True
+        if data: error["error_data"] = data
+        error["error_message"] = message
 
         self.json_reply(error)
 
@@ -107,7 +107,7 @@ class ServerProtocol(WebSocketServerProtocol):
         :param data: Object Data that will be converted to JSON and sent to client.
         """
         # ensure_ascii allows unicode strings.
-        payload = json.dumps(data, ensure_ascii = False).encode('utf8')
+        payload = json.dumps(data, ensure_ascii = False).encode("utf8")
 
         isBinary = False
         self.sendMessage(payload, isBinary)
@@ -127,17 +127,17 @@ class ServerProtocol(WebSocketServerProtocol):
         #    ex: from *.shotgunstudios.com   -->   '.*(\\.shotgunstudios\\.com)$'
 
         # Regex string to build
-        expr_str = ''
+        expr_str = ""
 
-        wildcard_tokens = wildcard.split('*')
+        wildcard_tokens = wildcard.split("*")
         for token in wildcard_tokens:
             # Make token regex literal (we want to keep '.' for instance)
-            literal = '(' + re.escape(token) + ')'
+            literal = "(" + re.escape(token) + ")"
 
             expr_str += literal
 
             if token is not wildcard_tokens[-1]:
-                expr_str += '.*'
+                expr_str += ".*"
             else:
                 # Make sure there can't be any other character at the end
                 expr_str += "$"
@@ -166,7 +166,7 @@ class ServerProtocol(WebSocketServerProtocol):
 
         # split domain on commas
         domain_match = False
-        domains = domain_env.split(',')
+        domains = domain_env.split(",")
         for domain in domains:
             domain = domain.strip()
 

@@ -23,12 +23,25 @@ if __name__ == '__main__':
 
     Server TODO:
         - Test on all Platforms
+            - Dependencies:
+                [cryptography, cffi, six, pycparser]
+                [service-identity, pyasn1, pyasn1-modules, pyopens, sl, characteristic]
         - Fix File Picker to be OS native (also needs to get proper focus)
-        - unit tests
+            * win32api depends on python version (ie: 2.6 64-bit), so this will be complicated.
+                - Also needs function pointers which I don't know how to pass (even possible?)
+                - Should we instead compile our own c++ dll to be used with python for the file dialog? (unless we know how to pass hook)
+
+                - When do we actually need both files/folder selection?
+        - Make repo: tk-framework-toolkit-server --> see: editorial framework for blank framework
         - uft-8 unit testing internationalization
     """
     sys.path.append("../resources/python")
     sys.path.append("../")
+
+    from twisted.internet import reactor, ssl
+    from twisted.web.static import File
+    from twisted.web.server import Site
+    from twisted.python import log
 
     from python.tk_server import Server
 
@@ -41,7 +54,7 @@ if __name__ == '__main__':
     sys.exit(0)
 
     # Get debug info
-    if len(sys.argv) > 1 and sys.argv[1] == 'debug':
+    if len(sys.argv) > 1 and sys.argv[1] == "debug":
         debug = True
     else:
         debug = False
@@ -53,12 +66,15 @@ if __name__ == '__main__':
 
     # Serve test pages
     local_server = debug
+    keys_folder = "../resources/keys"
     if local_server:
         # Serve client folder
-        webdir = File("./client")
-        webdir.contentTypes['.crt'] = 'application/x-x509-ca-cert'
-        web = Site(webdir)
-        #reactor.listenSSL(8080, web, server.contextFactory)
+        keys_dir = File(keys_folder)
+        web_dir = File("./client")
+        web_dir.putChild("keys", keys_dir)
+        web_dir.contentTypes[".crt"] = "application/x-x509-ca-cert"
+        web = Site(web_dir)
+        #reactor.listenSSL(8080, web, server.contextFactory)        # For serving https..
         reactor.listenTCP(8080, web)
 
-    server.start(debug, "../resources/keys")
+    server.start(debug, keys_folder)

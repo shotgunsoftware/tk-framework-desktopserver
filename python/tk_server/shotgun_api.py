@@ -30,8 +30,8 @@ class ShotgunAPI():
         self.pm = ProcessManager()
 
         # Public Callable API methods on this object
-        self.public_api = ['echo', 'open', 'executeToolkitCommand', 'executeTankCommand',
-                                'pickFileOrDirectory', 'pickFileOrDirectories', 'version']
+        self.public_api = ["echo", "open", "executeToolkitCommand", "executeTankCommand",
+                                "pickFileOrDirectory", "pickFileOrDirectories", "version"]
 
     def _handle_toolkit_output(self, out, err, return_code):
         """
@@ -43,9 +43,9 @@ class ShotgunAPI():
         """
 
         reply = {}
-        reply['retcode'] = return_code
-        reply['out'] = out
-        reply['err'] = err
+        reply["retcode"] = return_code
+        reply["out"] = out
+        reply["err"] = err
 
         self.host.json_reply(reply)
 
@@ -53,11 +53,11 @@ class ShotgunAPI():
         """
         Simple message echo
 
-        :param data: Message data. ['filepath': String]
+        :param data: Message data. ["filepath": String]
         """
 
         try:
-            self.pm.open(data['filepath'])
+            self.pm.open(data["filepath"])
         except Exception, e:
             self.host.report_error(e.message)
 
@@ -65,19 +65,19 @@ class ShotgunAPI():
         """
         Simple message echo. Used for test and as a simple example.
 
-        :param data: Message data. ['message': String]
+        :param data: Message data. ["message": String]
         """
 
         # Create reply object
         reply = {}
-        reply['message'] = data['message']
+        reply["message"] = data["message"]
 
         self.host.json_reply(reply)
 
     def executeToolkitCommand(self, data):
-        pipeline_config_path = data['pipelineConfigPath']
-        command = data['command']
-        args = data['args']
+        pipeline_config_path = data["pipelineConfigPath"]
+        command = data["command"]
+        args = data["args"]
 
         # Verify arguments
         if not args:
