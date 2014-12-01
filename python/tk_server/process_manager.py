@@ -33,10 +33,10 @@ class ProcessManager:
         :param pipeline_config_path: String Pipeline folder
         :return: String File path of toolkit script (eg: c:/temp/tank)
         """
-        exec_script = pipeline_config_path + '/' + self._get_toolkit_script_name()
+        exec_script = pipeline_config_path + "/" + self._get_toolkit_script_name()
 
         if not os.path.isfile(exec_script):
-            exec_script = pipeline_config_path + '/' + self._get_toolkit_fallback_script_name()
+            exec_script = pipeline_config_path + "/" + self._get_toolkit_fallback_script_name()
 
         return exec_script
 
@@ -50,15 +50,15 @@ class ProcessManager:
         :param command: Toolkit command to run
         """
 
-        if not command.startswith('shotgun'):
-            raise Exception('ExecuteTankCommand error. Command needs to be a shotgun command.')
+        if not command.startswith("shotgun"):
+            raise Exception("ExecuteTankCommand error. Command needs to be a shotgun command.")
 
         if not os.path.isdir(pipeline_config_path):
-            raise Exception('Could not find the Pipeline Configuration on disk: ' + pipeline_config_path)
+            raise Exception("Could not find the Pipeline Configuration on disk: " + pipeline_config_path)
 
         exec_script = self._get_full_toolkit_path(pipeline_config_path)
         if not os.path.isfile(exec_script):
-            raise Exception('Could not find the Toolkit command on disk: ' + exec_script)
+            raise Exception("Could not find the Toolkit command on disk: " + exec_script)
 
     def open(self, filepath):
         """
@@ -69,23 +69,23 @@ class ProcessManager:
         if not os.path.isfile(filepath):
             raise Exception("Error opening file %s. File not found." % filepath)
 
-        launcher = os.environ.get('SHOTGUN_PLUGIN_LAUNCHER')
+        launcher = os.environ.get("SHOTGUN_PLUGIN_LAUNCHER")
 
         # Note: Using Popen install of call for asynchronous behavior
-        if sys.platform.startswith('darwin'):
+        if sys.platform.startswith("darwin"):
             if launcher is None:
-                launcher = 'open'
+                launcher = "open"
 
             subprocess.Popen([launcher, filepath])
-        elif os.name == 'nt':
+        elif os.name == "nt":
             if launcher is None:
                 # Note: startfile is always async.
                 os.startfile(filepath)
             else:
                 subprocess.Popen([launcher, filepath])
-        elif os.name == 'posix':
+        elif os.name == "posix":
             if launcher is None:
-                launcher = 'open'
+                launcher = "open"
 
             subprocess.Popen([launcher, filepath])
 
@@ -146,6 +146,6 @@ class ProcessManager:
 
             for f in files:
                 if os.path.isdir(f):
-                    f += '/'
+                    f += "/"
 
         return files

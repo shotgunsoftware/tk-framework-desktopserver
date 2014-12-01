@@ -56,11 +56,11 @@ if __name__ == '__main__':
     keys_folder = "../resources/keys"
     if local_server:
         # Serve client folder
-        keysdir = File(keys_folder)
-        webdir = File("./client")
-        webdir.putChild("keys", keysdir)
-        webdir.contentTypes[".crt"] = "application/x-x509-ca-cert"
-        web = Site(webdir)
+        keys_dir = File(keys_folder)
+        web_dir = File("./client")
+        web_dir.putChild("keys", keys_dir)
+        web_dir.contentTypes[".crt"] = "application/x-x509-ca-cert"
+        web = Site(web_dir)
         #reactor.listenSSL(8080, web, server.contextFactory)        # For serving https..
         reactor.listenTCP(8080, web)
 
