@@ -27,7 +27,7 @@ class ShotgunAPI():
 
     def __init__(self, host):
         self.host = host
-        self.pm = ProcessManager()
+        self.pm = ProcessManager.create()
 
         # Public Callable API methods on this object
         self.public_api = ["echo", "open", "executeToolkitCommand", "executeTankCommand",

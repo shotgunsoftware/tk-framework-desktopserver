@@ -10,11 +10,6 @@
 
 import sys
 
-from twisted.internet import reactor, ssl
-from twisted.web.static import File
-from twisted.web.server import Site
-from twisted.python import log
-
 if __name__ == '__main__':
     """
     Simple application for client/server development and testing.
@@ -25,7 +20,7 @@ if __name__ == '__main__':
         - Test on all Platforms
             - Dependencies:
                 [cryptography, cffi, six, pycparser]
-                [service-identity, pyasn1, pyasn1-modules, pyopens, sl, characteristic]
+                [service-identity, pyasn1, pyasn1-modules, pyopens, sl, characteristic]   --> service_identity for test_client only?
         - Fix File Picker to be OS native (also needs to get proper focus)
             * win32api depends on python version (ie: 2.6 64-bit), so this will be complicated.
                 - Also needs function pointers which I don't know how to pass (even possible?)
@@ -44,14 +39,6 @@ if __name__ == '__main__':
     from twisted.python import log
 
     from python.tk_server import Server
-
-
-    # Process manager
-    import python
-    pm = python.tk_server.ProcessManager()
-    pm.pick_file_or_directory_mac(True)
-
-    sys.exit(0)
 
     # Get debug info
     if len(sys.argv) > 1 and sys.argv[1] == "debug":

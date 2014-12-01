@@ -12,9 +12,6 @@ import sys
 import os
 import subprocess
 
-from AppKit import *
-from Cocoa import *
-
 from PySide import QtGui
 from sgtk_file_dialog import SGTKFileDialog
 
@@ -22,18 +19,31 @@ class ProcessManager:
     """
     OS Interface for Shotgun Commands.
     """
-
     def _get_toolkit_script_name(self):
-        if os.name == "nt":
-            return "shotgun.bat"
-        else:
-            return "shotgun"
+        return "shotgun"
 
     def _get_toolkit_fallback_script_name(self):
-        if os.name == "nt":
-            return "tank.bat"
-        else:
-            return "tank"
+        return "tank"
+
+    def _get_launcher(self):
+        """
+        Get Launcher file name from environement.
+
+        :return: String Default Launcher filename. None if none was found,
+        """
+        return os.environ.get("SHOTGUN_PLUGIN_LAUNCHER")
+
+    def _verify_file_open(self, filepath):
+        """
+        Common File Open verifications.
+
+        Will raise on errors
+
+        :param filepath: String file path that should be opened.
+        """
+
+        if not os.path.isfile(filepath):
+            raise Exception("Error opening file %s. File not found." % filepath)
 
     def _get_full_toolkit_path(self, pipeline_config_path):
         """
@@ -70,33 +80,7 @@ class ProcessManager:
             raise Exception("Could not find the Toolkit command on disk: " + exec_script)
 
     def open(self, filepath):
-        """
-        Opens a file with default os association or launcher found in environments. Not blocking.
-
-        :param filepath: String file path (ex: "c:/file.mov")
-        """
-        if not os.path.isfile(filepath):
-            raise Exception("Error opening file %s. File not found." % filepath)
-
-        launcher = os.environ.get("SHOTGUN_PLUGIN_LAUNCHER")
-
-        # Note: Using Popen install of call for asynchronous behavior
-        if sys.platform.startswith("darwin"):
-            if launcher is None:
-                launcher = "open"
-
-            subprocess.Popen([launcher, filepath])
-        elif os.name == "nt":
-            if launcher is None:
-                # Note: startfile is always async.
-                os.startfile(filepath)
-            else:
-                subprocess.Popen([launcher, filepath])
-        elif os.name == "posix":
-            if launcher is None:
-                launcher = "open"
-
-            subprocess.Popen([launcher, filepath])
+        raise NotImplementedError("Open not implemented in base class!")
 
     def execute_toolkit_command(self, pipeline_config_path, command, args, callback=None):
         """
@@ -159,24 +143,21 @@ class ProcessManager:
 
         return files
 
-    def pick_file_or_directory_mac(self, multi=False):
-        panel = NSOpenPanel.openPanel()
+    @staticmethod
+    def create():
+        """
+        Create Process Manager according to current context (such as os, etc..)
 
-        panel.setAllowsMultipleSelection_(multi)
-        panel.setCanChooseFiles_(True)
-        panel.setCanChooseDirectories_(True)
-        panel.setResolvesAliases_(False)
+        :return: ProcessManager
+        """
 
-        result = panel.runModal()
+        if sys.platform.startswith("darwin"):
+            from process_manager_mac import ProcessManagerMac
 
-        files = []
-        if result == NSOKButton:
-            filesToOpen = panel.filenames()
-            for f in filesToOpen:
-                out = f
-                if os.path.isdir(f):
-                    out += "/"
-
-                files.append(out)
-
-        return files
+            return ProcessManagerMac()
+        elif os.name == "nt":
+            from process_manager_win import ProcessManagerWin
+            return ProcessManagerWin()
+        elif os.name == "posix":
+            from process_manager_linux import ProcessManagerLinux
+            return ProcessManagerLinux()
