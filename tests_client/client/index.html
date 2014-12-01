@@ -106,33 +106,39 @@
 </head>
 
 <body>
-<h1>Shotgun Secure WebSocket Client Test</h1>
-<noscript>You must enable JavaScript</noscript>
+    <h1>Shotgun Secure WebSocket Client Test</h1>
+    <noscript>You must enable JavaScript</noscript>
 
-<div>
-   <button onclick='echo();'>Send Message</button>
-   <input id="message" type="text" size="50" value="Hello, world!">
-</div>
-<div>
-   <button onclick='open_cmd();'>Open file</button>
-   <input id="filepath" type="text" size="50" value="/Users/rivestm/tmp.txt">
-</div>
-<div>
-   <button onclick='getVersion();'>Get Server API Version</button>
-</div>
-<div>
-   <button onclick='pickFileOrDirectory();'>Pick File Or Directory</button>
-</div>
-<div>
-   <button onclick='pickFileOrDirectories();'>Pick File Or Directories</button>
-</div>
-<div>
-   <button onclick='sgtkCommand();'>Execute Toolkit Command</button>
-   <input id="sgtk_pipelineConfigPath" type="text" size="50" value="/Users/rivestm/shotgun/toolkit/config24" placeholder="Pipeline Configuration">
-   <input id="sgtk_command" type="text" size="50" maxlength="50" value="shotgun_cache_actions" placeholder="Toolkit Command">
-   <input id="sgtk_args" type="text" size="50" maxlength="50" value='' placeholder='Argument list as JSON list (ex: ["myarg"]'>
-</div>
+    <div>
+        <p>
+            <span>If you have trouble connecting, make sure you have installed the </span><a href="certificate.html">certificate</a><span>!</span>
+        </p>
+    </div>
 
-<pre id="log" style="height: 20em; overflow-y: scroll; background-color: #faa;"></pre>
+    <div>
+       <button onclick='echo();'>Send Message</button>
+       <input id="message" type="text" size="50" value="Hello, world!">
+    </div>
+    <div>
+       <button onclick='open_cmd();'>Open file</button>
+       <input id="filepath" type="text" size="50" value="/Users/rivestm/tmp.txt">
+    </div>
+    <div>
+       <button onclick='getVersion();'>Get Server API Version</button>
+    </div>
+    <div>
+       <button onclick='pickFileOrDirectory();'>Pick File Or Directory</button>
+    </div>
+    <div>
+       <button onclick='pickFileOrDirectories();'>Pick File Or Directories</button>
+    </div>
+    <div>
+       <button onclick='sgtkCommand();'>Execute Toolkit Command</button>
+       <input id="sgtk_pipelineConfigPath" type="text" size="50" value="/Users/rivestm/shotgun/toolkit/config24" placeholder="Pipeline Configuration">
+       <input id="sgtk_command" type="text" size="50" maxlength="50" value="shotgun_cache_actions" placeholder="Toolkit Command">
+       <input id="sgtk_args" type="text" size="50" maxlength="50" value='' placeholder='Argument list as JSON list (ex: ["myarg"]'>
+    </div>
+
+    <pre id="log" style="height: 20em; overflow-y: scroll; background-color: #faa;"></pre>
 </body>
 </html>
