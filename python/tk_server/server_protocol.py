@@ -40,7 +40,8 @@ class ServerProtocol(WebSocketServerProtocol):
             origin_str = response.origin
 
             # No origin would be a local html file
-            if (origin_str == "null" and response.host == "localhost") or (origin_str == "file://"):
+            origin_localhost = response.host == "localhost" or origin_str == "file://"
+            if origin_localhost:
                 origin_str = "http://localhost"
             else:
                 raise Exception("Invalid or unknown origin.")
@@ -69,7 +70,12 @@ class ServerProtocol(WebSocketServerProtocol):
             return
 
         # Process json response (every message is expected to be in json format)
-        command = json.loads(payload.decode("utf8"))
+        try:
+            command = json.loads(payload.decode("utf8"))
+        except ValueError, e:
+            self.report_error("Error in decoding the message's json data: " + e.message)
+            return
+
         data = {}
 
         # Retrieve command data from message
