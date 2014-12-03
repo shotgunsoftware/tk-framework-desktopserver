@@ -27,9 +27,7 @@ class ProcessManagerLinux(ProcessManager):
         launcher = self._get_launcher()
 
         if launcher is None:
-            launcher = "open"
+            launcher = "xdg-open"
 
-        # Note: Using Popen install of call for asynchronous behavior
-        subprocess.Popen([launcher, filepath])
+        return self._launch_process([launcher, filepath], "Could not open file.")
 
-        return True

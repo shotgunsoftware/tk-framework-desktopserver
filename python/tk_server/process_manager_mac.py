@@ -32,10 +32,7 @@ class ProcessManagerMac(ProcessManager):
         if launcher is None:
             launcher = "open"
 
-        # Note: Using Popen install of call for asynchronous behavior
-        subprocess.Popen([launcher, filepath])
-
-        return True
+        return self._launch_process([launcher, filepath], "Could not open file.")
 
     def pick_file_or_directory(self, multi=False):
         """

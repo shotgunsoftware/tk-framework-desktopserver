@@ -79,6 +79,25 @@ class ProcessManager:
         if not os.path.isfile(exec_script):
             raise Exception("Could not find the Toolkit command on disk: " + exec_script)
 
+    def _launch_process(self, args, message_error="Error executing command."):
+        """
+        Standard way of starting a process and handling errors.
+
+        Note: Using Popen instead of call for asynchronous behavior
+        :params args: List of elements to pass Popen.
+	:params message_error: String to prefix error message in case of an error.
+        """
+
+	child = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out, err = child.communicate()
+	return_code = child.returncode
+
+	if return_code != 0:
+		raise Exception("{message_error}\nCommand: {command}\nReturn code: {return_code}\nOutput: {std_out}\nError: {std_err}".format(message_error=message_error, command=args, return_code=return_code, std_out=out, std_err=err))
+
+        return True
+
+
     def open(self, filepath):
         raise NotImplementedError("Open not implemented in base class!")
 

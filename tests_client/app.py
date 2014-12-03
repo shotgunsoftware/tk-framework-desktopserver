@@ -45,6 +45,7 @@ if __name__ == '__main__':
 
     """
     sys.path.append("../")
+    sys.path.append("../resources/python")
 
     from twisted.internet import reactor, ssl
     from twisted.web.static import File

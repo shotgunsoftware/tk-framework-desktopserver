@@ -32,11 +32,11 @@ class ProcessManagerWin(ProcessManager):
         self._verify_file_open(filepath)
         launcher = self._get_launcher()
 
+        result = True
         if launcher is None:
-            # Note: startfile is always async.
+            # Note: startfile is always async. As per docs, there is no way to retrieve exit code.
             os.startfile(filepath)
         else:
-            # Note: Using Popen install of call for asynchronous behavior
-            subprocess.Popen([launcher, filepath])
+            result = self._launch_process([launcher, filepath], "Could not open file.")
 
         return True
