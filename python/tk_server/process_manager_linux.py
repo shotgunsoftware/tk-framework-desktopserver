@@ -12,6 +12,7 @@ import subprocess
 
 from process_manager import ProcessManager
 
+
 class ProcessManagerLinux(ProcessManager):
     """
     Linux OS Interface for Shotgun Commands.

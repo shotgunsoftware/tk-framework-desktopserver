@@ -85,18 +85,18 @@ class ProcessManager:
 
         Note: Using Popen instead of call for asynchronous behavior
         :params args: List of elements to pass Popen.
-	:params message_error: String to prefix error message in case of an error.
-        """
+        :params message_error: String to prefix error message in case of an error.
+            """
 
-	child = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	out, err = child.communicate()
-	return_code = child.returncode
+        child = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = child.communicate()
+        return_code = child.returncode
+        has_error = return_code != 0
 
-	if return_code != 0:
-		raise Exception("{message_error}\nCommand: {command}\nReturn code: {return_code}\nOutput: {std_out}\nError: {std_err}".format(message_error=message_error, command=args, return_code=return_code, std_out=out, std_err=err))
+        if has_error:
+            raise Exception("{message_error}\nCommand: {command}\nReturn code: {return_code}\nOutput: {std_out}\nError: {std_err}".format(message_error=message_error, command=args, return_code=return_code, std_out=out, std_err=err))
 
         return True
-
 
     def open(self, filepath):
         raise NotImplementedError("Open not implemented in base class!")
