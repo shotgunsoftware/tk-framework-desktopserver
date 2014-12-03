@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Copyright (c) 2013 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
@@ -37,8 +39,11 @@ if __name__ == '__main__':
 
                 - When do we actually need both files/folder selection?
         - uft-8 unit testing internationalization
+            - Internationalization works fine, except for this case: /Users/rivestm/tmp 普通话/ 國語/ 華語.txt, were filename is
+              'tmp 普通话/ 國語/ 華語.txt'. The '/' should be encoded by the client differently, and possibly decoded
+              differently on the server too.
+
     """
-    sys.path.append("../resources/python")
     sys.path.append("../")
 
     from twisted.internet import reactor, ssl
