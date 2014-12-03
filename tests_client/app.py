@@ -21,6 +21,15 @@ if __name__ == '__main__':
             - Dependencies:
                 [cryptography, cffi, six, pycparser]
                 [service-identity, pyasn1, pyasn1-modules, pyopens, sl, characteristic]   --> service_identity for test_client only?
+
+		- General issues with test client
+			- pip install service-identity
+		- Linux issues
+			For cffi:
+				yum install libffi-devel
+				yum install python-devel
+				yum install openssl-devel
+				pip install cffi
         - Fix File Picker to be OS native (also needs to get proper focus)
             * win32api depends on python version (ie: 2.6 64-bit), so this will be complicated.
                 - Also needs function pointers which I don't know how to pass (even possible?)
