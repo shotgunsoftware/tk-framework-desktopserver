@@ -79,3 +79,6 @@ if __name__ == '__main__':
         reactor.listenTCP(8080, web)
 
     server.start(debug, keys_folder)
+
+    # Keep application alive
+    reactor.run()

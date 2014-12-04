@@ -42,6 +42,34 @@ class EchoClientProtocol(WebSocketClientProtocol):
         reactor.callLater(1, self.sendHello)
 
 
+class TestEchoClientProtocol(WebSocketClientProtocol):
+    """
+    Simple Test Client protocol that sends/receives messages on connection opened
+    """
+
+    _myMessage = None
+    _deferred = None
+
+    def sendHello(self):
+        cmd = {}
+        cmd["name"] = "echo"
+        cmd["data"] = {}
+        cmd["data"]["message"] = TestEchoClientProtocol._myMessage
+
+        payload = json.dumps(cmd, ensure_ascii = False).encode("utf8")
+        self.sendMessage(payload)
+
+    def onOpen(self):
+        self.sendHello()
+
+    def onMessage(self, payload, isBinary):
+        if not isBinary:
+            answer = json.loads(payload.decode("utf8"))
+            TestEchoClientProtocol._deferred.callback(answer)
+        else:
+            TestEchoClientProtocol._deferred.callback(payload)
+
+
 class Client(object):
     """
     Client Fixture
@@ -62,12 +90,20 @@ class Client(object):
         else:
             contextFactory = None
 
-        connectWS(factory, contextFactory)
-        reactor.run()
+        self.connection = connectWS(factory, contextFactory)
 
 if __name__ == '__main__':
     """
     Run Python Client
     """
+    from twisted.internet import defer
+
     a = Client()
-    a.start()
+    #a.start(TestEchoClientProtocol(defer.Deferred(), 'ahaha'))
+    protocol = TestEchoClientProtocol
+    protocol._deferred = defer.Deferred()
+    protocol._myMessage = "ahahahah"
+    a.start(protocol)
+    #a.start()
+
+    reactor.run()

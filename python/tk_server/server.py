@@ -40,13 +40,10 @@ class Server:
         self.contextFactory = ssl.DefaultOpenSSLContextFactory(os.path.join(keys_path, "server.key"),
                                                                os.path.join(keys_path, "server.crt"))
 
-        factory = WebSocketServerFactory("wss://localhost:%d" % ws_port,
+        self.factory = WebSocketServerFactory("wss://localhost:%d" % ws_port,
                                          debug = debug,
                                          debugCodePaths = debug)
 
-        factory.protocol = ServerProtocol
-        factory.setProtocolOptions(allowHixie76 = True)
-        listenWS(factory, self.contextFactory)
-
-        # Keep application alive
-        reactor.run()
+        self.factory.protocol = ServerProtocol
+        self.factory.setProtocolOptions(allowHixie76 = True)
+        self.listener = listenWS(self.factory, self.contextFactory)

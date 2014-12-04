@@ -7,6 +7,7 @@ Required packages
 * unittest2
 * mock
 * coverage (only if coverage option is used)
+* twisted.trial
 
 Running the test suite
 -----------------------

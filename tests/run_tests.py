@@ -8,6 +8,12 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights 
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+"""
+Example command line usage
+
+    trial base.test_localization
+"""
+
 import sys
 import os
 from optparse import OptionParser
@@ -26,7 +32,8 @@ python_path = os.path.abspath(os.path.join( os.path.dirname(__file__), "python")
 print "Adding tests/python location to python_path: %s" % python_path
 sys.path = [python_path] + sys.path
 
-import unittest2 as unittest
+from twisted.trial import unittest, runner
+from twisted.trial.reporter import *
 
 class TestRunner(object):
     def __init__(self):
@@ -40,9 +47,9 @@ class TestRunner(object):
     def setup_suite(self, test_name):
         # args used to specify specific module.TestCase.test
         if test_name:
-            self.suite = unittest.loader.TestLoader().loadTestsFromName(test_name)
+            self.suite = runner.TestLoader().loadTestsFromName(test_name)
         else:
-            self.suite = unittest.loader.TestLoader().discover(self.test_path)
+            self.suite = runner.TestLoader().discover(self.test_path)
 
     def run_tests_with_coverage(self, test_name):
         import coverage
@@ -57,10 +64,23 @@ class TestRunner(object):
 
     def run_tests(self, test_name):
         self.setup_suite(test_name)
-        return unittest.TextTestRunner(verbosity=2).run(self.suite)
+
+        result = Reporter
+        self.suite.run(result)
+
+        return result
 
 
 if __name__ == "__main__":
+    import base
+
+    loader = runner.TestLoader()
+    suite = loader.loadPackage(base)
+
+    result = Reporter()
+    suite.run(result)
+
+    """
     parser = OptionParser()
     parser.add_option("--with-coverage",
                       action="store_true",
@@ -74,13 +94,15 @@ if __name__ == "__main__":
     runner = TestRunner()
 
     if options.coverage:
-        ret_val = runner.run_tests_with_coverage(test_name)
+        result = runner.run_tests_with_coverage(test_name)
     else:
-        ret_val = runner.run_tests(test_name)
+        result = runner.run_tests(test_name)
 
+    """
     # Exit value determined by failures and errors
     exit_val = 0
-    if ret_val.errors or ret_val.failures:
+    if not result.wasSuccessful():
         exit_val = 1
+
     sys.exit(exit_val)
 
