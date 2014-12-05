@@ -9,8 +9,9 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 """
-Example command line usage
+Example command line usages for trial tests
 
+    trial base
     trial base.test_localization
 """
 
@@ -35,6 +36,11 @@ sys.path = [python_path] + sys.path
 from twisted.trial import unittest, runner
 from twisted.trial.reporter import *
 
+#
+# Unit Test Packages
+import tests
+
+
 class TestRunner(object):
     def __init__(self):
         file_path = os.path.abspath(__file__)
@@ -45,64 +51,46 @@ class TestRunner(object):
         self.suite = None
 
     def setup_suite(self, test_name):
+        loader = runner.TestLoader()
+
         # args used to specify specific module.TestCase.test
         if test_name:
-            self.suite = runner.TestLoader().loadTestsFromName(test_name)
+            self.suite = loader.loadTestsFromName(test_name)
         else:
-            self.suite = runner.TestLoader().discover(self.test_path)
+            # Have not found a proper 'discover'. So need to add test packages by hand here
+            self.suite = loader.loadPackage(tests)
 
-    def run_tests_with_coverage(self, test_name):
-        import coverage
-        cov = coverage.coverage(source=["edl"])
-        cov.start()
+    def run_tests(self, test_name, verbose=False):
+        if verbose:
+            result = VerboseTextReporter()
+        else:
+            result = Reporter()
+
         self.setup_suite(test_name)
-        result = unittest.TextTestRunner(verbosity=2).run(self.suite)
-        cov.stop()
-        cov.report()
-        cov.xml_report(outfile="coverage.xml")
-        return result
-
-    def run_tests(self, test_name):
-        self.setup_suite(test_name)
-
-        result = Reporter
         self.suite.run(result)
 
         return result
 
 
 if __name__ == "__main__":
-    import base
-
-    loader = runner.TestLoader()
-    suite = loader.loadPackage(base)
-
-    result = Reporter()
-    suite.run(result)
-
-    """
     parser = OptionParser()
-    parser.add_option("--with-coverage",
+    parser.add_option("--verbose",
                       action="store_true",
-                      dest="coverage", 
-                      help="run with coverage (requires coverage is installed)")
+                      dest="verbose",
+                      help="test reporter verbosity")
     (options, args) = parser.parse_args()
+
+    # Note: name is same format as trial (ie: 'test.test_echo')
     test_name = None
     if args:
         test_name = args[0]
-     
-    runner = TestRunner()
 
-    if options.coverage:
-        result = runner.run_tests_with_coverage(test_name)
-    else:
-        result = runner.run_tests(test_name)
+    test_runner = TestRunner()
+    result = test_runner.run(test_name, options.verbose)
 
-    """
     # Exit value determined by failures and errors
     exit_val = 0
     if not result.wasSuccessful():
         exit_val = 1
 
     sys.exit(exit_val)
-

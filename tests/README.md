@@ -4,9 +4,6 @@ Readme for Desktop Server framework tests
 
 Required packages
 -----------------
-* unittest2
-* mock
-* coverage (only if coverage option is used)
 * twisted.trial
 
 Running the test suite
@@ -15,19 +12,19 @@ To run the tests on windows run the core/tests/run_tests.bat. To run on linux ru
 Add "-h" to see options.
 To run specific test(s), specify module, or module.class or module.class.test:
 
-    $ run_tests.sh test_tank_content.TestValidate.test_valid_path
+    $ run_tests.sh tests.test_echo --verbose
 
 
 To run tests without using run_tests script:
 
 * Add the tank packages directory ( core/python ) to the PYTHONPATH 
-* Use the test runner of your choice:
+* Specify the package or module of your choice:
 
-    `$ nosetests core/tests/` 
+    `$ trial tests`
 
     or
 
-    `$ unit2 discover core/tests`
+    `$ trial tests.test_echo`
 
 Test suite layout
 -----------------
