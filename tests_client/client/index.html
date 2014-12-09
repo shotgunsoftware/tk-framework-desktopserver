@@ -6,6 +6,175 @@
       var sock = null;
       var ellog = null;
 
+      /**
+       * Base Interface to communicate with Desktop client
+       *
+       * Protocol format:
+       * message
+       * {
+       *     protocol_version: Number
+       *     id: Number
+       *     timestamp: Date
+       *     command:
+       *         name: String (ShotgunAPI method)
+       *         data: Any object
+       * }
+       */
+      function DesktopClient() {
+         this.protocol_version = 1;    // Using this server protocol
+         this.socket = undefined;
+         this.listeners = {};          // Message subscribers
+      }
+
+      /**
+       * Create a message object form a command object.
+       * This will add message information necessary for communication, such as protocol version, etc...
+       *
+       * @param command Command object to add to message
+       * @returns message object
+       */
+      DesktopClient.prototype._messageFromCommand = function(command) {
+         var message = {
+            protocol_version: this.protocol_version,
+            id: Date.now(),
+            timestamp: Date.now(),
+            command: command
+         };
+
+         return message;
+      };
+
+      /**
+       * Add a listener to given message
+       * @param message Message to add listener for
+       * @param callback Action to take upon receiving reply to message
+       */
+      DesktopClient.prototype._addMessageListener = function(message, callback) {
+         if (!this.listeners.hasOwnProperty([message.id])) {
+            this.listeners[message.id] = [];
+         }
+
+         var listeners = this.listeners[message.id];
+         listeners.push(callback);
+      };
+
+      DesktopClient.prototype.handleError = function(message) {
+         log("Got Server Error: " + message.error_message);
+         log(message);
+      };
+
+      /**
+       * Initialize to given websocket
+       *
+       * @param websocket to initialize with
+       */
+      DesktopClient.prototype.initialize = function(websocket) {
+         this.socket = websocket;
+
+         if (this.socket) {
+            this.socket.onmessage = this.onMessage.bind(this);
+         }
+      };
+
+      /**
+       * Find all clients of a message an dispatch to them
+       */
+      DesktopClient.prototype.dispatchMessage = function(message) {
+         var listeners = this.listeners[message.id];     // Retrive message subscribers
+
+         // Callback all listeners for message
+         if (Array.isArray(listeners)) {
+            listeners.forEach(function (listener) {
+               listener(message);
+            });
+
+            delete this.listeners[message.id];
+         }
+      };
+
+      /**
+       *
+       * @param e Websocket event
+       */
+      DesktopClient.prototype.onMessage = function(e) {
+         log("Got Server Message: " + e.data);
+
+         try {
+            var message = JSON.parse(e.data)
+         } catch (error) {
+            console.error("Error retrieving data. Message may not be in Json format.");
+            console.error(error);
+
+            return;
+         }
+
+         if (message.error) {
+            this._handleError(message);
+         } else {
+            // Dispatch message to listeners awaiting reply
+            this.dispatchMessage(message);
+         }
+      };
+
+
+      /**
+       * Send command to server.
+       *
+       * @param command Command data to send with format {command: '' data: {}}
+       * @callback Callback when command is done
+       */
+      DesktopClient.prototype.send = function(command, callback) {
+         if (this.socket) {
+            callback = callback || function() {};
+
+            var message = this._messageFromCommand(command);
+
+            try {
+               var messageString = JSON.stringify(message);
+            } catch (error) {
+               console.error("Error stringifying JSON. Can't send command.");
+               console.error(error);
+
+               return;
+            }
+
+            this._addMessageListener(message, callback);
+            this.socket.send(messageString);
+            log("Sent: " + messageString);
+         } else {
+            console.error("Cannot send command while not connected.");
+         }
+      };
+
+
+      /**
+       * Desktop API Methods
+       * @constructor
+       * @param client Interface instance used to communicate with desktop (eg: DesktopClient).
+       */
+      function DesktopAPI(client) {
+         this.client = client
+      }
+
+      /**
+       *
+       * @param message
+       * @param callback Callback arguments: message: String
+       */
+      DesktopAPI.prototype.echo = function(message, callback) {
+         callback = callback || function() {};
+
+         this.client.send({
+            name: 'echo',
+            data: {message: message}
+         }, function(message) {
+            callback(message.reply.message);
+         });
+      };
+
+      desktopClient = new DesktopClient();
+      desktopApi = new DesktopAPI(desktopClient);
+
       window.onload = function() {
 
          var wsuri;
@@ -31,10 +200,10 @@
                log("Connection closed (wasClean = " + e.wasClean + ", code = " + e.code + ", reason = '" + e.reason + "')");
             }
 
-            sock.onmessage = function(e) {
-               log("Got Server Message: " + e.data);
-            }
+            sock.onmessage = function(e) {log("On message..");};
          }
+
+         desktopClient.initialize(sock);
       };
 
       function log(m) {
@@ -61,15 +230,12 @@
          send(cmd)
       };
 
-
       function echo() {
          var msg = document.getElementById('message').value;
-         cmd = {
-            name: 'echo',
-            data: {message: msg}
-         };
 
-         send(cmd)
+         desktopApi.echo(msg, function(message) {
+            log("Echo Received: " + message);
+         });
       };
 
       function pickFileOrDirectory() {

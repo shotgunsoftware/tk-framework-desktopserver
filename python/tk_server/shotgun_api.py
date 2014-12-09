@@ -8,7 +8,6 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import json
 from process_manager import *
 
 ShotgunIntegrationAPI_MAJOR = 0
@@ -25,13 +24,25 @@ class ShotgunAPI():
     Every command receives a data dictionary of the command sent from the client
     """
 
-    def __init__(self, host):
-        self.host = host
-        self.pm = ProcessManager.create()
+    """
+    Public API
+    Callable methods from client. Every one of these methods can be called from the client.
+    """
+    public_api = ["echo", "open", "executeToolkitCommand", "executeTankCommand",
+                  "pickFileOrDirectory", "pickFileOrDirectories", "version"]
 
-        # Public Callable API methods on this object
-        self.public_api = ["echo", "open", "executeToolkitCommand", "executeTankCommand",
-                                "pickFileOrDirectory", "pickFileOrDirectories", "version"]
+    process_manager = None
+
+    def __init__(self, host):
+        """
+        API Constructor.
+        Keep initialization pretty fast as it is created on every message.
+        :param host: Host interface to communicate with. Abstracts the client.
+        """
+        self.host = host
+
+        if not self.process_manager:
+            ProcessManager.create()
 
     def _handle_toolkit_output(self, out, err, return_code):
         """
@@ -47,7 +58,7 @@ class ShotgunAPI():
         reply["out"] = out
         reply["err"] = err
 
-        self.host.json_reply(reply)
+        self.host.reply(reply)
 
     def open(self, data):
         """
@@ -57,13 +68,13 @@ class ShotgunAPI():
         """
 
         try:
-            result = self.pm.open(data["filepath"])
+            result = self.process_manager.open(data["filepath"])
 
             # Send back information regarding the success of the operation.
             reply = {}
             reply["result"] = result
 
-            self.host.json_reply(reply)
+            self.host.reply(reply)
         except Exception, e:
             self.host.report_error(e.message)
 
@@ -78,7 +89,7 @@ class ShotgunAPI():
         reply = {}
         reply["message"] = data["message"]
 
-        self.host.json_reply(reply)
+        self.host.reply(reply)
 
     def executeToolkitCommand(self, data):
         pipeline_config_path = data["pipelineConfigPath"]
@@ -95,7 +106,7 @@ class ShotgunAPI():
             raise Exception(message)
 
         try:
-            self.pm.execute_toolkit_command(pipeline_config_path, command, args, self._handle_toolkit_output)
+            self.process_manager.execute_toolkit_command(pipeline_config_path, command, args, self._handle_toolkit_output)
         except Exception, e:
             self.host.report_error(e.message)
 
@@ -108,8 +119,8 @@ class ShotgunAPI():
         :param data:
         """
 
-        files = self.pm.pick_file_or_directory(False)
-        self.host.json_reply(files)
+        files = self.process_manager.pick_file_or_directory(False)
+        self.host.reply(files)
 
     def pickFileOrDirectories(self, data):
         """
@@ -117,8 +128,8 @@ class ShotgunAPI():
         :param data:
         """
 
-        files = self.pm.pick_file_or_directory(True)
-        self.host.json_reply(files)
+        files = self.process_manager.pick_file_or_directory(True)
+        self.host.reply(files)
 
     def version(self, data=None):
         reply = {}
@@ -126,4 +137,4 @@ class ShotgunAPI():
         reply["minor"] = ShotgunIntegrationAPI_MINOR
         reply["patch"] = ShotgunIntegrationAPI_PATCH
 
-        self.host.json_reply(reply)
+        self.host.reply(reply)

@@ -11,20 +11,31 @@
 import os
 import json
 import re
-
+import datetime
 from urlparse import urlparse
 
 from shotgun_api import ShotgunAPI
+from message_host import MessageHost
+from message import Message
 
 from autobahn import websocket
 from autobahn.twisted.websocket import WebSocketServerProtocol
 
 DEFAULT_DOMAIN_RESTRICTION = "*.shotgunstudio.com,localhost"
 
-
 class ServerProtocol(WebSocketServerProtocol):
+    """
+    Server Protocol
+    """
+
+    # Server protocol version
+    protocol_version = 1
+
     def __init__(self):
-        self.shotgun = ShotgunAPI(self)
+        """
+        Server Protocol constructor
+        """
+        pass
 
     def onConnect(self, response):
         """
@@ -69,32 +80,45 @@ class ServerProtocol(WebSocketServerProtocol):
         if isBinary:
             return
 
-        # Process json response (every message is expected to be in json format)
+        # Extract json response (every message is expected to be in json format)
         try:
-            command = json.loads(payload.decode("utf8"))
+            message = json.loads(payload.decode("utf8"))
         except ValueError, e:
             self.report_error("Error in decoding the message's json data: " + e.message)
             return
 
-        data = {}
+        message_host = MessageHost(self, message)
+
+        # Check protocol version
+        if message["protocol_version"] != self.protocol_version:
+            message_host.report_error("Error. Wrong protocol version [{version}] ".format(version=self.protocol_version))
+            return
+
+        # Retrieve command from message
+        command = message["command"]
 
         # Retrieve command data from message
+        data = {}
         if "data" in command:
             data = command["data"]
 
         cmd_name = command["name"]
 
+        # Create API for this message
+        shotgun = ShotgunAPI(message_host)
+
         # Make sure the command is in the public API
-        if cmd_name in self.shotgun.public_api:
+        if cmd_name in shotgun.public_api:
             # Call matching shotgun command
-            func = getattr(self.shotgun, cmd_name)
+            func = getattr(shotgun, cmd_name)
             func(data)
         else:
-            self.report_error("Error! Wrong Command Sent: [%s]" % cmd_name)
+            message_host.report_error("Error! Wrong Command Sent: [%s]" % cmd_name)
 
     def report_error(self, message, data=None):
         """
         Report an error to the client.
+        Note: The error has no message id and therefore will lack traceability in the client.
 
         :param message: String Message describing the error.
         :param data: Object Optional Additional information regarding the error.
@@ -113,7 +137,7 @@ class ServerProtocol(WebSocketServerProtocol):
         :param data: Object Data that will be converted to JSON and sent to client.
         """
         # ensure_ascii allows unicode strings.
-        payload = json.dumps(data, ensure_ascii = False).encode("utf8")
+        payload = json.dumps(data, ensure_ascii=False, default=self._json_date_handler).encode("utf8")
 
         isBinary = False
         self.sendMessage(payload, isBinary)
@@ -182,3 +206,14 @@ class ServerProtocol(WebSocketServerProtocol):
 
         return domain_match
 
+    @staticmethod
+    def _json_date_handler(obj):
+        """
+        JSON stringify python date handler from: http://stackoverflow.com/questions/455580/json-datetime-between-python-and-javascript
+        """
+        if hasattr(obj, "isoformat"):
+            return obj.isoformat()
+        elif isinstance(obj, datetime.datetime):
+            return isinstance(obj, datetime.datetime)
+        else:
+            raise TypeError, 'Object of type %s with value of %s is not JSON serializable' % (type(obj), repr(obj))
