@@ -45,14 +45,14 @@ if __name__ == '__main__':
 
     """
     sys.path.append("../")
-    sys.path.append("../resources/python")
+
+    from python.tk_server import Server
 
     from twisted.internet import reactor, ssl
     from twisted.web.static import File
     from twisted.web.server import Site
     from twisted.python import log
 
-    from python.tk_server import Server
 
     # Get debug info
     if len(sys.argv) > 1 and sys.argv[1] == "debug":

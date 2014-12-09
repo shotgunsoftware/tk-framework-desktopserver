@@ -9,11 +9,12 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import os, sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "python"))
+
 from twisted.trial import unittest
 from twisted.internet import defer
 
-python_path = os.path.abspath(os.path.join( os.path.dirname(__file__), "../..", "python"))
-sys.path = [python_path] + sys.path
 
 from tk_server import Server
 from common import Client
