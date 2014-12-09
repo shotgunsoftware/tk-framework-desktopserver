@@ -9,7 +9,6 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import json
-from twisted.internet import reactor
 from autobahn.twisted.websocket import WebSocketClientProtocol
 
 class TestEchoClientProtocol(WebSocketClientProtocol):
