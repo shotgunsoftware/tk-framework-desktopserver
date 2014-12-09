@@ -59,3 +59,7 @@ target/
 # Twisted Unit Test Artifacts
 _trial_temp*/
 _trial_temp*
+
+# Allow everything in resources' python folder
+!resources/python/distributions/**/*
+resources/python/distributions/**/.DS_Store
