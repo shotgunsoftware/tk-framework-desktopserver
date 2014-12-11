@@ -29,7 +29,7 @@ class ShotgunAPI():
     Callable methods from client. Every one of these methods can be called from the client.
     """
     public_api = ["echo", "open", "executeToolkitCommand", "executeTankCommand",
-                  "pickFileOrDirectory", "pickFileOrDirectories", "version"]
+                  "pickFileOrDirectory", "pickFilesOrDirectories", "version"]
 
     process_manager = None
 
@@ -42,7 +42,7 @@ class ShotgunAPI():
         self.host = host
 
         if not self.process_manager:
-            ProcessManager.create()
+            ShotgunAPI.process_manager = ProcessManager.create()
 
     def _handle_toolkit_output(self, out, err, return_code):
         """
@@ -68,7 +68,12 @@ class ShotgunAPI():
         """
 
         try:
-            result = self.process_manager.open(data["filepath"])
+            # Retrieve filepath
+            filepath = ''
+            if "filepath" in data:
+                filepath = data["filepath"]
+
+            result = self.process_manager.open(filepath)
 
             # Send back information regarding the success of the operation.
             reply = {}
@@ -122,7 +127,7 @@ class ShotgunAPI():
         files = self.process_manager.pick_file_or_directory(False)
         self.host.reply(files)
 
-    def pickFileOrDirectories(self, data):
+    def pickFilesOrDirectories(self, data):
         """
         Pick single file or directory
         :param data:

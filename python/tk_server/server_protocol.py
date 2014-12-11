@@ -80,9 +80,18 @@ class ServerProtocol(WebSocketServerProtocol):
         if isBinary:
             return
 
+        decoded_payload = payload.decode("utf8")
+        # Special message to get protocol version for this protocol. This message doesn't follow the standard
+        # message format as it doesn't require a protocol version to be retrieved and is not json-encoded.
+        if decoded_payload == "get_protocol_version":
+            data = {}
+            data["protocol_version"] = self.protocol_version
+            self.json_reply(data)
+            return
+
         # Extract json response (every message is expected to be in json format)
         try:
-            message = json.loads(payload.decode("utf8"))
+            message = json.loads(decoded_payload)
         except ValueError, e:
             self.report_error("Error in decoding the message's json data: " + e.message)
             return

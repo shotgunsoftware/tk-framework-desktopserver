@@ -43,7 +43,7 @@ class ProcessManager:
         """
 
         if not os.path.isfile(filepath):
-            raise Exception("Error opening file %s. File not found." % filepath)
+            raise Exception("Error opening file [%s]. File not found." % filepath)
 
     def _get_full_toolkit_path(self, pipeline_config_path):
         """

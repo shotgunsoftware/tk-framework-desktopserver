@@ -42,7 +42,6 @@ if __name__ == '__main__':
             - Internationalization works fine, except for this case: /Users/rivestm/tmp 普通话/ 國語/ 華語.txt, were filename is
               'tmp 普通话/ 國語/ 華語.txt'. The '/' should be encoded by the client differently, and possibly decoded
               differently on the server too.
-
     """
     sys.path.append("../")
 
