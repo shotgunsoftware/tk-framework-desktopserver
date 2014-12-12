@@ -4,7 +4,6 @@
    <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.js"></script>
    <script type="text/javascript">
       var sock = null;
-      var ellog = null;
 
       /**
        * Base Interface to communicate with Desktop server
@@ -468,15 +467,16 @@
 
       /**
        *
-       * Setup
+       * Shotgun Client
        *
        */
-      window.onload = function() {
+      function ShotgunClient() {
+         this.shotgunClientProtocol = new ShotgunClientProtocol();
+         this.api = new DesktopAPI(shotgunClientProtocol);
+      }
 
-         var wsuri;
-         ellog = document.getElementById('log');
-
-         wsuri = "wss://localhost:9000";
+      ShotgunClient.prototype.connect = function() {
+         var wsuri = "wss://localhost:9000";
 
          if ("WebSocket" in window) {
             sock = new WebSocket(wsuri);
@@ -487,7 +487,16 @@
             window.location = "http://autobahn.ws/unsupportedbrowser";
          }
 
-         shotgunClientProtocol.initialize(sock);
+         this.shotgunClientProtocol.initialize(sock);
+      };
+
+      /**
+       *
+       * Setup
+       *
+       */
+      window.onload = function() {
+         shotgunClient.connect();
       };
 
       function log(m, obj) {
@@ -501,8 +510,8 @@
          document.getElementById('log').innerHTML += m + ' ' + objstr + '\n';
       };
 
-      shotgunClientProtocol = new ShotgunClientProtocol();
-      desktopApi = new DesktopAPI(shotgunClientProtocol);
+      var shotgunClient = new ShotgunClient();
+      var desktopApi = shotgunClient.api;
 
    </script>
 </head>
