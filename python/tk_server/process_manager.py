@@ -134,8 +134,13 @@ class ProcessManager:
         except Exception, e:
             raise Exception("Error executing toolkit command: " + e.message)
 
-    def _get_actions_from_toolkit_data(self):
-        pass
+    def _add_action_output(self, actions, out, err, code):
+        """
+        Simple shortcut to quickly add process output to a dictionary
+        """
+        actions['out'] = out
+        actions['err'] = err
+        actions['retcode'] = code
 
     def get_project_actions(self, pipeline_config_paths):
         """
@@ -156,16 +161,21 @@ class ProcessManager:
                 env_filename = os.path.basename(env_filepath)
                 entity = os.path.splitext(env_filename.replace("shotgun_", ""))[0]
                 cache_filename = "shotgun_" + self.platform_name() + "_" + entity + ".txt"
+
+                # Need to store where actions have occurred in order to give proper error message to client
+                # This could be made much better in the future by creating the actual final actions from here instead.
+                project_actions[pipeline_config_path][env_filename] = {"get": {}, "cache": {}}
+
                 (out, err, code) = self.execute_toolkit_command(pipeline_config_path, "shotgun_get_actions", [cache_filename, env_filename])
+                self._add_action_output(project_actions[pipeline_config_path][env_filename]['get'], out, err, code)
 
                 if code == 1:
                     (out, err, code) = self.execute_toolkit_command(pipeline_config_path, "shotgun_cache_actions", [entity, cache_filename])
-                    (out, err, code) = self.execute_toolkit_command(pipeline_config_path, "shotgun_get_actions", [cache_filename, env_filename])
+                    self._add_action_output(project_actions[pipeline_config_path][env_filename]['cache'], out, err, code)
 
-                project_actions[pipeline_config_path][env_filename] = {}
-                project_actions[pipeline_config_path][env_filename]['out'] = out
-                project_actions[pipeline_config_path][env_filename]['err'] = err
-                project_actions[pipeline_config_path][env_filename]['retcode'] = code
+                    if code == 0:
+                        (out, err, code) = self.execute_toolkit_command(pipeline_config_path, "shotgun_get_actions", [cache_filename, env_filename])
+                        self._add_action_output(project_actions[pipeline_config_path][env_filename]['get'], out, err, code)
 
         return project_actions
 
