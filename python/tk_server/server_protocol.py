@@ -169,17 +169,19 @@ class ServerProtocol(WebSocketServerProtocol):
         expr_str = ""
 
         wildcard_tokens = wildcard.split("*")
-        for token in wildcard_tokens:
+        for i in range(0, len(wildcard_tokens)):
+            token = wildcard_tokens[i]
+
             # Make token regex literal (we want to keep '.' for instance)
             literal = "(" + re.escape(token) + ")"
 
             expr_str += literal
 
-            if token is not wildcard_tokens[-1]:
-                expr_str += ".*"
-            else:
+            if i >= (len(wildcard_tokens) - 1):
                 # Make sure there can't be any other character at the end
                 expr_str += "$"
+            else:
+                expr_str += ".*"
 
         # Match regexp
         exp = re.compile(expr_str, re.IGNORECASE)

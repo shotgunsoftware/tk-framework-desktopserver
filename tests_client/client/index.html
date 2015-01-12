@@ -3,8 +3,6 @@
 <head>
    <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.js"></script>
    <script type="text/javascript">
-      var sock = null;
-
       /**
        * Base Interface to communicate with Desktop server
        *
@@ -459,7 +457,7 @@
          var args = JSON.parse(document.getElementById('sgtk_args').value || "[]");
          var pipelineConfigPath = document.getElementById('sgtk_pipelineConfigPath').value;
 
-         desktopApi.executeToolkitCommand(command, args, pipelineConfigPath, function(result) {
+         desktopApi.executeToolkitCommand(pipelineConfigPath, command, args, function(result) {
             log("Toolkit command result: ", result);
          });
       };
@@ -472,22 +470,23 @@
        */
       function ShotgunClient() {
          this.shotgunClientProtocol = new ShotgunClientProtocol();
-         this.api = new DesktopAPI(shotgunClientProtocol);
+         this.api = new DesktopAPI(this.shotgunClientProtocol);
       }
 
       ShotgunClient.prototype.connect = function() {
          var wsuri = "wss://localhost:9000";
+         var socket = null;
 
          if ("WebSocket" in window) {
-            sock = new WebSocket(wsuri);
+            socket = new WebSocket(wsuri);
          } else if ("MozWebSocket" in window) {
-            sock = new MozWebSocket(wsuri);
+            socket = new MozWebSocket(wsuri);
          } else {
             log("Browser does not support WebSocket!");
             window.location = "http://autobahn.ws/unsupportedbrowser";
          }
 
-         this.shotgunClientProtocol.initialize(sock);
+         this.shotgunClientProtocol.initialize(socket);
       };
 
       /**
@@ -502,12 +501,12 @@
       function log(m, obj) {
          obj = obj || false;
 
-         var objstr = '';
+         var objstr = m;
          if (obj) {
-            objstr = JSON.stringify(obj);
+            objstr += ' ' + JSON.stringify(obj);
          }
 
-         document.getElementById('log').innerHTML += m + ' ' + objstr + '\n';
+         document.getElementById('log').innerHTML += objstr + '\n';
       };
 
       var shotgunClient = new ShotgunClient();

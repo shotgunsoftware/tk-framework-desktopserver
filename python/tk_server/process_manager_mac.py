@@ -20,6 +20,9 @@ class ProcessManagerMac(ProcessManager):
     Mac OS Interface for Shotgun Commands.
     """
 
+    def platform_name(self):
+        return "mac"
+
     def open(self, filepath):
         """
         Opens a file with default os association or launcher found in environments. Not blocking.

@@ -18,6 +18,9 @@ class ProcessManagerLinux(ProcessManager):
     Linux OS Interface for Shotgun Commands.
     """
 
+    def platform_name(self):
+        return "linux"
+
     def open(self, filepath):
         """
         Opens a file with default os association or launcher found in environments. Not blocking.

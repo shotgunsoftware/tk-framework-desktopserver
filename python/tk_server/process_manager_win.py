@@ -17,6 +17,9 @@ class ProcessManagerWin(ProcessManager):
     """
     Windows OS Interface for Shotgun Commands.
     """
+    def platform_name(self):
+        return "windows"
+
     def _get_toolkit_script_name(self):
         return "shotgun.bat"
 

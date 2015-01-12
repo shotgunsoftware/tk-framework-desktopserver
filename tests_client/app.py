@@ -11,6 +11,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sys
+import os
 
 if __name__ == '__main__':
     """

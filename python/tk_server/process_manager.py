@@ -11,6 +11,7 @@
 import sys
 import os
 import subprocess
+import glob
 
 from PySide import QtGui
 from sgtk_file_dialog import SGTKFileDialog
@@ -70,7 +71,7 @@ class ProcessManager:
         """
 
         if not command.startswith("shotgun"):
-            raise Exception("ExecuteTankCommand error. Command needs to be a shotgun command.")
+            raise Exception("ExecuteTankCommand error. Command needs to be a shotgun command [{command}]".format(command=command))
 
         if not os.path.isdir(pipeline_config_path):
             raise Exception("Could not find the Pipeline Configuration on disk: " + pipeline_config_path)
@@ -98,10 +99,13 @@ class ProcessManager:
 
         return True
 
+    def platform_name(self):
+        return "unknown"
+
     def open(self, filepath):
         raise NotImplementedError("Open not implemented in base class!")
 
-    def execute_toolkit_command(self, pipeline_config_path, command, args, callback=None):
+    def execute_toolkit_command(self, pipeline_config_path, command, args):
         """
         Execute Toolkit Command
 
@@ -126,10 +130,45 @@ class ProcessManager:
             sp = subprocess.Popen(exec_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = sp.communicate()
 
-            if callback:
-                callback(out, err, sp.returncode)
+            return (out, err, sp.returncode)
         except Exception, e:
             raise Exception("Error executing toolkit command: " + e.message)
+
+    def _get_actions_from_toolkit_data(self):
+        pass
+
+    def get_project_actions(self, pipeline_config_paths):
+        """
+        Get all actions for all environments from project path
+
+        :param pipeline_config_paths: [String] Pipeline configuration paths
+        """
+
+        project_actions = {}
+        for pipeline_config_path in pipeline_config_paths:
+            env_path = os.path.join(pipeline_config_path, "config", "env")
+            env_glob = env_path + "/" + "shotgun_*.yml"
+            env_files = glob.glob(env_glob)
+
+            project_actions[pipeline_config_path] = {}
+
+            for env_filepath in env_files:
+                env_filename = os.path.basename(env_filepath)
+                entity = os.path.splitext(env_filename.replace("shotgun_", ""))[0]
+                cache_filename = "shotgun_" + self.platform_name() + "_" + entity + ".txt"
+                (out, err, code) = self.execute_toolkit_command(pipeline_config_path, "shotgun_get_actions", [cache_filename, env_filename])
+
+                if code == 1:
+                    (out, err, code) = self.execute_toolkit_command(pipeline_config_path, "shotgun_cache_actions", [entity, cache_filename])
+                    (out, err, code) = self.execute_toolkit_command(pipeline_config_path, "shotgun_get_actions", [cache_filename, env_filename])
+
+                project_actions[pipeline_config_path][env_filename] = {}
+                project_actions[pipeline_config_path][env_filename]['out'] = out
+                project_actions[pipeline_config_path][env_filename]['err'] = err
+                project_actions[pipeline_config_path][env_filename]['retcode'] = code
+
+        return project_actions
+
 
     def pick_file_or_directory(self, multi=False):
         """

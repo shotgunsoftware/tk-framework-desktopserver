@@ -29,7 +29,8 @@ class ShotgunAPI():
     Callable methods from client. Every one of these methods can be called from the client.
     """
     public_api = ["echo", "open", "executeToolkitCommand", "executeTankCommand",
-                  "pickFileOrDirectory", "pickFilesOrDirectories", "version"]
+                  "pickFileOrDirectory", "pickFilesOrDirectories", "version",
+                  "getProjectActions"]
 
     process_manager = None
 
@@ -111,12 +112,29 @@ class ShotgunAPI():
             raise Exception(message)
 
         try:
-            self.process_manager.execute_toolkit_command(pipeline_config_path, command, args, self._handle_toolkit_output)
+            (out, err, returncode) = self.process_manager.execute_toolkit_command(pipeline_config_path, command, args)
+            self._handle_toolkit_output(out, err, returncode)
         except Exception, e:
             self.host.report_error(e.message)
 
     def executeTankCommand(self, data):
+        """
+        Alias for executeToolkitCommand
+        """
         return self.executeToolkitCommand(data)
+
+    def getProjectActions(self, data):
+        """
+        Get all actions from all environments for given project
+        :param data:
+        """
+        pipeline_config_paths = data["pipelineConfigPaths"]
+        actions = self.process_manager.get_project_actions(pipeline_config_paths)
+
+        reply = {}
+        reply["actions"] = actions
+
+        self.host.reply(reply)
 
     def pickFileOrDirectory(self, data):
         """
