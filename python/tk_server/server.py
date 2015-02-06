@@ -9,6 +9,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sys
+import threading
 
 from server_protocol import *
 
@@ -22,7 +23,7 @@ DEFAULT_PORT = 9000
 
 class Server:
 
-    def start(self, debug=False, keys_path="resources/keys"):
+    def start(self, debug=False, keys_path="resources/keys", startReactor=False):
         """
         Start shotgun web server, listening to websocket connections.
 
@@ -47,3 +48,10 @@ class Server:
         self.factory.protocol = ServerProtocol
         self.factory.setProtocolOptions(allowHixie76 = True)
         self.listener = listenWS(self.factory, self.contextFactory)
+
+        if startReactor:
+            def start():
+                reactor.run(installSignalHandlers=0)
+
+            t = threading.Thread(target=start)
+            t.start()

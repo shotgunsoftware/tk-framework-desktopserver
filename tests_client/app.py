@@ -33,16 +33,14 @@ if __name__ == '__main__':
                     yum install python-devel
                     yum install openssl-devel
                     pip install cffi
-        - Fix File Picker to be OS native (also needs to get proper focus)
-            * win32api depends on python version (ie: 2.6 64-bit), so this will be complicated.
-                - Also needs function pointers which I don't know how to pass (even possible?)
-                - Should we instead compile our own c++ dll to be used with python for the file dialog? (unless we know how to pass hook)
-
                 - When do we actually need both files/folder selection?
         - uft-8 unit testing internationalization
             - Internationalization works fine, except for this case: /Users/rivestm/tmp 普通话/ 國語/ 華語.txt, were filename is
               'tmp 普通话/ 國語/ 華語.txt'. The '/' should be encoded by the client differently, and possibly decoded
               differently on the server too.
+        - To remove the annoying "allow connection" dialog when starting the server, use:
+            to sign: codesign -f -s <certname> /path/to/app --deep
+            to verify: codesign -vvv /Applications/Shotgun.app
     """
     sys.path.append("../")
 

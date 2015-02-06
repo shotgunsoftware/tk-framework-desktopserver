@@ -11,16 +11,13 @@
 import sys
 import sgtk
 
-class EditorialFramework(sgtk.platform.Framework):
+class DesktopserverFramework(sgtk.platform.Framework):
 
     ##########################################################################################
     # init and destroy
 
     def init_framework(self):
         self.log_debug("%s: Initializing..." % self)
-
-        # Make 3rd party libraries available
-        sys.path.append("./resources/python")
 
     def destroy_framework(self):
         self.log_debug("%s: Destroying..." % self)
