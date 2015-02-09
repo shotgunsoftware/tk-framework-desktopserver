@@ -34,6 +34,7 @@ class Server:
             log.startLogging(sys.stdout)
 
         ws_port = os.environ.get("TANK_PORT", DEFAULT_PORT)
+        keys_path = os.environ.get("TANK_DESKTOP_CERTIFICATE", keys_path)
 
         ## SSL server context: load server key and certificate
         ## We use this for both WS and Web!
@@ -46,7 +47,7 @@ class Server:
                                          debugCodePaths = debug)
 
         self.factory.protocol = ServerProtocol
-        self.factory.setProtocolOptions(allowHixie76 = True)
+        self.factory.setProtocolOptions(allowHixie76 = True, echoCloseCodeReason=True)
         self.listener = listenWS(self.factory, self.contextFactory)
 
         if startReactor:
