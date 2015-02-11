@@ -40,6 +40,7 @@ if __name__ == '__main__':
               differently on the server too.
         - To remove the annoying "allow connection" dialog when starting the server, use:
             to sign: codesign -f -s <certname> /path/to/app --deep
+                 or: codesign --force --deep --sign - /Applications/Shotgun.app (doesn't seem to work with bundle)
             to verify: codesign -vvv /Applications/Shotgun.app
     """
     sys.path.append("../")

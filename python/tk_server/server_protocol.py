@@ -114,7 +114,11 @@ class ServerProtocol(WebSocketServerProtocol):
         cmd_name = command["name"]
 
         # Create API for this message
-        shotgun = ShotgunAPI(message_host)
+        try:
+            shotgun = ShotgunAPI(message_host)
+        except Exception as e:
+            message_host.report_error("Error in loading ShotgunAPI. " + e.message)
+            return
 
         # Make sure the command is in the public API
         if cmd_name in shotgun.public_api:
@@ -136,6 +140,9 @@ class ServerProtocol(WebSocketServerProtocol):
         error["error"] = True
         if data: error["error_data"] = data
         error["error_message"] = message
+
+        # Log error to console
+        print "Error in reply: " + message
 
         self.json_reply(error)
 
