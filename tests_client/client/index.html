@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.js"></script>
+   <script type="text/javascript">
+      /**
+       * Base Interface to communicate with Desktop server
+       *
+          Message Format
+          {
+              protocol_version: Number
+              id: Number
+              timestamp: Date
+
+              [Optional]
+              command:
+                  name: String (ShotgunAPI method)
+                  data: Any object
+
+              [Optional]
+              error: Boolean
+              error_message: String
+              error_data: Any object
+
+              [Optional]
+              reply: Any Object
+          }
+       */
+      function ShotgunClientProtocol() {
+         this.protocol_version = 1;          // Using this server protocol
+         this.anonymousId = 'anonymous';     // Id used to listen to anonymous messages (messages received without an id)
+         this.socket = undefined;
+         this.listeners = {};                // Message subscribers
+         this.protocol_validated = false;   // Whether the protocol version has been validated with the server or not.
+         this.onConnectedListeners = [];
+      }
+
+      /**
+       * Create a message object form a command object.
+       * This will add message information necessary for communication, such as protocol version, etc...
+       *
+       * @param command Command object to add to message
+       * @returns message object
+       */
+      ShotgunClientProtocol.prototype._messageFromCommand = function(command) {
+         var message = {
+            protocol_version: this.protocol_version,
+            id: Date.now(),
+            timestamp: Date.now(),
+            command: command
+         };
+
+         return message;
+      };
+
+      /**
+       * Add a listener to given message
+       * @param message Message to add listener for
+       * @param callback Action to take upon receiving reply to message
+       */
+      ShotgunClientProtocol.prototype._addMessageListener = function(messageId, callback) {
+         if (!this.listeners.hasOwnProperty([messageId])) {
+            this.listeners[messageId] = [];
+         }
+
+         var listeners = this.listeners[messageId];
+         listeners.push(callback);
+      };
+
+      /**
+       * Remove a listener to given message
+       * @param message Message to remove listener for
+       */
+      ShotgunClientProtocol.prototype._removeMessageListener = function(messageId, callback) {
+         var listeners = this.listeners[messageId];
+
+         if (listeners) {
+            var index = listeners.indexOf(callback);
+            if (index != -1) {
+               // Remove element
+               listeners.splice(index, index+1);
+
+               // Clear if empty
+               if (listeners.length <= 0) {
+                  delete this.listeners[messageId];
+               }
+            }
+         }
+      };
+
+      /**
+       * Internal send message. Expect message to already be in proper protocol format
+       *
+       * @param message Object data to send
+       * @param messageId Identifier (string or number) to tag the message with
+       * @callback Callback when reply is received
+       */
+      ShotgunClientProtocol.prototype._sendMessageDirect = function(messageString, messageId, callback) {
+         if (this.socket) {
+            this._addMessageListener(messageId, callback);
+            this.socket.send(messageString);
+
+            log("Sent: " + messageString);
+         } else {
+            console.error("Cannot send command while not connected.");
+            return false;
+         }
+
+         return true;
+      };
+
+      /**
+       * Send message making sure that the server protocol has been validated.
+       */
+      ShotgunClientProtocol.prototype._sendMessage = function(messageString, messageId, callback) {
+         if (this.protocol_validated) {
+            return this._sendMessageDirect(messageString, messageId, callback);
+         } else {
+            log("Error. Cannot communicate with server. Using incompatible protocol versions.");
+         }
+      };
+
+      /**
+       * Validate protocol version with server
+       */
+      ShotgunClientProtocol.prototype._validateProtocol = function() {
+         this._sendMessageDirect('get_protocol_version', this.anonymousId, function(reply) {
+            log(reply);
+
+            if (reply.protocol_version == this.protocol_version) {
+               this.protocol_validated = true;
+
+               this.onConnectedListeners.forEach(function(listener) {
+                  listener();
+               });
+
+               this.onConnectedListeners = [];
+            } else {
+               log("Error: Wrong protocol version.");
+            }
+         }.bind(this));
+      };
+
+      ShotgunClientProtocol.prototype.handleError = function(message) {
+         log("Got Server Error: " + message.error_message);
+         log(message);
+      };
+
+      /**
+       * Find all clients of a message an dispatch to them
+       */
+      ShotgunClientProtocol.prototype._dispatchMessage = function(message) {
+         var id = message.id || this.anonymousId;
+
+         var listeners = this.listeners[id];     // Retrieve message subscribers
+
+         // Callback all listeners for message
+         if (Array.isArray(listeners)) {
+            listeners.forEach(function (listener) {
+               listener(message);
+            });
+
+            delete this.listeners[id];
+         }
+      };
+
+      /**
+       * Action to take on connecting with server
+       */
+      ShotgunClientProtocol.prototype.onopen = function() {
+         log("Connected!");
+         this._validateProtocol();
+      };
+
+      /**
+       * Action to take when disconnecting with server
+       */
+      ShotgunClientProtocol.prototype.onclose = function(e) {
+         this.protocol_validated = false;
+         log("Connection closed (wasClean = " + e.wasClean + ", code = " + e.code + ", reason = '" + e.reason + "')");
+      };
+
+      /**
+       *
+       * @param e Websocket event
+       */
+      ShotgunClientProtocol.prototype.onmessage = function(e) {
+         log("Got Server Message: " + e.data);
+
+         try {
+            var message = JSON.parse(e.data)
+         } catch (error) {
+            console.error("Error retrieving data. Message may not be in Json format.");
+            console.error(error);
+
+            return;
+         }
+
+         if (message.error) {
+            this._handleError(message);
+         } else {
+            // Dispatch message to listeners awaiting reply
+            this._dispatchMessage(message);
+         }
+      };
+
+      /**
+       * Initialize to given websocket
+       *
+       * @param websocket to initialize with
+       */
+      ShotgunClientProtocol.prototype.initialize = function(websocket) {
+         this.socket = websocket;
+
+         if (this.socket) {
+            this.socket.onopen = this.onopen.bind(this);
+            this.socket.onclose = this.onclose.bind(this);
+            this.socket.onmessage = this.onmessage.bind(this);
+         }
+      };
+
+      /**
+       * Provide a callback to be called when the connection has been established properly
+       * and the protocol has been validated.
+       */
+      ShotgunClientProtocol.prototype.onConnected = function (callback) {
+         this.onConnectedListeners.push(callback);
+      };
+
+      /**
+       * Send command to server.
+       *
+       * @param command Command data to send with format {command: '' data: {}}
+       * @callback Callback when command is done
+       */
+      ShotgunClientProtocol.prototype.send = function(command, callback) {
+         callback = callback || function() {};
+
+         var message = this._messageFromCommand(command);
+
+         try {
+            var messageString = JSON.stringify(message);
+         } catch (error) {
+            console.error("Error stringifying JSON. Can't send command.");
+            console.error(error);
+
+            return;
+         }
+
+         this._sendMessage(messageString, message.id, callback);
+      };
+
+
+
+
+      /**
+       * Desktop API Methods
+       * @constructor
+       * @param client Interface instance used to communicate with desktop (eg: ShotgunClientProtocol).
+       */
+      function DesktopAPI(client) {
+         this.api_version = {
+            major: 0,
+            minor: 1,
+            patch: 0
+         };
+
+         this.version_validated = false;
+
+         this.client = client;
+         this.client.onConnected(this._validateApiVersion.bind(this));
+      }
+
+      /**
+       *  Check server API version to make sure we are using the correct one.
+       */
+      DesktopAPI.prototype._validateApiVersion = function () {
+         this.version(function(version) {
+            if (    version.major == this.api_version.major &&
+                    version.minor == this.api_version.minor) {
+               this.version_validated = true;
+            } else {
+               this.version_validated = false;
+               log("Error. Using wrong API version.");
+            }
+         }.bind(this));
+      };
+
+      /**
+       * Make sure this API version is the same as the one on the server.
+       */
+      DesktopAPI.prototype._check_version = function () {
+         if (!this.version_validated) {
+            log("Error. Can't send command. Using incompatible API versions.");
+            return false;
+         }
+
+         return true;
+      };
+
+      /**
+       * Get Server API version.
+       * @param callback Callback argument: {major: minor: patch:}
+       */
+      DesktopAPI.prototype.version = function(callback) {
+         callback = callback || function() {};
+
+         this.client.send({
+            name: 'version'
+         }, function(message) {
+            callback(message.reply);
+         });
+      };
+
+      /**
+       * Echo given message
+       * @param message message to echo
+       * @param callback Callback arguments: message: String
+       */
+      DesktopAPI.prototype.echo = function(message, callback) {
+         if (!this._check_version()) {return;}
+         callback = callback || function() {};
+
+         this.client.send({
+            name: 'echo',
+            data: {message: message}
+         }, function(message) {
+            callback(message.reply.message);
+         });
+      };
+
+      /**
+       * Start file picker on remote host allowing to select a single item.
+       *
+       * @param callback Callback arguments: file: String
+       */
+      DesktopAPI.prototype.pickFileOrDirectory = function(callback) {
+         if (!this._check_version()) {return;}
+         callback = callback || function() {};
+
+         this.client.send({
+            name: 'pickFileOrDirectory'
+         }, function(message) {
+            callback(message.reply);
+         });
+      };
+
+      /**
+       * Start file picker on remove host allowing to selected multiple items.
+       *
+       * @param callback Callback arguments: files: [String]
+       */
+      DesktopAPI.prototype.pickFilesOrDirectories = function(callback) {
+         if (!this._check_version()) {return;}
+         callback = callback || function() {};
+
+         this.client.send({
+            name: 'pickFilesOrDirectories'
+         }, function(message) {
+            callback(message.reply);
+         });
+      };
+
+      /**
+       * Open a file on remote host.
+       * @param filepath Filepath to open
+       * @param callback Callback Arguments: result: Bool
+       */
+      DesktopAPI.prototype.open = function(filepath, callback) {
+         if (!this._check_version()) {return;}
+         callback = callback || function() {};
+
+         this.client.send({
+            name: 'open',
+            data: {filepath: filepath}
+         }, function(message) {
+            callback(message.reply.result);
+         });
+      };
+
+      /**
+       * Execute toolkit command on remote host.
+       * @param command String Toolkit command to issue (eg: 'shotgun_cache_actions')
+       * @param args List of arguments to pass to the toolkit command.
+       * @param pipelineConfigPath String path where pipeline config resides. (eg: '/Users/admin/shotgun/toolkit/mysite')
+       * @param callback Callback arguments: {retcode: Integer, out: String, err: String} where out/err are the command's
+       *                 stdout/stderr and retcode is the command's return code (0 is success).
+       */
+      DesktopAPI.prototype.executeToolkitCommand = function(command, args, pipelineConfigPath, callback) {
+         if (!this._check_version()) {return;}
+         callback = callback || function() {};
+
+         // Args must be an array of arguments
+         if (!Array.isArray(args)) {
+            args = [args];
+         }
+
+         this.client.send({
+            name: 'executeToolkitCommand',
+            data: {
+               command: command,
+               args: args,
+               pipelineConfigPath: pipelineConfigPath
+            }
+         }, function(message) {
+            callback(message.reply);
+         });
+      };
+
+      /**
+       * Alias for backward compatibility.
+       */
+      DesktopAPI.prototype.executeTankCommand = DesktopAPI.prototype.executeToolkitCommand;
+
+
+      /**
+       *
+       * Client API usage
+       *
+       */
+      function version() {
+         desktopApi.version(function(version) {
+            log("Version: ", version);
+         });
+      };
+
+      function echo() {
+         var msg = document.getElementById('message').value;
+
+         desktopApi.echo(msg, function(message) {
+            log("Echo Received: " + message);
+         });
+      };
+
+      function open_() {
+         var filepath = document.getElementById('filepath').value;
+
+         desktopApi.open(filepath, function(result) {
+            log('File open result: ', result);
+         });
+      };
+
+      function pickFileOrDirectory() {
+         desktopApi.pickFileOrDirectory(function(file) {
+            log("File Received: ", file);
+         });
+      };
+
+      function pickFileOrDirectories() {
+         desktopApi.pickFilesOrDirectories(function(files) {
+            log("Files Received: ", files);
+         });
+      };
+
+      function sgtkCommand() {
+         var command = document.getElementById('sgtk_command').value;
+         var args = JSON.parse(document.getElementById('sgtk_args').value || "[]");
+         var pipelineConfigPath = document.getElementById('sgtk_pipelineConfigPath').value;
+
+         desktopApi.executeToolkitCommand(pipelineConfigPath, command, args, function(result) {
+            log("Toolkit command result: ", result);
+         });
+      };
+
+
+      /**
+       *
+       * Shotgun Client
+       *
+       */
+      function ShotgunClient() {
+         this.shotgunClientProtocol = new ShotgunClientProtocol();
+         this.api = new DesktopAPI(this.shotgunClientProtocol);
+      }
+
+      ShotgunClient.prototype.connect = function() {
+         var wsuri = "wss://localhost:9000";
+         var socket = null;
+
+         if ("WebSocket" in window) {
+            socket = new WebSocket(wsuri);
+         } else if ("MozWebSocket" in window) {
+            socket = new MozWebSocket(wsuri);
+         } else {
+            log("Browser does not support WebSocket!");
+            window.location = "http://autobahn.ws/unsupportedbrowser";
+         }
+
+         this.shotgunClientProtocol.initialize(socket);
+      };
+
+      /**
+       *
+       * Setup
+       *
+       */
+      window.onload = function() {
+         shotgunClient.connect();
+      };
+
+      function log(m, obj) {
+         obj = obj || false;
+
+         var objstr = m;
+         if (obj) {
+            objstr += ' ' + JSON.stringify(obj);
+         }
+
+         document.getElementById('log').innerHTML += objstr + '\n';
+      };
+
+      var shotgunClient = new ShotgunClient();
+      var desktopApi = shotgunClient.api;
+
+   </script>
+</head>
+
+<body>
+    <h1>Shotgun Secure WebSocket Client Test</h1>
+    <noscript>You must enable JavaScript</noscript>
+
+    <div>
+        <p>
+            <span>If you have trouble connecting, make sure you have installed the </span><a href="certificate.html">certificate</a><span>!</span>
+        </p>
+    </div>
+
+    <div>
+       <button onclick='echo();'>Send Message</button>
+       <input id="message" type="text" size="50" value="Hello, world!">
+    </div>
+    <div>
+       <button onclick='open_();'>Open file</button>
+       <input id="filepath" type="text" size="50" value="/Users/rivestm/tmp.txt">
+    </div>
+    <div>
+       <button onclick='version();'>Get Server API Version</button>
+    </div>
+    <div>
+       <button onclick='pickFileOrDirectory();'>Pick File Or Directory</button>
+    </div>
+    <div>
+       <button onclick='pickFileOrDirectories();'>Pick File Or Directories</button>
+    </div>
+    <div>
+       <button onclick='sgtkCommand();'>Execute Toolkit Command</button>
+       <input id="sgtk_pipelineConfigPath" type="text" size="50" value="/Users/rivestm/shotgun/toolkit/config24" placeholder="Pipeline Configuration">
+       <input id="sgtk_command" type="text" size="50" maxlength="50" value="shotgun_cache_actions" placeholder="Toolkit Command">
+       <input id="sgtk_args" type="text" size="50" maxlength="50" value='' placeholder='Argument list as JSON list (ex: ["myarg"]'>
+    </div>
+
+    <pre id="log" style="height: 20em; overflow-y: scroll; background-color: #faa;"></pre>
+</body>
+</html>
