@@ -16,12 +16,13 @@ from urlparse import urlparse
 
 from shotgun_api import ShotgunAPI
 from message_host import MessageHost
-from message import Message
+from status_server_protocol import StatusServerProtocol
 
 from autobahn import websocket
 from autobahn.twisted.websocket import WebSocketServerProtocol
 
 DEFAULT_DOMAIN_RESTRICTION = "*.shotgunstudio.com,localhost"
+
 
 class ServerProtocol(WebSocketServerProtocol):
     """
@@ -37,6 +38,23 @@ class ServerProtocol(WebSocketServerProtocol):
         """
         pass
 
+    def onClose(self, wasClean, code, reason):
+        pass
+
+    def connectionLost(self, reason):
+        """
+        Called when connection is lost
+
+        :param reason: Object Reason for connection lost
+        """
+        try:
+            if reason.value.message[0][2] == 'ssl handshake failure':
+                StatusServerProtocol.serverStatus = StatusServerProtocol.SSL_CERTIFICATE_INVALID
+            else:
+                StatusServerProtocol.serverStatus = StatusServerProtocol.OK
+        except Exception, e:
+            StatusServerProtocol.serverStatus = StatusServerProtocol.OK
+
     def onConnect(self, response):
         """
         Called upon client connection to server. This is where we decide if we accept the connection
@@ -44,6 +62,9 @@ class ServerProtocol(WebSocketServerProtocol):
 
         :param response: Object Response information.
         """
+
+        # If we reach this point, then it means SSL handshake went well..
+        StatusServerProtocol.serverStatus = StatusServerProtocol.OK
 
         domain_valid = False
         try:
