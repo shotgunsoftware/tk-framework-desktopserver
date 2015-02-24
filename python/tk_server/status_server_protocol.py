@@ -33,7 +33,9 @@ class StatusServerProtocol(WebSocketServerProtocol):
 
     # Error codes
     OK = 200
+    CONNECTED = 202
     SSL_CERTIFICATE_INVALID = 401
+    CONNECTION_LOST = 499
 
     # Variable used to pass along error message between secure server and status server
     serverStatus = 200

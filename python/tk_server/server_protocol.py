@@ -13,6 +13,7 @@ import json
 import re
 import datetime
 from urlparse import urlparse
+import OpenSSL
 
 from shotgun_api import ShotgunAPI
 from message_host import MessageHost
@@ -20,6 +21,7 @@ from status_server_protocol import StatusServerProtocol
 
 from autobahn import websocket
 from autobahn.twisted.websocket import WebSocketServerProtocol
+from twisted.internet import error
 
 DEFAULT_DOMAIN_RESTRICTION = "*.shotgunstudio.com,localhost"
 
@@ -48,12 +50,19 @@ class ServerProtocol(WebSocketServerProtocol):
         :param reason: Object Reason for connection lost
         """
         try:
-            if reason.value.message[0][2] == 'ssl handshake failure':
+            # Known certificate error. These work for firefox and safari, but chrome rejected certificate
+            # are currently indistinguishable from lost connection.
+            certificate_error = False
+            certificate_error |= reason.type is OpenSSL.SSL.Error and reason.value.message[0][2] == 'ssl handshake failure'
+            certificate_error |= reason.type is OpenSSL.SSL.Error and reason.value.message[0][2] == 'tlsv1 alert unknown ca'
+            certificate_error |= bool(reason.check(error.CertificateError))
+
+            if certificate_error:
                 StatusServerProtocol.serverStatus = StatusServerProtocol.SSL_CERTIFICATE_INVALID
             else:
-                StatusServerProtocol.serverStatus = StatusServerProtocol.OK
+                StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
         except Exception, e:
-            StatusServerProtocol.serverStatus = StatusServerProtocol.OK
+            StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
 
     def onConnect(self, response):
         """
@@ -64,7 +73,7 @@ class ServerProtocol(WebSocketServerProtocol):
         """
 
         # If we reach this point, then it means SSL handshake went well..
-        StatusServerProtocol.serverStatus = StatusServerProtocol.OK
+        StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTED
 
         domain_valid = False
         try:

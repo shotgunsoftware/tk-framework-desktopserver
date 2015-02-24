@@ -11,7 +11,7 @@
 import os
 import subprocess
 
-from Cocoa import NSOpenPanel, NSOKButton
+from Cocoa import NSOpenPanel, NSOKButton, NSRunningApplication, NSApplicationActivateIgnoringOtherApps
 
 from process_manager import ProcessManager
 
@@ -45,6 +45,8 @@ class ProcessManagerMac(ProcessManager):
         :returns: List of files that were selected with file browser.
         """
         panel = NSOpenPanel.openPanel()
+
+        NSRunningApplication.currentApplication().activateWithOptions_(NSApplicationActivateIgnoringOtherApps)
 
         panel.setAllowsMultipleSelection_(multi)
         panel.setCanChooseFiles_(True)
