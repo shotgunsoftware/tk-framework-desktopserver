@@ -51,9 +51,16 @@ class Server:
         ws_port = os.environ.get("TANK_PORT", DEFAULT_PORT)
         keys_path = os.environ.get("TANK_DESKTOP_CERTIFICATE", keys_path)
 
+        cert_key_path = os.path.join(keys_path, "server.key")
+        cert_crt_path = os.path.join(keys_path, "server.crt")
+
+        if not os.path.exists(cert_crt_path) or not os.path.exists(cert_key_path):
+            StatusServerProtocol.serverStatus = StatusServerProtocol.SSL_NO_CERTIFICATE_FILE
+            return
+
         # SSL server context: load server key and certificate
-        self.context_factory = ssl.DefaultOpenSSLContextFactory(os.path.join(keys_path, "server.key"),
-                                                               os.path.join(keys_path, "server.crt"))
+        self.context_factory = ssl.DefaultOpenSSLContextFactory(cert_key_path,
+                                                                cert_crt_path)
 
         self.factory = WebSocketServerFactory("wss://localhost:%d" % ws_port, debug=debug, debugCodePaths=debug)
 
