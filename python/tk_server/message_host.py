@@ -11,7 +11,7 @@
 from message import Message
 
 
-class MessageHost():
+class MessageHost(object):
     """
     Message Host Interface for the Shotgun API. We don't pass the actual websocket host directly in order to make
     sure that the API communicates with the client using the proper protocol.
@@ -34,10 +34,10 @@ class MessageHost():
         :param data: Object to send
         """
 
-        message = Message(self._message["id"], self._host.protocol_version)
+        message = Message(self._message["id"], self._host._PROTOCOL_VERSION)
         message.reply(data)
 
-        return self._host.json_reply(message.data)
+        self._host.json_reply(message.data)
 
     def report_error(self, error_message, error_data=None):
         """
@@ -47,7 +47,7 @@ class MessageHost():
         :param data: Optional object data to send in reply
         """
 
-        message = Message(self._message["id"], self._host.protocol_version)
+        message = Message(self._message["id"], self._host._PROTOCOL_VERSION)
         message.error(error_message, error_data)
 
-        return self._host.json_reply(message.data)
+        self._host.json_reply(message.data)

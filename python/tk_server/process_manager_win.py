@@ -9,16 +9,15 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import os
-import subprocess
 
 from process_manager import ProcessManager
+
 
 class ProcessManagerWin(ProcessManager):
     """
     Windows OS Interface for Shotgun Commands.
     """
-    def platform_name(self):
-        return "windows"
+    platform_name = "windows"
 
     def _get_toolkit_script_name(self):
         return "shotgun.bat"
@@ -31,6 +30,7 @@ class ProcessManagerWin(ProcessManager):
         Opens a file with default os association or launcher found in environments. Not blocking.
 
         :param filepath: String file path (ex: "c:/file.mov")
+        :returns: Bool If the operation was successful
         """
         self._verify_file_open(filepath)
         launcher = self._get_launcher()
@@ -42,4 +42,4 @@ class ProcessManagerWin(ProcessManager):
         else:
             result = self._launch_process([launcher, filepath], "Could not open file.")
 
-        return True
+        return result

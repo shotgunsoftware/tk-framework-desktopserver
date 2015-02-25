@@ -18,12 +18,11 @@ import OpenSSL
 from shotgun_api import ShotgunAPI
 from message_host import MessageHost
 from status_server_protocol import StatusServerProtocol
+from process_manager import ProcessManager
 
 from autobahn import websocket
 from autobahn.twisted.websocket import WebSocketServerProtocol
 from twisted.internet import error
-
-DEFAULT_DOMAIN_RESTRICTION = "*.shotgunstudio.com,localhost"
 
 
 class ServerProtocol(WebSocketServerProtocol):
@@ -31,14 +30,13 @@ class ServerProtocol(WebSocketServerProtocol):
     Server Protocol
     """
 
+    _DEFAULT_DOMAIN_RESTRICTION = "*.shotgunstudio.com,localhost"
+
     # Server protocol version
-    protocol_version = 1
+    _PROTOCOL_VERSION = 1
 
     def __init__(self):
-        """
-        Server Protocol constructor
-        """
-        pass
+        self.process_manager = ProcessManager.create()
 
     def onClose(self, wasClean, code, reason):
         pass
@@ -87,8 +85,8 @@ class ServerProtocol(WebSocketServerProtocol):
             else:
                 raise Exception("Invalid or unknown origin.")
 
-            domain_valid = ServerProtocol.domain_filter(origin_str)
-        except Exception as e:
+            domain_valid = self._is_domain_valid(origin_str)
+        except Exception, e:
             # Otherwise errors get swallowed by outer blocks
             print "Domain validation failed: ", e.message
 
@@ -115,7 +113,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # message format as it doesn't require a protocol version to be retrieved and is not json-encoded.
         if decoded_payload == "get_protocol_version":
             data = {}
-            data["protocol_version"] = self.protocol_version
+            data["protocol_version"] = self._PROTOCOL_VERSION
             self.json_reply(data)
             return
 
@@ -123,14 +121,14 @@ class ServerProtocol(WebSocketServerProtocol):
         try:
             message = json.loads(decoded_payload)
         except ValueError, e:
-            self.report_error("Error in decoding the message's json data: " + e.message)
+            self.report_error("Error in decoding the message's json data: %s" % e.message)
             return
 
         message_host = MessageHost(self, message)
 
         # Check protocol version
-        if message["protocol_version"] != self.protocol_version:
-            message_host.report_error("Error. Wrong protocol version [{version}] ".format(version=self.protocol_version))
+        if message["protocol_version"] != self._PROTOCOL_VERSION:
+            message_host.report_error("Error. Wrong protocol version [%s] " % self._PROTOCOL_VERSION)
             return
 
         # Retrieve command from message
@@ -145,16 +143,20 @@ class ServerProtocol(WebSocketServerProtocol):
 
         # Create API for this message
         try:
-            shotgun = ShotgunAPI(message_host)
-        except Exception as e:
+            shotgun = ShotgunAPI(message_host, self.process_manager)
+        except Exception, e:
             message_host.report_error("Error in loading ShotgunAPI. " + e.message)
             return
 
         # Make sure the command is in the public API
         if cmd_name in shotgun.public_api:
             # Call matching shotgun command
-            func = getattr(shotgun, cmd_name)
-            func(data)
+            try:
+                func = getattr(shotgun, cmd_name)
+                func(data)
+            except Exception, e:
+                message_host.report_error("Error! Could not execute function (possibly wrong command arguments) for [%s] -- %s"
+                                          % (cmd_name, e.message))
         else:
             message_host.report_error("Error! Wrong Command Sent: [%s]" % cmd_name)
 
@@ -168,7 +170,8 @@ class ServerProtocol(WebSocketServerProtocol):
         """
         error = {}
         error["error"] = True
-        if data: error["error_data"] = data
+        if data:
+            error["error_data"] = data
         error["error_message"] = message
 
         # Log error to console
@@ -188,8 +191,7 @@ class ServerProtocol(WebSocketServerProtocol):
         isBinary = False
         self.sendMessage(payload, isBinary)
 
-    @staticmethod
-    def wildcard_match(wildcard, match):
+    def _wildcard_match(self, wildcard, match):
         """
         Matches a string that may contain wildcard (*) with another string.
 
@@ -229,16 +231,14 @@ class ServerProtocol(WebSocketServerProtocol):
         else:
             return False
 
-
-    @staticmethod
-    def domain_filter(origin_str):
+    def _is_domain_valid(self, origin_str):
         """
         Filters for valid origin domain names.
 
         :param origin_str: Domain origin string (ex: http://localhost:8080)
         :return: True if domain is accepted, False otherwise
         """
-        domain_env = os.environ.get("SHOTGUN_PLUGIN_DOMAIN_RESTRICTION", DEFAULT_DOMAIN_RESTRICTION)
+        domain_env = os.environ.get("SHOTGUN_PLUGIN_DOMAIN_RESTRICTION", ServerProtocol._DEFAULT_DOMAIN_RESTRICTION)
 
         origin = urlparse(origin_str)
 
@@ -248,20 +248,21 @@ class ServerProtocol(WebSocketServerProtocol):
         for domain in domains:
             domain = domain.strip()
 
-            domain_match = ServerProtocol.wildcard_match(domain, origin.hostname)
+            domain_match = self._wildcard_match(domain, origin.hostname)
             if domain_match:
                 break
 
         return domain_match
 
-    @staticmethod
-    def _json_date_handler(obj):
+    def _json_date_handler(self, obj):
         """
         JSON stringify python date handler from: http://stackoverflow.com/questions/455580/json-datetime-between-python-and-javascript
+        :returns: return a serializable version of obj or raise TypeError
+        :raises: TypeError if a serializable version of the object cannot be made
         """
         if hasattr(obj, "isoformat"):
             return obj.isoformat()
         elif isinstance(obj, datetime.datetime):
-            return isinstance(obj, datetime.datetime)
+            return obj.isoformat()
         else:
-            raise TypeError, 'Object of type %s with value of %s is not JSON serializable' % (type(obj), repr(obj))
+            return json.JSONEncoder().default(obj)

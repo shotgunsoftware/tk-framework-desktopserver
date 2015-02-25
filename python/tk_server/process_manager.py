@@ -13,13 +13,21 @@ import os
 import subprocess
 import glob
 
-from PySide import QtGui
-from sgtk_file_dialog import SGTKFileDialog
+try:
+    from sgtk.platform.qt import PySide
+except:
+    pass
 
-class ProcessManager:
+from PySide import QtGui
+from sgtk_file_dialog import SgtkFileDialog
+
+class ProcessManager(object):
     """
     OS Interface for Shotgun Commands.
     """
+
+    platform_name = "unknown"
+
     def _get_toolkit_script_name(self):
         return "shotgun"
 
@@ -29,18 +37,18 @@ class ProcessManager:
     def _get_launcher(self):
         """
         Get Launcher file name from environement.
+        This provides an alternative way to launch applications and open files, instead of os-standard open.
 
-        :return: String Default Launcher filename. None if none was found,
+        :returns: String Default Launcher filename. None if none was found,
         """
         return os.environ.get("SHOTGUN_PLUGIN_LAUNCHER")
 
     def _verify_file_open(self, filepath):
         """
-        Common File Open verifications.
-
-        Will raise on errors
+        Verify that a file can be opened.
 
         :param filepath: String file path that should be opened.
+        :raises: Exception If filepath cannot be opened.
         """
 
         if not os.path.isfile(filepath):
@@ -53,10 +61,10 @@ class ProcessManager:
         :param pipeline_config_path: String Pipeline folder
         :return: String File path of toolkit script (eg: c:/temp/tank)
         """
-        exec_script = pipeline_config_path + "/" + self._get_toolkit_script_name()
+        exec_script = os.path.join(pipeline_config_path, self._get_toolkit_script_name())
 
         if not os.path.isfile(exec_script):
-            exec_script = pipeline_config_path + "/" + self._get_toolkit_fallback_script_name()
+            exec_script = os.path.join(pipeline_config_path, self._get_toolkit_fallback_script_name())
 
         return exec_script
 
@@ -64,10 +72,9 @@ class ProcessManager:
         """
         Verify that the arguments provided to the toolkit command are valid.
 
-        Will throw on invalid toolkit command arguments.
-
         :param pipeline_config_path: String Pipeline configuration path
         :param command: Toolkit command to run
+        :raises: Exception On invalid toolkit command arguments.
         """
 
         if not command.startswith("shotgun"):
@@ -87,7 +94,8 @@ class ProcessManager:
         Note: Using Popen instead of call for asynchronous behavior
         :params args: List of elements to pass Popen.
         :params message_error: String to prefix error message in case of an error.
-            """
+        :returns: Bool If the operation was successful
+        """
 
         child = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = child.communicate()
@@ -95,14 +103,18 @@ class ProcessManager:
         has_error = return_code != 0
 
         if has_error:
-            raise Exception("{message_error}\nCommand: {command}\nReturn code: {return_code}\nOutput: {std_out}\nError: {std_err}".format(message_error=message_error, command=args, return_code=return_code, std_out=out, std_err=err))
+            raise Exception("{message_error}\nCommand: {command}\nReturn code: {return_code}\nOutput: {std_out}\nError: {std_err}"
+                            .format(message_error=message_error, command=args, return_code=return_code, std_out=out, std_err=err))
 
         return True
 
-    def platform_name(self):
-        return "unknown"
-
     def open(self, filepath):
+        """
+        Opens a file with default os association or launcher found in environments. Not blocking.
+
+        :param filepath: String file path (ex: "c:/file.mov")
+        :return: Bool If the operation was successful
+        """
         raise NotImplementedError("Open not implemented in base class!")
 
     def execute_toolkit_command(self, pipeline_config_path, command, args):
@@ -112,6 +124,7 @@ class ProcessManager:
         :param pipeline_config_path: String Pipeline configuration path
         :param command: Commands
         :param args: List Script arguments
+        :returns: (stdout, stderr, returncode) Returns standard process output
         """
 
         try:
@@ -152,7 +165,7 @@ class ProcessManager:
         project_actions = {}
         for pipeline_config_path in pipeline_config_paths:
             env_path = os.path.join(pipeline_config_path, "config", "env")
-            env_glob = env_path + "/" + "shotgun_*.yml"
+            env_glob = os.path.join(env_path, "shotgun_*.yml")
             env_files = glob.glob(env_glob)
 
             project_actions[pipeline_config_path] = {}
@@ -160,21 +173,27 @@ class ProcessManager:
             for env_filepath in env_files:
                 env_filename = os.path.basename(env_filepath)
                 entity = os.path.splitext(env_filename.replace("shotgun_", ""))[0]
-                cache_filename = "shotgun_" + self.platform_name() + "_" + entity + ".txt"
+                cache_filename = "shotgun_" + self.platform_name + "_" + entity + ".txt"
 
                 # Need to store where actions have occurred in order to give proper error message to client
                 # This could be made much better in the future by creating the actual final actions from here instead.
                 project_actions[pipeline_config_path][env_filename] = {"get": {}, "cache": {}}
 
-                (out, err, code) = self.execute_toolkit_command(pipeline_config_path, "shotgun_get_actions", [cache_filename, env_filename])
+                (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
+                                                                "shotgun_get_actions",
+                                                                [cache_filename, env_filename])
                 self._add_action_output(project_actions[pipeline_config_path][env_filename]['get'], out, err, code)
 
                 if code == 1:
-                    (out, err, code) = self.execute_toolkit_command(pipeline_config_path, "shotgun_cache_actions", [entity, cache_filename])
+                    (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
+                                                                    "shotgun_cache_actions",
+                                                                    [entity, cache_filename])
                     self._add_action_output(project_actions[pipeline_config_path][env_filename]['cache'], out, err, code)
 
                     if code == 0:
-                        (out, err, code) = self.execute_toolkit_command(pipeline_config_path, "shotgun_get_actions", [cache_filename, env_filename])
+                        (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
+                                                                        "shotgun_get_actions",
+                                                                        [cache_filename, env_filename])
                         self._add_action_output(project_actions[pipeline_config_path][env_filename]['get'], out, err, code)
 
         return project_actions
@@ -195,7 +214,7 @@ class ProcessManager:
         if not QtGui.QApplication.instance():
             app = QtGui.QApplication([])
 
-        dialog = SGTKFileDialog(multi, None)
+        dialog = SgtkFileDialog(multi, None)
         dialog.setResolveSymlinks(False)
 
         # Get result.
@@ -207,7 +226,7 @@ class ProcessManager:
 
             for f in files:
                 if os.path.isdir(f):
-                    f += "/"
+                    f += os.path.sep
 
         return files
 
@@ -216,16 +235,16 @@ class ProcessManager:
         """
         Create Process Manager according to current context (such as os, etc..)
 
-        :return: ProcessManager
+        :returns: ProcessManager
         """
 
-        if sys.platform.startswith("darwin"):
+        if sys.platform == "darwin":
             from process_manager_mac import ProcessManagerMac
 
             return ProcessManagerMac()
-        elif os.name == "nt":
+        elif os.name == "win32":
             from process_manager_win import ProcessManagerWin
             return ProcessManagerWin()
-        elif os.name == "posix":
+        elif sys.platform.startswith("linux"):
             from process_manager_linux import ProcessManagerLinux
             return ProcessManagerLinux()
