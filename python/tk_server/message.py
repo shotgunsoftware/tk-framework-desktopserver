@@ -10,8 +10,11 @@
 
 import datetime
 
-class Message():
+class Message(object):
     """
+    Represents a message for communication to the client.
+    It will handle generating the proper data and abstract a few common operations.
+
     Message Format
     {
         protocol_version: Number
@@ -37,6 +40,7 @@ class Message():
         """
         Message Constructor
         :param id: Number Message id
+        :param protocol_version: Number Protocol version for this message
         """
 
         self.data = {}
@@ -44,14 +48,20 @@ class Message():
         self.data["timestamp"] = datetime.datetime.now()
         self.data["protocol_version"] = protocol_version
 
-    def reply(self, data):
+    def reply(self, reply_data):
         """
         Set reply data for this message
-        :param data: Dictionary Additional data to be sent back in reply
+        :param reply_data: Dictionary Additional data to be sent back in reply
         """
-        self.data["reply"] = data
+        self.data["reply"] = reply_data
 
     def error(self, error_message, error_data):
+        """
+        Add error content to this message
+        :param error_message: String Error Message
+        :param error_data: Dictionary Additional data to be sent with the error
+        """
         self.data["error"] = True
         self.data["error_message"] = error_message
-        if error_data: self.data["error_data"] = error_data
+        if error_data:
+            self.data["error_data"] = error_data

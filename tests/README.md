@@ -17,7 +17,7 @@ To run specific test(s), specify module, or module.class or module.class.test:
 
 To run tests without using run_tests script:
 
-* Add the tank packages directory ( core/python ) to the PYTHONPATH 
+* Add the toolkit packages directory ( core/python ) to the PYTHONPATH
 * Specify the package or module of your choice:
 
     `$ trial tests`
@@ -28,10 +28,10 @@ To run tests without using run_tests script:
 
 Test suite layout
 -----------------
-The tests directory follows the package layout of the tank code, with tests for top level tank modules being at the top
+The tests directory follows the package layout of the toolkit code, with tests for top level toolkit modules being at the top
 level and tests for the `tank.platform` subpackage living in `tests.platform`.
 
-Generally there is one test module per module in tank, with the test modules named with the target modules name pre-pended with "test_".
+Generally there is one test module per module in toolkit, with the test modules named with the target modules name pre-pended with "test_".
 It is possible to use more than one test module for a single target module if that module has multiple classes which require substantial tests.
 In general their is one test case class per method or function, though it is possible to define multiple if there is the need to test the same method with different setups.
 

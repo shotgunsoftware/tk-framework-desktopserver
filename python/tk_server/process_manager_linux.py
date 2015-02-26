@@ -18,14 +18,14 @@ class ProcessManagerLinux(ProcessManager):
     Linux OS Interface for Shotgun Commands.
     """
 
-    def platform_name(self):
-        return "linux"
+    platform_name = "linux"
 
     def open(self, filepath):
         """
         Opens a file with default os association or launcher found in environments. Not blocking.
 
         :param filepath: String file path (ex: "c:/file.mov")
+        :returns: Bool If the operation was successful
         """
         self._verify_file_open(filepath)
         launcher = self._get_launcher()

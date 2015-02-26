@@ -9,20 +9,20 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sys
+import os
 import threading
 
-from server_protocol import *
-from status_server_protocol import *
+from server_protocol import ServerProtocol
+from status_server_protocol import StatusServerProtocol
 
 from twisted.internet import reactor, ssl
 from twisted.python import log
 
 from autobahn.twisted.websocket import WebSocketServerFactory, listenWS
 
-DEFAULT_PORT = 9000
-DEFAULT_PORT_STATUS = DEFAULT_PORT + 1
-
 class Server:
+    _DEFAULT_PORT = 9000
+    _DEFAULT_PORT_STATUS = 9001
 
     def _start_status_server(self, debug):
         """
@@ -33,7 +33,7 @@ class Server:
         if debug:
             log.startLogging(sys.stdout)
 
-        ws_port = os.environ.get("TANK_PORT_STATUS", DEFAULT_PORT_STATUS)
+        ws_port = os.environ.get("TANK_PORT_STATUS", Server._DEFAULT_PORT_STATUS)
 
         factory = WebSocketServerFactory("ws://localhost:%d" % ws_port, debug=debug, debugCodePaths=debug)
 
@@ -48,7 +48,7 @@ class Server:
         :param debug: Boolean Show debug output. Will also Start local web server to test client pages.
         """
 
-        ws_port = os.environ.get("TANK_PORT", DEFAULT_PORT)
+        ws_port = os.environ.get("TANK_PORT", Server._DEFAULT_PORT)
         keys_path = os.environ.get("TANK_DESKTOP_CERTIFICATE", keys_path)
 
         cert_key_path = os.path.join(keys_path, "server.key")

@@ -8,12 +8,6 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-from process_manager import *
-
-ShotgunIntegrationAPI_MAJOR = 0
-ShotgunIntegrationAPI_MINOR = 1
-ShotgunIntegrationAPI_PATCH = 0
-
 
 class ShotgunAPI():
     """
@@ -24,6 +18,10 @@ class ShotgunAPI():
     Every command receives a data dictionary of the command sent from the client
     """
 
+    SHOTGUNINTEGRATIONAPI_MAJOR = 0
+    SHOTGUNINTEGRATIONAPI_MINOR = 1
+    SHOTGUNINTEGRATIONAPI_PATCH = 0
+
     """
     Public API
     Callable methods from client. Every one of these methods can be called from the client.
@@ -32,18 +30,16 @@ class ShotgunAPI():
                   "pickFileOrDirectory", "pickFilesOrDirectories", "version",
                   "getProjectActions"]
 
-    process_manager = None
-
-    def __init__(self, host):
+    def __init__(self, host, process_manager):
         """
         API Constructor.
         Keep initialization pretty fast as it is created on every message.
+
         :param host: Host interface to communicate with. Abstracts the client.
+        :param process_manager: Process Manager to use to interact with os processes.
         """
         self.host = host
-
-        if not self.process_manager:
-            ShotgunAPI.process_manager = ProcessManager.create()
+        self.process_manager = process_manager
 
     def _handle_toolkit_output(self, out, err, return_code):
         """
@@ -63,17 +59,14 @@ class ShotgunAPI():
 
     def open(self, data):
         """
-        Simple message echo
+        Open a file.
 
         :param data: Message data. ["filepath": String]
         """
 
         try:
             # Retrieve filepath
-            filepath = ''
-            if "filepath" in data:
-                filepath = data["filepath"]
-
+            filepath = data.get("filepath")
             result = self.process_manager.open(filepath)
 
             # Send back information regarding the success of the operation.
@@ -93,14 +86,19 @@ class ShotgunAPI():
 
         # Create reply object
         reply = {}
-        reply["message"] = data["message"]
+        reply["message"] = data.get("message")
 
         self.host.reply(reply)
 
     def executeToolkitCommand(self, data):
-        pipeline_config_path = data["pipelineConfigPath"]
-        command = data["command"]
-        args = data["args"]
+        """
+        Executes a toolkit command.
+
+        :param data: Message data {"pipelineConfigPath", "command", "args"}
+        """
+        pipeline_config_path = data.get("pipelineConfigPath")
+        command = data.get("command")
+        args = data.get("args")
 
         # Verify arguments
         if not args:
@@ -109,7 +107,6 @@ class ShotgunAPI():
         if not isinstance(args, list):
             message = "ExecuteToolkitCommand 'args' must be a list."
             self.host.report_error(message)
-            raise Exception(message)
 
         try:
             (out, err, returncode) = self.process_manager.execute_toolkit_command(pipeline_config_path, command, args)
@@ -126,9 +123,9 @@ class ShotgunAPI():
     def getProjectActions(self, data):
         """
         Get all actions from all environments for given project
-        :param data:
+        :param data: Message data {"pipelineConfigPaths"}
         """
-        pipeline_config_paths = data["pipelineConfigPaths"]
+        pipeline_config_paths = data.get("pipelineConfigPaths")
         actions = self.process_manager.get_project_actions(pipeline_config_paths)
 
         reply = {}
@@ -139,7 +136,7 @@ class ShotgunAPI():
     def pickFileOrDirectory(self, data):
         """
         Pick single file or directory
-        :param data:
+        :param data: Message data {} (no data expected)
         """
 
         files = self.process_manager.pick_file_or_directory(False)
@@ -148,16 +145,20 @@ class ShotgunAPI():
     def pickFilesOrDirectories(self, data):
         """
         Pick single file or directory
-        :param data:
+        :param data: Message data {} (no data expected)
         """
 
         files = self.process_manager.pick_file_or_directory(True)
         self.host.reply(files)
 
     def version(self, data=None):
+        """
+        Retrives the API version.
+        :param data: Message data {} (no data expected)
+        """
         reply = {}
-        reply["major"] = ShotgunIntegrationAPI_MAJOR
-        reply["minor"] = ShotgunIntegrationAPI_MINOR
-        reply["patch"] = ShotgunIntegrationAPI_PATCH
+        reply["major"] = ShotgunAPI.SHOTGUNINTEGRATIONAPI_MAJOR
+        reply["minor"] = ShotgunAPI.SHOTGUNINTEGRATIONAPI_MINOR
+        reply["patch"] = ShotgunAPI.SHOTGUNINTEGRATIONAPI_PATCH
 
         self.host.reply(reply)

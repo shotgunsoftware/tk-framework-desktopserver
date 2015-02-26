@@ -20,14 +20,14 @@ class ProcessManagerMac(ProcessManager):
     Mac OS Interface for Shotgun Commands.
     """
 
-    def platform_name(self):
-        return "mac"
+    platform_name ="mac"
 
     def open(self, filepath):
         """
         Opens a file with default os association or launcher found in environments. Not blocking.
 
         :param filepath: String file path (ex: "c:/file.mov")
+        :returns: Bool If the operation was successful
         """
         self._verify_file_open(filepath)
         launcher = self._get_launcher()
@@ -57,11 +57,11 @@ class ProcessManagerMac(ProcessManager):
 
         files = []
         if result == NSOKButton:
-            filesToOpen = panel.filenames()
-            for f in filesToOpen:
+            files_to_open = panel.filenames()
+            for f in files_to_open:
                 out = f
                 if os.path.isdir(f):
-                    out += "/"
+                    out += os.path.sep
 
                 files.append(out)
 
