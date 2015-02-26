@@ -62,11 +62,13 @@ if __name__ == '__main__':
     if debug:
         log.startLogging(sys.stdout)
 
-    server = Server()
-
-    # Serve test pages
     local_server = debug
     keys_folder = "../resources/keys"
+
+    server = Server()
+    server.start(debug, keys_folder)
+
+    # Serve test pages
     if local_server:
         # Serve client folder
         keys_dir = File(keys_folder)
@@ -74,10 +76,8 @@ if __name__ == '__main__':
         web_dir.putChild("keys", keys_dir)
         web_dir.contentTypes[".crt"] = "application/x-x509-ca-cert"
         web = Site(web_dir)
-        #reactor.listenSSL(8080, web, server.contextFactory)        # For serving https..
+        #reactor.listenSSL(8080, web, server.context_factory)        # For serving https..
         reactor.listenTCP(8080, web)
-
-    server.start(debug, keys_folder)
 
     # Keep application alive
     reactor.run()
