@@ -87,6 +87,35 @@ class ProcessManager(object):
         if not os.path.isfile(exec_script):
             raise Exception("Could not find the Toolkit command on disk: " + exec_script)
 
+    def _call_cmd(args):
+        # Note: Tie stdin to a PIPE as well to avoid this python bug on windows
+        # http://bugs.python.org/issue3905
+        try:
+            process = subprocess.Popen(args,
+                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            process.stdin.close()
+
+            # Popen.communicate() doesn't play nicely if the stdin pipe is closed
+            # as it tries to flush it causing an 'I/O error on closed file' error
+            # when run from a terminal
+            #
+            # to avoid this, lets just poll the output from the process until
+            # it's finished
+            output_lines = []
+            while True:
+                line = process.stdout.readline()
+                if not line:
+                    break
+                output_lines.append(line)
+            ret = process.poll()
+        except StandardError:
+            import traceback
+            ret = True
+            output_lines = traceback.format_exc().split()
+            output_lines.append("%s" % args)
+
+        return ret, output_lines
+
     def _launch_process(self, args, message_error="Error executing command."):
         """
         Standard way of starting a process and handling errors.
