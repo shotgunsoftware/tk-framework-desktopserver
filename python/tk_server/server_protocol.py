@@ -14,6 +14,7 @@ import re
 import datetime
 from urlparse import urlparse
 import OpenSSL
+import logging
 
 from shotgun_api import ShotgunAPI
 from message_host import MessageHost
@@ -37,6 +38,7 @@ class ServerProtocol(WebSocketServerProtocol):
 
     def __init__(self):
         self.process_manager = ProcessManager.create()
+        self._logger = logging.getLogger("tk-desktop.preferences")
 
     def onClose(self, wasClean, code, reason):
         pass
@@ -88,7 +90,7 @@ class ServerProtocol(WebSocketServerProtocol):
             domain_valid = self._is_domain_valid(origin_str)
         except Exception, e:
             # Otherwise errors get swallowed by outer blocks
-            print "Domain validation failed: ", e.message
+            self._logger.warning("Domain validation failed: " + e.message)
 
         if not domain_valid:
             # Don't accept connection
@@ -175,7 +177,7 @@ class ServerProtocol(WebSocketServerProtocol):
         error["error_message"] = message
 
         # Log error to console
-        print "Error in reply: " + message
+        self._logger.warning("Error in reply: " + message)
 
         self.json_reply(error)
 
