@@ -9,7 +9,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import os
-import subprocess
+from threading import Timer
 
 from Cocoa import NSOpenPanel, NSOKButton, NSRunningApplication, NSApplicationActivateIgnoringOtherApps
 
@@ -20,7 +20,21 @@ class ProcessManagerMac(ProcessManager):
     Mac OS Interface for Shotgun Commands.
     """
 
-    platform_name ="mac"
+    platform_name = "mac"
+
+    def _bring_panel_to_front(self, panel):
+        """
+        Brings given panel to front of all windows.
+        Used to bring a dialog to the user's attention.
+
+        :param panel: Panel to bring to front
+        """
+
+        # Brings the application to the front
+        NSRunningApplication.currentApplication().activateWithOptions_(NSApplicationActivateIgnoringOtherApps)
+
+        # Brings the panel to the front
+        panel.orderFrontRegardless()
 
     def open(self, filepath):
         """
@@ -46,12 +60,15 @@ class ProcessManagerMac(ProcessManager):
         """
         panel = NSOpenPanel.openPanel()
 
-        NSRunningApplication.currentApplication().activateWithOptions_(NSApplicationActivateIgnoringOtherApps)
-
         panel.setAllowsMultipleSelection_(multi)
         panel.setCanChooseFiles_(True)
         panel.setCanChooseDirectories_(True)
         panel.setResolvesAliases_(False)
+
+        # Needs to bring the panel to the front after it has been drawn, otherwise getting an error regarding
+        # operation can not happen while updating cell rows.
+        timer = Timer(0.1, self._bring_panel_to_front, panel)
+        timer.start()
 
         result = panel.runModal()
 
