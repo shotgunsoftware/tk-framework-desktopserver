@@ -10,8 +10,8 @@
 
 import sys
 import os
-import subprocess
 import glob
+from command import Command
 
 try:
     from sgtk.platform.qt import PySide
@@ -20,6 +20,7 @@ except:
 
 from PySide import QtGui
 from sgtk_file_dialog import SgtkFileDialog
+
 
 class ProcessManager(object):
     """
@@ -87,48 +88,15 @@ class ProcessManager(object):
         if not os.path.isfile(exec_script):
             raise Exception("Could not find the Toolkit command on disk: " + exec_script)
 
-    def _call_cmd(args):
-        # Note: Tie stdin to a PIPE as well to avoid this python bug on windows
-        # http://bugs.python.org/issue3905
-        try:
-            process = subprocess.Popen(args,
-                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            process.stdin.close()
-
-            # Popen.communicate() doesn't play nicely if the stdin pipe is closed
-            # as it tries to flush it causing an 'I/O error on closed file' error
-            # when run from a terminal
-            #
-            # to avoid this, lets just poll the output from the process until
-            # it's finished
-            output_lines = []
-            while True:
-                line = process.stdout.readline()
-                if not line:
-                    break
-                output_lines.append(line)
-            ret = process.poll()
-        except StandardError:
-            import traceback
-            ret = True
-            output_lines = traceback.format_exc().split()
-            output_lines.append("%s" % args)
-
-        return ret, output_lines
-
     def _launch_process(self, args, message_error="Error executing command."):
         """
         Standard way of starting a process and handling errors.
 
-        Note: Using Popen instead of call for asynchronous behavior
         :params args: List of elements to pass Popen.
         :params message_error: String to prefix error message in case of an error.
         :returns: Bool If the operation was successful
         """
-
-        child = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = child.communicate()
-        return_code = child.returncode
+        return_code, out, err = Command.call_cmd(args)
         has_error = return_code != 0
 
         if has_error:
@@ -169,10 +137,9 @@ class ProcessManager(object):
             #
             # Launch script
             exec_command = [exec_script] + script_args
-            sp = subprocess.Popen(exec_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = sp.communicate()
+            return_code, out, err = Command.call_cmd(exec_command)
 
-            return (out, err, sp.returncode)
+            return (out, err, return_code)
         except Exception, e:
             raise Exception("Error executing toolkit command: " + e.message)
 
