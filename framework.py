@@ -9,6 +9,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sgtk
+import os
 
 class DesktopserverFramework(sgtk.platform.Framework):
 
@@ -20,3 +21,15 @@ class DesktopserverFramework(sgtk.platform.Framework):
 
     def destroy_framework(self):
         self.log_debug("%s: Destroying..." % self)
+
+    def start_server(self, debug=False, start_reactor=True):
+        """
+        Start shotgun web server, listening to websocket connections.
+
+        :param debug: Boolean Show debug output. Will also Start local web server to test client pages.
+        :param start_reactor: Boolean Start threaded reactor
+        """
+        tk_server = self.import_module("tk_server")
+        key_path = os.path.join(os.path.dirname(tk_server.__file__), "../../resources/keys")
+        server = tk_server.Server()
+        server.start(debug, key_path, start_reactor)
