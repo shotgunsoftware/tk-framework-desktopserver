@@ -49,7 +49,7 @@ class ProcessManagerMac(ProcessManager):
         if launcher is None:
             launcher = "open"
 
-        return self._launch_process([launcher, filepath], "Could not open file.")
+        return self._launch_process(launcher, filepath, "Could not open file.")
 
     def pick_file_or_directory(self, multi=False):
         """

@@ -18,6 +18,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
 
     def init_framework(self):
         self.log_debug("%s: Initializing..." % self)
+        self.server = None
 
     def destroy_framework(self):
         self.log_debug("%s: Destroying..." % self)
@@ -31,5 +32,9 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         tk_server = self.import_module("tk_server")
         key_path = os.path.join(os.path.dirname(tk_server.__file__), "../../resources/keys")
-        server = tk_server.Server()
-        server.start(debug, key_path, start_reactor)
+        self.server = tk_server.Server()
+        self.server.start(debug, key_path, start_reactor)
+
+    def stop_server(self):
+        if self.server:
+            self.server.stop()

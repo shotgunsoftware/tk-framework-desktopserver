@@ -40,6 +40,6 @@ class ProcessManagerWin(ProcessManager):
             # Note: startfile is always async. As per docs, there is no way to retrieve exit code.
             os.startfile(filepath)
         else:
-            result = self._launch_process([launcher, filepath], "Could not open file.")
+            result = self._launch_process(launcher, filepath, "Could not open file.")
 
         return result
