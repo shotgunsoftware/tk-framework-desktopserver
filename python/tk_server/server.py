@@ -88,3 +88,6 @@ class Server:
 
             t = threading.Thread(target=start)
             t.start()
+
+    def stop(self):
+        reactor.callFromThread(reactor.stop)

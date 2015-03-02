@@ -33,4 +33,4 @@ class ProcessManagerLinux(ProcessManager):
         if launcher is None:
             launcher = "xdg-open"
 
-        return self._launch_process([launcher, filepath], "Could not open file.")
+        return self._launch_process(launcher, filepath, "Could not open file.")

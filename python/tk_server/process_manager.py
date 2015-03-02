@@ -88,14 +88,16 @@ class ProcessManager(object):
         if not os.path.isfile(exec_script):
             raise Exception("Could not find the Toolkit command on disk: " + exec_script)
 
-    def _launch_process(self, args, message_error="Error executing command."):
+    def _launch_process(self, launcher, filepath, message_error="Error executing command."):
         """
         Standard way of starting a process and handling errors.
 
-        :params args: List of elements to pass Popen.
+        :params launcher: Path of executable
+        :params filepath: File to pass as executable argument.
         :params message_error: String to prefix error message in case of an error.
         :returns: Bool If the operation was successful
         """
+        args = [launcher, filepath]
         return_code, out, err = Command.call_cmd(args)
         has_error = return_code != 0
 
@@ -154,6 +156,15 @@ class ProcessManager(object):
     def get_project_actions(self, pipeline_config_paths):
         """
         Get all actions for all environments from project path
+
+        Overly complicated way of keeping track of toolkit's get/cache action command.
+        Currently creates a dictionary to keep track of all output (error code, stderr/stdout) from toolkit command.
+
+        This code was previously part of the shotgun client and is therefore made to match the exact same behavior
+        as a starting point, in order to always output the same error messages.
+
+        It can (and should) be simplified to only output a single error (if any), at the end of all commands,
+        without any return code or convoluted stderr/stdout embedded dictionaries.
 
         :param pipeline_config_paths: [String] Pipeline configuration paths
         """
