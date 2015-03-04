@@ -13,6 +13,20 @@ from threading  import Thread
 from Queue import Queue, Empty
 
 
+class ReadThread(Thread):
+    def __init__(self, p_out, target_queue):
+        Thread.__init__(self)
+        self.pipe = p_out
+        self.target_queue = target_queue
+
+    def run(self):
+        while True:
+            line = self.pipe.readline()         # blocking read
+            if line == '':
+                break
+            self.target_queue.put(line)
+
+
 class Command(object):
 
     @staticmethod
@@ -32,14 +46,15 @@ class Command(object):
             process.stdin.close()
 
             stdout_q = Queue()
-            stdout_thread = Thread(target=Command._enqueue_output, args=(process.stdout, stdout_q))
-            stdout_thread.daemon = True # thread dies with the program
-            stdout_thread.start()
-
             stderr_q = Queue()
-            stderr_thread = Thread(target=Command._enqueue_output, args=(process.stderr, stderr_q))
-            stderr_thread.daemon = True # thread dies with the program
-            stderr_thread.start()
+
+            stdout_t = ReadThread(process.stdout, stdout_q)
+            stdout_t.setDaemon(True)
+            stdout_t.start()
+
+            stderr_t = ReadThread(process.stderr, stderr_q)
+            stderr_t.setDaemon(True)
+            stderr_t.start()
 
             # Popen.communicate() doesn't play nicely if the stdin pipe is closed
             # as it tries to flush it causing an 'I/O error on closed file' error
@@ -49,32 +64,27 @@ class Command(object):
             # it's finished
             stdout_lines = []
             stderr_lines = []
-            while stdout_thread.isAlive() and stderr_thread.isAlive():
-                # read line without blocking
-                try:
-                    stdout_line = stdout_q.get_nowait()
-                except Empty:
-                    # no output yet
-                    pass
-                else:
-                    # got line
-                    stdout_lines.append(stdout_line)
+            process.wait()
 
-                # read line without blocking
-                try:
-                    stderr_line = stderr_q.get_nowait()
-                except Empty:
-                    # no output yet
-                    pass
-                else:
-                    # got line
-                    stderr_lines.append(stderr_line)
+            process.stdout.flush()
+            process.stderr.flush()
+            stdout_t.join()
+            stderr_t.join()
 
-            ret = process.poll()
+            while not stdout_q.empty():
+                stdout_lines.append(stdout_q.get())
+
+            while not stderr_q.empty():
+                stderr_lines.append(stderr_q.get())
+
         except StandardError:
             import traceback
-            ret = True
+            ret = 1
             stderr_lines = traceback.format_exc().split()
             stderr_lines.append("%s" % args)
 
-        return ret, '\n'.join(stdout_lines), '\n'.join(stderr_lines)
+        out = ''.join(stdout_lines)
+        err = ''.join(stderr_lines)
+        ret = process.returncode
+
+        return ret, out, err
