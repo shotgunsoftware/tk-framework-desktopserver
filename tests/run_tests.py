@@ -86,7 +86,7 @@ if __name__ == "__main__":
         test_name = args[0]
 
     test_runner = TestRunner()
-    result = test_runner.run(test_name, options.verbose)
+    result = test_runner.run_tests(test_name, options.verbose)
 
     # Exit value determined by failures and errors
     exit_val = 0
