@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO)
 # prepend tank_vendor location to PYTHONPATH to make sure we are running
 # the tests against the vendor libs, not local libs on the machine
 python_path = os.path.abspath(os.path.join( os.path.dirname(__file__), "..", "python"))
-print "Adding tank location to python_path: %s" % python_path
+print "Adding desktop server location to python_path: %s" % python_path
 sys.path = [python_path] + sys.path
 
 # prepend tank_vendor location to PYTHONPATH to make sure we are running

@@ -11,7 +11,6 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sys
-import os
 
 if __name__ == '__main__':
     """
@@ -43,26 +42,31 @@ if __name__ == '__main__':
                  or: codesign --force --deep --sign - /Applications/Shotgun.app (doesn't seem to work with bundle)
             to verify: codesign -vvv /Applications/Shotgun.app
     """
-    sys.path.append("../")
+    sys.path.append("../python")
 
-    from python.tk_server import Server
+    from tk_server import Server
 
-    from twisted.internet import reactor, ssl
+    from twisted.internet import reactor
     from twisted.web.static import File
     from twisted.web.server import Site
     from twisted.python import log
 
-
-    # Get debug info
-    if len(sys.argv) > 1 and sys.argv[1] == "debug":
+    # Should we run in debug mode?
+    if "debug" in sys.argv:
         debug = True
     else:
         debug = False
 
+    # should we launch a local server, which will launch a local server on port 8080 that
+    # emulates calls to the Desktop API?
+    if "localserver" in sys.argv:
+        local_server = True
+    else:
+        local_server = False
+
     if debug:
         log.startLogging(sys.stdout)
 
-    local_server = debug
     keys_folder = "../resources/keys"
 
     server = Server()
@@ -76,7 +80,6 @@ if __name__ == '__main__':
         web_dir.putChild("keys", keys_dir)
         web_dir.contentTypes[".crt"] = "application/x-x509-ca-cert"
         web = Site(web_dir)
-        #reactor.listenSSL(8080, web, server.context_factory)        # For serving https..
         reactor.listenTCP(8080, web)
 
     # Keep application alive

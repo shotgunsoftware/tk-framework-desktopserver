@@ -34,7 +34,7 @@ class ServerProtocol(WebSocketServerProtocol):
     _DEFAULT_DOMAIN_RESTRICTION = "*.shotgunstudio.com,localhost"
 
     # Server protocol version
-    _PROTOCOL_VERSION = 1
+    PROTOCOL_VERSION = 1
 
     def __init__(self):
         self.process_manager = ProcessManager.create()
@@ -115,7 +115,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # message format as it doesn't require a protocol version to be retrieved and is not json-encoded.
         if decoded_payload == "get_protocol_version":
             data = {}
-            data["protocol_version"] = self._PROTOCOL_VERSION
+            data["protocol_version"] = self.PROTOCOL_VERSION
             self.json_reply(data)
             return
 
@@ -129,8 +129,8 @@ class ServerProtocol(WebSocketServerProtocol):
         message_host = MessageHost(self, message)
 
         # Check protocol version
-        if message["protocol_version"] != self._PROTOCOL_VERSION:
-            message_host.report_error("Error. Wrong protocol version [%s] " % self._PROTOCOL_VERSION)
+        if message["protocol_version"] != self.PROTOCOL_VERSION:
+            message_host.report_error("Error. Wrong protocol version [%s] " % self.PROTOCOL_VERSION)
             return
 
         # Retrieve command from message
