@@ -18,9 +18,9 @@ class ShotgunAPI():
     Every command receives a data dictionary of the command sent from the client
     """
 
-    SHOTGUNINTEGRATIONAPI_MAJOR = 0
-    SHOTGUNINTEGRATIONAPI_MINOR = 1
-    SHOTGUNINTEGRATIONAPI_PATCH = 0
+    SHOTGUN_INTEGRATION_API_MAJOR = 0
+    SHOTGUN_INTEGRATION_API_MINOR = 1
+    SHOTGUN_INTEGRATION_API_PATCH = 0
 
     """
     Public API
@@ -144,7 +144,7 @@ class ShotgunAPI():
 
     def pickFilesOrDirectories(self, data):
         """
-        Pick single file or directory
+        Pick multiple files or directory.
         :param data: Message data {} (no data expected)
         """
 
@@ -157,8 +157,8 @@ class ShotgunAPI():
         :param data: Message data {} (no data expected)
         """
         reply = {}
-        reply["major"] = ShotgunAPI.SHOTGUNINTEGRATIONAPI_MAJOR
-        reply["minor"] = ShotgunAPI.SHOTGUNINTEGRATIONAPI_MINOR
-        reply["patch"] = ShotgunAPI.SHOTGUNINTEGRATIONAPI_PATCH
+        reply["major"] = ShotgunAPI.SHOTGUN_INTEGRATION_API_MAJOR
+        reply["minor"] = ShotgunAPI.SHOTGUN_INTEGRATION_API_MINOR
+        reply["patch"] = ShotgunAPI.SHOTGUN_INTEGRATION_API_PATCH
 
         self.host.reply(reply)

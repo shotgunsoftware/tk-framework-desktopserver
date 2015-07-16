@@ -11,10 +11,9 @@
 try:
     from sgtk.platform.qt import PySide
 except:
-    pass
+    import PySide
 
-import PySide
-from PySide import QtGui
+QtGui, QtCore = PySide.QtGui, PySide.QtCore
 
 
 class SgtkFileDialog(QtGui.QFileDialog):
@@ -49,6 +48,16 @@ class SgtkFileDialog(QtGui.QFileDialog):
         treeview = self.findChild(PySide.QtGui.QTreeView)
         if treeview:
             treeview.setSelectionMode(selection_mode)
+
+    def exec_(self):
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
+        # the trick of activating + raising does not seem to be enough for
+        # modal dialogs. So force put them on top as well.
+        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint | self.windowFlags())
+        return QtGui.QDialog.exec_(self)
 
     def accept(self, *args, **kwargs):
         """

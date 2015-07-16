@@ -9,11 +9,12 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import os
-from threading import Timer
+# from threading import Timer
 
 from Cocoa import NSOpenPanel, NSOKButton, NSRunningApplication, NSApplicationActivateIgnoringOtherApps
 
 from process_manager import ProcessManager
+
 
 class ProcessManagerMac(ProcessManager):
     """
@@ -67,9 +68,10 @@ class ProcessManagerMac(ProcessManager):
 
         # Needs to bring the panel to the front after it has been drawn, otherwise getting an error regarding
         # operation can not happen while updating cell rows.
-        timer = Timer(0.1, self._bring_panel_to_front, panel)
-        timer.start()
-
+        # FIXME: Calling this in the background thread causes corruption, it should be called from the main thread, but
+        # calling it in the main thread doens't to work either according to Mathieu, we'll have to sort this out.
+        # timer = Timer(0.1, self._bring_panel_to_front, [panel])
+        # timer.start()
         result = panel.runModal()
 
         files = []
