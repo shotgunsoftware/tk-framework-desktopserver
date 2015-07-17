@@ -16,7 +16,7 @@ from urlparse import urlparse
 import OpenSSL
 import logging
 
-from shotgun_api import ShotgunAPI
+import shotgun_api
 from message_host import MessageHost
 from status_server_protocol import StatusServerProtocol
 from process_manager import ProcessManager
@@ -145,7 +145,8 @@ class ServerProtocol(WebSocketServerProtocol):
 
         # Create API for this message
         try:
-            shotgun = ShotgunAPI(message_host, self.process_manager)
+            # Do not resolve to simply ShotgunAPI in the imports, this allows tests to mock errors
+            shotgun = shotgun_api.ShotgunAPI(message_host, self.process_manager)
         except Exception, e:
             message_host.report_error("Error in loading ShotgunAPI. " + e.message)
             return

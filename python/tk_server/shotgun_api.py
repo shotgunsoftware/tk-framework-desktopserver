@@ -18,9 +18,9 @@ class ShotgunAPI():
     Every command receives a data dictionary of the command sent from the client
     """
 
-    SHOTGUN_INTEGRATION_API_MAJOR = 0
-    SHOTGUN_INTEGRATION_API_MINOR = 1
-    SHOTGUN_INTEGRATION_API_PATCH = 0
+    _SHOTGUN_INTEGRATION_API_MAJOR = 0
+    _SHOTGUN_INTEGRATION_API_MINOR = 1
+    _SHOTGUN_INTEGRATION_API_PATCH = 0
 
     """
     Public API
@@ -157,8 +157,8 @@ class ShotgunAPI():
         :param data: Message data {} (no data expected)
         """
         reply = {}
-        reply["major"] = ShotgunAPI.SHOTGUN_INTEGRATION_API_MAJOR
-        reply["minor"] = ShotgunAPI.SHOTGUN_INTEGRATION_API_MINOR
-        reply["patch"] = ShotgunAPI.SHOTGUN_INTEGRATION_API_PATCH
+        reply["major"] = self._SHOTGUN_INTEGRATION_API_MAJOR
+        reply["minor"] = self._SHOTGUN_INTEGRATION_API_MINOR
+        reply["patch"] = self._SHOTGUN_INTEGRATION_API_PATCH
 
         self.host.reply(reply)

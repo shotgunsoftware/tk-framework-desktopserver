@@ -12,6 +12,7 @@
 
 import sys
 import optparse
+import itertools
 
 if __name__ == '__main__':
     """
@@ -46,6 +47,7 @@ if __name__ == '__main__':
     sys.path.append("../python")
 
     from tk_server import Server
+    from tk_server import shotgun_api
 
     from twisted.internet import reactor
     from twisted.web.static import File
@@ -61,8 +63,37 @@ if __name__ == '__main__':
         "--local-server", action="store_true", default=False,
         help="also runs the local server on port 8080 to mock calls from the browser."
     )
+    parser.add_option(
+        "--fake-errors-on", action="append", default=[],
+        help="list of server calls to fake an error on"
+    )
 
     options, _ = parser.parse_args()
+
+    # Make a local copy of the handle because we are about to overwrite it.
+    ShotgunAPI = shotgun_api.ShotgunAPI
+
+    class ShotgunAPIProxy(object):
+        def __init__(self, *args, **kwargs):
+            self._shotgun_api = ShotgunAPI(*args, **kwargs)
+
+        def __getattr__(self, name):
+            if name in options.fake_errors_on:
+                raise Exception("Fake error on '%s'." % name)
+            else:
+                return getattr(self._shotgun_api, name)
+
+    shotgun_api.ShotgunAPI = ShotgunAPIProxy
+
+    # tokenize the strings assigned to each --fake-errors-on to split them by commas so that we
+    # can use comma separated strings for levels. Then chain all of these array together and
+    # return them into a list so they can be easily used.
+    options.fake_errors_on = list(itertools.chain(
+        *[error_list.split(",") for error_list in options.fake_errors_on]
+    ))
+
+    if options.fake_errors_on:
+        print "Faking errors on %s" % ", ".join(options.fake_errors_on)
 
     if options.debug:
         log.startLogging(sys.stdout)
