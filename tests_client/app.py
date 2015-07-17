@@ -11,6 +11,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sys
+import optparse
 
 if __name__ == '__main__':
     """
@@ -51,29 +52,28 @@ if __name__ == '__main__':
     from twisted.web.server import Site
     from twisted.python import log
 
-    # Should we run in debug mode?
-    if "debug" in sys.argv:
-        debug = True
-    else:
-        debug = False
+    parser = optparse.OptionParser()
+    parser.add_option(
+        "--debug", action="store_true", default=False,
+        help="prints debugging message from the server on the console"
+    )
+    parser.add_option(
+        "--local-server", action="store_true", default=False,
+        help="also runs the local server on port 8080 to mock calls from the browser."
+    )
 
-    # should we launch a local server, which will launch a local server on port 8080 that
-    # emulates calls to the Desktop API?
-    if "localserver" in sys.argv:
-        local_server = True
-    else:
-        local_server = False
+    options, _ = parser.parse_args()
 
-    if debug:
+    if options.debug:
         log.startLogging(sys.stdout)
 
     keys_folder = "../resources/keys"
 
     server = Server()
-    server.start(debug, keys_folder)
+    server.start(options.debug, keys_folder)
 
     # Serve test pages
-    if local_server:
+    if options.local_server:
         # Serve client folder
         keys_dir = File(keys_folder)
         web_dir = File("./client")

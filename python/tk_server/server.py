@@ -20,6 +20,7 @@ from twisted.python import log
 
 from autobahn.twisted.websocket import WebSocketServerFactory, listenWS
 
+
 class Server:
     _DEFAULT_PORT = 9000
     _DEFAULT_PORT_STATUS = 9001
@@ -39,7 +40,7 @@ class Server:
 
         factory.protocol = StatusServerProtocol
         factory.setProtocolOptions(allowHixie76=True, echoCloseCodeReason=True)
-        listener = listenWS(factory)
+        self._listener = listenWS(factory)
 
     def _start_server(self, debug=False, keys_path="resources/keys"):
         """
