@@ -205,7 +205,6 @@ class ProcessManager(object):
 
         return project_actions
 
-
     def pick_file_or_directory(self, multi=False):
         """
         Pop-up a file selection window.
@@ -247,11 +246,12 @@ class ProcessManager(object):
 
         if sys.platform == "darwin":
             from process_manager_mac import ProcessManagerMac
-
             return ProcessManagerMac()
-        elif os.name == "win32":
+        elif sys.platform == "win32":
             from process_manager_win import ProcessManagerWin
             return ProcessManagerWin()
         elif sys.platform.startswith("linux"):
             from process_manager_linux import ProcessManagerLinux
             return ProcessManagerLinux()
+        else:
+            raise RuntimeError("Unsupported platform: %s" % sys.platform)
