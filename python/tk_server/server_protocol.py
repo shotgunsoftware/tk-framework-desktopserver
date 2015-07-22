@@ -58,6 +58,7 @@ class ServerProtocol(WebSocketServerProtocol):
             certificate_error |= bool(reason.check(error.CertificateError))
 
             if certificate_error:
+                print "Invalid certificate!"
                 StatusServerProtocol.serverStatus = StatusServerProtocol.SSL_CERTIFICATE_INVALID
             else:
                 StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
