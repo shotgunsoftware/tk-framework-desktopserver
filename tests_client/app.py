@@ -14,6 +14,21 @@ import sys
 import optparse
 import itertools
 
+
+def _tokenize_args(args):
+    """
+    Tokenize the strings assigned to each argument to split them by commas so that we
+    can use comma separated strings for arguments.
+
+    :param args: Array of strings of each command line argument
+
+    :returns: A flat list of individual strings, without commas.
+    """
+    return list(itertools.chain(
+        *[arg.split(",") for arg in args]
+    ))
+
+
 if __name__ == '__main__':
     """
     Simple application for client/server development and testing.
@@ -64,11 +79,24 @@ if __name__ == '__main__':
         help="also runs the local server on port 8080 to mock calls from the browser."
     )
     parser.add_option(
-        "--fake-errors-on", action="append", default=[],
+        "--fake-errors", action="append", default=[],
         help="list of server calls to fake an error on"
+    )
+    parser.add_option(
+        "--block", action="append", default=[],
+        help="list of server calls that will block until ENTER is pressed."
     )
 
     options, _ = parser.parse_args()
+
+    options.fake_errors = _tokenize_args(options.fake_errors)
+    options.block = _tokenize_args(options.block)
+
+    if options.fake_errors:
+        print "Faking errors for %s" % ", ".join(options.fake_errors)
+
+    if options.block:
+        print "Blocking calls for %s" % ", ".join(options.block)
 
     # Make a local copy of the handle because we are about to overwrite it.
     ShotgunAPI = shotgun_api.ShotgunAPI
@@ -78,22 +106,14 @@ if __name__ == '__main__':
             self._shotgun_api = ShotgunAPI(*args, **kwargs)
 
         def __getattr__(self, name):
-            if name in options.fake_errors_on:
-                raise Exception("Fake error on '%s'." % name)
-            else:
-                return getattr(self._shotgun_api, name)
+            if name in options.fake_errors:
+                raise Exception("Fake error for '%s'." % name)
+            elif name in options.block:
+                raw_input("Blocking %s. Press ENTER to unblock." % name)
+                print "Unblocked"
+            return getattr(self._shotgun_api, name)
 
     shotgun_api.ShotgunAPI = ShotgunAPIProxy
-
-    # tokenize the strings assigned to each --fake-errors-on to split them by commas so that we
-    # can use comma separated strings for levels. Then chain all of these array together and
-    # return them into a list so they can be easily used.
-    options.fake_errors_on = list(itertools.chain(
-        *[error_list.split(",") for error_list in options.fake_errors_on]
-    ))
-
-    if options.fake_errors_on:
-        print "Faking errors on %s" % ", ".join(options.fake_errors_on)
 
     if options.debug:
         log.startLogging(sys.stdout)
