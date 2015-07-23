@@ -22,6 +22,10 @@ from PySide import QtGui
 from sgtk_file_dialog import SgtkFileDialog
 
 
+class ExecuteTankCommandError(Exception):
+    pass
+
+
 class ProcessManager(object):
     """
     OS Interface for Shotgun Commands.
@@ -69,24 +73,19 @@ class ProcessManager(object):
 
         return exec_script
 
-    def _verify_toolkit_arguments(self, pipeline_config_path, command):
+    def _verify_pipeline_configuration(self, pipeline_config_path):
         """
-        Verify that the arguments provided to the toolkit command are valid.
+        Verify that the pipeline configuration provided to is valid.
 
         :param pipeline_config_path: String Pipeline configuration path
-        :param command: Toolkit command to run
-        :raises: Exception On invalid toolkit command arguments.
+        :raises: Exception On invalid toolkit pipeline configuration.
         """
-
-        if not command.startswith("shotgun"):
-            raise Exception("ExecuteTankCommand error. Command needs to be a shotgun command [{command}]".format(command=command))
-
         if not os.path.isdir(pipeline_config_path):
-            raise Exception("Could not find the Pipeline Configuration on disk: " + pipeline_config_path)
+            raise ExecuteTankCommandError("Could not find the Pipeline Configuration on disk: " + pipeline_config_path)
 
         exec_script = self._get_full_toolkit_path(pipeline_config_path)
         if not os.path.isfile(exec_script):
-            raise Exception("Could not find the Toolkit command on disk: " + exec_script)
+            raise ExecuteTankCommandError("Could not find the Toolkit command on disk: " + exec_script)
 
     def _launch_process(self, launcher, filepath, message_error="Error executing command."):
         """
@@ -125,10 +124,12 @@ class ProcessManager(object):
         :param args: List Script arguments
         :returns: (stdout, stderr, returncode) Returns standard process output
         """
+        self._verify_pipeline_configuration(pipeline_config_path)
+
+        if not command.startswith("shotgun"):
+            raise ExecuteTankCommandError("ExecuteTankCommand error. Command needs to be a shotgun command [{command}]".format(command=command))
 
         try:
-            self._verify_toolkit_arguments(pipeline_config_path, command)
-
             #
             # Get toolkit Script Path
             exec_script = self._get_full_toolkit_path(pipeline_config_path)
@@ -171,37 +172,52 @@ class ProcessManager(object):
 
         project_actions = {}
         for pipeline_config_path in pipeline_config_paths:
-            env_path = os.path.join(pipeline_config_path, "config", "env")
-            env_glob = os.path.join(env_path, "shotgun_*.yml")
-            env_files = glob.glob(env_glob)
 
-            project_actions[pipeline_config_path] = {}
+            try:
+                self._verify_pipeline_configuration(pipeline_config_path)
+                env_path = os.path.join(pipeline_config_path, "config", "env")
+                env_glob = os.path.join(env_path, "shotgun_*.yml")
+                env_files = glob.glob(env_glob)
 
-            for env_filepath in env_files:
-                env_filename = os.path.basename(env_filepath)
-                entity = os.path.splitext(env_filename.replace("shotgun_", ""))[0]
-                cache_filename = "shotgun_" + self.platform_name + "_" + entity + ".txt"
+                project_actions[pipeline_config_path] = {}
 
-                # Need to store where actions have occurred in order to give proper error message to client
-                # This could be made much better in the future by creating the actual final actions from here instead.
-                project_actions[pipeline_config_path][env_filename] = {"get": {}, "cache": {}}
+                for env_filepath in env_files:
+                    env_filename = os.path.basename(env_filepath)
+                    entity = os.path.splitext(env_filename.replace("shotgun_", ""))[0]
+                    cache_filename = "shotgun_" + self.platform_name + "_" + entity + ".txt"
 
-                (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
-                                                                "shotgun_get_actions",
-                                                                [cache_filename, env_filename])
-                self._add_action_output(project_actions[pipeline_config_path][env_filename]['get'], out, err, code)
+                    # Need to store where actions have occurred in order to give proper error message to client
+                    # This could be made much better in the future by creating the actual final actions from here instead.
+                    project_actions[pipeline_config_path][env_filename] = {"get": {}, "cache": {}}
 
-                if code == 1:
                     (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
-                                                                    "shotgun_cache_actions",
-                                                                    [entity, cache_filename])
-                    self._add_action_output(project_actions[pipeline_config_path][env_filename]['cache'], out, err, code)
+                                                                    "shotgun_get_actions",
+                                                                    [cache_filename, env_filename])
+                    self._add_action_output(project_actions[pipeline_config_path][env_filename]['get'], out, err, code)
 
-                    if code == 0:
+                    if code == 1:
                         (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
-                                                                        "shotgun_get_actions",
-                                                                        [cache_filename, env_filename])
-                        self._add_action_output(project_actions[pipeline_config_path][env_filename]['get'], out, err, code)
+                                                                        "shotgun_cache_actions",
+                                                                        [entity, cache_filename])
+                        self._add_action_output(project_actions[pipeline_config_path][env_filename]['cache'], out, err, code)
+
+                        if code == 0:
+                            (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
+                                                                            "shotgun_get_actions",
+                                                                            [cache_filename, env_filename])
+                            self._add_action_output(project_actions[pipeline_config_path][env_filename]['get'], out, err, code)
+            except ExecuteTankCommandError, e:
+                # Something is wrong with the pipeline configuration,
+                # Clear any temporary result we might have accumulated for that pipeline
+                # contiguration.
+                project_actions[pipeline_config_path] = {}
+                # Report the error that just happened.
+                project_actions[pipeline_config_path]["error"] = True
+                project_actions[pipeline_config_path]["error_message"] = str(e)
+                # Move on to the next pipeline configuration.
+                continue
+                # We'll keep track of errors in pipeline configurations locally so that
+                # errors can be tracked on a per pipeline basis, just like before.
 
         return project_actions
 
