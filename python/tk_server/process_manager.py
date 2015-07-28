@@ -180,6 +180,8 @@ class ProcessManager(object):
                 env_files = glob.glob(env_glob)
 
                 project_actions[pipeline_config_path] = {}
+                shotgun_get_actions_dict = project_actions[pipeline_config_path]["shotgun_get_actions"] = {}
+                shotgun_cache_actions_dict = project_actions[pipeline_config_path]["shotgun_cache_actions"] = {}
 
                 for env_filepath in env_files:
                     env_filename = os.path.basename(env_filepath)
@@ -188,24 +190,25 @@ class ProcessManager(object):
 
                     # Need to store where actions have occurred in order to give proper error message to client
                     # This could be made much better in the future by creating the actual final actions from here instead.
-                    project_actions[pipeline_config_path][env_filename] = {"get": {}, "cache": {}}
+                    shotgun_get_actions_dict[env_filename] = {}
+                    shotgun_cache_actions_dict[cache_filename] = {}
 
                     (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
                                                                     "shotgun_get_actions",
                                                                     [cache_filename, env_filename])
-                    self._add_action_output(project_actions[pipeline_config_path][env_filename]['get'], out, err, code)
+                    self._add_action_output(shotgun_get_actions_dict[env_filename], out, err, code)
 
                     if code == 1:
                         (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
                                                                         "shotgun_cache_actions",
                                                                         [entity, cache_filename])
-                        self._add_action_output(project_actions[pipeline_config_path][env_filename]['cache'], out, err, code)
+                        self._add_action_output(shotgun_cache_actions_dict[cache_filename], out, err, code)
 
                         if code == 0:
                             (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
                                                                             "shotgun_get_actions",
                                                                             [cache_filename, env_filename])
-                            self._add_action_output(project_actions[pipeline_config_path][env_filename]['get'], out, err, code)
+                            self._add_action_output(shotgun_get_actions_dict[env_filename], out, err, code)
             except ExecuteTankCommandError, e:
                 # Something is wrong with the pipeline configuration,
                 # Clear any temporary result we might have accumulated for that pipeline
