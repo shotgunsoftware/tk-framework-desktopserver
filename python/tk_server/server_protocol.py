@@ -62,7 +62,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 StatusServerProtocol.serverStatus = StatusServerProtocol.SSL_CERTIFICATE_INVALID
             else:
                 StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
-        except Exception, e:
+        except Exception:
             StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
 
     def onConnect(self, response):
