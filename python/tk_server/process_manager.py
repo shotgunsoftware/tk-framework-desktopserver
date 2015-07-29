@@ -13,13 +13,64 @@ import os
 import glob
 from command import Command
 
-try:
-    from sgtk.platform.qt import PySide
-except:
-    pass
-
-from PySide import QtGui
+from PySide import QtGui, QtCore
 from sgtk_file_dialog import SgtkFileDialog
+
+
+def _create_invoker():
+    # If we are already in the main thread, no need for an invoker, invoke directly in this thread.
+    if QtCore.QThread.currentThread() == QtGui.QApplication.instance().thread():
+        return lambda fn, *args, **kwargs: fn(*args, **kwargs)
+
+    class MainThreadInvoker(QtCore.QObject):
+        """
+        Class that allows sending message to the main thread. This can be useful
+        when a background thread needs to prompt the user via a dialog. The
+        method passed into the invoker will be invoked on the main thread and
+        the result, either a return value or exception, will be brought back
+        to the invoking thread as if it was the thread that actually executed
+        the code.
+        """
+        def __init__(self):
+            """
+            Constructor.
+            """
+            QtCore.QObject.__init__(self)
+            self._res = None
+            self._exception = None
+            # Make sure that the invoker is bound to the main thread
+            self.moveToThread(QtGui.QApplication.instance().thread())
+
+        def __call__(self, fn, *args, **kwargs):
+            """
+            Asks the MainTheadInvoker to call a function with the provided parameters in the main
+            thread.
+            :param fn: Function to call in the main thread.
+            :param args: Array of arguments for the method.
+            :param kwargs: Dictionary of named arguments for the method.
+            :returns: The result from the function.
+            """
+            self._fn = lambda: fn(*args, **kwargs)
+            self._res = None
+
+            QtCore.QMetaObject.invokeMethod(self, "_do_invoke", QtCore.Qt.BlockingQueuedConnection)
+
+            # If an exception has been thrown, rethrow it.
+            if self._exception:
+                raise self._exception
+            return self._res
+
+        @QtCore.Slot()
+        def _do_invoke(self):
+            """
+            Execute function and return result
+            """
+            try:
+                self._res = self._fn()
+            except Exception, e:
+                self._exception = e
+
+    return MainThreadInvoker()
 
 
 class ExecuteTankCommandError(Exception):
@@ -224,21 +275,7 @@ class ProcessManager(object):
 
         return project_actions
 
-    def pick_file_or_directory(self, multi=False):
-        """
-        Pop-up a file selection window.
-
-        Note: Currently haven't been able to get the proper native dialog to multi select
-              both file and directories. Using this work-around for now.
-
-        :param multi: Boolean Allow selecting multiple elements.
-        :returns: List of files that were selected with file browser.
-        """
-
-        # If running outside of desktop, create a Qt App.
-        if not QtGui.QApplication.instance():
-            app = QtGui.QApplication([])
-
+    def _pick_file_or_directory_in_main_thread(self, multi=False):
         dialog = SgtkFileDialog(multi, None)
         dialog.setResolveSymlinks(False)
 
@@ -254,6 +291,18 @@ class ProcessManager(object):
                     f += os.path.sep
 
         return files
+
+    def pick_file_or_directory(self, multi=False):
+        """
+        Pop-up a file selection window.
+
+        Note: Currently haven't been able to get the proper native dialog to multi select
+              both file and directories. Using this work-around for now.
+
+        :param multi: Boolean Allow selecting multiple elements.
+        :returns: List of files that were selected with file browser.
+        """
+        return _create_invoker()(self._pick_file_or_directory_in_main_thread, multi=multi)
 
     @staticmethod
     def create():

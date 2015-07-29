@@ -121,7 +121,7 @@ if __name__ == '__main__':
     keys_folder = "../resources/keys"
 
     server = Server()
-    server.start(options.debug, keys_folder)
+    server.start(options.debug, keys_folder, True)
 
     # Serve test pages
     if options.local_server:
@@ -133,5 +133,11 @@ if __name__ == '__main__':
         web = Site(web_dir)
         reactor.listenTCP(8080, web)
 
-    # Keep application alive
-    reactor.run()
+    # Enables CTRL-C to kill this process even tough Qt doesn't know how to play nice with Python.
+    # As per this stack overflow comment
+    import signal
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    from PySide import QtGui
+    app = QtGui.QApplication(sys.argv)
+    app.exec_()
