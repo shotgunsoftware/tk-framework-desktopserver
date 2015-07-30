@@ -25,23 +25,6 @@ class Server:
     _DEFAULT_PORT = 9000
     _DEFAULT_PORT_STATUS = 9001
 
-    def _start_status_server(self, debug):
-        """
-        not-secure server that is used to report errors (such as invalid certificate) and validate that server exists.
-
-        :param debug: bool
-        """
-        if debug:
-            log.startLogging(sys.stdout)
-
-        ws_port = os.environ.get("TANK_PORT_STATUS", Server._DEFAULT_PORT_STATUS)
-
-        factory = WebSocketServerFactory("ws://localhost:%d" % ws_port, debug=debug, debugCodePaths=debug)
-
-        factory.protocol = StatusServerProtocol
-        factory.setProtocolOptions(allowHixie76=True, echoCloseCodeReason=True)
-        self._listener = listenWS(factory)
-
     def _start_server(self, debug=False, keys_path="resources/keys"):
         """
         Start shotgun web server, listening to websocket connections.
@@ -81,7 +64,6 @@ class Server:
             log.startLogging(sys.stdout)
 
         self._start_server(debug, keys_path)
-        self._start_status_server(debug)
 
         if start_reactor:
             def start():

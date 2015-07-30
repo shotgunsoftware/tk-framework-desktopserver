@@ -140,4 +140,5 @@ if __name__ == '__main__':
 
     from PySide import QtGui
     app = QtGui.QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     app.exec_()
