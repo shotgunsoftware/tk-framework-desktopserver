@@ -13,7 +13,6 @@ import os
 import threading
 
 from server_protocol import ServerProtocol
-from status_server_protocol import StatusServerProtocol
 
 from twisted.internet import reactor, ssl
 from twisted.python import log
@@ -24,6 +23,17 @@ from autobahn.twisted.websocket import WebSocketServerFactory, listenWS
 class Server:
     _DEFAULT_PORT = 9000
     _DEFAULT_PORT_STATUS = 9001
+
+    def _raise_if_missing_certificate(self, certificate_path):
+        """
+        Raises an exception is a certificate file is missing.
+
+        :param certificate_path: Path to the certificate file.
+
+        :raises Exception: Thrown if the certificate file is missing.
+        """
+        if not os.path.exists(certificate_path):
+            raise Exception("Missing certificate file: %s" % certificate_path)
 
     def _start_server(self, debug=False, keys_path="resources/keys"):
         """
@@ -38,9 +48,8 @@ class Server:
         cert_key_path = os.path.join(keys_path, "server.key")
         cert_crt_path = os.path.join(keys_path, "server.crt")
 
-        if not os.path.exists(cert_crt_path) or not os.path.exists(cert_key_path):
-            StatusServerProtocol.serverStatus = StatusServerProtocol.SSL_NO_CERTIFICATE_FILE
-            return
+        self._raise_if_missing_certificate(cert_key_path)
+        self._raise_if_missing_certificate(cert_crt_path)
 
         # SSL server context: load server key and certificate
         self.context_factory = ssl.DefaultOpenSSLContextFactory(cert_key_path,

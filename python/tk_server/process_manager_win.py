@@ -43,3 +43,17 @@ class ProcessManagerWin(ProcessManager):
             result = self._launch_process(launcher, filepath, "Could not open file.")
 
         return result
+
+    def pick_file_or_directory(self, multi=False):
+        """
+        Pop-up a file selection window.
+
+        :param multi: Boolean Allow selecting multiple elements.
+        :returns: List of files that were selected with file browser.
+        """
+        files = ProcessManager.pick_file_or_directory(self, multi)
+        print "before", files
+        files = [f.replace("/", "\\") for f in files]
+        print "after", files
+        # Qt returns files with / while the javascript code expects paths on Windows to use \
+        return files
