@@ -8,12 +8,11 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-try:
-    from sgtk.platform.qt import PySide
-except:
-    import PySide
 
-QtGui, QtCore = PySide.QtGui, PySide.QtCore
+try:
+    from PySide import QtCore, QtGui
+except ImportError:
+    from PyQt4 import QtCore, QtGui
 
 
 class SgtkFileDialog(QtGui.QFileDialog):
@@ -31,15 +30,15 @@ class SgtkFileDialog(QtGui.QFileDialog):
         QtGui.QFileDialog.__init__(self, *args, **kwargs)
 
         if multi:
-            selection_mode = PySide.QtGui.QAbstractItemView.ExtendedSelection
+            selection_mode = QtGui.QAbstractItemView.ExtendedSelection
         else:
-            selection_mode = PySide.QtGui.QAbstractItemView.SingleSelection
+            selection_mode = QtGui.QAbstractItemView.SingleSelection
 
-        listview = self.findChild(PySide.QtGui.QListView, "listView")
+        listview = self.findChild(QtGui.QListView, "listView")
         if listview:
             listview.setSelectionMode(selection_mode)
 
-        treeview = self.findChild(PySide.QtGui.QTreeView)
+        treeview = self.findChild(QtGui.QTreeView)
         if treeview:
             treeview.setSelectionMode(selection_mode)
 
