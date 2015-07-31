@@ -284,11 +284,12 @@ class ProcessManager(object):
 
         files = []
         if result:
-            files = dialog.selectedFiles()
+            selected_files = dialog.selectedFiles()
 
-            for f in files:
+            for f in selected_files:
                 if os.path.isdir(f):
                     f += os.path.sep
+                files.append(f)
 
         return files
 

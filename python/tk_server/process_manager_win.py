@@ -52,8 +52,6 @@ class ProcessManagerWin(ProcessManager):
         :returns: List of files that were selected with file browser.
         """
         files = ProcessManager.pick_file_or_directory(self, multi)
-        print "before", files
         files = [f.replace("/", "\\") for f in files]
-        print "after", files
         # Qt returns files with / while the javascript code expects paths on Windows to use \
         return files
