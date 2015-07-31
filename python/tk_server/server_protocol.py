@@ -23,7 +23,7 @@ from process_manager import ProcessManager
 
 from autobahn import websocket
 from autobahn.twisted.websocket import WebSocketServerProtocol
-from twisted.internet import error
+from twisted.internet import error, reactor
 
 
 class ServerProtocol(WebSocketServerProtocol):
@@ -133,6 +133,12 @@ class ServerProtocol(WebSocketServerProtocol):
         if message["protocol_version"] != self.PROTOCOL_VERSION:
             message_host.report_error("Error. Wrong protocol version [%s] " % self.PROTOCOL_VERSION)
             return
+
+        # Run each request from a thread, even tough it might be something very simple like opening a file. This
+        # will ensure the server is as responsive as possible. Twisted will take care of the thread.
+        reactor.callInThread(self._process_message, message_host, message)
+
+    def _process_message(self, message_host, message):
 
         # Retrieve command from message
         command = message["command"]
