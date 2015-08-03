@@ -9,6 +9,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 from message import Message
+from twisted.internet import reactor
 
 
 class MessageHost(object):
@@ -37,7 +38,11 @@ class MessageHost(object):
         message = Message(self._message["id"], self._host.PROTOCOL_VERSION)
         message.reply(data)
 
-        self._host.json_reply(message.data)
+        self._send_message(message.data)
+
+    def _send_message(self, data):
+        # Writing to a protocol is not thread safe and must be called from reactor thread.
+        reactor.callFromThread(lambda: self._host.json_reply(data))
 
     def report_error(self, error_message, error_data=None):
         """
@@ -50,4 +55,4 @@ class MessageHost(object):
         message = Message(self._message["id"], self._host.PROTOCOL_VERSION)
         message.error(error_message, error_data)
 
-        self._host.json_reply(message.data)
+        self._send_message(message.data)
