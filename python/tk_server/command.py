@@ -9,8 +9,9 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import subprocess
-from threading  import Thread
-from Queue import Queue, Empty
+from threading import Thread
+from Queue import Queue
+import sys
 
 
 class ReadThread(Thread):
@@ -40,9 +41,20 @@ class Command(object):
         # Note: Tie stdin to a PIPE as well to avoid this python bug on windows
         # http://bugs.python.org/issue3905
         # Queue code taken from: http://stackoverflow.com/questions/375427/non-blocking-read-on-a-subprocess-pipe-in-python
+        stdout_lines = []
+        stderr_lines = []
         try:
-            process = subprocess.Popen(args,
-                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # Prevents the cmd.exe dialog from appearing on Windows.
+            if sys.platform == 'win32':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            else:
+                startupinfo = None
+            process = subprocess.Popen(
+                args,
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                startupinfo=startupinfo
+            )
             process.stdin.close()
 
             stdout_q = Queue()
@@ -62,8 +74,6 @@ class Command(object):
             #
             # to avoid this, lets just poll the output from the process until
             # it's finished
-            stdout_lines = []
-            stderr_lines = []
             process.wait()
 
             process.stdout.flush()
@@ -77,6 +87,7 @@ class Command(object):
             while not stderr_q.empty():
                 stderr_lines.append(stderr_q.get())
 
+            ret = process.returncode
         except StandardError:
             import traceback
             ret = 1
@@ -85,6 +96,5 @@ class Command(object):
 
         out = ''.join(stdout_lines)
         err = ''.join(stderr_lines)
-        ret = process.returncode
 
         return ret, out, err
