@@ -33,7 +33,7 @@ if __name__ == '__main__':
     """
     Simple application for client/server development and testing.
 
-    Example usage: python app.py debug
+    Example usage: python app.py --debug
 
     Server TODO:
         - Test on all Platforms
@@ -54,19 +54,12 @@ if __name__ == '__main__':
             - Internationalization works fine, except for this case: /Users/rivestm/tmp 普通话/ 國語/ 華語.txt, were filename is
               'tmp 普通话/ 國語/ 華語.txt'. The '/' should be encoded by the client differently, and possibly decoded
               differently on the server too.
-        - To remove the annoying "allow connection" dialog when starting the server, use:
-            to sign: codesign -f -s <certname> /path/to/app --deep
-                 or: codesign --force --deep --sign - /Applications/Shotgun.app (doesn't seem to work with bundle)
-            to verify: codesign -vvv /Applications/Shotgun.app
     """
     sys.path.append("../python")
 
     from tk_server import Server
     from tk_server import shotgun_api
 
-    from twisted.internet import reactor
-    from twisted.web.static import File
-    from twisted.web.server import Site
     from twisted.python import log
 
     parser = optparse.OptionParser()
@@ -122,16 +115,6 @@ if __name__ == '__main__':
 
     server = Server()
     server.start(options.debug, keys_folder, True)
-
-    # Serve test pages
-    if options.local_server:
-        # Serve client folder
-        keys_dir = File(keys_folder)
-        web_dir = File("./client")
-        web_dir.putChild("keys", keys_dir)
-        web_dir.contentTypes[".crt"] = "application/x-x509-ca-cert"
-        web = Site(web_dir)
-        reactor.listenTCP(8080, web)
 
     # Enables CTRL-C to kill this process even tough Qt doesn't know how to play nice with Python.
     # As per this stack overflow comment
