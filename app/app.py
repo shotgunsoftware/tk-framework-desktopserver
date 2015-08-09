@@ -58,8 +58,8 @@ if __name__ == '__main__':
     """
     sys.path.append("../python")
 
-    from tk_server import Server
-    from tk_server import shotgun_api
+    from tk_framework_desktopserver import Server
+    from tk_framework_desktopserver import shotgun_api
 
     parser = optparse.OptionParser()
     parser.add_option(
