@@ -22,6 +22,12 @@ class _CertificateHandler(object):
     Handles creation and registration of the websocket certificate.
     """
 
+    def __init__(self):
+        """
+        Constructor.
+        """
+        self._logger = logging.getLogger("tk-framework-desktopserver.certificate")
+
     def create(self, cert_path, key_path):
         """
         Creates a self-signed certificate.
@@ -61,13 +67,6 @@ class _CertificateHandler(object):
         self._write_file(cert_path, crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
         self._write_file(key_path, crypto.dump_privatekey(crypto.FILETYPE_PEM, k))
 
-    @property
-    def logger(self):
-        """
-        :returns: The logger used by the certificate interface.
-        """
-        return logging.getLogger("tk-framework-desktopserver.certificate")
-
     def register(self, cert_path):
         """
         Registers the file passed in in the certificate store. Any errors are logged.
@@ -94,8 +93,8 @@ class _CertificateHandler(object):
             # good enough.
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError, e:
-            self.logger.exception("There was a problem %s" % ctx)
-            self.logger.info("Output:\n%s" % e.output)
+            self._logger.exception("There was a problem %s" % ctx)
+            self._logger.info("Output:\n%s" % e.output)
             return False
 
     def is_registered(self):
@@ -110,8 +109,8 @@ class _CertificateHandler(object):
             # good enough.
             return "Shotgun" in subprocess.check_output(self._get_is_registered_cmd(), shell=True)
         except subprocess.CalledProcessError, e:
-            self.logger.exception("There was a problem validating if a certificate was installed.")
-            self.logger.info("Output:\n%s" % e.output)
+            self._logger.exception("There was a problem validating if a certificate was installed.")
+            self._logger.info("Output:\n%s" % e.output)
             return False
 
     def unregister(self, cert_path):
@@ -176,7 +175,14 @@ class _LinuxCertificateHandler(_CertificateHandler):
         """
         :returns: Command string to list the certificates in the ~/.pki certificate store.
         """
-        # Adds the certificate for Chrome. For Firefox we'll need to be a bit more inventive.
+        # Adds the certificate for Chrome.
+        # FIXME: For Firefox, each profile stores it's own certificates. Maybe we should always
+        # return False here and let the register method iterate over all the know locations. For
+        # more about Firefox profiles, read: http://kb.mozillazine.org/Profiles.ini_file
+        # Also, we could use
+        # http://k0s.org/mozilla/hg/ProfileManager/file/145e111903d2/profilemanager to parse the
+        # profiles.ini file, but I'm not a lawyer and I'm not sure if the Mozilla Public License is
+        # something we can use.
         return "certutil -L -d %s" % self._PKI_DB_PATH
 
     def register(self, cert_path):
@@ -189,7 +195,7 @@ class _LinuxCertificateHandler(_CertificateHandler):
         """
         return self._check_call(
             "registering certificate",
-            "certutil -A -d %s -i \"%s\" -n %d -t \"TC,C,c\"" % (
+            "certutil -A -d %s -i \"%s\" -n %s -t \"TC,C,c\"" % (
                 self._PKI_DB_PATH, cert_path, self._CERTIFICATE_PRETTY_NAME
             )
         )
@@ -215,8 +221,8 @@ class _WindowsCertificateHandler(_CertificateHandler):
         """
         :returns: Command string to list the certificates in the Windows root certificate store.
         """
-        # Don't provide the certificate name, if the certificate is not listed the process will
-        # return an error. We'll parse the complete dump instead.
+        # Don't provide the certificate name after the store name, if the certificate is not listed
+        # the process will return an error code. We'll let is_register parse the output instead.
         return "certutil -user -store root"
 
     def register(self, cert_path):
@@ -238,6 +244,9 @@ class _WindowsCertificateHandler(_CertificateHandler):
 
         :returns: True on success, False on failure.
         """
+        # FIXME: Unregistering by the certificate name is wonky, since other certificates might
+        # have the same name. Maybe we should write the sha to disk and delete using that as
+        # a query (certutil -user -delstore root sha1).
         return self._check_call(
             "registering certificate",
             ("certutil", "-user", "-delstore", "root", "localhost")
@@ -254,8 +263,11 @@ class _MacCertificateHandler(_CertificateHandler):
         :returns: Command string to list the certificates in the keychain.
         """
         # The SecurityAgent from Apple which prompts for the password to allow an update to the
-        # trust settings  can sometime freeze. Read more at:
+        # trust settings can sometime freeze. Read more at:
         # https://discussions.apple.com/thread/6300609
+        # In order to unfreeze it, do "sudo kill SecurityAgent". Best way to avoid a second freeze
+        # is to reboot. Note that doing that trusting the certificate via the UI exposes the same
+        # issue.
         return self._check_call(
             "registering certificate",
             "security add-trusted-cert -k ~/Library/Keychains/login.keychain -r trustRoot  \"%s\"" %
