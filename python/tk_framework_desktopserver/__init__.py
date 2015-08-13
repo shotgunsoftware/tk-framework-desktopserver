@@ -23,4 +23,4 @@ elif os.name == "posix":
 
 from server import Server
 from process_manager import ProcessManager
-import certificates
+from certificates import get_certificate_handler
