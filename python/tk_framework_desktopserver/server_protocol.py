@@ -31,8 +31,6 @@ class ServerProtocol(WebSocketServerProtocol):
     Server Protocol
     """
 
-    _DEFAULT_DOMAIN_RESTRICTION = "localhost"
-
     # Server protocol version
     PROTOCOL_VERSION = 1
 
@@ -91,16 +89,17 @@ class ServerProtocol(WebSocketServerProtocol):
 
         domain_valid = False
         try:
-            # response.origin: http://localhost:8080
+            # response.origin: xyz.shotgunstudio.com
             origin_str = response.origin
+            print response
 
             # No origin would be a local html file
-            origin_localhost = response.host == "localhost" or origin_str == "file://"
-            if origin_localhost:
-                origin_str = "http://localhost"
-            else:
-                raise Exception("Invalid or unknown origin.")
-
+            # origin_localhost = response.host == "localhost" or origin_str == "file://"
+            # if origin_localhost:
+            #     origin_str = "http://localhost"
+            # else:
+            #     raise Exception("Invalid or unknown origin.")
+            print origin_str
             domain_valid = self._is_domain_valid(origin_str)
         except Exception, e:
             # Otherwise errors get swallowed by outer blocks
@@ -261,7 +260,7 @@ class ServerProtocol(WebSocketServerProtocol):
         :param origin_str: Domain origin string (ex: http://localhost:8080)
         :return: True if domain is accepted, False otherwise
         """
-        domain_env = os.environ.get("SHOTGUN_PLUGIN_DOMAIN_RESTRICTION", ServerProtocol._DEFAULT_DOMAIN_RESTRICTION)
+        domain_env = os.environ.get("SHOTGUN_PLUGIN_DOMAIN_RESTRICTION", self.factory.websocket_server_whitelist)
 
         origin = urlparse(origin_str)
 
