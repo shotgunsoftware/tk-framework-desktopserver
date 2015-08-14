@@ -10,12 +10,11 @@
 
 """
 All custom exceptions that the desktop integration can emit are here.
-
 """
 
 
 class MissingCertificate(Exception):
     """
-    Exception that a certificate is missing.
+    Exception thrown when a certificate file is missing.
     """
     pass

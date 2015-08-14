@@ -22,26 +22,31 @@ class _CertificateHandler(object):
     Handles creation and registration of the websocket certificate.
     """
 
-    def __init__(self):
+    def __init__(self, certificate_folder):
         """
         Constructor.
         """
         self._logger = logging.getLogger("tk-framework-desktopserver.certificate")
+        self._cert_path = os.path.join(certificate_folder, "server.crt")
+        self._key_path = os.path.join(certificate_folder, "server.key")
 
-    def create(self, cert_path, key_path):
+    def exists(self):
+        """
+        :returns: True if the certificate exists on disk, False otherwose.
+        """
+        return os.path.exists(self._cert_path) and os.path.exists(self._key_path)
+
+    def create(self):
         """
         Creates a self-signed certificate.
-
-        :param cert_path: Location where to write the certificate to.
-        :param key_path: Location where to save the private key.
         """
 
         # This code is heavily inspired from:
         # https://skippylovesmalorie.wordpress.com/2010/02/12/how-to-generate-a-self-signed-certificate-using-pyopenssl/
 
         # Clean the certificate destination
-        self._clean_folder_for_file(cert_path)
-        self._clean_folder_for_file(key_path)
+        self._clean_folder_for_file(self._cert_path)
+        self._clean_folder_for_file(self._key_path)
 
         # create a key pair
         k = crypto.PKey()
@@ -64,14 +69,12 @@ class _CertificateHandler(object):
         cert.sign(k, 'sha256')
 
         # Write the certificate and key back to disk.
-        self._write_file(cert_path, crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
-        self._write_file(key_path, crypto.dump_privatekey(crypto.FILETYPE_PEM, k))
+        self._write_file(self._cert_path, crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+        self._write_file(self._key_path, crypto.dump_privatekey(crypto.FILETYPE_PEM, k))
 
-    def register(self, cert_path):
+    def register(self):
         """
         Registers the file passed in in the certificate store. Any errors are logged.
-
-        :param cert_path: Path to the certificate to register.
 
         :returns: True on success, False otherwise.
         """
@@ -95,7 +98,7 @@ class _CertificateHandler(object):
         except subprocess.CalledProcessError, e:
             self._logger.exception("There was a problem %s" % ctx)
             self._logger.info("Output:\n%s" % e.output)
-            return False
+            raise
 
     def is_registered(self):
         """
@@ -111,9 +114,9 @@ class _CertificateHandler(object):
         except subprocess.CalledProcessError, e:
             self._logger.exception("There was a problem validating if a certificate was installed.")
             self._logger.info("Output:\n%s" % e.output)
-            return False
+            raise
 
-    def unregister(self, cert_path):
+    def unregister(self):
         """
         Unregisters a certificate from the store. Any errors are logged.
 
@@ -185,22 +188,20 @@ class _LinuxCertificateHandler(_CertificateHandler):
         # something we can use.
         return "certutil -L -d %s" % self._PKI_DB_PATH
 
-    def register(self, cert_path):
+    def register(self):
         """
         Registers a certificate in the ~/.pki certificate store. Any errors are logged.
-
-        :param cert_path: Path to the certificate.
 
         :returns: True on success, False on failure.
         """
         return self._check_call(
             "registering certificate",
             "certutil -A -d %s -i \"%s\" -n %s -t \"TC,C,c\"" % (
-                self._PKI_DB_PATH, cert_path, self._CERTIFICATE_PRETTY_NAME
+                self._PKI_DB_PATH, self._cert_path, self._CERTIFICATE_PRETTY_NAME
             )
         )
 
-    def unregister(self, cert_path):
+    def unregister(self):
         """
         Unregisters a certificate from the ~/.pki certificate store. Any errors are logged.
 
@@ -225,20 +226,18 @@ class _WindowsCertificateHandler(_CertificateHandler):
         # the process will return an error code. We'll let is_register parse the output instead.
         return "certutil -user -store root"
 
-    def register(self, cert_path):
+    def register(self):
         """
         Registers a certificate in the Windows root certificate store. Any errors are logged.
-
-        :param cert_path: Path to the certificate.
 
         :returns: True on success, False on failure.
         """
         return self._check_call(
             "registering certificate",
-            ("certutil", "-user", "-addstore", "root", cert_path.replace("/", "\\"))
+            ("certutil", "-user", "-addstore", "root", self._cert_path.replace("/", "\\"))
         )
 
-    def unregister(self, cert_path):
+    def unregister(self):
         """
         Unregisters a certificate from the Windows root certificate store. Any errors are logged.
 
@@ -258,11 +257,11 @@ class _MacCertificateHandler(_CertificateHandler):
     Handles creation and registration of the websocket certificate on MacOS.
     """
 
-    def register(self, cert_path):
+    def register(self):
         """
         :returns: Command string to list the certificates in the keychain.
         """
-        # The SecurityAgent from Apple which prompts for the password to allow an update to the
+        # FIXME: The SecurityAgent from Apple which prompts for the password to allow an update to the
         # trust settings can sometime freeze. Read more at:
         # https://discussions.apple.com/thread/6300609
         # In order to unfreeze it, do "sudo kill SecurityAgent". Best way to avoid a second freeze
@@ -271,14 +270,12 @@ class _MacCertificateHandler(_CertificateHandler):
         return self._check_call(
             "registering certificate",
             "security add-trusted-cert -k ~/Library/Keychains/login.keychain -r trustRoot  \"%s\"" %
-            cert_path
+            self._cert_path
         )
 
     def _get_is_registered_cmd(self):
         """
-        Registers a certificate in the keychain. Any errors are logged.
-
-        :param cert_path: Path to the certificate.
+        Registers a certificate in the keychain. Any errors are logged
 
         :returns: True on success, False on failure.
         """
@@ -286,7 +283,7 @@ class _MacCertificateHandler(_CertificateHandler):
         # to be fine.
         return "security find-certificate -a -e localhost"
 
-    def unregister(self, cert_path):
+    def unregister(self):
         """
         Unregisters a certificate from the keychain. Any errors are logged.
 
@@ -304,16 +301,17 @@ class _MacCertificateHandler(_CertificateHandler):
             return True
 
 
-def get_certificate_handler():
+def get_certificate_handler(certificate_folder):
     """
+    :param certificate_folder: Folder where the certificate is stored.
     :returns: The platform specific certificate handler to get, create or delete the websocket
         certificate.
     """
     if sys.platform.startswith("linux"):
-        return _LinuxCertificateHandler()
+        return _LinuxCertificateHandler(certificate_folder)
     elif sys.platform == "darwin":
-        return _MacCertificateHandler()
+        return _MacCertificateHandler(certificate_folder)
     elif sys.platform == "win32":
-        return _WindowsCertificateHandler()
+        return _WindowsCertificateHandler(certificate_folder)
     else:
         raise RuntimeError("Platform '%s' not supported!" % sys.platform)
