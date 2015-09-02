@@ -8,6 +8,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+import os
 import subprocess
 from threading import Thread
 from Queue import Queue
@@ -50,10 +51,19 @@ class Command(object):
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             else:
                 startupinfo = None
+
+            # Clean out Toolkit specific environment variables to launch the process cleanly
+            env = os.environ.copy()
+            vars_to_remove = ["TANK_CURRENT_PC"]
+            for var in vars_to_remove:
+                if var in env:
+                    del env[var]
+
             process = subprocess.Popen(
                 args,
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                startupinfo=startupinfo
+                startupinfo=startupinfo,
+                env=env,
             )
             process.stdin.close()
 
