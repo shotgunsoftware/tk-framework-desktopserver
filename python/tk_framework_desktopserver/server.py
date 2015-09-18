@@ -96,17 +96,12 @@ class Server:
         self._reactor_thread = threading.Thread(target=start)
         self._reactor_thread.start()
 
-    def start(self, start_reactor=False):
+    def start(self):
         """
         Start shotgun web server, listening to websocket connections.
-
-        :param debug: Boolean Show debug output. Will also Start local web server to test client pages.
-        :param keys_path: Path to the certificate files (.crt and .key).
-        :param start_reactor: Boolean Start threaded reactor
         """
         self._start_server()
-        if start_reactor:
-            self._start_reactor()
+        self._start_reactor()
 
     def is_running(self):
         """
