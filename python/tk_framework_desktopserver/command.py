@@ -14,7 +14,8 @@ from threading import Thread
 from Queue import Queue
 import tempfile
 import sys
-from . logger import get_logger
+import traceback
+from .logger import get_logger
 
 
 class ReadThread(Thread):
@@ -51,7 +52,7 @@ class Command(object):
         """
         :returns: Returns the path to a temporary file.
         """
-        handle, path = tempfile.mkstemp()
+        handle, path = tempfile.mkstemp(prefix="desktop_server")
         os.close(handle)
         return path
 
@@ -146,10 +147,9 @@ class Command(object):
                 stderr_lines.append(stderr_q.get())
 
             ret = process.returncode
-        except StandardError, e:
-            get_logger().exception(e)
+        except StandardError:
+            get_logger().exception("Error running subprocess :%s" % args)
 
-            import traceback
             ret = 1
             stderr_lines = traceback.format_exc().split()
             stderr_lines.append("%s" % args)
@@ -219,16 +219,18 @@ class Command(object):
             process.wait()
 
             # Read back the output from the two.
-            stdout_lines = [l for l in open(stdout_path)]
-            stderr_lines = [l for l in open(stderr_path)]
+            with open(stdout_path) as stdout_file:
+                stdout_lines = [l for l in stdout_file]
+
+            with open(stderr_path) as stderr_file:
+                stderr_lines = [l for l in stderr_file]
 
             # Track the result code.
             ret = process.returncode
 
-        except StandardError, e:
-            get_logger().exception(e)
+        except StandardError:
+            get_logger().exception("Error running subprocess :%s" % args)
 
-            import traceback
             ret = 1
             stderr_lines = [traceback.format_exc().split()]
             stderr_lines.append("%s" % args)
