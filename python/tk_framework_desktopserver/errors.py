@@ -9,12 +9,26 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 """
-All custom exceptions that the desktop integration can emit are here.
+All custom exceptions that the browser integration can emit are here.
 """
 
 
-class MissingCertificate(Exception):
+class BrowserIntegration(Exception):
+    """
+    Base class for all browser integration errors.
+    """
+    pass
+
+
+class MissingCertificate(BrowserIntegration):
     """
     Exception thrown when a certificate file is missing.
+    """
+    pass
+
+
+class PortBusy(BrowserIntegration):
+    """
+    Exception thrown when the TCP port is busy.
     """
     pass

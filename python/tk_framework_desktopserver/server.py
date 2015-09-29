@@ -14,12 +14,12 @@ import logging
 
 from server_protocol import ServerProtocol
 
-from twisted.internet import reactor, ssl
+from twisted.internet import reactor, ssl, error
 from twisted.python import log
 
 from autobahn.twisted.websocket import WebSocketServerFactory, listenWS
 
-from .errors import MissingCertificate
+from .errors import MissingCertificate, PortBusy
 
 
 class Server:
@@ -84,7 +84,10 @@ class Server:
         self.factory.protocol = ServerProtocol
         self.factory.websocket_server_whitelist = self._whitelist
         self.factory.setProtocolOptions(allowHixie76=True, echoCloseCodeReason=True)
-        self.listener = listenWS(self.factory, self.context_factory)
+        try:
+            self.listener = listenWS(self.factory, self.context_factory)
+        except error.CannotListenError, e:
+            raise PortBusy(str(e))
 
     def _start_reactor(self):
         """
