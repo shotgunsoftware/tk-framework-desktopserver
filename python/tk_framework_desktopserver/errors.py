@@ -13,21 +13,21 @@ All custom exceptions that the browser integration can emit are here.
 """
 
 
-class BrowserIntegration(Exception):
+class BrowserIntegrationError(Exception):
     """
     Base class for all browser integration errors.
     """
     pass
 
 
-class MissingCertificate(BrowserIntegration):
+class MissingCertificateError(BrowserIntegrationError):
     """
     Exception thrown when a certificate file is missing.
     """
     pass
 
 
-class PortBusy(BrowserIntegration):
+class PortBusyError(BrowserIntegrationError):
     """
     Exception thrown when the TCP port is busy.
     """

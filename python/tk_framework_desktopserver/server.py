@@ -19,7 +19,7 @@ from twisted.python import log
 
 from autobahn.twisted.websocket import WebSocketServerFactory, listenWS
 
-from .errors import MissingCertificate, PortBusy
+from .errors import MissingCertificateError, PortBusyError
 
 
 class Server:
@@ -58,7 +58,7 @@ class Server:
         :raises Exception: Thrown if the certificate file is missing.
         """
         if not os.path.exists(certificate_path):
-            raise MissingCertificate("Missing certificate file: %s" % certificate_path)
+            raise MissingCertificateError("Missing certificate file: %s" % certificate_path)
 
     def _start_server(self):
         """
@@ -87,7 +87,7 @@ class Server:
         try:
             self.listener = listenWS(self.factory, self.context_factory)
         except error.CannotListenError, e:
-            raise PortBusy(str(e))
+            raise PortBusyError(str(e))
 
     def _start_reactor(self):
         """
