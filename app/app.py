@@ -115,7 +115,8 @@ if __name__ == '__main__':
     server = Server(
         debug=options.debug,
         keys_path=os.environ.get("SGTK_BROWSER_INTEGRATION_CERTIFICATE", "../resources/keys"),
-        port=os.environ.get("SGTK_BROWSER_INTEGRATION_PORT", 9000)
+        port=os.environ.get("SGTK_BROWSER_INTEGRATION_PORT", 9000),
+        whitelist=os.environ.get("SGTK_BROWSER_INTEGRATION_WHITELIST")
     )
     server.start()
 
