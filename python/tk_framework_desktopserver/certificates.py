@@ -36,6 +36,13 @@ class _CertificateHandler(object):
         """
         return os.path.exists(self._cert_path) and os.path.exists(self._key_path)
 
+    def remove_files(self):
+        """
+        Removes the files from the
+        """
+        os.unlink(self._cert_path)
+        os.unlink(self._key_path)
+
     def create(self):
         """
         Creates a self-signed certificate.
@@ -97,7 +104,7 @@ class _CertificateHandler(object):
             subprocess.check_call(cmd, stderr=subprocess.STDOUT, shell=True)
         except subprocess.CalledProcessError, e:
             self._logger.exception("There was a problem %s" % ctx)
-            self._logger.info("Output:\n%s" % e.output)
+            self._logger.debug("Output:\n%s" % e.output)
             raise
 
     def is_registered(self):
@@ -113,7 +120,7 @@ class _CertificateHandler(object):
             return "Shotgun" in subprocess.check_output(self._get_is_registered_cmd(), stderr=subprocess.STDOUT, shell=True)
         except subprocess.CalledProcessError, e:
             self._logger.exception("There was a problem validating if a certificate was installed.")
-            self._logger.info("Output:\n%s" % e.output)
+            self._logger.debug("Output:\n%s" % e.output)
             raise
 
     def unregister(self):

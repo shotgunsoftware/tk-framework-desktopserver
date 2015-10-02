@@ -14,6 +14,7 @@ import sys
 import os
 import optparse
 import itertools
+import logging
 
 
 def _tokenize_args(args):
@@ -58,8 +59,12 @@ if __name__ == '__main__':
     """
     sys.path.append("../python")
 
-    from tk_framework_desktopserver import Server
+    from tk_framework_desktopserver import Server, get_logger
     from tk_framework_desktopserver import shotgun_api
+
+    logger = get_logger()
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.DEBUG)
 
     parser = optparse.OptionParser()
     parser.add_option(
@@ -109,8 +114,8 @@ if __name__ == '__main__':
 
     server = Server(
         debug=options.debug,
-        keys_path=os.environ.get("TANK_DESKTOP_INTEGRATION_CERTIFICATE", "../resources/keys"),
-        port=os.environ.get("TANK_DESKTOP_INTEGRATION_PORT", 9000)
+        keys_path=os.environ.get("TANK_BROWSER_INTEGRATION_CERTIFICATE", "../resources/keys"),
+        port=os.environ.get("TANK_BROWSER_INTEGRATION_PORT", 9000)
     )
     server.start()
 
