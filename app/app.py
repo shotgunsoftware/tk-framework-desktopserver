@@ -62,10 +62,6 @@ if __name__ == '__main__':
     from tk_framework_desktopserver import Server, get_logger
     from tk_framework_desktopserver import shotgun_api
 
-    logger = get_logger()
-    logger.addHandler(logging.StreamHandler())
-    logger.setLevel(logging.DEBUG)
-
     parser = optparse.OptionParser()
     parser.add_option(
         "--debug", action="store_true", default=False,
@@ -94,6 +90,14 @@ if __name__ == '__main__':
 
     if options.block:
         print "Blocking calls for %s" % ", ".join(options.block)
+
+    logger = get_logger()
+    logger.addHandler(logging.StreamHandler())
+
+    if options.debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
 
     # Make a local copy of the handle because we are about to overwrite it.
     ShotgunAPI = shotgun_api.ShotgunAPI
