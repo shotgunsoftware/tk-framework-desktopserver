@@ -147,7 +147,7 @@ if __name__ == '__main__':
     else:
         logger.setLevel(logging.INFO)
 
-    folder = os.environ.get("TANK_BROWSER_INTEGRATION_CERTIFICATE", "../resources/keys")
+    folder = os.environ.get("SGTK_BROWSER_INTEGRATION_CERTIFICATE", "../resources/keys")
     folder = os.path.expanduser(folder)
     folder = os.path.abspath(folder)
     folder = os.path.normpath(folder)

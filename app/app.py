@@ -114,8 +114,8 @@ if __name__ == '__main__':
 
     server = Server(
         debug=options.debug,
-        keys_path=os.environ.get("TANK_BROWSER_INTEGRATION_CERTIFICATE", "../resources/keys"),
-        port=os.environ.get("TANK_BROWSER_INTEGRATION_PORT", 9000)
+        keys_path=os.environ.get("SGTK_BROWSER_INTEGRATION_CERTIFICATE", "../resources/keys"),
+        port=os.environ.get("SGTK_BROWSER_INTEGRATION_PORT", 9000)
     )
     server.start()
 
