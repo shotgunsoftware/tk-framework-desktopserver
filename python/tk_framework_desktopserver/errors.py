@@ -22,13 +22,21 @@ class BrowserIntegrationError(Exception):
 
 class MissingCertificateError(BrowserIntegrationError):
     """
-    Exception thrown when a certificate file is missing.
+    Exception raised when a certificate file is missing.
     """
     pass
 
 
 class PortBusyError(BrowserIntegrationError):
     """
-    Exception thrown when the TCP port is busy.
+    Exception raised when the TCP port is busy.
+    """
+    pass
+
+
+class CertificateRegistrationFailed(BrowserIntegrationError):
+    """
+    Exception raised when something goes wrong while registering or
+    unregistering a certificate.
     """
     pass
