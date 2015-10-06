@@ -34,7 +34,7 @@ def get_settings(configuration):
     if configuration is not None:
         location = configuration
     # Then check the environment variable.
-    elif "SGTK_BROWSER_CONFIG_LOCATION" in os.environ:
+    elif "SGTK_BROWSER_INTEGRATION_CONFIG_LOCATION" in os.environ:
         location = os.environ["SGTK_BROWSER_INTEGRATION_CONFIG_LOCATION"]
     else:
         # Nothing has been found!
