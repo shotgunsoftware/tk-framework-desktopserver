@@ -43,7 +43,7 @@ def main():
     # Configure the app.
     options = _parse_options()
     # Create the logger and dump the settings.
-    app_logger = logger.configure_logging(options.debug)
+    app_logger = logger.get_logger(options.debug)
 
     # Read the settings and print them out.
     app_settings = settings.get_settings(options.configuration)

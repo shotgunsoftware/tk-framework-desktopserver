@@ -10,10 +10,10 @@
 
 import logging
 
-from tk_framework_desktopserver import get_logger
+import tk_framework_desktopserver
 
 
-def configure_logging(debug):
+def get_logger(debug):
     """
     Configures the logging for the app.
 
@@ -22,7 +22,7 @@ def configure_logging(debug):
     :returns: The root logger for the app.
     """
     # Make sure logger output goes to stdout
-    logger = get_logger()
+    logger = tk_framework_desktopserver.get_logger()
     handler = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s [%(name)s.%(levelname)s] %(message)s')
     handler.setFormatter(formatter)

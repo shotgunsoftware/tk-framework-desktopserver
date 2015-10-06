@@ -119,11 +119,11 @@ def __create_certificate(certificate_folder, logger):
         logger.info("Certificate is already registered.")
 
 
-def _parse_options():
+def __parse_options():
     """
     Parses the command line for options.
 
-    :returns An OptionParser with attributes debug and remove.
+    :returns An OptionParser with attributes debug, remove and configuration.
     """
     parser = optparse.OptionParser()
     parser.add_option(
@@ -148,9 +148,9 @@ def main():
     Main.
     """
     # Configure the app.
-    options = _parse_options()
+    options = __parse_options()
     # Create the logger
-    app_logger = logger.configure_logging(options.debug)
+    app_logger = logger.get_logger(options.debug)
 
     app_settings = settings.get_settings(options.configuration)
 
