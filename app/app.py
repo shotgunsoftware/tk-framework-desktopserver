@@ -83,5 +83,8 @@ if __name__ == '__main__':
     import settings
     import logger
 
-    from tk_framework_desktopserver import Server
-    main()
+    from tk_framework_desktopserver import Server, BrowserIntegrationError
+    try:
+        main()
+    except BrowserIntegrationError, e:
+        print str(e)

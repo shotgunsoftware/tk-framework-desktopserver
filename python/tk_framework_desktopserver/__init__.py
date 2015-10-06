@@ -27,4 +27,4 @@ from .settings import Settings
 from .process_manager import ProcessManager
 from .certificates import get_certificate_handler
 from .logger import get_logger
-from .errors import MissingCertificateError, PortBusyError, MissingConfigurationFileError
+from .errors import MissingCertificateError, PortBusyError, MissingConfigurationFileError, BrowserIntegrationError

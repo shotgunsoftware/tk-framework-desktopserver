@@ -9,7 +9,6 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sys
-import logging
 import optparse
 
 
@@ -57,7 +56,7 @@ def __remove_certificate(certificate_folder, logger):
     :param certificate_folder: Folder where the certificates are stored.
     """
 
-    cert_handler = tk_framework_desktopserver.get_certificate_handler(certificate_folder)
+    cert_handler = get_certificate_handler(certificate_folder)
 
     # Removes the certificate from the OS/browser certificate database.
     if cert_handler.is_registered():
@@ -85,7 +84,7 @@ def __create_certificate(certificate_folder, logger):
     :param certificate_folder: Folder where the certificates are stored.
     """
 
-    cert_handler = tk_framework_desktopserver.get_certificate_handler(certificate_folder)
+    cert_handler = get_certificate_handler(certificate_folder)
 
     # We only warn once.
     warned = False
@@ -133,7 +132,7 @@ def _parse_options():
     )
     parser.add_option(
         "--remove", action="store_true", default=False,
-        help="prints debugging message from the certificate generation"
+        help="removes the certificate from disk and from the certificate database"
     )
     parser.add_option(
         "-c", "--configuration", action="store", default=None,
@@ -151,20 +150,23 @@ def main():
     # Configure the app.
     options = _parse_options()
     # Create the logger
-    logger = logger.configure_logging(options.debug)
+    app_logger = logger.configure_logging(options.debug)
 
     app_settings = settings.get_settings(options.configuration)
 
     if options.remove:
-        __remove_certificate(app_settings.certificate_folder, logger)
+        __remove_certificate(app_settings.certificate_folder, app_logger)
     else:
-        __create_certificate(app_settings.certificate_folder, logger)
+        __create_certificate(app_settings.certificate_folder, app_logger)
 
 
 if __name__ == '__main__':
     # Add the modules files to PYTHOHPATH
     sys.path.insert(0, "../python")
-    import tk_framework_desktopserver
+    from tk_framework_desktopserver import get_certificate_handler, BrowserIntegrationError
     import settings
     import logger
-    main()
+    try:
+        main()
+    except BrowserIntegrationError, e:
+        print str(e)
