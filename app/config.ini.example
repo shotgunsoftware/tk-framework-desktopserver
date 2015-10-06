@@ -1,0 +1,24 @@
+# This is the browser integration settings section
+#
+
+[BrowserIntegration]
+
+# Location where the certificate will be stored. If not specified, defaults to
+# ../resources/keys.
+#
+certificate_folder=/path/to/the/certificate/folder
+
+# If set to 1, Twisted messages will be printed. If not specified, defaults to
+# 0. Warning, this produces a lot of output.
+#
+debug=0
+
+# Port to listen for requests coming from the browser. If not specified,
+# defaults to 9000.
+#
+port=9000
+
+# List of clients whitelisted to access this server. Use this when you have a
+# local server. If not specified, defaults to *.shotgunstudio.com.
+#
+whitelist=*.shotgunstudio.com
