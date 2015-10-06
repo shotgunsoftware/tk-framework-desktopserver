@@ -32,3 +32,20 @@ class PortBusyError(BrowserIntegrationError):
     Exception thrown when the TCP port is busy.
     """
     pass
+
+
+class MissingConfigurationFileError(BrowserIntegrationError):
+    """
+    Raised when the configuration file can't be found.
+    """
+    def __init__(self, location):
+        """
+        Constructor.
+
+        :params location: Path to the missing configuration file.
+        """
+        BrowserIntegrationError.__init__(
+            self,
+            "The configuration file at '%s' could not be found!" % location
+        )
+

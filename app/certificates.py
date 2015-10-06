@@ -9,7 +9,6 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sys
-import os
 import logging
 import optparse
 
@@ -50,7 +49,7 @@ def __warn_for_prompt():
     # On Linux there's no need to prompt. It's all silent.
 
 
-def __remove_certificate(certificate_folder):
+def __remove_certificate(certificate_folder, logger):
     """
     Ensures that the certificates are created and registered. If something is amiss, then the
     configuration is fixed.
@@ -60,7 +59,7 @@ def __remove_certificate(certificate_folder):
 
     cert_handler = tk_framework_desktopserver.get_certificate_handler(certificate_folder)
 
-    # Check if there is a certificate registered with the keychain.
+    # Removes the certificate from the OS/browser certificate database.
     if cert_handler.is_registered():
         logger.debug("Removing certificate from database.")
         __warn_for_prompt()
@@ -69,7 +68,7 @@ def __remove_certificate(certificate_folder):
     else:
         logger.info("No certificate was registered.")
 
-    # Make sure the certificates exist.
+    # Removes the actual certificate files on disk.
     if cert_handler.exists():
         logger.debug("Certificate was found on disk at %s." % certificate_folder)
         cert_handler.remove_files()
@@ -78,7 +77,7 @@ def __remove_certificate(certificate_folder):
         logger.info("No certificate was found on disk at %s." % certificate_folder)
 
 
-def __create_certificate(certificate_folder):
+def __create_certificate(certificate_folder, logger):
     """
     Ensures that the certificates are created and registered. If something is amiss, then the
     configuration is fixed.
@@ -121,38 +120,51 @@ def __create_certificate(certificate_folder):
         logger.info("Certificate is already registered.")
 
 
+def _parse_options():
+    """
+    Parses the command line for options.
+
+    :returns An OptionParser with attributes debug and remove.
+    """
+    parser = optparse.OptionParser()
+    parser.add_option(
+        "--debug", action="store_true", default=False,
+        help="prints debugging message from the certificate generation"
+    )
+    parser.add_option(
+        "--remove", action="store_true", default=False,
+        help="prints debugging message from the certificate generation"
+    )
+    parser.add_option(
+        "-c", "--configuration", action="store", default=None,
+        help="location of the configuration file")
+
+    options, _ = parser.parse_args()
+
+    return options
+
+
+def main():
+    """
+    Main.
+    """
+    # Configure the app.
+    options = _parse_options()
+    # Create the logger
+    logger = logger.configure_logging(options.debug)
+
+    app_settings = settings.get_settings(options.configuration)
+
+    if options.remove:
+        __remove_certificate(app_settings.certificate_folder, logger)
+    else:
+        __create_certificate(app_settings.certificate_folder, logger)
+
+
 if __name__ == '__main__':
     # Add the modules files to PYTHOHPATH
     sys.path.insert(0, "../python")
     import tk_framework_desktopserver
-
-    # Make sure logger output goes to stdout
-    logger = tk_framework_desktopserver.get_logger()
-    logger.addHandler(logging.StreamHandler())
-
-    parser = optparse.OptionParser()
-    parser.add_option(
-        "--debug", action="store_true", default=False,
-        help="prints debugging message from the certificate generation."
-    )
-    parser.add_option(
-        "--remove", action="store_true", default=False,
-        help="prints debugging message from the certificate generation."
-    )
-
-    options, _ = parser.parse_args()
-
-    if options.debug is True:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
-
-    folder = os.environ.get("SGTK_BROWSER_INTEGRATION_CERTIFICATE", "../resources/keys")
-    folder = os.path.expanduser(folder)
-    folder = os.path.abspath(folder)
-    folder = os.path.normpath(folder)
-
-    if options.remove:
-        __remove_certificate(folder)
-    else:
-        __create_certificate(folder)
+    import settings
+    import logger
+    main()
