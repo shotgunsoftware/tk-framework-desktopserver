@@ -8,9 +8,10 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+import os
 import sys
 import optparse
-import traceback
+
 
 def __get_certificate_prompt(keychain_name, action):
     """
@@ -174,7 +175,7 @@ def main():
 
 if __name__ == '__main__':
     # Add the modules files to PYTHOHPATH
-    sys.path.insert(0, "../python")
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../python"))
     from tk_framework_desktopserver import get_certificate_handler, BrowserIntegrationError
     import settings
     import logger

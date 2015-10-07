@@ -10,9 +10,9 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+import os
 import sys
 import optparse
-import traceback
 
 def _parse_options():
     """
@@ -79,12 +79,7 @@ def main():
 
 
 if __name__ == '__main__':
-    """
-    Simple application for client/server development and testing.
-
-    Example usage: python app.py --debug --configuration=/path/to/my/config.ini
-    """
-    sys.path.append("../python")
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../python"))
 
     # Import settings here since it wasn't in the Python path before.
     import settings
