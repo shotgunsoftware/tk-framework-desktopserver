@@ -41,6 +41,7 @@ class CertificateRegistrationError(BrowserIntegrationError):
     """
     pass
 
+
 class MissingConfigurationFileError(BrowserIntegrationError):
     """
     Raised when the configuration file can't be found.
