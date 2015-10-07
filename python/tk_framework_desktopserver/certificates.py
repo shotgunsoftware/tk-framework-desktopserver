@@ -101,7 +101,7 @@ class _CertificateHandler(object):
         p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
         stdout, _ = p.communicate()
         if p.returncode != 0:
-            self._logger.debug("Unexpected output:\n%s" % stdout)
+            self._logger.error("Unexpected output:\n%s" % stdout)
             raise CertificateRegistrationError("There was a problem %s." % ctx)
 
     def is_registered(self):
@@ -121,7 +121,7 @@ class _CertificateHandler(object):
         )
         stdout, _ = p.communicate()
         if p.returncode != 0:
-            self._logger.debug("Unexpected output:\n%s" % stdout)
+            self._logger.error("Unexpected output:\n%s" % stdout)
             raise CertificateRegistrationError(
                 "There was a problem validating if a certificate was installed."
             )
