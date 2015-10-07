@@ -97,12 +97,32 @@ class _CertificateHandler(object):
         :param cmd: Command to run.
 
         :raises CertificateRegistrationError: Raised when the subprocess doesn't return 0.
+
+        :returns: Command output.
         """
-        p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
+        # FIXME: This should be refactored to use the Command module from this framework.
+        # However this would mean a refactor that we can't afford at the moment so we'll
+        # stick with the minimal viable fix.
+
+        # Do not use popen.check_call because it won't redirect stderr to stdout properly
+        # and it can't close stdin which causes issues in certain configurations on Windows.
+        if sys.platform == "win32":
+            # More on this Windows specific fix here: https://bugs.python.org/issue3905
+            p = subprocess.Popen(
+                cmd, shell=True,
+                stderr=subprocess.STDOUT, stdout=subprocess.PIPE, stdin=subprocess.PIPE
+            )
+            # Close the standard in as this can cause issues on Windows (Pixomondo in particular).
+            # Ironically, closing it on other platforms makes p.communicate raise an error, so only
+            # do this for Windows.
+            p.stdin.close()
+        else:
+            p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
         stdout, _ = p.communicate()
         if p.returncode != 0:
             self._logger.error("Unexpected output:\n%s" % stdout)
             raise CertificateRegistrationError("There was a problem %s." % ctx)
+        return stdout
 
     def is_registered(self):
         """
@@ -113,11 +133,9 @@ class _CertificateHandler(object):
         # Sometimes the is_registered_cmd will output Shotgun Software and sometimes it will
         # only output the pretty name Shotgun Desktop Integration, so searching for Shotgun is
         # good enough.
-        p = subprocess.Popen(
-            self._get_is_registered_cmd(),
-            stderr=subprocess.STDOUT,
-            stdout=subprocess.PIPE,
-            shell=True
+        return "Shotgun" in self._check_call(
+            "validating if the certificate was installed", self._get_is_registered_cmd()
+        )
         )
         stdout, _ = p.communicate()
         if p.returncode != 0:
