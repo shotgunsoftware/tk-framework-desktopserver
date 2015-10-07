@@ -869,7 +869,7 @@ class WebSocketProtocol:
          else:
             ## Either reply with same code/reason, or code == NORMAL/reason=None
             if self.echoCloseCodeReason:
-               self.sendCloseFrame(code = code, reasonUtf8 = reason.encode("UTF-8"), isReply = True)
+               self.sendCloseFrame(code = code, reasonUtf8 = reasonRaw.encode("UTF-8") if reasonRaw else None, isReply = True)
             else:
                self.sendCloseFrame(code = WebSocketProtocol.CLOSE_STATUS_CODE_NORMAL, isReply = True)
 
