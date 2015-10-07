@@ -34,13 +34,12 @@ class PortBusyError(BrowserIntegrationError):
     pass
 
 
-class CertificateRegistrationFailed(BrowserIntegrationError):
+class CertificateRegistrationError(BrowserIntegrationError):
     """
     Exception raised when something goes wrong while registering or
     unregistering a certificate.
     """
     pass
-
 
 class MissingConfigurationFileError(BrowserIntegrationError):
     """

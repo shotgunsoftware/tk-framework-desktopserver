@@ -10,7 +10,7 @@
 
 import sys
 import optparse
-
+import traceback
 
 def __get_certificate_prompt(keychain_name, action):
     """
@@ -26,11 +26,17 @@ def __get_certificate_prompt(keychain_name, action):
             "%s.\nPress ENTER to continue." % (keychain_name, action))
 
 
-def __warn_for_prompt():
+def __warn_for_prompt(removal):
     """
     Warn the user he will be prompted.
     """
-    if sys.platform == "darwin":
+    if removal:
+        if sys.platform == "win32":
+            raw_input(
+                "This script needs to remove a certificate from your Windows certificate.\n"
+                "Press ENTER to continue."
+            )
+    elif sys.platform == "darwin":
         raw_input(
             __get_certificate_prompt(
                 "keychain",
@@ -61,7 +67,7 @@ def __remove_certificate(certificate_folder, logger):
     # Removes the certificate from the OS/browser certificate database.
     if cert_handler.is_registered():
         logger.debug("Removing certificate from database.")
-        __warn_for_prompt()
+        __warn_for_prompt(removal=True)
         cert_handler.unregister()
         logger.info("The certificate is now unegistered.")
     else:
@@ -95,7 +101,7 @@ def __create_certificate(certificate_folder, logger):
         # wiped his certificates folder.
         if cert_handler.is_registered():
             # Warn once.
-            __warn_for_prompt()
+            __warn_for_prompt(removal=False)
             logger.debug("Unregistering dangling certificate from database...")
             warned = True
             cert_handler.unregister()
@@ -112,7 +118,7 @@ def __create_certificate(certificate_folder, logger):
         logger.debug("Certificate is not currently registered in the keychain.")
         # Only if we've never been warned before.
         if not warned:
-            __warn_for_prompt()
+            __warn_for_prompt(removal=False)
         cert_handler.register()
         logger.info("Certificate is now registered .")
     else:
@@ -154,10 +160,16 @@ def main():
 
     app_settings = settings.get_settings(options.configuration)
 
-    if options.remove:
-        __remove_certificate(app_settings.certificate_folder, app_logger)
-    else:
-        __create_certificate(app_settings.certificate_folder, app_logger)
+    try:
+        if options.remove:
+            __remove_certificate(app_settings.certificate_folder, app_logger)
+        else:
+            __create_certificate(app_settings.certificate_folder, app_logger)
+    except BrowserIntegrationError, e:
+        if options.debug:
+            app_logger.exception("There was an error handling the certificate.")
+        else:
+            app_logger.error(e)
 
 
 if __name__ == '__main__':
@@ -166,7 +178,4 @@ if __name__ == '__main__':
     from tk_framework_desktopserver import get_certificate_handler, BrowserIntegrationError
     import settings
     import logger
-    try:
-        main()
-    except BrowserIntegrationError, e:
-        print str(e)
+    main()

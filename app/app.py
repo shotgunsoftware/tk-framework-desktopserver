@@ -12,7 +12,7 @@
 
 import sys
 import optparse
-
+import traceback
 
 def _parse_options():
     """
@@ -50,14 +50,21 @@ def main():
     app_logger.info("Starting server with the following configuration:")
     app_settings.dump(app_logger)
 
-    # Start the server
-    server = Server(
-        debug=app_settings.debug,
-        keys_path=app_settings.certificate_folder,
-        port=app_settings.port,
-        whitelist=app_settings.whitelist
-    )
-    server.start()
+    try:
+        # Start the server
+        server = Server(
+            debug=app_settings.debug,
+            keys_path=app_settings.certificate_folder,
+            port=app_settings.port,
+            whitelist=app_settings.whitelist
+        )
+        server.start()
+    except BrowserIntegrationError, e:
+        if options.debug:
+            app_logger.exception("There was an error while running the browser integration.")
+        else:
+            app_logger.error(e)
+        return
 
     # Enables CTRL-C to kill this process even tough Qt doesn't know how to play nice with Python.
     # As per this stack overflow comment
@@ -84,7 +91,4 @@ if __name__ == '__main__':
     import logger
 
     from tk_framework_desktopserver import Server, BrowserIntegrationError
-    try:
-        main()
-    except BrowserIntegrationError, e:
-        print str(e)
+    main()
