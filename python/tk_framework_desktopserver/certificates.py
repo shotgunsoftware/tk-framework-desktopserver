@@ -123,7 +123,7 @@ class _CertificateHandler(object):
         if p.returncode != 0:
             self._logger.debug("Unexpected output:\n%s" % stdout)
             raise CertificateRegistrationError(
-                "There was a problem validating if a certificate was installed.", stdout
+                "There was a problem validating if a certificate was installed."
             )
         return "Shotgun" in stdout
 
