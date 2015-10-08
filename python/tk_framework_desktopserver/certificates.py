@@ -12,8 +12,8 @@ from __future__ import with_statement
 import os
 import sys
 import subprocess
-import logging
-from .errors import CertificateRegistrationFailed
+from .logger import get_logger
+from .errors import CertificateRegistrationError
 
 from OpenSSL import crypto
 
@@ -27,7 +27,7 @@ class _CertificateHandler(object):
         """
         Constructor.
         """
-        self._logger = logging.getLogger("tk-framework-desktopserver.certificate")
+        self._logger = get_logger("certificates")
         self._cert_path = os.path.join(certificate_folder, "server.crt")
         self._key_path = os.path.join(certificate_folder, "server.key")
 
@@ -36,6 +36,13 @@ class _CertificateHandler(object):
         :returns: True if the certificate exists on disk, False otherwose.
         """
         return os.path.exists(self._cert_path) and os.path.exists(self._key_path)
+
+    def remove_files(self):
+        """
+        Removes the files from the
+        """
+        os.unlink(self._cert_path)
+        os.unlink(self._key_path)
 
     def create(self):
         """
@@ -83,23 +90,19 @@ class _CertificateHandler(object):
 
     def _check_call(self, ctx, cmd):
         """
-        Runs a process and logs it's output if the return code was not 0.
+        Runs a process and raises an exception if the return code is not 0.
 
         :param ctx: string identifying the goal of the command. Will complete this sentence:
-            "There was a problem %s" %% ctx
+            "There was a problem %s." %% ctx
         :param cmd: Command to run.
 
-        :returns: True if the process returns 0, False otherwise.
+        :raises CertificateRegistrationError: Raised when the subprocess doesn't return 0.
         """
-        try:
-            # Sometimes the is_registered_cmd will output Shotgun Software and sometimes it will
-            # only output the pretty name Shotgun Desktop Integration, so searching for Shotgun is 
-            # good enough.
-            subprocess.check_call(cmd, stderr=subprocess.STDOUT, shell=True)
-        except subprocess.CalledProcessError, e:
-            self._logger.exception("There was a problem %s" % ctx)
-            self._logger.info("Output:\n%s" % e.output)
-            raise CertificateRegistrationFailed("There was a problem %s" % ctx)
+        p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
+        stdout, _ = p.communicate()
+        if p.returncode != 0:
+            self._logger.error("Unexpected output:\n%s" % stdout)
+            raise CertificateRegistrationError("There was a problem %s." % ctx)
 
     def is_registered(self):
         """
@@ -107,15 +110,22 @@ class _CertificateHandler(object):
 
         :returns: True if the certificate is registered, False otherwise.
         """
-        try:
-            # Sometimes the is_registered_cmd will output Shotgun Software and sometimes it will
-            # only output the pretty name Shotgun Desktop Integration, so searching for Shotgun is
-            # good enough.
-            return "Shotgun" in subprocess.check_output(self._get_is_registered_cmd(), stderr=subprocess.STDOUT, shell=True)
-        except subprocess.CalledProcessError, e:
-            self._logger.exception("There was a problem validating if a certificate was installed.")
-            self._logger.info("Output:\n%s" % e.output)
-            raise CertificateRegistrationFailed("There was a problem validating if a certificate was installed.")
+        # Sometimes the is_registered_cmd will output Shotgun Software and sometimes it will
+        # only output the pretty name Shotgun Desktop Integration, so searching for Shotgun is
+        # good enough.
+        p = subprocess.Popen(
+            self._get_is_registered_cmd(),
+            stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE,
+            shell=True
+        )
+        stdout, _ = p.communicate()
+        if p.returncode != 0:
+            self._logger.error("Unexpected output:\n%s" % stdout)
+            raise CertificateRegistrationError(
+                "There was a problem validating if a certificate was installed."
+            )
+        return "Shotgun" in stdout
 
     def unregister(self):
         """
@@ -196,7 +206,7 @@ class _LinuxCertificateHandler(_CertificateHandler):
         :returns: True on success, False on failure.
         """
         return self._check_call(
-            "registering certificate",
+            "registering the certificate",
             "certutil -A -d %s -i \"%s\" -n %s -t \"TC,C,c\"" % (
                 self._PKI_DB_PATH, self._cert_path, self._CERTIFICATE_PRETTY_NAME
             )
@@ -209,7 +219,7 @@ class _LinuxCertificateHandler(_CertificateHandler):
         :returns: True on success, False on failure.
         """
         return self._check_call(
-            "unregistering certificate",
+            "unregistering the certificate",
             "certutil -D -d %s -n %s" % (self._PKI_DB_PATH, self._CERTIFICATE_PRETTY_NAME)
         )
 
@@ -234,7 +244,7 @@ class _WindowsCertificateHandler(_CertificateHandler):
         :returns: True on success, False on failure.
         """
         return self._check_call(
-            "registering certificate",
+            "registering the certificate",
             ("certutil", "-user", "-addstore", "root", self._cert_path.replace("/", "\\"))
         )
 
@@ -248,7 +258,7 @@ class _WindowsCertificateHandler(_CertificateHandler):
         # have the same name. Maybe we should write the sha to disk and delete using that as
         # a query (certutil -user -delstore root sha1).
         return self._check_call(
-            "unregistering certificate",
+            "unregistering the certificate",
             ("certutil", "-user", "-delstore", "root", "localhost")
         )
 
@@ -269,7 +279,7 @@ class _MacCertificateHandler(_CertificateHandler):
         # is to reboot. Note that doing that trusting the certificate via the UI exposes the same
         # issue.
         return self._check_call(
-            "registering certificate",
+            "registering the certificate",
             "security add-trusted-cert -k ~/Library/Keychains/login.keychain -r trustRoot  \"%s\"" %
             self._cert_path
         )
@@ -295,7 +305,7 @@ class _MacCertificateHandler(_CertificateHandler):
         # a query (security delete-certificate -Z sha1 -t).
         if self.is_registered():
             return self._check_call(
-                "removing trusted certificate",
+                "removing the trusted certificate",
                 "security delete-certificate -c localhost -t"
             )
         else:
