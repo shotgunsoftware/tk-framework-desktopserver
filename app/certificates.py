@@ -12,47 +12,41 @@ import os
 import sys
 import optparse
 
+# Name of the keychain per platform. Note that Linux doesn't have any entries because there is no prompting
+# done when adding and removing to the Chrome/Firefox 'keychain'.
+__keychain_name = {
+    "win32": "Windows certificate store",
+    "darwin": "keychain"
+}
 
-def __get_certificate_prompt(keychain_name, action):
-    """
-    Generates the text to use when alerting the user that we need to register the certificate.
-
-    :param keychain_name: Name of the keychain-like entity for a particular OS.
-    :param action: Description of what the user will need to do when the OS prompts the user.
-
-    :returns: String containing an error message formatted
-    """
-    return ("This script needs to install a security certificate into your %s before "
-            "it can turn on the browser integration.\n"
-            "%s.\nPress ENTER to continue." % (keychain_name, action))
+# Explains what the user will be required to do after typing enter.
+__keychain_prompting = {
+    "win32": "Windows will now prompt you to accept an update to your certificate store.",
+    "darwin": (
+        "You will be prompted to enter your username and password by MacOS's keychain "
+        "manager in order to proceed with the update."
+    )
+}
 
 
 def __warn_for_prompt(removal):
     """
     Warn the user he will be prompted.
     """
-    if removal:
-        if sys.platform == "win32":
-            raw_input(
-                "This script needs to remove a certificate from your Windows certificate.\n"
-                "Press ENTER to continue."
-            )
-    elif sys.platform == "darwin":
-        raw_input(
-            __get_certificate_prompt(
-                "keychain",
-                "You will be prompted to enter your username and password by MacOS's keychain "
-                "manager in order to proceed with the update."
-            )
-        )
-    elif sys.platform == "win32":
-        raw_input(
-            __get_certificate_prompt(
-                "Windows certificate store",
-                "Windows will now prompt you to accept an update to your certificate store."
-            )
-        )
     # On Linux there's no need to prompt. It's all silent.
+    if sys.platform == "Linux":
+        return
+    if removal:
+        raw_input(
+            "This script needs to remove a security certificate from your %s.\n"
+            "%s\nPress ENTER to continue." % (__keychain_name[sys.platform], __keychain_prompting[sys.platform])
+        )
+    else:
+        raw_input(
+            "This script needs to install a security certificate into your %s before "
+            "it can turn on the browser integration.\n"
+            "%s\nPress ENTER to continue." % (__keychain_name[sys.platform], __keychain_prompting[sys.platform])
+        )
 
 
 def __remove_certificate(certificate_folder, logger):
