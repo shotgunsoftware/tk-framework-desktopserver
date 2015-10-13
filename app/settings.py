@@ -58,6 +58,6 @@ def get_settings(configuration):
         # into the resource files to look for the keys
         os.path.join(
             os.path.dirname(app_dir),
-            "resources/keys"
+            os.path.join("resources", "keys")
         )
     )
