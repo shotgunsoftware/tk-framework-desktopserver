@@ -34,7 +34,7 @@ def __warn_for_prompt(removal):
     Warn the user he will be prompted.
     """
     # On Linux there's no need to prompt. It's all silent.
-    if sys.platform == "Linux":
+    if sys.platform.startswith("linux"):
         return
     if removal:
         raw_input(
