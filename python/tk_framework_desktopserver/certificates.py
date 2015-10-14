@@ -136,14 +136,6 @@ class _CertificateHandler(object):
         return "Shotgun" in self._check_call(
             "validating if the certificate was installed", self._get_is_registered_cmd()
         )
-        )
-        stdout, _ = p.communicate()
-        if p.returncode != 0:
-            self._logger.error("Unexpected output:\n%s" % stdout)
-            raise CertificateRegistrationError(
-                "There was a problem validating if a certificate was installed."
-            )
-        return "Shotgun" in stdout
 
     def unregister(self):
         """
