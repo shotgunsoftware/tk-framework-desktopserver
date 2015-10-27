@@ -21,6 +21,8 @@ from autobahn.twisted.websocket import WebSocketServerFactory, listenWS
 
 from .errors import MissingCertificateError, PortBusyError
 
+from .logger import get_logger
+
 
 class Server:
     _DEFAULT_PORT = 9000
@@ -36,11 +38,26 @@ class Server:
         self._whitelist = whitelist or self._DEFAULT_WHITELIST
         self._debug = debug
 
-        self._logger_root = logging.getLogger("tk-framework-desktopserver")
+        self._logger_root = get_logger()
 
         if self._debug:
-            # This will take the Twisted logging and forward it to Python's logging.
-            self._observer = log.PythonLoggingObserver("tk-framework-desktopserver.twisted")
+            # The framework's log can be logged to disk by other apps and the twisted logging can contain
+            # sensitive information, so make sure logs don't propagate to the root handler.
+            # Simply output the twisted text to the console.
+            twisted = logging.getLogger("twisted")
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s [%(name)s.%(levelname)s] %(message)s')
+            handler.setFormatter(formatter)
+            twisted.addHandler(handler)
+            twisted.warning("-" * 30)
+            twisted.warning(
+                "YOU ARE LOGGING TWISTED INTERNAL MESSAGES TO THE CONSOLE. MAKE SURE YOU CLOSE THE "
+                "CONSOLE AFTER RUNNING THE APPLICATION AS TWISTED CAN LOG SENSITIVE INFORMATION."
+            )
+            twisted.warning("-" * 30)
+
+            # This will take the Twisted logging and forward it to Python's logging
+            self._observer = log.PythonLoggingObserver("twisted")
             self._observer.start()
 
     def get_logger(self):
