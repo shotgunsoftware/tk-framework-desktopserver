@@ -14,7 +14,6 @@ import re
 import datetime
 from urlparse import urlparse
 import OpenSSL
-import logging
 
 import shotgun_api
 from .message_host import MessageHost
@@ -60,10 +59,10 @@ class ServerProtocol(WebSocketServerProtocol):
                 self._logger.info("Certificate error!")
                 StatusServerProtocol.serverStatus = StatusServerProtocol.SSL_CERTIFICATE_INVALID
             else:
-                self._logger.info("Connection lost!")
+                self._logger.info("Connection closed.")
                 StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
         except Exception:
-            self._logger.exception()
+            self._logger.exception("Unexpected error while losing connection.")
             StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
 
     def onConnect(self, response):
@@ -82,7 +81,7 @@ class ServerProtocol(WebSocketServerProtocol):
             # response.origin: xyz.shotgunstudio.com
             domain_valid = self._is_domain_valid(response.origin)
         except:
-            self._logger.exception()
+            self._logger.exception("Unexpected error while losing connection.")
 
         if not domain_valid:
             self._logger.info("Invalid domain: %s" % response.origin)
@@ -190,8 +189,8 @@ class ServerProtocol(WebSocketServerProtocol):
         # ensure_ascii allows unicode strings.
         payload = json.dumps(data, ensure_ascii=False, default=self._json_date_handler).encode("utf8")
 
-        isBinary = False
-        self.sendMessage(payload, isBinary)
+        is_binary = False
+        self.sendMessage(payload, is_binary)
 
     def _wildcard_match(self, wildcard, match):
         """

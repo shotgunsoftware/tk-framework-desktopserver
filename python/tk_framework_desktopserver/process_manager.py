@@ -196,7 +196,8 @@ class ProcessManager(object):
 
             return (out, err, return_code)
         except Exception, e:
-            # call_cmd is not supposed to include sentitive information in the error message.
+            # call_cmd is not including sentitive information in the error message, so this won't
+            # either.
             raise Exception("Error executing toolkit command: " + e.message)
 
     def _add_action_output(self, actions, out, err, code):
