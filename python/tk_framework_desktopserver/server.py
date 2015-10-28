@@ -29,7 +29,7 @@ class Server:
     _DEFAULT_KEYS_PATH = "../resources/keys"
     _DEFAULT_WHITELIST = "*.shotgunstudio.com"
 
-    def __init__(self, port=None, debug=True, whitelist=None, keys_path=None):
+    def __init__(self, port=None, debug=False, whitelist=None, keys_path=None):
         """
         Constructor.
         """
@@ -40,15 +40,25 @@ class Server:
 
         self._logger_root = get_logger()
 
+        twisted = get_logger("twisted")
+
         if self._debug:
-            # The framework's log can be logged to disk by other apps and the twisted logging can contain
-            # sensitive information, so make sure logs don't propagate to the root handler.
-            # Simply output the twisted text to the console.
-            twisted = logging.getLogger("twisted")
+            # When running the server in debug mode, the twisted framework will print out data
+            # exchanged with the client. Unforutnately, there's no way to filter out that
+            # information from since it is being logged at the INFO level just like regular Twisted
+            # logs.
+
+            # Because the package information is sensitive, we will make sure logs don't propagate
+            # to the root handler.
+            twisted.propagate = False
+
+            # Print Twisted logs to the console.
             handler = logging.StreamHandler()
             formatter = logging.Formatter('%(asctime)s [%(name)s.%(levelname)s] %(message)s')
             handler.setFormatter(formatter)
             twisted.addHandler(handler)
+
+            # Warn the user that this is dangerous.
             twisted.warning("-" * 30)
             twisted.warning(
                 "YOU ARE LOGGING TWISTED INTERNAL MESSAGES TO THE CONSOLE. MAKE SURE YOU CLOSE THE "
@@ -56,9 +66,9 @@ class Server:
             )
             twisted.warning("-" * 30)
 
-            # This will take the Twisted logging and forward it to Python's logging
-            self._observer = log.PythonLoggingObserver("twisted")
-            self._observer.start()
+        # This will take the Twisted logging and forward it to Python's logging.
+        self._observer = log.PythonLoggingObserver(twisted.name)
+        self._observer.start()
 
     def get_logger(self):
         """
