@@ -81,12 +81,14 @@ class ServerProtocol(WebSocketServerProtocol):
             # response.origin: xyz.shotgunstudio.com
             domain_valid = self._is_domain_valid(response.origin)
         except:
-            self._logger.exception("Unexpected error while losing connection.")
+            self._logger.exception("Unexpected error while trying to determine the originating domain.")
 
         if not domain_valid:
             self._logger.info("Invalid domain: %s" % response.origin)
             # Don't accept connection
             raise websocket.http.HttpException(403, "Domain origin was rejected by server.")
+        else:
+            self._logger.info("Connection accepted.")
 
     def onMessage(self, payload, isBinary):
         """

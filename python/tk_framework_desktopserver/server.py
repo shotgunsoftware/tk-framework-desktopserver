@@ -21,43 +21,44 @@ from autobahn.twisted.websocket import WebSocketServerFactory, listenWS
 
 from .errors import MissingCertificateError, PortBusyError
 
-from .logger import get_logger
+import logger
 
 
-class Server:
+class Server(object):
     _DEFAULT_PORT = 9000
     _DEFAULT_KEYS_PATH = "../resources/keys"
     _DEFAULT_WHITELIST = "*.shotgunstudio.com"
 
-    def __init__(self, port=None, debug=False, whitelist=None, keys_path=None):
+    def __init__(self, keys_path, port=None, low_level_debug=False, whitelist=None):
         """
         Constructor.
+
+        :param keys_path: Path to the keys. If the path is relative, it will be relative to the
+            current working directory. Mandatory
+        :param port: Port to listen for websocket requests from.
+        :param low_level_debug: If True, wss traffic will be written to the console.
+        :param whitelist: Comma separated list of sites that can connect to the server.
+            For example:
+                - *.shotgunstudio.com (default)
+                - some-site.shotgunstudio.com
+                - localserver.localnetwork.com
+                - some-site.shotgunstudio.com,some-other-site.shotgunstudio.com
         """
         self._port = port or self._DEFAULT_PORT
         self._keys_path = keys_path or self._DEFAULT_KEYS_PATH
         self._whitelist = whitelist or self._DEFAULT_WHITELIST
-        self._debug = debug
+        self._debug = low_level_debug
 
-        self._logger_root = get_logger()
+        if not os.path.exists(keys_path):
+            raise MissingCertificateError(keys_path)
 
-        twisted = get_logger("twisted")
+        twisted = logger.get_logger("twisted")
 
         if self._debug:
-            # When running the server in debug mode, the twisted framework will print out data
-            # exchanged with the client. Unforutnately, there's no way to filter out that
+            # When running the server in low_level_debug mode, the twisted framework will print out
+            # data exchanged with the client. Unfortunately, there's no way to filter out that
             # information from since it is being logged at the INFO level just like regular Twisted
             # logs.
-
-            # Because the package information is sensitive, we will make sure logs don't propagate
-            # to the root handler.
-            twisted.propagate = False
-
-            # Print Twisted logs to the console.
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter('%(asctime)s [%(name)s.%(levelname)s] %(message)s')
-            handler.setFormatter(formatter)
-            twisted.addHandler(handler)
-
             # Warn the user that this is dangerous.
             twisted.warning("-" * 30)
             twisted.warning(
@@ -74,7 +75,7 @@ class Server:
         """
         :returns: The python logger root for the framework.
         """
-        return self._logger_root
+        return logger.get_logger()
 
     def _raise_if_missing_certificate(self, certificate_path):
         """
