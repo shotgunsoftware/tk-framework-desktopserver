@@ -8,6 +8,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+import sys
 
 try:
     from PySide import QtCore, QtGui
@@ -41,6 +42,13 @@ class SgtkFileDialog(QtGui.QFileDialog):
         treeview = self.findChild(QtGui.QTreeView)
         if treeview:
             treeview.setSelectionMode(selection_mode)
+
+        # FIXME: On MacOS the QFileDialog hides all hidden files. Unfortunately /Volumes is hidden.
+        # As a quick hack to unblock our clients, we'll add /Volumes to the sidebar.
+        if sys.platform == "darwin":
+            sidebarUrls = self.sidebarUrls()
+            sidebarUrls.append("file:///Volumes")
+            self.setSidebarUrls(sidebarUrls)
 
     def exec_(self):
         self.show()
