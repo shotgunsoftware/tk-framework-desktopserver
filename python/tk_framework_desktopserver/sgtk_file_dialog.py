@@ -50,7 +50,7 @@ class SgtkFileDialog(QtGui.QFileDialog):
         if sys.platform == "darwin":
             sidebar_urls = self.sidebarUrls()
             if self._VOLUMES_URL not in sidebar_urls:
-                sidebar_urls.append("file:///Volumes")
+                sidebar_urls.append(self._VOLUMES_URL)
             self.setSidebarUrls(sidebar_urls)
 
         # Make the combobox editable so we can specify a path through it.
