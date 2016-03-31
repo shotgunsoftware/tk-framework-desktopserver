@@ -118,9 +118,10 @@ class _CertificateHandler(object):
             p.stdin.close()
         else:
             p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
-        stdout, _ = p.communicate()
+        stdout, stderr = p.communicate()
+        self._logger.debug("Stdout:\n%s" % stdout)
+        self._logger.debug("Stderr:\n%s" % stderr)
         if p.returncode != 0:
-            self._logger.error("Unexpected output:\n%s" % stdout)
             raise CertificateRegistrationError("There was a problem %s." % ctx)
         return stdout
 
