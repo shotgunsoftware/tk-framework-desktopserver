@@ -15,7 +15,8 @@ def get_logger(child_logger=None):
     """
     Returns the logger used by this framework.
     """
+    # Follow 0.18 naming convention so the logging is picked up automatically by the new framework.
     if not child_logger:
-        return logging.getLogger("tk-framework-desktopserver")
+        return logging.getLogger("sgtk.ext.tk-framework-desktopserver")
     else:
-        return logging.getLogger("tk-framework-desktopserver.%s" % child_logger)
+        return logging.getLogger("sgtk.ext.tk-framework-desktopserver.%s" % child_logger)
