@@ -205,7 +205,7 @@ class _LinuxCertificateHandler(_CertificateHandler):
         """
         super(_LinuxCertificateHandler, self).__init__(certificate_folder)
 
-        # Ensure that the Chrome certificate registry is initialized.
+        # Ensure that the Chrome certificate registry folder exists
         if not os.path.exists(self._PKI_DB_PATH):
             self._logger.debug("Creating '%s'", self._PKI_DB_PATH)
             os.makedirs(self._PKI_DB_PATH)
