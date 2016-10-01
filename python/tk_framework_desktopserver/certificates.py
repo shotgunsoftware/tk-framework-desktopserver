@@ -25,7 +25,7 @@ class _CertificateHandler(object):
 
     def __init__(self, certificate_folder):
         """
-        Constructor.
+        :param str certificate_folder: Path where the certificates will be written.
         """
         self._logger = get_logger("certificates")
         self._cert_path = os.path.join(certificate_folder, "server.crt")
@@ -195,8 +195,26 @@ class _LinuxCertificateHandler(_CertificateHandler):
     Handles creation and registration of the websocket certificate on Linux.
     """
 
-    _PKI_DB_PATH = "\"sql:$HOME/.pki/nssdb\""
+    _PKI_DB_PATH = os.path.expanduser("~/.pki/nssdb")
+    _SQL_PKI_DB_PATH = "\"sql:%s\"" % _PKI_DB_PATH
     _CERTIFICATE_PRETTY_NAME = "\"Shotgun Desktop Integration\""
+
+    def __init__(self, certificate_folder):
+        """
+        :param str certificate_folder: Path where the certificates will be written.
+        """
+        super(_LinuxCertificateHandler, self).__init__(certificate_folder)
+
+        # Ensure that the Chrome certificate registry is initialized.
+        if not os.path.exists(self._PKI_DB_PATH):
+            self._logger.debug("Creating '%s'", self._PKI_DB_PATH)
+            os.makedirs(self._PKI_DB_PATH)
+
+        # If the Chrome certificate registry is empty, create it. If there is already a database in
+        # there, the folder won't be empty.
+        if not os.listdir(self._PKI_DB_PATH):
+            self._logger.debug("Initializing db at '%s'", self._PKI_DB_PATH)
+            self._check_call("initializing the database", "certutil -N --empty-password -d %s" % self._SQL_PKI_DB_PATH)
 
     def _get_is_registered_cmd(self):
         """
@@ -210,7 +228,7 @@ class _LinuxCertificateHandler(_CertificateHandler):
         # http://k0s.org/mozilla/hg/ProfileManager/file/145e111903d2/profilemanager to parse the
         # profiles.ini file, but I'm not a lawyer and I'm not sure if the Mozilla Public License is
         # something we can use.
-        return "certutil -L -d %s" % self._PKI_DB_PATH
+        return "certutil -L -d %s" % self._SQL_PKI_DB_PATH
 
     def register(self):
         """
@@ -221,7 +239,7 @@ class _LinuxCertificateHandler(_CertificateHandler):
         return self._check_call(
             "registering the certificate",
             "certutil -A -d %s -i \"%s\" -n %s -t \"TC,C,c\"" % (
-                self._PKI_DB_PATH, self._cert_path, self._CERTIFICATE_PRETTY_NAME
+                self._SQL_PKI_DB_PATH, self._cert_path, self._CERTIFICATE_PRETTY_NAME
             )
         )
 
@@ -233,7 +251,7 @@ class _LinuxCertificateHandler(_CertificateHandler):
         """
         return self._check_call(
             "unregistering the certificate",
-            "certutil -D -d %s -n %s" % (self._PKI_DB_PATH, self._CERTIFICATE_PRETTY_NAME)
+            "certutil -D -d %s -n %s" % (self._SQL_PKI_DB_PATH, self._CERTIFICATE_PRETTY_NAME)
         )
 
 
