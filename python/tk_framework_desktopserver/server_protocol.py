@@ -15,7 +15,7 @@ import datetime
 from urlparse import urlparse
 import OpenSSL
 
-import shotgun_api
+from .shotgun import get_shotgun_api
 from .message_host import MessageHost
 from .status_server_protocol import StatusServerProtocol
 from .process_manager import ProcessManager
@@ -31,8 +31,10 @@ class ServerProtocol(WebSocketServerProtocol):
     Server Protocol
     """
 
-    # Server protocol version
-    PROTOCOL_VERSION = 1
+    # Initial state is v2. This might change if we end up receiving a connection
+    # from a client at v1.
+    PROTOCOL_VERSION = 2
+    SUPPORTED_PROTOCOL_VERSIONS = (1, 2)
 
     def __init__(self):
         self._logger = get_logger()
@@ -108,9 +110,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # Special message to get protocol version for this protocol. This message doesn't follow the standard
         # message format as it doesn't require a protocol version to be retrieved and is not json-encoded.
         if decoded_payload == "get_protocol_version":
-            data = {}
-            data["protocol_version"] = self.PROTOCOL_VERSION
-            self.json_reply(data)
+            self.json_reply(dict(protocol_version=self.PROTOCOL_VERSION))
             return
 
         # Extract json response (every message is expected to be in json format)
@@ -123,45 +123,65 @@ class ServerProtocol(WebSocketServerProtocol):
         message_host = MessageHost(self, message)
 
         # Check protocol version
-        if message["protocol_version"] != self.PROTOCOL_VERSION:
-            message_host.report_error("Error. Wrong protocol version [%s] " % self.PROTOCOL_VERSION)
+        if message["protocol_version"] not in self.SUPPORTED_PROTOCOL_VERSIONS:
+            message_host.report_error(
+                "Unsupported protocol version: %s " % message["protocol_version"]
+            )
             return
 
-        # Run each request from a thread, even tough it might be something very simple like opening a file. This
-        # will ensure the server is as responsive as possible. Twisted will take care of the thread.
-        reactor.callInThread(self._process_message, message_host, message)
+        # TODO: This isn't going to work if we have two different clients
+        # connecting at two different protocol versions. This is a temp
+        # hack to placate message_host.py. <jbee>
+        self.PROTOCOL_VERSION = message["protocol_version"]
 
-    def _process_message(self, message_host, message):
+        # Run each request from a thread, even though it might be something very simple like opening a file. This
+        # will ensure the server is as responsive as possible. Twisted will take care of the thread.
+        reactor.callInThread(
+            self._process_message,
+            message_host,
+            message,
+            message["protocol_version"],
+        )
+
+    def _process_message(self, message_host, message, protocol_version):
 
         # Retrieve command from message
         command = message["command"]
 
         # Retrieve command data from message
-        data = {}
-        if "data" in command:
-            data = command["data"]
-
+        data = command.get("data", dict())
         cmd_name = command["name"]
 
         # Create API for this message
         try:
             # Do not resolve to simply ShotgunAPI in the imports, this allows tests to mock errors
-            shotgun = shotgun_api.ShotgunAPI(message_host, self.process_manager)
+            api = get_shotgun_api(
+                protocol_version,
+                message_host,
+                self.process_manager,
+            )
         except Exception, e:
-            message_host.report_error("Error in loading ShotgunAPI. " + e.message)
+            message_host.report_error("Unable to get a ShotgunAPI object: %s" % e)
             return
 
         # Make sure the command is in the public API
-        if cmd_name in shotgun.public_api:
+        if cmd_name in api.PUBLIC_API_METHODS:
             # Call matching shotgun command
             try:
-                func = getattr(shotgun, cmd_name)
-                func(data)
+                func = getattr(api, cmd_name)
             except Exception, e:
-                message_host.report_error("Error! Could not execute function (possibly wrong command arguments) for [%s] -- %s"
-                                          % (cmd_name, e.message))
+                message_host.report_error(
+                    "Could not find API method %s: %s" % (cmd_name, e)
+                )
+            else:
+                try:
+                    func(data)
+                except Exception, e:
+                    message_host.report_error(
+                        "Method call failed for %s: %s" % (cmd_name, e)
+                    )
         else:
-            message_host.report_error("Error! Wrong Command Sent: [%s]" % cmd_name)
+            message_host.report_error("Command %s is not supported." % cmd_name)
 
     def report_error(self, message, data=None):
         """
