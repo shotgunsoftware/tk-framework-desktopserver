@@ -10,31 +10,57 @@
 
 import sgtk
 import os
+import struct
+from sgtk.util import LocalFileStorageManager
+
 
 class DesktopserverFramework(sgtk.platform.Framework):
 
     ##########################################################################################
     # init and destroy
-
     def init_framework(self):
-        self.log_debug("%s: Initializing..." % self)
-        self.server = None
+        self._server = None
+        self._settings = None
+
+    def init_desktop_server(self):
+
+        tk_framework_desktopserver = self.import_module("tk_framework_desktopserver")
+        self._settings = tk_framework_desktopserver.Settings(
+            location=None, # Passing in None will have the desktop user use the UserSettings API instead of reading a file.
+            default_certificate_folder=os.path.join(
+                LocalFileStorageManager.get_global_root(
+                    LocalFileStorageManager.CACHE, LocalFileStorageManager.CORE_V18
+                ),
+                "desktop",
+                "config",
+                "certificates"
+            )
+        )
+
+        self._settings.dump(self.logger)
+
+        if self.__is_64bit_python() and self._settings.integration_enabled:
+            return
+
+        self._server = tk_framework_desktopserver.Server(
+            port=self._settings.port,
+            low_level_debug=self._settings.low_level_debug,
+            whitelist=self._settings.whitelist,
+            keys_path=self._settings.certificate_folder
+        )
+
+        try:
+            self._server.start()
+        except tk_framework_desktopserver.PortBusyError:
+            logger.exception("Could not start the browser integration:")
+            # TODO: Do we ask the user if he wants to quit?
 
     def destroy_framework(self):
-        self.log_debug("%s: Destroying..." % self)
+        if not self._server and self._server.is_running():
+            server.tear_down()
 
-    def start_server(self, debug=False, start_reactor=True):
+    def __is_64bit_python(self):
         """
-        Start shotgun web server, listening to websocket connections.
-
-        :param debug: Boolean Show debug output. Will also Start local web server to test client pages.
-        :param start_reactor: Boolean Start threaded reactor
+        :returns: True if 64-bit Python, False otherwise.
         """
-        tk_server = self.import_module("tk_server")
-        key_path = os.path.join(os.path.dirname(tk_server.__file__), "../../resources/keys")
-        self.server = tk_server.Server()
-        self.server.start(debug, key_path, start_reactor)
-
-    def stop_server(self):
-        if self.server:
-            self.server.stop()
+        return struct.calcsize("P") == 8

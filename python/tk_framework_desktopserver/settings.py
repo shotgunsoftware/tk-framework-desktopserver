@@ -39,6 +39,7 @@ class Settings(object):
     _LOW_LEVEL_DEBUG_SETTING = "low_level_debug"
     _WHITELIST_SETTING = "whitelist"
     _CERTIFICATE_FOLDER_SETTING = "certificate_folder"
+    _ENABLED = "enabled"
 
     def __init__(self, location, default_certificate_folder):
         """
@@ -72,6 +73,9 @@ class Settings(object):
             certificate_folder = self._get_value(
                 config, self._CERTIFICATE_FOLDER_SETTING
             )
+            is_enabled = self._get_value(
+                config, self._ENABLED
+            )
         else:
             from sgtk.util import UserSettings
             user_settings = UserSettings()
@@ -87,11 +91,13 @@ class Settings(object):
             certificate_folder = user_settings.get_setting(
                 self._BROWSER_INTEGRATION, self._CERTIFICATE_FOLDER_SETTING
             )
+            integration_enabled = UserSettings().get_boolean_setting(self._BROWSER_INTEGRATION, self._ENABLED)
 
         self._port = port or self._DEFAULT_PORT
         self._low_level_debug = low_level_debug or self._DEFAULT_LOW_LEVEL_DEBUG_VALUE
         self._whitelist = whitelist or self._DEFAULT_WHITELIST
         self._certificate_folder = certificate_folder or self._default_certificate_folder
+        self._integration_enabled = integration_enabled
 
     def _load_config(self, path):
         """
@@ -112,6 +118,13 @@ class Settings(object):
         :returns: The port to listen on for incoming websocket requests.
         """
         return self._port
+
+    @property
+    def integration_enabled(self):
+        """
+        :returns: True if the browser integration is enabled, False otherwise.
+        """
+        return self._is_enabled
 
     @property
     def low_level_debug(self):
@@ -135,6 +148,14 @@ class Settings(object):
         :returns: Path to the certificate location.
         """
         return self._certificate_folder
+
+    @property
+    def integration_enabled(self):
+        """
+        :returns: True if the websocket should run, False otherwise.
+        """
+
+
 
     def dump(self, logger):
         """
@@ -179,3 +200,18 @@ class Settings(object):
                 config.get(section, key)
             )
         )
+
+    _BROWSER_INTEGRATION = "BrowserIntegration"
+
+    def dump(self, logger):
+        """
+        Dumps Desktop settings inside the logger.
+
+        :param logger: Logger to write the information to.
+        """
+        logger.info("Custom user setting for Shotgun Desktop:")
+        if self.integration_enabled is None:
+            logger.info("Integration enabled: <missing>")
+        else:
+            logger.info("Integration enabled: %s" % self.integration_enabled)
+
