@@ -14,6 +14,7 @@ import re
 import datetime
 from urlparse import urlparse
 import OpenSSL
+import threading
 
 from .shotgun import get_shotgun_api
 from .message_host import MessageHost
@@ -39,6 +40,7 @@ class ServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         self._logger = get_logger()
         self.process_manager = ProcessManager.create()
+        self._semaphore = threading.Semaphore()
 
     def onClose(self, wasClean, code, reason):
         pass
@@ -159,6 +161,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 protocol_version,
                 message_host,
                 self.process_manager,
+                self._semaphore,
             )
         except Exception, e:
             message_host.report_error("Unable to get a ShotgunAPI object: %s" % e)
@@ -169,17 +172,31 @@ class ServerProtocol(WebSocketServerProtocol):
             # Call matching shotgun command
             try:
                 func = getattr(api, cmd_name)
+                requires_sync = (cmd_name in api.SYNCHRONOUS_METHODS)
             except Exception, e:
                 message_host.report_error(
                     "Could not find API method %s: %s" % (cmd_name, e)
                 )
             else:
+                # If a method is expecting to be run synchronously we
+                # need to make sure that happens. An example of this is
+                # the get_actions method in v2 of the api, which might
+                # trigger a cache update. If that happens, we can't let
+                # multiple cache processes occur at once, because each
+                # is bootstrapping sgtk, which won't play well if multiple
+                # are occurring at the same time, all of which potentially
+                # copying/downloading files to disk in the same location.
+                if requires_sync:
+                    self._semaphore.acquire()
                 try:
                     func(data)
                 except Exception, e:
                     message_host.report_error(
                         "Method call failed for %s: %s" % (cmd_name, e)
                     )
+                finally:
+                    if requires_sync:
+                        self._semaphore.release()
         else:
             message_host.report_error("Command %s is not supported." % cmd_name)
 

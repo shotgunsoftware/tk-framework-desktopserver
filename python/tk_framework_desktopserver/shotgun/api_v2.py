@@ -16,49 +16,9 @@ import sqlite3
 import json
 import subprocess
 import tempfile
+import contextlib
 
 import sgtk
-
-###########################################################################
-# Decorators
-
-def _db_connect(function):
-    """
-    Decorator helper to use with database methods. This is to reduce
-    code duplication and it passes in a connection and cursor argument
-    to the decorated method. Use it like this:
-    
-        @_db_connect
-        def my_method(self, connection, cursor, note_id):
-            do_stuff
-        
-    The connection and cursor parameters above are added by this decorator,
-    so the calling code should execute the following:
-    
-        do_stuff
-        self.my_method(note_id)
-        do_stuff
-    
-    """
-    def wrap_function(*args, **kwargs):
-        connection = None
-        cursor = None        
-        self = args[0]
-        try:
-            connection = self._init_db()
-            cursor = connection.cursor()
-            new_args = (self, connection, cursor) + args[1:]
-            return function(*new_args, **kwargs)
-        finally:
-            try:
-                if cursor:
-                    cursor.close()
-                if connection:
-                    connection.close()
-            except:
-                self.logger.debug("Could not close database handle.")        
-                    
-    return wrap_function
 
 ###########################################################################
 # Classes
@@ -71,10 +31,17 @@ class ShotgunAPI(object):
     PUBLIC_API_METHODS = [
         "get_actions",
     ]
+    SYNCHRONOUS_METHODS = [
+        "get_actions",
+    ]
 
     DATABASE_FORMAT_VERSION = 1
 
-    def __init__(self, host, process_manager):
+    SUCCESSFUL_LOOKUP = 0
+    NO_ENVIRONMENT_FOR_ENTITY_TYPE = 2
+    CACHING_ERROR = 3
+
+    def __init__(self, host, process_manager, semaphore):
         """
         API Constructor.
         Keep initialization pretty fast as it is created on every message.
@@ -85,6 +52,7 @@ class ShotgunAPI(object):
         self._host = host
         self._process_manager = process_manager
         self._engine = sgtk.platform.current_engine()
+        self._semaphore = semaphore
 
         # Cache path on disk.
         self._cache_path = os.path.join(
@@ -110,32 +78,59 @@ class ShotgunAPI(object):
     ###########################################################################
     # Public methods
 
-    @_db_connect
-    def get_actions(self, connection, cursor, data):
+    def get_actions(self, data):
+        # TODO: white listing is to be handled by core hook
+        if data["entity_type"] not in ["Project", "Shot"]:
+            self.host.reply(dict(retcode=self.NO_ENVIRONMENT_FOR_ENTITY_TYPE))
+            return
+
         # TODO: Core hook to generate lookup hash.
         lookup_md5 = md5.new()
         lookup_md5.update(str(data))
         lookup_hash = lookup_md5.digest()
 
-        # TODO: Compute contents_hash and ensure it matches that in the cache.
-        res = list(cursor.execute(
-            "SELECT commands FROM engine_commands WHERE lookup_hash=?",
-            (lookup_hash,)
-        ))
+        with self._db_connect() as (connection, cursor):
+            # TODO: Compute contents_hash and ensure it matches that in the cache.
+            res = list(cursor.execute(
+                "SELECT commands FROM engine_commands WHERE lookup_hash=?",
+                (lookup_hash,)
+            ))
 
-        if res:
-            commands = cPickle.loads(str(list(res)[0][0]))
-            self.logger.debug("Commands found in cache: %s" % commands)
-            ret = dict(
-                err="",
-                retcode=0,
-                out=commands,
-            )
-            self.host.reply(ret)
-        else:
-            # TODO: Second lookup_hash here to be replaced with contents_hash.
-            self._cache_actions(data, lookup_hash, lookup_hash)
-            self.get_actions(data)
+            if res:
+                commands = cPickle.loads(str(list(res)[0][0]))
+                self.logger.info("Commands found in cache: %s" % commands)
+                ret = dict(
+                    err="",
+                    retcode=self.SUCCESSFUL_LOOKUP,
+                    out=commands,
+                )
+                self.host.reply(ret)
+            else:
+                # TODO: Second lookup_hash here to be replaced with contents_hash.
+                try:
+                    self._cache_actions(data, lookup_hash, lookup_hash)
+                except subprocess.CalledProcessError, e:
+                    self.logger.error(str(e))
+                    self.host.reply(
+                        dict(
+                            err="Shotgun Desktop failed to get engine commands.",
+                            retcode=self.CACHING_ERROR,
+                            out="Caching failed!",
+                        ),
+                    )
+                else:
+                    self.get_actions(data)
+
+    ###########################################################################
+    # Context managers
+
+    @contextlib.contextmanager
+    def _db_connect(self):
+        connection = self._init_db()
+        cursor = connection.cursor()
+        yield (connection, cursor)
+        cursor.close()
+        connection.close()
 
     ###########################################################################
     # sqlite database access methods
@@ -159,12 +154,24 @@ class ShotgunAPI(object):
                     data=data,
                     lookup_hash=lookup_hash,
                     contents_hash=contents_hash,
+                    sys_path=sys.path,
+                    entity=dict(type="Project", id=data["project_id"]),
                 ),
                 fh,
                 cPickle.HIGHEST_PROTOCOL,
             )
 
-        subprocess.check_call([sys.executable, script, args_file])
+        output = None
+
+        try:
+            output = subprocess.check_output([sys.executable, script, args_file])
+        except subprocess.CalledProcessError:
+            if output:
+                self.logger.error(output)
+            raise
+        else:
+            self.logger.info(output)
+
         self.logger.info("Caching complete.")
 
     def _init_db(self):
@@ -174,7 +181,6 @@ class ShotgunAPI(object):
         :returns: A handle that must be closed.
         """
         connection = sqlite3.connect(self._cache_path)
-        self.logger.info("Cache path is %s" % self._cache_path)
 
         # This is to handle unicode properly - make sure that sqlite returns 
         # str objects for TEXT fields rather than unicode. Note that any unicode

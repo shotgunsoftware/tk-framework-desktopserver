@@ -37,7 +37,10 @@ class ShotgunAPI(object):
         "getProjectActions",
     ]
 
-    def __init__(self, host, process_manager):
+    # Nothing for v1. This is used in v2.
+    SYNCHRONOUS_METHODS = []
+
+    def __init__(self, host, process_manager, semaphore):
         """
         API Constructor.
         Keep initialization pretty fast as it is created on every message.

@@ -8,7 +8,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-def get_shotgun_api(protocol_version, host, process_manager):
+def get_shotgun_api(protocol_version, host, process_manager, semaphore):
     """
 
     """
@@ -19,4 +19,4 @@ def get_shotgun_api(protocol_version, host, process_manager):
     else:
         raise RuntimeError("Unsupported protocol version: %s" % protocol_version)
 
-    return ShotgunAPI(host, process_manager)
+    return ShotgunAPI(host, process_manager, semaphore)
