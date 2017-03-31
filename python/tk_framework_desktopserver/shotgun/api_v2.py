@@ -106,9 +106,8 @@ class ShotgunAPI(object):
                 )
                 self.host.reply(ret)
             else:
-                # TODO: Second lookup_hash here to be replaced with contents_hash.
                 try:
-                    self._cache_actions(data, lookup_hash, lookup_hash)
+                    self._cache_actions(data)
                 except subprocess.CalledProcessError, e:
                     self.logger.error(str(e))
                     self.host.reply(
@@ -135,7 +134,7 @@ class ShotgunAPI(object):
     ###########################################################################
     # sqlite database access methods
 
-    def _cache_actions(self, data, lookup_hash, contents_hash):
+    def _cache_actions(self, data):
         self.logger.info("Caching engine commands...")
 
         script = os.path.join(
@@ -152,10 +151,7 @@ class ShotgunAPI(object):
                 dict(
                     cache_file=self._cache_path,
                     data=data,
-                    lookup_hash=lookup_hash,
-                    contents_hash=contents_hash,
                     sys_path=sys.path,
-                    entity=dict(type="Project", id=data["project_id"]),
                 ),
                 fh,
                 cPickle.HIGHEST_PROTOCOL,

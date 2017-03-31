@@ -47,12 +47,14 @@ def get_sgtk_logger(sgtk):
 
     return sgtk_logger, bootstrap_log_handler
 
-def cache(cache_file, data, lookup_hash, contents_hash, entity):
+def get_lookup_hash(sgtk, engine, entity):
+    pc = engine.sgtk.pipeline_configuration
+
+def cache(cache_file, data):
     import sqlite3
     import sgtk
 
-    logger, log_handler = get_sgtk_logger(sgtk)
-    logger.info("Bootstrap logger up and running.")
+    entity = dict(type=data["entity_type"], id=data["entity_id"])
 
     # set up the toolkit boostrap manager
     toolkit_mgr = sgtk.bootstrap.ToolkitManager()
@@ -60,11 +62,8 @@ def cache(cache_file, data, lookup_hash, contents_hash, entity):
     # toolkit_mgr.base_configuration = "sgtk:descriptor:app_store?name=tk-config-basic"
     toolkit_mgr.base_configuration = "sgtk:descriptor:dev?name=tk-config-basic&path=/Users/jeff/Documents/repositories/tk-config-basic"
 
-    logger.info("ToolkitManager constructed.")
-
     for pc in data["pipeline_configs"]:
-        pc["project"] = pc.get("project", dict(type="Project", id=pc["project_id"]))
-        pc["type"] = pc.get("type", "PipelineConfiguration")
+        pc["project"] = pc.get("project", dict(type="Project", id=data["project_id"]))
 
     pcs = toolkit_mgr.get_pipeline_configurations(
         project=dict(id=data["project_id"], type="Project"),
@@ -72,37 +71,45 @@ def cache(cache_file, data, lookup_hash, contents_hash, entity):
     )
 
     for pc in pcs:
-        logger.info("Bootstrapping pipeline configuration id %s..." % pc["id"])
+        logger, log_handler = get_sgtk_logger(sgtk)
+        logger.info("Bootstrap logger up and running.")
+        logger.info("Bootstrapping pipeline configuration [id=%s]..." % pc["id"])
+
         toolkit_mgr.pipeline_configuration = pc["id"]
         engine = toolkit_mgr.bootstrap_engine("tk-shotgun", entity=entity)
+        pc_descriptor = toolkit_mgr.get_pipeline_configuration_descriptor(data["project_id"])
+
         logger.info("Bootstrap complete!")
+        logger.info("PC descriptor: %s" % pc_descriptor.get_uri())
 
         sgtk.LogManager().root_logger.removeHandler(log_handler)
         engine.logger.info("Removed bootstrap log handler from root logger.")
 
         commands = []
 
-        engine.logger.info("Iterating over engine commands...")
+        engine.logger.info("Processing engine commands...")
 
-        try:
-            for cmd_name, data in engine.commands.iteritems():
-                props = data["properties"]
-                commands.append(
-                    dict(
-                        name=cmd_name,
-                        title=props.get("title", cmd_name),
-                        deny_permissions=[], # TODO: figure out user permissions.
-                        supports_multiple_selection=False, # TODO: figure out multiselect.
-                    ),
-                )
-        finally:
-            engine.logger.debug("Shutting down engine...")
-            engine.destroy()
-            engine.logger.debug("Engine shutdown complete.")
+        for cmd_name, data in engine.commands.iteritems():
+            engine.logger.info("Processing command: %s" % cmd_name)
+            props = data["properties"]
+            commands.append(
+                dict(
+                    name=cmd_name,
+                    title=props.get("title", cmd_name),
+                    deny_permissions=[], # TODO: figure out user permissions.
+                    supports_multiple_selection=False, # TODO: figure out multiselect.
+                ),
+            )
+
+        engine.logger.info("Engine commands processed.")
+        engine.logger.info("Inserting into cache...")
 
         connection = sqlite3.connect(cache_file)
         connection.text_factory = str
         cursor = connection.cursor()
+
+        lookup_hash = get_lookup_hash(sgtk, engine, entity)
+        contents_hash = get_contents_hash(sgtk, engine, entity)
 
         try:
             cursor.execute(
@@ -116,7 +123,10 @@ def cache(cache_file, data, lookup_hash, contents_hash, entity):
         finally:
             connection.close()
 
-    engine.logger.info("Caching complete!")
+        logger.debug("Shutting down engine...")
+        engine.destroy()
+        logger.debug("Engine shutdown complete.")
+    logger.info("Caching complete!")
 
 if __name__ == "__main__":
     arg_data_file = sys.argv[1]
@@ -129,9 +139,6 @@ if __name__ == "__main__":
     cache(
         arg_data["cache_file"],
         arg_data["data"],
-        arg_data["lookup_hash"],
-        arg_data["contents_hash"],
-        arg_data["entity"],
     )
 
     sys.exit(0)
