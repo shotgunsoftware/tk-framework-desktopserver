@@ -89,7 +89,10 @@ class ShotgunAPI(object):
         # If we weren't sent a usable entity id, we can just query the first one
         # from the project. This isn't a big deal for us, because we're only
         # concerned with picking the correct environment when we bootstrap
-        # during a caching operation.
+        # during a caching operation. This is going to be the situation when
+        # a page is pre-loading entity-level commands on page load, as opposed to
+        # passing down a specific entity that's been selected in an already-loaded
+        # page.
         if data["entity_id"] == -1:
             temp_entity = self._engine.shotgun.find_one(
                 data["entity_type"],
@@ -98,27 +101,32 @@ class ShotgunAPI(object):
 
             data["entity_id"] = temp_entity["id"]
 
-        # TODO: Core hook to generate lookup hash.
-        # lookup_md5 = md5.new()
-        # lookup_md5.update(str(data))
-        # lookup_hash = lookup_md5.digest()
         manager = sgtk.bootstrap.ToolkitManager()
         manager.base_configuration = self.BASE_CONFIG_URI
         project = dict(type="Project", id=data["project_id"])
 
-        # TODO: build menu structure instead of list.
         all_commands = dict()
         pcs = manager.get_pipeline_configurations(
             project,
             data["pipeline_configs"],
         ) or [dict(id=None, name="Primary")]
 
+        # We'll need to pass up the config names in order along with a dict of
+        # pc_name => commands.
         pc_names = [pc["name"] for pc in pcs]
 
         with self._db_connect() as (connection, cursor):
             for pc in pcs:
+                # The hash that acts as the key we'll use to look up our cached
+                # data will be based on the entity type and the pipeline config's
+                # descriptor uri. We can get the descriptor from the toolkit
+                # manager and pass that through along with the entity type from SG
+                # to the core hook that computes the hash.
                 manager.pipeline_configuration = pc["id"]
-                pc_descriptor = manager.get_resolved_pipeline_configuration_descriptor(data["project_id"])
+                pc_descriptor = manager.get_resolved_pipeline_configuration_descriptor(
+                    data["project_id"],
+                )
+
                 lookup_hash = self._engine.sgtk.execute_core_hook_method(
                     "browser_integration",
                     "get_cache_lookup_hash",
@@ -134,7 +142,7 @@ class ShotgunAPI(object):
 
                 if res:
                     commands = cPickle.loads(str(list(res)[0][0]))
-                    self.logger.info("Commands found in cache: %s" % commands)
+                    self.logger.debug("Commands found in cache: %s" % commands)
                     all_commands[pc["name"]] = commands
                 else:
                     try:
