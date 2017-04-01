@@ -41,7 +41,10 @@ class ShotgunAPI(object):
     NO_ENVIRONMENT_FOR_ENTITY_TYPE = 2
     CACHING_ERROR = 3
 
-    def __init__(self, host, process_manager, semaphore):
+    # BASE_CONFIG_URI = "sgtk:descriptor:app_store?name=tk-config-basic"
+    BASE_CONFIG_URI = "sgtk:descriptor:dev?name=tk-config-basic&path=/Users/jeff/Documents/repositories/tk-config-basic"
+
+    def __init__(self, host, process_manager):
         """
         API Constructor.
         Keep initialization pretty fast as it is created on every message.
@@ -52,7 +55,6 @@ class ShotgunAPI(object):
         self._host = host
         self._process_manager = process_manager
         self._engine = sgtk.platform.current_engine()
-        self._semaphore = semaphore
 
         # Cache path on disk.
         self._cache_path = os.path.join(
@@ -84,41 +86,81 @@ class ShotgunAPI(object):
             self.host.reply(dict(retcode=self.NO_ENVIRONMENT_FOR_ENTITY_TYPE))
             return
 
+        # If we weren't sent a usable entity id, we can just query the first one
+        # from the project. This isn't a big deal for us, because we're only
+        # concerned with picking the correct environment when we bootstrap
+        # during a caching operation.
+        if data["entity_id"] == -1:
+            temp_entity = self._engine.shotgun.find_one(
+                data["entity_type"],
+                [["project", "is", dict(type="Project", id=data["project_id"])]],
+            )
+
+            data["entity_id"] = temp_entity["id"]
+
         # TODO: Core hook to generate lookup hash.
-        lookup_md5 = md5.new()
-        lookup_md5.update(str(data))
-        lookup_hash = lookup_md5.digest()
+        # lookup_md5 = md5.new()
+        # lookup_md5.update(str(data))
+        # lookup_hash = lookup_md5.digest()
+        manager = sgtk.bootstrap.ToolkitManager()
+        manager.base_configuration = self.BASE_CONFIG_URI
+        project = dict(type="Project", id=data["project_id"])
+
+        # TODO: build menu structure instead of list.
+        all_commands = dict()
+        pcs = manager.get_pipeline_configurations(
+            project,
+            data["pipeline_configs"],
+        ) or [dict(id=None, name="Primary")]
+
+        pc_names = [pc["name"] for pc in pcs]
 
         with self._db_connect() as (connection, cursor):
-            # TODO: Compute contents_hash and ensure it matches that in the cache.
-            res = list(cursor.execute(
-                "SELECT commands FROM engine_commands WHERE lookup_hash=?",
-                (lookup_hash,)
-            ))
-
-            if res:
-                commands = cPickle.loads(str(list(res)[0][0]))
-                self.logger.info("Commands found in cache: %s" % commands)
-                ret = dict(
-                    err="",
-                    retcode=self.SUCCESSFUL_LOOKUP,
-                    out=commands,
+            for pc in pcs:
+                manager.pipeline_configuration = pc["id"]
+                pc_descriptor = manager.get_resolved_pipeline_configuration_descriptor(data["project_id"])
+                lookup_hash = self._engine.sgtk.execute_core_hook_method(
+                    "browser_integration",
+                    "get_cache_lookup_hash",
+                    entity_type=data["entity_type"],
+                    pc_descriptor=pc_descriptor,
                 )
-                self.host.reply(ret)
-            else:
-                try:
-                    self._cache_actions(data)
-                except subprocess.CalledProcessError, e:
-                    self.logger.error(str(e))
-                    self.host.reply(
-                        dict(
-                            err="Shotgun Desktop failed to get engine commands.",
-                            retcode=self.CACHING_ERROR,
-                            out="Caching failed!",
-                        ),
-                    )
+
+                # TODO: Compute contents_hash and ensure it matches that in the cache.
+                res = list(cursor.execute(
+                    "SELECT commands FROM engine_commands WHERE lookup_hash=?",
+                    (lookup_hash,)
+                ))
+
+                if res:
+                    commands = cPickle.loads(str(list(res)[0][0]))
+                    self.logger.info("Commands found in cache: %s" % commands)
+                    all_commands[pc["name"]] = commands
                 else:
-                    self.get_actions(data)
+                    try:
+                        self._cache_actions(data)
+                    except subprocess.CalledProcessError, e:
+                        self.logger.error(str(e))
+                        self.host.reply(
+                            dict(
+                                err="Shotgun Desktop failed to get engine commands.",
+                                retcode=self.CACHING_ERROR,
+                                out="Caching failed!",
+                            ),
+                        )
+                        return
+                    else:
+                        self.get_actions(data)
+                        return
+
+        self.host.reply(
+            dict(
+                err="",
+                retcode=self.SUCCESSFUL_LOOKUP,
+                commands=all_commands,
+                pcs=pc_names,
+            ),
+        )
 
     ###########################################################################
     # Context managers
