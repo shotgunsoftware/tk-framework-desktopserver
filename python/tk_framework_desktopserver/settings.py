@@ -149,14 +149,6 @@ class Settings(object):
         """
         return self._certificate_folder
 
-    @property
-    def integration_enabled(self):
-        """
-        :returns: True if the websocket should run, False otherwise.
-        """
-
-
-
     def dump(self, logger):
         """
         Dumps all the settings into the logger.
