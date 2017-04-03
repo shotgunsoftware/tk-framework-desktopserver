@@ -16,24 +16,22 @@ from sgtk.util import LocalFileStorageManager
 
 
 class DesktopserverFramework(sgtk.platform.Framework):
+    """
+    Provides browser integration.
+    """
 
     def __init__(self, *args, **kwargs):
         super(DesktopserverFramework, self).__init__(*args, **kwargs)
-        self._is_initialized = False
         self._server = None
         self._settings = None
+        self._tk_framework_desktopserver = None
 
     ##########################################################################################
     # init and destroy
-    def _lazy_init_framework(self):
+    def launch_desktop_server(self):
         """
-        Initializes the framework on first call. This is done lazily so the websocket server framework is initialized
-        only if it is required.
+        Initializes the desktop server.
         """
-        if self._is_initialized:
-            return
-        self._is_initialized = True
-
         self._tk_framework_desktopserver = self.import_module("tk_framework_desktopserver")
 
         # Read the browser integration settings from disk. By passing in location=None, the Toolkit API will be
@@ -55,17 +53,12 @@ class DesktopserverFramework(sgtk.platform.Framework):
         if not self.__is_64bit_python():
             self.logger.warning("The browser integration is only available with 64-bit versions of Python.")
             self._integration_enabled = False
+        # Did the user disable it?
         elif self._settings.integration_enabled:
-            self.logger.info("Browser integration has been disable in the Toolkit settings.")
-            self._integration_enabled = True
+            self.logger.info("Browser integration has been disabled in the Toolkit settings.")
+            self._integration_enabled = False
         else:
             self._integration_enabled = True
-
-    def launch_desktop_server(self):
-        """
-        Initializes the desktop server.
-        """
-        self._lazy_init_framework()
 
         if not self._integration_enabled:
             return
@@ -85,15 +78,18 @@ class DesktopserverFramework(sgtk.platform.Framework):
             self.logger.exception("Could not start the browser integration:")
 
     def destroy_framework(self):
+        """
+        Called on finalization of the framework.
+
+        Closes the websocket server.
+        """
         if self._server and self._server.is_running():
             self._server.tear_down()
 
     def __ensure_certificate_ready(self):
         """
         Ensures that the certificates are created and registered. If something is amiss, then the
-        configuration is fixed.
-
-        :param certificate_folder: Folder where the certificates are stored.
+        certificates are regenerated.
 
         :returns: True is the certificate is ready, False otherwise.
         """

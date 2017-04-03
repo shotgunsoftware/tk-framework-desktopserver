@@ -274,7 +274,7 @@ class _WindowsCertificateHandler(_CertificateHandler):
 
         :returns: True on success, False on failure.
         """
-        success = self._check_call(
+        self._check_call(
             "registering the certificate",
             ("certutil", "-user", "-addstore", "root", self._cert_path.replace("/", "\\"))
         )
