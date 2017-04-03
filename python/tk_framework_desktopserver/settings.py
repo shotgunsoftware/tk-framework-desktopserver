@@ -73,7 +73,7 @@ class Settings(object):
             certificate_folder = self._get_value(
                 config, self._CERTIFICATE_FOLDER_SETTING
             )
-            is_enabled = self._get_value(
+            integration_enabled = self._get_value(
                 config, self._ENABLED
             )
         else:
@@ -124,7 +124,7 @@ class Settings(object):
         """
         :returns: True if the browser integration is enabled, False otherwise.
         """
-        return self._is_enabled
+        return self._integration_enabled
 
     @property
     def low_level_debug(self):
