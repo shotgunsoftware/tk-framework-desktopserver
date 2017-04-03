@@ -69,7 +69,6 @@ class DesktopserverFramework(sgtk.platform.Framework):
             self._server = self._tk_framework_desktopserver.Server(
                 port=self._settings.port,
                 low_level_debug=self._settings.low_level_debug,
-                whitelist=self._settings.whitelist,
                 keys_path=self._settings.certificate_folder
             )
 

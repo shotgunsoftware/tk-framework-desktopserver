@@ -26,18 +26,15 @@ class Settings(object):
     [BrowserIntegration]
     port=9000
     debug=1
-    whitelist=*.shotgunstudio.com
     certificate_folder=/path/to/the/certificate
     """
 
     _DEFAULT_PORT = 9000
     _DEFAULT_LOW_LEVEL_DEBUG_VALUE = False
-    _DEFAULT_WHITELIST = "*.shotgunstudio.com"
 
     _BROWSER_INTEGRATION = "BrowserIntegration"
     _PORT_SETTING = "port"
     _LOW_LEVEL_DEBUG_SETTING = "low_level_debug"
-    _WHITELIST_SETTING = "whitelist"
     _CERTIFICATE_FOLDER_SETTING = "certificate_folder"
     _ENABLED = "enabled"
 
@@ -67,9 +64,6 @@ class Settings(object):
                     config, self._LOW_LEVEL_DEBUG_SETTING, int
                 )
             )
-            whitelist = self._get_value(
-                config, self._WHITELIST_SETTING
-            )
             certificate_folder = self._get_value(
                 config, self._CERTIFICATE_FOLDER_SETTING
             )
@@ -85,9 +79,6 @@ class Settings(object):
             low_level_debug = user_settings.get_boolean_setting(
                 self._BROWSER_INTEGRATION, self._LOW_LEVEL_DEBUG_SETTING
             )
-            whitelist = user_settings.get_setting(
-                self._BROWSER_INTEGRATION, self._WHITELIST_SETTING
-            )
             certificate_folder = user_settings.get_setting(
                 self._BROWSER_INTEGRATION, self._CERTIFICATE_FOLDER_SETTING
             )
@@ -95,7 +86,6 @@ class Settings(object):
 
         self._port = port or self._DEFAULT_PORT
         self._low_level_debug = low_level_debug or self._DEFAULT_LOW_LEVEL_DEBUG_VALUE
-        self._whitelist = whitelist or self._DEFAULT_WHITELIST
         self._certificate_folder = certificate_folder or self._default_certificate_folder
         self._integration_enabled = integration_enabled
 
@@ -136,13 +126,6 @@ class Settings(object):
         return self._low_level_debug
 
     @property
-    def whitelist(self):
-        """
-        :returns: The list of clients that can connect to the server.
-        """
-        return self._whitelist
-
-    @property
     def certificate_folder(self):
         """
         :returns: Path to the certificate location.
@@ -160,7 +143,6 @@ class Settings(object):
         logger.info("Certificate folder: %s" % self.certificate_folder)
         logger.info("Low level debug: %s" % self.low_level_debug)
         logger.info("Port: %d" % self.port)
-        logger.info("Whitelist: %s" % self.whitelist)
 
     def _get_value(self, config, key, type_cast=str):
         """

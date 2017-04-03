@@ -68,7 +68,7 @@ class ServerProtocol(WebSocketServerProtocol):
     def onConnect(self, response):
         """
         Called upon client connection to server. This is where we decide if we accept the connection
-        or refuse it based on domain origin filtering.
+        or refuse it based on domain origin.
 
         :param response: Object Response information.
         """
@@ -76,12 +76,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # If we reach this point, then it means SSL handshake went well..
         StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTED
 
-        domain_valid = False
-        try:
-            # response.origin: xyz.shotgunstudio.com
-            domain_valid = self._is_domain_valid(response.origin)
-        except:
-            self._logger.exception("Unexpected error while trying to determine the originating domain.")
+        domain_valid = True
 
         if not domain_valid:
             self._logger.info("Invalid domain: %s" % response.origin)
@@ -233,29 +228,6 @@ class ServerProtocol(WebSocketServerProtocol):
             return True
         else:
             return False
-
-    def _is_domain_valid(self, origin_str):
-        """
-        Filters for valid origin domain names.
-
-        :param origin_str: Domain origin string (ex: http://localhost:8080)
-        :return: True if domain is accepted, False otherwise
-        """
-        domain_env = os.environ.get("SHOTGUN_PLUGIN_DOMAIN_RESTRICTION", self.factory.websocket_server_whitelist)
-
-        origin = urlparse(origin_str)
-
-        # split domain on commas
-        domain_match = False
-        domains = domain_env.split(",")
-        for domain in domains:
-            domain = domain.strip()
-
-            domain_match = self._wildcard_match(domain, origin.hostname)
-            if domain_match:
-                break
-
-        return domain_match
 
     def _json_date_handler(self, obj):
         """
