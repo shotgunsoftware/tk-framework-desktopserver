@@ -153,6 +153,10 @@ class Settings(object):
         """
         Dumps all the settings into the logger.
         """
+        if self.integration_enabled is None:
+            logger.info("Integration enabled: <missing>")
+        else:
+            logger.info("Integration enabled: %s" % self.integration_enabled)
         logger.info("Certificate folder: %s" % self.certificate_folder)
         logger.info("Low level debug: %s" % self.low_level_debug)
         logger.info("Port: %d" % self.port)
@@ -192,18 +196,3 @@ class Settings(object):
                 config.get(section, key)
             )
         )
-
-    _BROWSER_INTEGRATION = "BrowserIntegration"
-
-    def dump(self, logger):
-        """
-        Dumps Desktop settings inside the logger.
-
-        :param logger: Logger to write the information to.
-        """
-        logger.info("Custom user setting for Shotgun Desktop:")
-        if self.integration_enabled is None:
-            logger.info("Integration enabled: <missing>")
-        else:
-            logger.info("Integration enabled: %s" % self.integration_enabled)
-
