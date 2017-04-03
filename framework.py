@@ -9,6 +9,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sgtk
+import sys
 import os
 import struct
 from sgtk.util import LocalFileStorageManager
@@ -16,17 +17,29 @@ from sgtk.util import LocalFileStorageManager
 
 class DesktopserverFramework(sgtk.platform.Framework):
 
-    ##########################################################################################
-    # init and destroy
-    def init_framework(self):
+    def __init__(self, *args, **kwargs):
+        super(DesktopserverFramework, self).__init__(*args, **kwargs)
+        self._is_initialized = False
         self._server = None
         self._settings = None
 
-    def init_desktop_server(self):
+    ##########################################################################################
+    # init and destroy
+    def _lazy_init_framework(self):
+        """
+        Initializes the framework on first call. This is done lazily so the websocket server framework is initialized
+        only if it is required.
+        """
+        if self._is_initialized:
+            return
+        self._is_initialized = True
 
-        tk_framework_desktopserver = self.import_module("tk_framework_desktopserver")
-        self._settings = tk_framework_desktopserver.Settings(
-            location=None, # Passing in None will have the desktop user use the UserSettings API instead of reading a file.
+        self._tk_framework_desktopserver = self.import_module("tk_framework_desktopserver")
+
+        # Read the browser integration settings from disk. By passing in location=None, the Toolkit API will be
+        # used to locate the settings instead of looking at a specific file.
+        self._settings = self._tk_framework_desktopserver.Settings(
+            location=None,
             default_certificate_folder=os.path.join(
                 LocalFileStorageManager.get_global_root(
                     LocalFileStorageManager.CACHE, LocalFileStorageManager.CORE_V18
@@ -36,28 +49,130 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 "certificates"
             )
         )
-
         self._settings.dump(self.logger)
 
-        if self.__is_64bit_python() and self._settings.integration_enabled:
+        # Twisted only runs on 64-bits.
+        if not self.__is_64bit_python():
+            self.logger.warning("The browser integration is only available with 64-bit versions of Python.")
+            self._integration_enabled = False
+        elif self._settings.integration_enabled:
+            self.logger.info("Browser integration has been disable in the Toolkit settings.")
+            self._integration_enabled = True
+        else:
+            self._integration_enabled = True
+
+    def launch_desktop_server(self):
+        """
+        Initializes the desktop server.
+        """
+        self._lazy_init_framework()
+
+        if not self._integration_enabled:
             return
 
-        self._server = tk_framework_desktopserver.Server(
-            port=self._settings.port,
-            low_level_debug=self._settings.low_level_debug,
-            whitelist=self._settings.whitelist,
-            keys_path=self._settings.certificate_folder
-        )
-
         try:
+            self.__ensure_certificate_ready()
+
+            self._server = self._tk_framework_desktopserver.Server(
+                port=self._settings.port,
+                low_level_debug=self._settings.low_level_debug,
+                whitelist=self._settings.whitelist,
+                keys_path=self._settings.certificate_folder
+            )
+
             self._server.start()
-        except tk_framework_desktopserver.PortBusyError:
-            logger.exception("Could not start the browser integration:")
-            # TODO: Do we ask the user if he wants to quit?
+        except:
+            self.logger.exception("Could not start the browser integration:")
 
     def destroy_framework(self):
-        if not self._server and self._server.is_running():
-            server.tear_down()
+        if self._server and self._server.is_running():
+            self._server.tear_down()
+
+    def __ensure_certificate_ready(self):
+        """
+        Ensures that the certificates are created and registered. If something is amiss, then the
+        configuration is fixed.
+
+        :param certificate_folder: Folder where the certificates are stored.
+
+        :returns: True is the certificate is ready, False otherwise.
+        """
+        cert_handler = self._tk_framework_desktopserver.get_certificate_handler(
+            self._settings.certificate_folder
+        )
+
+        # We only warn once.
+        warned = False
+        # Make sure the certificates exist.
+        if not cert_handler.exists():
+            self.logger.info("Certificate doesn't exist.")
+            # Start by unregistering certificates from the keychains, this can happen if the user
+            # wiped his shotgun/desktop/config/certificates folder.
+            if cert_handler.is_registered():
+                self.logger.info("Unregistering lingering certificate.")
+                # Warn once.
+                self.__warn_for_prompt()
+                warned = True
+                cert_handler.unregister()
+                self.logger.info("Unregistered.")
+            # Create the certificate files
+            cert_handler.create()
+            self.logger.info("Certificate created.")
+        else:
+            self.logger.info("Certificate already exist.")
+
+        # Check if the certificates are registered with the keychain.
+        if not cert_handler.is_registered():
+            self.logger.info("Certificate not registered.")
+
+            # Only if we've never been warned before.
+            if not warned:
+                self.__warn_for_prompt()
+            cert_handler.register()
+            self.logger.info("Certificate registered.")
+        else:
+            self.logger.info("Certificates already registered.")
+        return True
+
+    def __get_certificate_prompt(self, keychain_name, action):
+        """
+        Generates the text to use when alerting the user that we need to register the certificate.
+
+        :param keychain_name: Name of the keychain-like entity for a particular OS.
+        :param action: Description of what the user will need to do when the OS prompts the user.
+
+        :returns: String containing an error message formatted
+        """
+        return ("The Shotgun Desktop needs to update the security certificate list from your %s before "
+                "it can turn on the browser integration.\n"
+                "%s" % (keychain_name, action))
+
+    def __warn_for_prompt(self):
+        """
+        Warn the user he will be prompted.
+        """
+        from sgtk.platform.qt import QtGui
+
+        if sys.platform == "darwin":
+            QtGui.QMessageBox.information(
+                None,
+                "Shotgun browser integration",
+                self.__get_certificate_prompt(
+                    "keychain",
+                    "You will be prompted to enter your username and password by MacOS's keychain "
+                    "manager in order to proceed with the updates."
+                )
+            )
+        elif sys.platform == "win32":
+            QtGui.QMessageBox.information(
+                None,
+                "Shotgun browser integration",
+                self.__get_certificate_prompt(
+                    "Windows certificate store",
+                    "Windows will now prompt you to accept one or more updates to your certificate store."
+                )
+            )
+        # On Linux there's no need to prompt. It's all silent.
 
     def __is_64bit_python(self):
         """
