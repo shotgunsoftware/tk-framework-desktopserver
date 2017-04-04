@@ -37,8 +37,9 @@ class ShotgunAPI(object):
 
     DATABASE_FORMAT_VERSION = 1
 
+    # Return codes.
     SUCCESSFUL_LOOKUP = 0
-    NO_ENVIRONMENT_FOR_ENTITY_TYPE = 2
+    UPSUPPORTED_ENTITY_TYPE = 2
     CACHING_ERROR = 3
 
     # BASE_CONFIG_URI = "sgtk:descriptor:app_store?name=tk-config-basic"
@@ -81,10 +82,23 @@ class ShotgunAPI(object):
     # Public methods
 
     def get_actions(self, data):
-        # TODO: white listing is to be handled by core hook
-        if data["entity_type"] not in ["Project", "Shot"]:
-            self.host.reply(dict(retcode=self.NO_ENVIRONMENT_FOR_ENTITY_TYPE))
+        # We can end up getting requests for actions for any entity type
+        # that exists in Shotgun. Many of those we don't want to provide
+        # commands for, so we can just notify the client that it's an
+        # unsupported entity type.
+        supported_types = self._engine.sgtk.execute_core_hook_method(
+            "browser_integration",
+            "supported_entity_types",
+        )
+
+        if data["entity_type"] not in supported_types:
+            self.host.reply(dict(retcode=self.UNSUPPORTED_ENTITY_TYPE))
             return
+
+        project_entity = dict(
+            type="Project",
+            id=data["project_id"],
+        )
 
         # If we weren't sent a usable entity id, we can just query the first one
         # from the project. This isn't a big deal for us, because we're only
@@ -96,24 +110,22 @@ class ShotgunAPI(object):
         if data["entity_id"] == -1:
             temp_entity = self._engine.shotgun.find_one(
                 data["entity_type"],
-                [["project", "is", dict(type="Project", id=data["project_id"])]],
+                [["project", "is", project_entity]],
             )
-
             data["entity_id"] = temp_entity["id"]
 
         manager = sgtk.bootstrap.ToolkitManager()
         manager.base_configuration = self.BASE_CONFIG_URI
-        project = dict(type="Project", id=data["project_id"])
 
-        all_commands = dict()
         pcs = manager.get_pipeline_configurations(
-            project,
+            project_entity,
             data["pipeline_configs"],
         ) or [dict(id=None, name="Primary")]
 
         # We'll need to pass up the config names in order along with a dict of
         # pc_name => commands.
         pc_names = [pc["name"] for pc in pcs]
+        all_commands = dict()
 
         with self._db_connect() as (connection, cursor):
             for pc in pcs:
@@ -123,9 +135,7 @@ class ShotgunAPI(object):
                 # manager and pass that through along with the entity type from SG
                 # to the core hook that computes the hash.
                 manager.pipeline_configuration = pc["id"]
-                pc_descriptor = manager.get_resolved_pipeline_configuration_descriptor(
-                    data["project_id"],
-                )
+                pc_descriptor = manager.resolve_descriptor(project_entity)
 
                 lookup_hash = self._engine.sgtk.execute_core_hook_method(
                     "browser_integration",
@@ -136,30 +146,45 @@ class ShotgunAPI(object):
 
                 # TODO: Compute contents_hash and ensure it matches that in the cache.
                 res = list(cursor.execute(
-                    "SELECT commands FROM engine_commands WHERE lookup_hash=?",
+                    "SELECT commands, contents_hash FROM engine_commands WHERE lookup_hash=?",
                     (lookup_hash,)
                 ))
 
-                if res:
-                    commands = cPickle.loads(str(list(res)[0][0]))
-                    self.logger.debug("Commands found in cache: %s" % commands)
-                    all_commands[pc["name"]] = commands
-                else:
-                    try:
-                        self._cache_actions(data)
-                    except subprocess.CalledProcessError, e:
-                        self.logger.error(str(e))
-                        self.host.reply(
-                            dict(
-                                err="Shotgun Desktop failed to get engine commands.",
-                                retcode=self.CACHING_ERROR,
-                                out="Caching failed!",
-                            ),
+                try:
+                    if res:
+                        # We'll only ever get back a single row, if anything.
+                        cached_data = res[0]
+                        cached_contents_hash = cached_data[1]
+                        current_contents_hash = self._engine.sgtk.execute_core_hook_method(
+                            "browser_integration",
+                            "get_cache_contents_hash",
+                            pc_descriptor=pc_descriptor,
                         )
-                        return
+
+                        if current_contents_hash == cached_contents_hash:
+                            commands = cPickle.loads(str(cached_data[0]))
+                            self.logger.info("Commands found in cache: %s" % commands)
+                            all_commands[pc["name"]] = commands
+                        else:
+                            self.logger.info("Cache is out of date, recaching...")
+                            self._cache_actions(data)
+                            self.get_actions(data)
+                            return
                     else:
+                        self.logger.info("Commands not found in hash, caching now...")
+                        self._cache_actions(data)
                         self.get_actions(data)
                         return
+                except subprocess.CalledProcessError, e:
+                    self.logger.error(str(e))
+                    self.host.reply(
+                        dict(
+                            err="Shotgun Desktop failed to get engine commands.",
+                            retcode=self.CACHING_ERROR,
+                            out="Caching failed!",
+                        ),
+                    )
+                    return
 
         self.host.reply(
             dict(
