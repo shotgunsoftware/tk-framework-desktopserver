@@ -39,7 +39,7 @@ class ShotgunAPI(object):
 
     # Return codes.
     SUCCESSFUL_LOOKUP = 0
-    UPSUPPORTED_ENTITY_TYPE = 2
+    UNSUPPORTED_ENTITY_TYPE = 2
     CACHING_ERROR = 3
 
     # BASE_CONFIG_URI = "sgtk:descriptor:app_store?name=tk-config-basic"
@@ -117,9 +117,9 @@ class ShotgunAPI(object):
         manager = sgtk.bootstrap.ToolkitManager()
         manager.base_configuration = self.BASE_CONFIG_URI
 
-        pcs = manager.get_pipeline_configurations(
-            project_entity,
-            data["pipeline_configs"],
+        pcs = manager.sort_and_filter_configuration_entities(
+            project=project_entity,
+            entities=data["pipeline_configs"],
         ) or [dict(id=None, name="Primary")]
 
         # We'll need to pass up the config names in order along with a dict of
@@ -227,6 +227,7 @@ class ShotgunAPI(object):
                     cache_file=self._cache_path,
                     data=data,
                     sys_path=sys.path,
+                    base_configuration=self.BASE_CONFIG_URI,
                 ),
                 fh,
                 cPickle.HIGHEST_PROTOCOL,

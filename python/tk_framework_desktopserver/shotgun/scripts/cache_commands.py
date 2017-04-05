@@ -47,6 +47,13 @@ def get_sgtk_logger(sgtk):
 
     return sgtk_logger, bootstrap_log_handler
 
+def filter_commands(tk, commands):
+    return tk.execute_core_hook_method(
+        "browser_integration",
+        "filter_engine_commands",
+        commands=commands,
+    )
+
 def get_contents_hash(tk, pc_descriptor):
     return tk.execute_core_hook_method(
         "browser_integration",
@@ -62,7 +69,7 @@ def get_lookup_hash(tk, entity_type, pc_descriptor):
         pc_descriptor=pc_descriptor,
     )
 
-def cache(cache_file, data):
+def cache(cache_file, data, base_configuration):
     import sqlite3
     import sgtk
 
@@ -72,16 +79,14 @@ def cache(cache_file, data):
     # Setup the bootstrap manager.
     toolkit_mgr = sgtk.bootstrap.ToolkitManager()
     toolkit_mgr.plugin_id = "shotgun_toolkit_menu_caching"
-
-    # toolkit_mgr.base_configuration = "sgtk:descriptor:app_store?name=tk-config-basic"
-    toolkit_mgr.base_configuration = "sgtk:descriptor:dev?name=tk-config-basic&path=/Users/jeff/Documents/repositories/tk-config-basic"
+    toolkit_mgr.base_configuration = base_configuration
 
     for pc in data["pipeline_configs"]:
         pc["project"] = pc.get("project", project_entity)
 
-    pcs = toolkit_mgr.get_pipeline_configurations(
-        project_entity,
-        data["pipeline_configs"],
+    pcs = toolkit_mgr.sort_and_filter_configuration_entities(
+        project=project_entity,
+        entities=data["pipeline_configs"],
     ) or [dict(id=None)]
 
     for pc in pcs:
@@ -97,7 +102,7 @@ def cache(cache_file, data):
         engine.logger.debug("Processing engine commands...")
         commands = []
 
-        for cmd_name, data in engine.commands.iteritems():
+        for cmd_name, data in filter_commands(engine.sgtk, engine.commands).iteritems():
             engine.logger.debug("Processing command: %s" % cmd_name)
             props = data["properties"]
             commands.append(
@@ -175,6 +180,7 @@ if __name__ == "__main__":
     cache(
         arg_data["cache_file"],
         arg_data["data"],
+        arg_data["base_configuration"],
     )
 
     sys.exit(0)
