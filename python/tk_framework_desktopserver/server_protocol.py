@@ -25,6 +25,8 @@ from autobahn import websocket
 from autobahn.twisted.websocket import WebSocketServerProtocol
 from twisted.internet import error, reactor
 
+logger = get_logger(__name__)
+
 
 class ServerProtocol(WebSocketServerProtocol):
     """
@@ -35,7 +37,6 @@ class ServerProtocol(WebSocketServerProtocol):
     PROTOCOL_VERSION = 1
 
     def __init__(self):
-        self._logger = get_logger()
         self.process_manager = ProcessManager.create()
 
     def onClose(self, wasClean, code, reason):
@@ -56,13 +57,13 @@ class ServerProtocol(WebSocketServerProtocol):
             certificate_error |= bool(reason.check(error.CertificateError))
 
             if certificate_error:
-                self._logger.info("Certificate error!")
+                logger.info("Certificate error!")
                 StatusServerProtocol.serverStatus = StatusServerProtocol.SSL_CERTIFICATE_INVALID
             else:
-                self._logger.info("Connection closed.")
+                logger.info("Connection closed.")
                 StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
         except Exception:
-            self._logger.exception("Unexpected error while losing connection.")
+            logger.exception("Unexpected error while losing connection.")
             StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
 
     def onConnect(self, response):
@@ -79,11 +80,11 @@ class ServerProtocol(WebSocketServerProtocol):
         domain_valid = True
 
         if not domain_valid:
-            self._logger.info("Invalid domain: %s" % response.origin)
+            logger.info("Invalid domain: %s" % response.origin)
             # Don't accept connection
             raise websocket.http.HttpException(403, "Domain origin was rejected by server.")
         else:
-            self._logger.info("Connection accepted.")
+            logger.info("Connection accepted.")
 
     def onMessage(self, payload, isBinary):
         """
@@ -173,7 +174,7 @@ class ServerProtocol(WebSocketServerProtocol):
         error["error_message"] = message
 
         # Log error to console
-        self._logger.warning("Error in reply: " + message)
+        logger.warning("Error in reply: " + message)
 
         self.json_reply(error)
 

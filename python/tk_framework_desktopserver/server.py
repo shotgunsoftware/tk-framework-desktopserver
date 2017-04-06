@@ -10,7 +10,6 @@
 
 import os
 import threading
-import logging
 
 from server_protocol import ServerProtocol
 
@@ -21,13 +20,22 @@ from autobahn.twisted.websocket import WebSocketServerFactory, listenWS
 
 from .errors import MissingCertificateError, PortBusyError
 
-import logger
+from .logger import get_logger
+
+from sgtk.platform.qt import QtCore
+
+
+logger = get_logger(__name__)
 
 
 class Server(object):
     _DEFAULT_PORT = 9000
     _DEFAULT_KEYS_PATH = "../resources/keys"
     _DEFAULT_WHITELIST = "*.shotgunstudio.com"
+
+    class Notifier(QtCore.QObject):
+        different_site_requested = QtCore.Signal(str, str)
+        different_user_requested = QtCore.Signal(str)
 
     def __init__(self, keys_path, port=None, low_level_debug=False, whitelist=None):
         """
@@ -49,10 +57,12 @@ class Server(object):
         self._whitelist = whitelist or self._DEFAULT_WHITELIST
         self._debug = low_level_debug
 
+        self.notifier = self.Notifier()
+
         if not os.path.exists(keys_path):
             raise MissingCertificateError(keys_path)
 
-        twisted = logger.get_logger("twisted")
+        twisted = get_logger("twisted")
 
         if self._debug:
             # When running the server in low_level_debug mode, the twisted framework will print out
@@ -75,7 +85,7 @@ class Server(object):
         """
         :returns: The python logger root for the framework.
         """
-        return logger.get_logger()
+        return logger
 
     def _raise_if_missing_certificate(self, certificate_path):
         """

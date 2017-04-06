@@ -19,12 +19,18 @@ class DesktopserverFramework(sgtk.platform.Framework):
     """
     Provides browser integration.
     """
-
     def __init__(self, *args, **kwargs):
         super(DesktopserverFramework, self).__init__(*args, **kwargs)
         self._server = None
         self._settings = None
         self._tk_framework_desktopserver = None
+        self._notifier = self.Notifier()
+
+    def add_invalid_site_callback(self, cb):
+        self._server.notifier.wrong_site.connect(cb)
+
+    def add_invalid_user_callback(self, cb):
+        self._server.notifier.wrong_user.connect(cb)
 
     ##########################################################################################
     # init and destroy

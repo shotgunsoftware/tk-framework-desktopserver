@@ -17,6 +17,8 @@ from .errors import CertificateRegistrationError
 
 from OpenSSL import crypto
 
+logger = get_logger(__name__)
+
 
 class _CertificateHandler(object):
     """
@@ -27,7 +29,6 @@ class _CertificateHandler(object):
         """
         :param str certificate_folder: Path where the certificates will be written.
         """
-        self._logger = get_logger("certificates")
         self._cert_path = os.path.join(certificate_folder, "server.crt")
         self._key_path = os.path.join(certificate_folder, "server.key")
 
@@ -106,7 +107,7 @@ class _CertificateHandler(object):
 
         # Do not use popen.check_call because it won't redirect stderr to stdout properly
         # and it can't close stdin which causes issues in certain configurations on Windows.
-        self._logger.debug("%s: %s" % (ctx.capitalize(), cmd))
+        logger.debug("%s: %s" % (ctx.capitalize(), cmd))
         if sys.platform == "win32":
             # More on this Windows specific fix here: https://bugs.python.org/issue3905
             p = subprocess.Popen(
@@ -120,7 +121,7 @@ class _CertificateHandler(object):
         else:
             p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
         stdout, _ = p.communicate()
-        self._logger.debug("Stdout:\n%s" % stdout)
+        logger.debug("Stdout:\n%s" % stdout)
         if p.returncode != 0:
             raise CertificateRegistrationError("There was a problem %s." % ctx)
         return stdout
@@ -207,13 +208,13 @@ class _LinuxCertificateHandler(_CertificateHandler):
 
         # Ensure that the Chrome certificate registry folder exists
         if not os.path.exists(self._PKI_DB_PATH):
-            self._logger.debug("Creating '%s'", self._PKI_DB_PATH)
+            logger.debug("Creating '%s'", self._PKI_DB_PATH)
             os.makedirs(self._PKI_DB_PATH)
 
         # If the Chrome certificate registry is empty, create it. If there is already a database in
         # there, the folder won't be empty.
         if not os.listdir(self._PKI_DB_PATH):
-            self._logger.debug("Initializing db at '%s'", self._PKI_DB_PATH)
+            logger.debug("Initializing db at '%s'", self._PKI_DB_PATH)
             self._check_call("initializing the database", "certutil -N --empty-password -d %s" % self._SQL_PKI_DB_PATH)
 
     def _get_is_registered_cmd(self):
