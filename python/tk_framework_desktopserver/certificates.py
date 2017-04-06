@@ -271,10 +271,8 @@ class _WindowsCertificateHandler(_CertificateHandler):
     def register(self):
         """
         Registers a certificate in the Windows root certificate store. Any errors are logged.
-
-        :returns: True on success, False on failure.
         """
-        success = self._check_call(
+        self._check_call(
             "registering the certificate",
             ("certutil", "-user", "-addstore", "root", self._cert_path.replace("/", "\\"))
         )
