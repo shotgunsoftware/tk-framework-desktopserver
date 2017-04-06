@@ -31,6 +31,7 @@ class Settings(object):
 
     _DEFAULT_PORT = 9000
     _DEFAULT_LOW_LEVEL_DEBUG_VALUE = False
+    _DEFAULT_WHITELIST = "*.shotgunstudio.com"
 
     _BROWSER_INTEGRATION = "BrowserIntegration"
     _PORT_SETTING = "port"
@@ -114,7 +115,7 @@ class Settings(object):
         """
         :returns: True if the browser integration is enabled, False otherwise.
         """
-        return self._integration_enabled
+        return self._integration_enabled if self._integration_enabled is not None else True
 
     @property
     def low_level_debug(self):
@@ -136,10 +137,7 @@ class Settings(object):
         """
         Dumps all the settings into the logger.
         """
-        if self.integration_enabled is None:
-            logger.info("Integration enabled: <missing>")
-        else:
-            logger.info("Integration enabled: %s" % self.integration_enabled)
+        logger.info("Integration enabled: %s" % self.integration_enabled)
         logger.info("Certificate folder: %s" % self.certificate_folder)
         logger.info("Low level debug: %s" % self.low_level_debug)
         logger.info("Port: %d" % self.port)

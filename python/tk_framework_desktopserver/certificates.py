@@ -272,8 +272,6 @@ class _WindowsCertificateHandler(_CertificateHandler):
     def register(self):
         """
         Registers a certificate in the Windows root certificate store. Any errors are logged.
-
-        :returns: True on success, False on failure.
         """
         self._check_call(
             "registering the certificate",

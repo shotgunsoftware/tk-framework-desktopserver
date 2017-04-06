@@ -19,18 +19,12 @@ class DesktopserverFramework(sgtk.platform.Framework):
     """
     Provides browser integration.
     """
+
     def __init__(self, *args, **kwargs):
         super(DesktopserverFramework, self).__init__(*args, **kwargs)
         self._server = None
         self._settings = None
         self._tk_framework_desktopserver = None
-        self._notifier = self.Notifier()
-
-    def add_invalid_site_callback(self, cb):
-        self._server.different_site_requested.wrong_site.connect(cb, type=QtCore.Qt.QueuedConnection)
-
-    def add_invalid_user_callback(self, cb):
-        self._server.different_user_requested.connect(cb, type=QtCore.Qt.QueuedConnection)
 
     ##########################################################################################
     # init and destroy
@@ -60,7 +54,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
             self.logger.warning("The browser integration is only available with 64-bit versions of Python.")
             self._integration_enabled = False
         # Did the user disable it?
-        elif self._settings.integration_enabled:
+        elif not self._settings.integration_enabled:
             self.logger.info("Browser integration has been disabled in the Toolkit settings.")
             self._integration_enabled = False
         else:
@@ -75,11 +69,12 @@ class DesktopserverFramework(sgtk.platform.Framework):
             self._server = self._tk_framework_desktopserver.Server(
                 port=self._settings.port,
                 low_level_debug=self._settings.low_level_debug,
+                whitelist=self._settings.whitelist,
                 keys_path=self._settings.certificate_folder
             )
 
             self._server.start()
-        except:
+        except Exception:
             self.logger.exception("Could not start the browser integration:")
 
     def destroy_framework(self):
@@ -95,8 +90,6 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         Ensures that the certificates are created and registered. If something is amiss, then the
         certificates are regenerated.
-
-        :returns: True is the certificate is ready, False otherwise.
         """
         cert_handler = self._tk_framework_desktopserver.get_certificate_handler(
             self._settings.certificate_folder
@@ -133,7 +126,6 @@ class DesktopserverFramework(sgtk.platform.Framework):
             self.logger.info("Certificate registered.")
         else:
             self.logger.info("Certificates already registered.")
-        return True
 
     def __get_certificate_prompt(self, keychain_name, action):
         """
