@@ -27,10 +27,10 @@ class DesktopserverFramework(sgtk.platform.Framework):
         self._notifier = self.Notifier()
 
     def add_invalid_site_callback(self, cb):
-        self._server.notifier.wrong_site.connect(cb)
+        self._server.different_site_requested.wrong_site.connect(cb, type=QtCore.Qt.QueuedConnection)
 
     def add_invalid_user_callback(self, cb):
-        self._server.notifier.wrong_user.connect(cb)
+        self._server.different_user_requested.connect(cb, type=QtCore.Qt.QueuedConnection)
 
     ##########################################################################################
     # init and destroy

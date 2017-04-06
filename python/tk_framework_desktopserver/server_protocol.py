@@ -77,10 +77,10 @@ class ServerProtocol(WebSocketServerProtocol):
         # If we reach this point, then it means SSL handshake went well..
         StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTED
 
-        domain_valid = True
-
-        if not domain_valid:
-            logger.info("Invalid domain: %s" % response.origin)
+        # origin is formatted such as xyz.shotgunstudio.com
+        # host is https://xyz.shotgunstudio.com
+        if urlparse(self.factory.user.host).netloc.lower() != response.origin.lower():
+            self.factory.notifier.different_site_requested.emit(response.origin)
             # Don't accept connection
             raise websocket.http.HttpException(403, "Domain origin was rejected by server.")
         else:
@@ -189,46 +189,6 @@ class ServerProtocol(WebSocketServerProtocol):
 
         is_binary = False
         self.sendMessage(payload, is_binary)
-
-    def _wildcard_match(self, wildcard, match):
-        """
-        Matches a string that may contain wildcard (*) with another string.
-
-        :param wildcard: String that may contain wildcards
-        :param match: String to match with.
-        :return: True if there is a match, False otherwise
-        """
-
-        #
-        # Make a regex with wildcard string by substituting every '*' with .* and make sure to keep '.' intact.
-        #    ex: from *.shotgunstudios.com   -->   '.*(\\.shotgunstudios\\.com)$'
-
-        # Regex string to build
-        expr_str = ""
-
-        wildcard_tokens = wildcard.split("*")
-        for i in range(0, len(wildcard_tokens)):
-            token = wildcard_tokens[i]
-
-            # Make token regex literal (we want to keep '.' for instance)
-            literal = "(" + re.escape(token) + ")"
-
-            expr_str += literal
-
-            if i >= (len(wildcard_tokens) - 1):
-                # Make sure there can't be any other character at the end
-                expr_str += "$"
-            else:
-                expr_str += ".*"
-
-        # Match regexp
-        exp = re.compile(expr_str, re.IGNORECASE)
-        match = exp.match(match)
-
-        if match:
-            return True
-        else:
-            return False
 
     def _json_date_handler(self, obj):
         """

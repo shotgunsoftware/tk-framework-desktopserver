@@ -37,7 +37,7 @@ class Server(object):
         different_site_requested = QtCore.Signal(str, str)
         different_user_requested = QtCore.Signal(str)
 
-    def __init__(self, keys_path, port=None, low_level_debug=False, whitelist=None):
+    def __init__(self, keys_path, user, port=None, low_level_debug=False):
         """
         Constructor.
 
@@ -54,7 +54,6 @@ class Server(object):
         """
         self._port = port or self._DEFAULT_PORT
         self._keys_path = keys_path or self._DEFAULT_KEYS_PATH
-        self._whitelist = whitelist or self._DEFAULT_WHITELIST
         self._debug = low_level_debug
 
         self.notifier = self.Notifier()
@@ -120,7 +119,8 @@ class Server(object):
         )
 
         self.factory.protocol = ServerProtocol
-        self.factory.websocket_server_whitelist = self._whitelist
+        self.factory.user = user
+        self.factory.notifier = notifier
         self.factory.setProtocolOptions(allowHixie76=True, echoCloseCodeReason=True)
         try:
             self.listener = listenWS(self.factory, self.context_factory)
