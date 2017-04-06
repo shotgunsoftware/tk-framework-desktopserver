@@ -11,12 +11,14 @@
 import sys
 import os
 import cPickle
-import md5
 import sqlite3
 import json
 import subprocess
 import tempfile
 import contextlib
+import json
+import fnmatch
+import datetime
 
 import sgtk
 
@@ -68,37 +70,62 @@ class ShotgunAPI(object):
 
     @property
     def logger(self):
-        return sgtk.platform.current_engine().logger
+        """
+        The associated engine's logger.
+        """
+        return self._engine.logger
 
     @property
     def host(self):
+        """
+        The host associated with the currnt RPC transaction.
+        """
         return self._host
 
     @property
     def process_manager(self):
+        """
+        The process manager associated with this interface.
+        """
         return self._process_manager
 
     ###########################################################################
     # Public methods
 
     def get_actions(self, data):
-        # We can end up getting requests for actions for any entity type
-        # that exists in Shotgun. Many of those we don't want to provide
-        # commands for, so we can just notify the client that it's an
-        # unsupported entity type.
-        supported_types = self._engine.sgtk.execute_core_hook_method(
-            "browser_integration",
-            "supported_entity_types",
-        )
+        """
+        RPC method that sends back a dictionary containing engine commands
+        for each pipeline configuration associated with the project.
 
-        if data["entity_type"] not in supported_types:
-            self.host.reply(dict(retcode=self.UNSUPPORTED_ENTITY_TYPE))
-            return
-
+        :param dict data: The data passed down by the client. At a minimum,
+            the dict should contain the following keys: project_id, entity_id,
+            entity_type, pipeline_configs, and user.
+        """
         project_entity = dict(
             type="Project",
             id=data["project_id"],
         )
+        entity = dict(
+            type=data["entity_type"],
+            id=data["entity_id"],
+        )
+
+        # We can end up getting requests for actions for any entity type
+        # that exists in Shotgun. Many of those we don't want to provide
+        # commands for, so we can just notify the client that it's an
+        # unsupported entity type.
+        env_name = self._engine.sgtk.execute_core_hook(
+            sgtk.platform.constants.PICK_ENVIRONMENT_CORE_HOOK_NAME,
+            context=sgtk.Context(
+                self._engine.sgtk,
+                project=project_entity,
+                entity=entity,
+            )
+        )
+
+        if env_name is None:
+            self.host.reply(dict(retcode=self.UNSUPPORTED_ENTITY_TYPE))
+            return
 
         # If we weren't sent a usable entity id, we can just query the first one
         # from the project. This isn't a big deal for us, because we're only
@@ -126,6 +153,22 @@ class ShotgunAPI(object):
         # pc_name => commands.
         pc_names = [pc["name"] for pc in pcs]
         all_commands = dict()
+        config_data = dict()
+
+        for pc in pcs:
+            # The hash that acts as the key we'll use to look up our cached
+            # data will be based on the entity type and the pipeline config's
+            # descriptor uri. We can get the descriptor from the toolkit
+            # manager and pass that through along with the entity type from SG
+            # to the core hook that computes the hash.
+            manager.pipeline_configuration = pc["id"]
+            pc_descriptor = manager.resolve_descriptor(project_entity)
+            pc_data = dict()
+            pc_data["contents_hash"] = self._get_contents_hash(pc_descriptor)
+            pc_data["lookup_hash"] = self._get_lookup_hash(pc_descriptor, data["entity_type"])
+            pc_data["descriptor"] = pc_descriptor
+            pc_data["entity"] = pc
+            config_data[pc["id"]] = pc_data
 
         with self._db_connect() as (connection, cursor):
             for pc in pcs:
@@ -134,15 +177,11 @@ class ShotgunAPI(object):
                 # descriptor uri. We can get the descriptor from the toolkit
                 # manager and pass that through along with the entity type from SG
                 # to the core hook that computes the hash.
+                pc_data = config_data[pc["id"]]
                 manager.pipeline_configuration = pc["id"]
-                pc_descriptor = manager.resolve_descriptor(project_entity)
-
-                lookup_hash = self._engine.sgtk.execute_core_hook_method(
-                    "browser_integration",
-                    "get_cache_lookup_hash",
-                    entity_type=data["entity_type"],
-                    pc_descriptor=pc_descriptor,
-                )
+                pc_descriptor = pc_data["descriptor"]
+                lookup_hash = pc_data["lookup_hash"]
+                contents_hash = pc_data["contents_hash"]
 
                 # TODO: Compute contents_hash and ensure it matches that in the cache.
                 res = list(cursor.execute(
@@ -155,24 +194,23 @@ class ShotgunAPI(object):
                         # We'll only ever get back a single row, if anything.
                         cached_data = res[0]
                         cached_contents_hash = cached_data[1]
-                        current_contents_hash = self._engine.sgtk.execute_core_hook_method(
-                            "browser_integration",
-                            "get_cache_contents_hash",
-                            pc_descriptor=pc_descriptor,
-                        )
 
-                        if current_contents_hash == cached_contents_hash:
-                            commands = cPickle.loads(str(cached_data[0]))
+                        if str(contents_hash) == str(cached_contents_hash):
+                            commands = self._engine.sgtk.execute_core_hook_method(
+                                "browser_integration",
+                                "process_commands",
+                                commands=cPickle.loads(str(cached_data[0])),
+                            )
                             self.logger.info("Commands found in cache: %s" % commands)
                             all_commands[pc["name"]] = commands
                         else:
-                            self.logger.info("Cache is out of date, recaching...")
-                            self._cache_actions(data)
+                            self.logger.info("Cache is out of date, recaching: %s %s" % (contents_hash, cached_contents_hash))
+                            self._cache_actions(data, config_data)
                             self.get_actions(data)
                             return
                     else:
                         self.logger.info("Commands not found in hash, caching now...")
-                        self._cache_actions(data)
+                        self._cache_actions(data, config_data)
                         self.get_actions(data)
                         return
                 except subprocess.CalledProcessError, e:
@@ -200,6 +238,10 @@ class ShotgunAPI(object):
 
     @contextlib.contextmanager
     def _db_connect(self):
+        """
+        Context manager that initializes a DB connection on enter and
+        disconnects on exit.
+        """
         connection = self._init_db()
         cursor = connection.cursor()
         yield (connection, cursor)
@@ -209,7 +251,15 @@ class ShotgunAPI(object):
     ###########################################################################
     # sqlite database access methods
 
-    def _cache_actions(self, data):
+    def _cache_actions(self, data, config_data):
+        """
+        Triggers the caching or recaching of engine commands.
+
+        :param dict data: The data passed down from the wss client.
+        :param dict config_data: A dictionary keyed by PipelineConfiguration
+            id containing a dict that contains, at a minimum, "lookup_hash"
+            and "contents_hash" keys.
+        """
         self.logger.info("Caching engine commands...")
 
         script = os.path.join(
@@ -220,6 +270,13 @@ class ShotgunAPI(object):
 
         self.logger.debug("Executing script: %s" % script)
         args_file = tempfile.mkstemp()[1]
+        hash_data = dict()
+
+        for pc_id, pc_data in config_data.iteritems():
+            hash_data[pc_id] = dict(
+                lookup_hash=config_data[pc_id]["lookup_hash"],
+                contents_hash = config_data[pc_id]["contents_hash"],
+            )
 
         with open(args_file, "w") as fh:
             cPickle.dump(
@@ -228,6 +285,7 @@ class ShotgunAPI(object):
                     data=data,
                     sys_path=sys.path,
                     base_configuration=self.BASE_CONFIG_URI,
+                    hash_data=hash_data,
                 ),
                 fh,
                 cPickle.HIGHEST_PROTOCOL,
@@ -245,6 +303,69 @@ class ShotgunAPI(object):
             self.logger.info(output)
 
         self.logger.info("Caching complete.")
+
+    def _get_contents_hash(self, config_descriptor):
+        """
+        Computes an md5 hashsum for the given pipeline configuration. This
+        hash includes the state of all fields for all Software entities in
+        the current Shotgun site, and if the given pipeline configuration
+        is mutable, the modtimes of all yml files in the config.
+
+        :param config_descriptor: The descriptor object for the pipeline config.
+
+        :returns: hash value
+        :rtype: int
+        """
+        sg = self._engine.shotgun
+
+        # We're going to get all data associated with all Software entities
+        # that exist.
+        sw_entities = sg.find(
+            "Software",
+            [],
+            fields=sg.schema_field_read("Software").keys(),
+        )
+
+        # We dump the entities out as json, sorting on keys to ensure 
+        # consistent ordering of data.
+        hashable_data = dict(
+            entities=json.dumps(sw_entities, sort_keys=True, default=self.__json_default),
+            modtimes="",
+        )
+
+        # If the config is mutable, we'll crawl its structure on disk, adding
+        # the modtimes of all yml files found. When they're added to the digest,
+        # we'll dump as json sorting alphanumeric on yml file name to ensure
+        # consistent ordering of data.
+        if config_descriptor.is_immutable() == False:
+            yml_files = dict()
+
+            for root, dir_names, file_names in os.walk(config_descriptor.get_path()):
+                for file_name in fnmatch.filter(file_names, "*.yml"):
+                    full_path = os.path.join(root, file_name)
+                    yml_files[full_path] = os.path.getmtime(full_path)
+
+            hashable_data["modtimes"] = json.dumps(yml_files, sort_keys=True)
+
+        return hash(
+            json.dumps(
+                hashable_data,
+                sort_keys=True,
+            )
+        )
+
+    def _get_lookup_hash(self, config_descriptor, entity_type):
+        """
+        Computes a unique key for a row in a cache database for the given
+        pipeline configuration descriptor and entity type.
+
+        :param config_descriptor: A descriptor object for the pipeline configuration.
+        :param str entity_type: The entity type.
+
+        :returns: The computed lookup hash.
+        :rtype: str
+        """
+        return "%s@%s" % (config_descriptor.get_uri(), entity_type)
 
     def _init_db(self):
         """
@@ -301,6 +422,19 @@ class ShotgunAPI(object):
                 c.close()
 
         return connection
+
+    def __json_default(self, item):
+        """
+        Fallback logic for serialization of items that are not natively supported by the
+        json library.
+
+        :param item: The item to be serialized.
+
+        :returns: A serialized equivalent of the given item.
+        """
+        if isinstance(item, datetime.datetime):
+            return item.isoformat()
+        raise TypeError("Item cannot be serialized: %s" % item)
 
 
 

@@ -47,29 +47,7 @@ def get_sgtk_logger(sgtk):
 
     return sgtk_logger, bootstrap_log_handler
 
-def filter_commands(tk, commands):
-    return tk.execute_core_hook_method(
-        "browser_integration",
-        "filter_engine_commands",
-        commands=commands,
-    )
-
-def get_contents_hash(tk, pc_descriptor):
-    return tk.execute_core_hook_method(
-        "browser_integration",
-        "get_cache_contents_hash",
-        pc_descriptor=pc_descriptor,
-    )
-
-def get_lookup_hash(tk, entity_type, pc_descriptor):
-    return tk.execute_core_hook_method(
-        "browser_integration",
-        "get_cache_lookup_hash",
-        entity_type=entity_type,
-        pc_descriptor=pc_descriptor,
-    )
-
-def cache(cache_file, data, base_configuration):
+def cache(cache_file, data, base_configuration, hash_data):
     import sqlite3
     import sgtk
 
@@ -91,6 +69,8 @@ def cache(cache_file, data, base_configuration):
 
     for pc in pcs:
         logger, log_handler = get_sgtk_logger(sgtk)
+        lookup_hash = hash_data[pc["id"]]["lookup_hash"]
+        contents_hash = hash_data[pc["id"]]["contents_hash"]
 
         toolkit_mgr.pipeline_configuration = pc["id"]
         engine = toolkit_mgr.bootstrap_engine("tk-shotgun", entity=entity)
@@ -102,15 +82,22 @@ def cache(cache_file, data, base_configuration):
         engine.logger.debug("Processing engine commands...")
         commands = []
 
-        for cmd_name, data in filter_commands(engine.sgtk, engine.commands).iteritems():
+        for cmd_name, data in engine.commands.iteritems():
             engine.logger.debug("Processing command: %s" % cmd_name)
             props = data["properties"]
+
+            if props.get("app") is None:
+                app_name = None
+            else:
+                app_name = props["app"].name
+
             commands.append(
                 dict(
                     name=cmd_name,
                     title=props.get("title", cmd_name),
                     deny_permissions=[], # TODO: figure out user permissions.
                     supports_multiple_selection=False, # TODO: figure out multiselect.
+                    app_name=app_name,
                 ),
             )
 
@@ -125,15 +112,6 @@ def cache(cache_file, data, base_configuration):
         cursor = connection.cursor()
 
         try:
-            lookup_hash = get_lookup_hash(
-                engine.sgtk,
-                entity["type"],
-                pc_descriptor,
-            )
-            contents_hash = get_contents_hash(
-                engine.sgtk,
-                pc_descriptor,
-            )
             commands_blob = sqlite3.Binary(
                 cPickle.dumps(commands, cPickle.HIGHEST_PROTOCOL)
             )
@@ -181,6 +159,7 @@ if __name__ == "__main__":
         arg_data["cache_file"],
         arg_data["data"],
         arg_data["base_configuration"],
+        arg_data["hash_data"],
     )
 
     sys.exit(0)
