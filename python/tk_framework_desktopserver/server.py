@@ -31,11 +31,9 @@ logger = get_logger(__name__)
 class Server(object):
     _DEFAULT_PORT = 9000
     _DEFAULT_KEYS_PATH = "../resources/keys"
-    _DEFAULT_WHITELIST = "*.shotgunstudio.com"
 
     class Notifier(QtCore.QObject):
-        different_site_requested = QtCore.Signal(str, str)
-        different_user_requested = QtCore.Signal(str)
+        different_user_requested = QtCore.Signal(str, str)
 
     def __init__(self, keys_path, user, port=None, low_level_debug=False):
         """
@@ -45,16 +43,11 @@ class Server(object):
             current working directory. Mandatory
         :param port: Port to listen for websocket requests from.
         :param low_level_debug: If True, wss traffic will be written to the console.
-        :param whitelist: Comma separated list of sites that can connect to the server.
-            For example:
-                - *.shotgunstudio.com (default)
-                - some-site.shotgunstudio.com
-                - localserver.localnetwork.com
-                - some-site.shotgunstudio.com,some-other-site.shotgunstudio.com
         """
         self._port = port or self._DEFAULT_PORT
         self._keys_path = keys_path or self._DEFAULT_KEYS_PATH
         self._debug = low_level_debug
+        self._user = user
 
         self.notifier = self.Notifier()
 
@@ -119,8 +112,8 @@ class Server(object):
         )
 
         self.factory.protocol = ServerProtocol
-        self.factory.user = user
-        self.factory.notifier = notifier
+        self.factory.user = self._user
+        self.factory.notifier = self.notifier
         self.factory.setProtocolOptions(allowHixie76=True, echoCloseCodeReason=True)
         try:
             self.listener = listenWS(self.factory, self.context_factory)

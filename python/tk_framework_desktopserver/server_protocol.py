@@ -77,14 +77,20 @@ class ServerProtocol(WebSocketServerProtocol):
         # If we reach this point, then it means SSL handshake went well..
         StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTED
 
-        # origin is formatted such as xyz.shotgunstudio.com
-        # host is https://xyz.shotgunstudio.com
-        if urlparse(self.factory.user.host).netloc.lower() != response.origin.lower():
-            self.factory.notifier.different_site_requested.emit(response.origin)
-            # Don't accept connection
-            raise websocket.http.HttpException(403, "Domain origin was rejected by server.")
-        else:
-            logger.info("Connection accepted.")
+        # origin is formatted such as https://xyz.shotgunstudio.com:port_number
+        # host is https://xyz.shotgunstudio.com:port_number
+        try:
+            host_network = self.factory.user.host.lower()
+            origin_network = response.origin.lower()
+            if host_network != origin_network:
+                # FIXME: Once the protocol gives us the user, pass the right user in.
+                self.factory.notifier.different_user_requested.emit(response.origin, self.factory.user.login)
+                # Don't accept connection
+                raise websocket.http.HttpException(403, "Domain origin was rejected by server.")
+            else:
+                logger.info("Connection accepted.")
+        except Exception:
+            logger.exception("Unexpected error while accepting connection:")
 
     def onMessage(self, payload, isBinary):
         """

@@ -31,7 +31,6 @@ class Settings(object):
 
     _DEFAULT_PORT = 9000
     _DEFAULT_LOW_LEVEL_DEBUG_VALUE = False
-    _DEFAULT_WHITELIST = "*.shotgunstudio.com"
 
     _BROWSER_INTEGRATION = "BrowserIntegration"
     _PORT_SETTING = "port"

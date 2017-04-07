@@ -26,9 +26,15 @@ class DesktopserverFramework(sgtk.platform.Framework):
         self._settings = None
         self._tk_framework_desktopserver = None
 
+    def add_diffrent_user_requested_callback(self, cb):
+        # Lazy-init because engine is initialized after its frameworks, so QtCore is not initialized yet.
+        from sgtk.platform.qt import QtCore
+        if self._server:
+            self._server.notifier.different_user_requested.connect(cb, type=QtCore.Qt.QueuedConnection)
+
     ##########################################################################################
     # init and destroy
-    def launch_desktop_server(self):
+    def launch_desktop_server(self, user):
         """
         Initializes the desktop server.
         """
@@ -67,10 +73,10 @@ class DesktopserverFramework(sgtk.platform.Framework):
             self.__ensure_certificate_ready()
 
             self._server = self._tk_framework_desktopserver.Server(
-                port=self._settings.port,
+                keys_path=self._settings.certificate_folder,
+                user=user,
                 low_level_debug=self._settings.low_level_debug,
-                whitelist=self._settings.whitelist,
-                keys_path=self._settings.certificate_folder
+                port=self._settings.port
             )
 
             self._server.start()
