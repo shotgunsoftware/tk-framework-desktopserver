@@ -199,7 +199,8 @@ class ShotgunAPI(object):
                 )
                 data["entity_id"] = temp_entity["id"]
 
-        project_entity, entity = self._get_entities_from_payload(data)
+        project_entity, entities = self._get_entities_from_payload(data)
+        entity = entities[0]
 
         # We're going to get all data associated with all Software entities
         # that exist. This will be used both for hashing the contents of the cache
@@ -248,7 +249,11 @@ class ShotgunAPI(object):
 
             pc_data = dict()
             pc_data["contents_hash"] = self._get_contents_hash(pc_descriptor, sw_entities)
-            pc_data["lookup_hash"] = self._get_lookup_hash(pc_key, data["entity_type"])
+            pc_data["lookup_hash"] = self._get_lookup_hash(
+                pc_key,
+                project_entity,
+                data["entity_type"],
+            )
             pc_data["descriptor"] = pc_descriptor
             pc_data["entity"] = pc
             config_data[pc["id"]] = pc_data
@@ -278,10 +283,10 @@ class ShotgunAPI(object):
                         cached_contents_hash = cached_data[1]
 
                         if str(contents_hash) == str(cached_contents_hash):
-                            actions = self._engine.sgtk.execute_core_hook_method(
-                                "browser_integration",
-                                "process_commands",
+                            actions = self._process_commands(
                                 commands=cPickle.loads(str(cached_data[0])),
+                                project=project_entity,
+                                entities=entities,
                             )
                             self.logger.info("Actions found in cache: %s" % actions)
                             all_actions[pc["name"]] = dict(
@@ -512,6 +517,9 @@ class ShotgunAPI(object):
         if config_descriptor and config_descriptor.is_immutable() == False:
             yml_files = dict()
 
+            # TODO: Deeper traversal that takes into account possible includes stuff
+            # based on environment variables, which this might not catch if the included
+            # file is outside of the config. <jbee>
             for root, dir_names, file_names in os.walk(config_descriptor.get_path()):
                 for file_name in fnmatch.filter(file_names, "*.yml"):
                     full_path = os.path.join(root, file_name)
@@ -532,7 +540,7 @@ class ShotgunAPI(object):
 
         :param dict data: The payload data.
 
-        :returns: The project_entity, and entity or a list of entities, in
+        :returns: The project_entity, and a list of entities, in
             that order.
         :rtype: tuple
         """
@@ -547,25 +555,32 @@ class ShotgunAPI(object):
                 id=data["entity_id"],
             )
 
-            return (project_entity, entity)
+            return (project_entity, [entity])
         elif "entity_ids" in data:
             entities = [dict(type=data["entity_type"], id=i) for i in data["entity_ids"]]
             return (project_entity, entities)
         else:
             raise RuntimeError("Unable to determine an entity from data: %s" % data)
 
-    def _get_lookup_hash(self, config_key, entity_type):
+    def _get_lookup_hash(self, config_uri, project, entity_type):
         """
         Computes a unique key for a row in a cache database for the given
         pipeline configuration descriptor and entity type.
 
-        :param config_descriptor: A descriptor object for the pipeline configuration.
+        :param str config_uri: The pipeline configuration's descriptor uri.
+        :param dict project: The project entity.
         :param str entity_type: The entity type.
 
         :returns: The computed lookup hash.
         :rtype: str
         """
-        return "%s@%s" % (config_key, entity_type)
+        return self._engine.sgtk.execute_core_hook_method(
+            "browser_integration",
+            "get_cache_key",
+            config_uri=config_uri,
+            project=project,
+            entity_type=entity_type
+        )
 
     def _init_db(self):
         """
@@ -608,6 +623,40 @@ class ShotgunAPI(object):
                 c.close()
 
         return connection
+
+    def _process_commands(self, commands, project, entities):
+        """
+        Filters out commands that are not associated with an app, and then
+        calls the process_commands methods from the browser_integration
+        core hook, returning the result.
+
+        :param list commands: The list of command dictionaries to be processed.
+        :param dict project: The project entity.
+        :param list entities: The list of entities that were passed down by the
+            client.
+
+        :returns: A list of commands dictionaries.
+        :rtype: list
+        """
+        # Filter out any commands that didn't come from an app. This will
+        # filter out things like the "Reload and Restart" command.
+        filtered = list()
+
+        for command in commands:
+            if command["app_name"] is not None:
+                filtered.append(command)
+            else:
+                self.logger.debug(
+                    "Command filtered out for browser integration: %s" % command
+                )
+
+        return self._engine.sgtk.execute_core_hook_method(
+            "browser_integration",
+            "process_commands",
+            commands=commands,
+            project=project,
+            entities=entities,
+        )
 
     ###########################################################################
     # Private methods
