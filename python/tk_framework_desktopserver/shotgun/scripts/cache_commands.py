@@ -1,3 +1,12 @@
+# Copyright (c) 2017 Shotgun Software Inc.
+#
+# CONFIDENTIAL AND PROPRIETARY
+#
+# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
+# Source Code License included in this distribution package. See LICENSE.
+# By accessing, using, copying or modifying this work you indicate your
+# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
+# not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sys
 import logging
@@ -47,7 +56,7 @@ def get_sgtk_logger(sgtk):
 
     return sgtk_logger, bootstrap_log_handler
 
-def cache(cache_file, data, base_configuration, hash_data):
+def cache(cache_file, data, base_configuration, hash_data, engine_name):
     import sqlite3
     import sgtk
 
@@ -61,7 +70,8 @@ def cache(cache_file, data, base_configuration, hash_data):
 
     for pc in data["pipeline_configs"]:
         pc["project"] = pc.get("project", project_entity)
-
+    import pprint
+    pprint.pprint(data["pipeline_configs"])
     pcs = toolkit_mgr.sort_and_filter_configuration_entities(
         project=project_entity,
         entities=data["pipeline_configs"],
@@ -69,11 +79,12 @@ def cache(cache_file, data, base_configuration, hash_data):
 
     for pc in pcs:
         logger, log_handler = get_sgtk_logger(sgtk)
+        pprint.pprint(hash_data)
         lookup_hash = hash_data[pc["id"]]["lookup_hash"]
         contents_hash = hash_data[pc["id"]]["contents_hash"]
 
         toolkit_mgr.pipeline_configuration = pc["id"]
-        engine = toolkit_mgr.bootstrap_engine("tk-shotgun", entity=entity)
+        engine = toolkit_mgr.bootstrap_engine(engine_name, entity=entity)
         pc_descriptor = toolkit_mgr.resolve_descriptor(project_entity)
 
         # Clean up the pre-bootstrap logger since we can use the engine's
@@ -85,19 +96,26 @@ def cache(cache_file, data, base_configuration, hash_data):
         for cmd_name, data in engine.commands.iteritems():
             engine.logger.debug("Processing command: %s" % cmd_name)
             props = data["properties"]
+            app = props.get("app")
 
-            if props.get("app") is None:
-                app_name = None
+            if app:
+                app_name = app.name
             else:
-                app_name = props["app"].name
+                app_name = None
 
             commands.append(
                 dict(
                     name=cmd_name,
                     title=props.get("title", cmd_name),
-                    deny_permissions=[], # TODO: figure out user permissions.
-                    supports_multiple_selection=False, # TODO: figure out multiselect.
+                    deny_permissions=props.get("deny_permissions", []),
+                    supports_multiple_selection=props.get(
+                        "supports_multiple_selection",
+                        False
+                    ),
                     app_name=app_name,
+                    group=props.get("group"),
+                    group_default=props.get("group_default"),
+                    engine_name=props.get("engine_name"),
                 ),
             )
 
@@ -160,6 +178,7 @@ if __name__ == "__main__":
         arg_data["data"],
         arg_data["base_configuration"],
         arg_data["hash_data"],
+        arg_data["engine_name"],
     )
 
     sys.exit(0)

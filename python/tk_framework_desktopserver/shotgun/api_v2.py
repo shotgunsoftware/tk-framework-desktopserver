@@ -21,6 +21,7 @@ import fnmatch
 import datetime
 
 import sgtk
+from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
 
 ###########################################################################
 # Classes
@@ -32,6 +33,7 @@ class ShotgunAPI(object):
     """
     PUBLIC_API_METHODS = [
         "get_actions",
+        "execute_action",
     ]
     SYNCHRONOUS_METHODS = [
         "get_actions",
@@ -43,9 +45,12 @@ class ShotgunAPI(object):
     SUCCESSFUL_LOOKUP = 0
     UNSUPPORTED_ENTITY_TYPE = 2
     CACHING_ERROR = 3
+    COMMAND_SUCCEEDED = 0
+    COMMAND_FAILED = 1
 
     # BASE_CONFIG_URI = "sgtk:descriptor:app_store?name=tk-config-basic"
     BASE_CONFIG_URI = "sgtk:descriptor:dev?name=tk-config-basic&path=/Users/jeff/Documents/repositories/tk-config-basic"
+    ENGINE_NAME = "tk-shotgun"
 
     def __init__(self, host, process_manager):
         """
@@ -56,7 +61,6 @@ class ShotgunAPI(object):
         :param process_manager: Process Manager to use to interact with os processes.
         """
         self._host = host
-        self._process_manager = process_manager
         self._engine = sgtk.platform.current_engine()
 
         # Cache path on disk.
@@ -82,15 +86,92 @@ class ShotgunAPI(object):
         """
         return self._host
 
-    @property
-    def process_manager(self):
-        """
-        The process manager associated with this interface.
-        """
-        return self._process_manager
-
     ###########################################################################
     # Public methods
+
+    def execute_action(self, data):
+        """
+        Executes the engine command associated with the action triggered
+        in the client.
+
+        :param dict data: The payload from the client.
+        """
+        if data["name"] == "__clone_pc":
+            self.logger.debug("Clone configuration command received.")
+            try:
+                self._clone_configuration(data)
+            except Exception as e:
+                self.host.reply(
+                    dict(
+                        retcode=self.COMMAND_FAILED,
+                        err=str(e),
+                        out=str(e),
+                    ),
+                )
+                raise
+            else:
+                self.logger.debug("Clone configuration successful.")
+                self.host.reply(
+                    dict(
+                        retcode=self.COMMAND_SUCCEEDED,
+                        err="",
+                        out="",
+                    ),
+                )
+                return
+
+        project_entity, entities = self._get_entities_from_payload(data)
+
+        # It shouldn't ever happen at this stage of the workflow, but we'll
+        # check to make sure that we can get an environment for the type of
+        # we're dealing with here.
+        env_name = self.__pick_environment(project_entity, entities[0])
+
+        if env_name is None:
+            self.logger.error(
+                "The provided entity does not correspond to any environment."
+            )
+            return
+
+        args_file = self._get_arguments_file(
+            dict(
+                config=data["pc"],
+                name=data["name"],
+                entities=entities,
+                project=project_entity,
+                sys_path=sys.path,
+                base_configuration=self.BASE_CONFIG_URI,
+                engine_name=self.ENGINE_NAME,
+            ),
+        )
+
+        script = os.path.join(
+            os.path.dirname(__file__),
+            "scripts",
+            "execute_command.py"
+        )
+
+        output = None
+
+        try:
+            output = subprocess.check_output(
+                [sys.executable, script, args_file]
+            )
+        except subprocess.CalledProcessError:
+            if output:
+                self.logger.error(output)
+            raise
+        else:
+            self.logger.info(output)
+
+        self.logger.info("Command execution complete.")
+        self.host.reply(
+            dict(
+                retcode=self.COMMAND_SUCCEEDED,
+                out="Command executed successfully.",
+                err="",
+            ),
+        )
 
     def get_actions(self, data):
         """
@@ -101,32 +182,6 @@ class ShotgunAPI(object):
             the dict should contain the following keys: project_id, entity_id,
             entity_type, pipeline_configs, and user.
         """
-        project_entity = dict(
-            type="Project",
-            id=data["project_id"],
-        )
-        entity = dict(
-            type=data["entity_type"],
-            id=data["entity_id"],
-        )
-
-        # We can end up getting requests for actions for any entity type
-        # that exists in Shotgun. Many of those we don't want to provide
-        # commands for, so we can just notify the client that it's an
-        # unsupported entity type.
-        env_name = self._engine.sgtk.execute_core_hook(
-            sgtk.platform.constants.PICK_ENVIRONMENT_CORE_HOOK_NAME,
-            context=sgtk.Context(
-                self._engine.sgtk,
-                project=project_entity,
-                entity=entity,
-            )
-        )
-
-        if env_name is None:
-            self.host.reply(dict(retcode=self.UNSUPPORTED_ENTITY_TYPE))
-            return
-
         # If we weren't sent a usable entity id, we can just query the first one
         # from the project. This isn't a big deal for us, because we're only
         # concerned with picking the correct environment when we bootstrap
@@ -134,12 +189,38 @@ class ShotgunAPI(object):
         # a page is pre-loading entity-level commands on page load, as opposed to
         # passing down a specific entity that's been selected in an already-loaded
         # page.
-        if data["entity_id"] == -1:
-            temp_entity = self._engine.shotgun.find_one(
-                data["entity_type"],
-                [["project", "is", project_entity]],
-            )
-            data["entity_id"] = temp_entity["id"]
+        if "entity_id" in data and data["entity_id"] == -1:
+            if data["entity_type"] == "Project":
+                data["entity_id"] = data["project_id"]
+            else:
+                temp_entity = self._engine.shotgun.find_one(
+                    data["entity_type"],
+                    [["project", "is", dict(type="Project", id=data["project_id"])]],
+                )
+                data["entity_id"] = temp_entity["id"]
+
+        project_entity, entity = self._get_entities_from_payload(data)
+
+        # We're going to get all data associated with all Software entities
+        # that exist. This will be used both for hashing the contents of the cache
+        # as well as when filtering based on project once actions have been retrieved
+        # from the cache.
+        sg = self._engine.shotgun
+        sw_entities = sg.find(
+            "Software",
+            [],
+            fields=sg.schema_field_read("Software").keys(),
+        )
+
+        # We can end up getting requests for actions for any entity type
+        # that exists in Shotgun. Many of those we don't want to provide
+        # commands for, so we can just notify the client that it's an
+        # unsupported entity type.
+        env_name = self.__pick_environment(project_entity, entity)
+
+        if env_name is None:
+            self.host.reply(dict(retcode=self.UNSUPPORTED_ENTITY_TYPE))
+            return
 
         manager = sgtk.bootstrap.ToolkitManager()
         manager.base_configuration = self.BASE_CONFIG_URI
@@ -152,7 +233,7 @@ class ShotgunAPI(object):
         # We'll need to pass up the config names in order along with a dict of
         # pc_name => commands.
         pc_names = [pc["name"] for pc in pcs]
-        all_commands = dict()
+        all_actions = dict()
         config_data = dict()
 
         for pc in pcs:
@@ -163,9 +244,11 @@ class ShotgunAPI(object):
             # to the core hook that computes the hash.
             manager.pipeline_configuration = pc["id"]
             pc_descriptor = manager.resolve_descriptor(project_entity)
+            pc_key = pc_descriptor.get_uri()
+
             pc_data = dict()
-            pc_data["contents_hash"] = self._get_contents_hash(pc_descriptor)
-            pc_data["lookup_hash"] = self._get_lookup_hash(pc_descriptor, data["entity_type"])
+            pc_data["contents_hash"] = self._get_contents_hash(pc_descriptor, sw_entities)
+            pc_data["lookup_hash"] = self._get_lookup_hash(pc_key, data["entity_type"])
             pc_data["descriptor"] = pc_descriptor
             pc_data["entity"] = pc
             config_data[pc["id"]] = pc_data
@@ -183,7 +266,6 @@ class ShotgunAPI(object):
                 lookup_hash = pc_data["lookup_hash"]
                 contents_hash = pc_data["contents_hash"]
 
-                # TODO: Compute contents_hash and ensure it matches that in the cache.
                 res = list(cursor.execute(
                     "SELECT commands, contents_hash FROM engine_commands WHERE lookup_hash=?",
                     (lookup_hash,)
@@ -196,15 +278,26 @@ class ShotgunAPI(object):
                         cached_contents_hash = cached_data[1]
 
                         if str(contents_hash) == str(cached_contents_hash):
-                            commands = self._engine.sgtk.execute_core_hook_method(
+                            actions = self._engine.sgtk.execute_core_hook_method(
                                 "browser_integration",
                                 "process_commands",
                                 commands=cPickle.loads(str(cached_data[0])),
                             )
-                            self.logger.info("Commands found in cache: %s" % commands)
-                            all_commands[pc["name"]] = commands
+                            self.logger.info("Actions found in cache: %s" % actions)
+                            all_actions[pc["name"]] = dict(
+                                actions=self._filter_by_project(
+                                    actions,
+                                    sw_entities,
+                                    project_entity,
+                                ),
+                                config=pc,
+                            )
                         else:
-                            self.logger.info("Cache is out of date, recaching: %s %s" % (contents_hash, cached_contents_hash))
+                            self.logger.info(
+                                "Cache is out of date, recaching: %s %s" % (
+                                    contents_hash, cached_contents_hash
+                                )
+                            )
                             self._cache_actions(data, config_data)
                             self.get_actions(data)
                             return
@@ -228,7 +321,7 @@ class ShotgunAPI(object):
             dict(
                 err="",
                 retcode=self.SUCCESSFUL_LOOKUP,
-                commands=all_commands,
+                actions=all_actions,
                 pcs=pc_names,
             ),
         )
@@ -249,7 +342,7 @@ class ShotgunAPI(object):
         connection.close()
 
     ###########################################################################
-    # sqlite database access methods
+    # Internal methods
 
     def _cache_actions(self, data, config_data):
         """
@@ -269,7 +362,6 @@ class ShotgunAPI(object):
         )
 
         self.logger.debug("Executing script: %s" % script)
-        args_file = tempfile.mkstemp()[1]
         hash_data = dict()
 
         for pc_id, pc_data in config_data.iteritems():
@@ -278,18 +370,16 @@ class ShotgunAPI(object):
                 contents_hash = config_data[pc_id]["contents_hash"],
             )
 
-        with open(args_file, "w") as fh:
-            cPickle.dump(
-                dict(
-                    cache_file=self._cache_path,
-                    data=data,
-                    sys_path=sys.path,
-                    base_configuration=self.BASE_CONFIG_URI,
-                    hash_data=hash_data,
-                ),
-                fh,
-                cPickle.HIGHEST_PROTOCOL,
+        args_file = self._get_arguments_file(
+            dict(
+                cache_file=self._cache_path,
+                data=data,
+                sys_path=sys.path,
+                base_configuration=self.BASE_CONFIG_URI,
+                hash_data=hash_data,
+                engine_name=self.ENGINE_NAME,
             )
+        )
 
         output = None
 
@@ -304,7 +394,97 @@ class ShotgunAPI(object):
 
         self.logger.info("Caching complete.")
 
-    def _get_contents_hash(self, config_descriptor):
+    def _clone_configuration(self, data):
+        """
+        Clones a pipeline configuration.
+
+        :param dict data: The payload from the client. Requires the
+            special "custom_data" key, which contains the relevant
+            path data for the cloning operation.
+        """
+        # Custom data passed in entity_type:
+        # USER_ID:NAME:LINUX_PATH:MAC_PATH:WINDOWS_PATH
+        fields = data["custom_data"].split(":")
+        user_id = int(fields[0])
+        new_name = fields[1]
+        new_path_linux = fields[2]
+        new_path_mac = fields[3]
+
+        # Note: Since the windows path may contain colons, assume all items
+        # past the 4th chunk in the command is part of the windows path.
+        new_path_windows = ":".join(fields[4:])
+        pc_entity_id = data.get("entity_id") or data["entity_ids"][0]
+
+        clone_pipeline_configuration_html(
+            self.logger,
+            self._engine.sgtk,
+            pc_entity_id,
+            user_id,
+            new_name,
+            new_path_linux,
+            new_path_mac,
+            new_path_windows,
+            sgtk.pipelineconfig_utils.is_localized(data["pc_root_path"]),
+        )
+
+    def _filter_by_project(self, actions, sw_entities, project):
+        """
+        Filters out any actions that aren't permitted for the given project
+        by the action's associated Software entity in Shotgun.
+
+        :param list actions: A list of action dictionaries, as stored in
+            and queried from the api's associated sqlite database.
+        :param list sw_entities: The list of Software entity dictionaries
+            as queried from the Shotgun site.
+        :param dict project: The project entity associated with the client
+            request.
+
+        :returns: A filtered list of actions. Those not permitted for use
+            in the requesting project will have been removed.
+        :rtype: list
+        """
+        filtered = []
+
+        for action in actions:
+            # We're only interested in entities that are referring to the
+            # same engine as is recorded in the action dict.
+            associated_sw = [s for s in sw_entities if s["engine"] == action.get("engine_name")]
+
+            # Check the project against the projects list for matching Software
+            # entities. If a Software entity's projects list is empty, then there
+            # is no filtering to be done, as it's accepted by all projects.
+            for sw in associated_sw:
+                for sw_project in sw.get("projects", []):
+                    if sw_project["id"] != project["id"]:
+                        self.logger.debug("Action %s filtered due to SW entity projects." % action)
+                        filtered.append(action)
+                        break
+                if action in filtered:
+                    break
+
+        return [a for a in actions if a not in filtered]
+
+    def _get_arguments_file(self, args_data):
+        """
+        Dumps out a temporary file containing the provided data structure.
+
+        :param args_data: The data to serialize to disk.
+
+        :returns: File path
+        :rtype: str
+        """
+        args_file = tempfile.mkstemp()[1]
+
+        with open(args_file, "w") as fh:
+            cPickle.dump(
+                args_data,
+                fh,
+                cPickle.HIGHEST_PROTOCOL,
+            )
+
+        return args_file
+
+    def _get_contents_hash(self, config_descriptor, sw_entities):
         """
         Computes an md5 hashsum for the given pipeline configuration. This
         hash includes the state of all fields for all Software entities in
@@ -312,20 +492,12 @@ class ShotgunAPI(object):
         is mutable, the modtimes of all yml files in the config.
 
         :param config_descriptor: The descriptor object for the pipeline config.
+        :param list sw_entities: A list of Software entity dicts to use when
+            creating the hash.
 
         :returns: hash value
         :rtype: int
         """
-        sg = self._engine.shotgun
-
-        # We're going to get all data associated with all Software entities
-        # that exist.
-        sw_entities = sg.find(
-            "Software",
-            [],
-            fields=sg.schema_field_read("Software").keys(),
-        )
-
         # We dump the entities out as json, sorting on keys to ensure 
         # consistent ordering of data.
         hashable_data = dict(
@@ -337,7 +509,7 @@ class ShotgunAPI(object):
         # the modtimes of all yml files found. When they're added to the digest,
         # we'll dump as json sorting alphanumeric on yml file name to ensure
         # consistent ordering of data.
-        if config_descriptor.is_immutable() == False:
+        if config_descriptor and config_descriptor.is_immutable() == False:
             yml_files = dict()
 
             for root, dir_names, file_names in os.walk(config_descriptor.get_path()):
@@ -354,7 +526,35 @@ class ShotgunAPI(object):
             )
         )
 
-    def _get_lookup_hash(self, config_descriptor, entity_type):
+    def _get_entities_from_payload(self, data):
+        """
+        Extracts the relevant entity information from the given payload data.
+
+        :param dict data: The payload data.
+
+        :returns: The project_entity, and entity or a list of entities, in
+            that order.
+        :rtype: tuple
+        """
+        project_entity = dict(
+            type="Project",
+            id=data["project_id"],
+        )
+
+        if "entity_id" in data:
+            entity = dict(
+                type=data["entity_type"],
+                id=data["entity_id"],
+            )
+
+            return (project_entity, entity)
+        elif "entity_ids" in data:
+            entities = [dict(type=data["entity_type"], id=i) for i in data["entity_ids"]]
+            return (project_entity, entities)
+        else:
+            raise RuntimeError("Unable to determine an entity from data: %s" % data)
+
+    def _get_lookup_hash(self, config_key, entity_type):
         """
         Computes a unique key for a row in a cache database for the given
         pipeline configuration descriptor and entity type.
@@ -365,7 +565,7 @@ class ShotgunAPI(object):
         :returns: The computed lookup hash.
         :rtype: str
         """
-        return "%s@%s" % (config_descriptor.get_uri(), entity_type)
+        return "%s@%s" % (config_key, entity_type)
 
     def _init_db(self):
         """
@@ -397,21 +597,7 @@ class ShotgunAPI(object):
                 c.executescript("""
                     CREATE TABLE engine_commands (lookup_hash text, contents_hash text, commands blob);
                 """)
-                # c.executescript("""
-                #     -- CREATE TABLE entity (entity_type text, entity_id integer, activity_id integer, created_at datetime);
 
-                #     -- CREATE TABLE activity (activity_id integer, note_id integer default null, payload blob, created_at datetime);
-
-                #     -- CREATE TABLE note (note_id integer, payload blob, created_at datetime);
-
-                #     -- CREATE INDEX entity_1 ON entity(entity_type, entity_id, created_at);
-                #     -- CREATE INDEX entity_2 ON entity(entity_type, entity_id, activity_id, created_at);
-
-                #     -- CREATE INDEX activity_1 ON activity(activity_id);
-                #     -- CREATE INDEX activity_2 ON activity(activity_id, note_id);
-
-                #     -- CREATE INDEX note_1 ON activity(note_id);
-                # """)
                 connection.commit()
         except Exception:
             connection.close()
@@ -422,6 +608,9 @@ class ShotgunAPI(object):
                 c.close()
 
         return connection
+
+    ###########################################################################
+    # Private methods
 
     def __json_default(self, item):
         """
@@ -435,6 +624,26 @@ class ShotgunAPI(object):
         if isinstance(item, datetime.datetime):
             return item.isoformat()
         raise TypeError("Item cannot be serialized: %s" % item)
+
+    def __pick_environment(self, project_entity, entity):
+        """
+        Calls the pick_environment core hook on a context built from the
+        provided entity.
+
+        :param dict project_entity: The project entity dictionary.
+        :param dict entity: The entity dictionary.
+
+        :returns: The name of the associated environment, or None.
+        :rtype: str or None
+        """
+        return self._engine.sgtk.execute_core_hook(
+            sgtk.platform.constants.PICK_ENVIRONMENT_CORE_HOOK_NAME,
+            context=sgtk.Context(
+                self._engine.sgtk,
+                project=project_entity,
+                entity=entity,
+            )
+        )
 
 
 

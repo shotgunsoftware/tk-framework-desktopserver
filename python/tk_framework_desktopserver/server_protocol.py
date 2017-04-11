@@ -190,8 +190,9 @@ class ServerProtocol(WebSocketServerProtocol):
                 try:
                     func(data)
                 except Exception, e:
+                    import traceback
                     message_host.report_error(
-                        "Method call failed for %s: %s" % (cmd_name, e)
+                        "Method call failed for %s: %s" % (cmd_name, traceback.format_exc())
                     )
                 finally:
                     if requires_sync:
