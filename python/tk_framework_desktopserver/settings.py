@@ -39,6 +39,7 @@ class Settings(object):
     _LOW_LEVEL_DEBUG_SETTING = "low_level_debug"
     _WHITELIST_SETTING = "whitelist"
     _CERTIFICATE_FOLDER_SETTING = "certificate_folder"
+    _ENABLED = "enabled"
 
     def __init__(self, location, default_certificate_folder):
         """
@@ -72,6 +73,9 @@ class Settings(object):
             certificate_folder = self._get_value(
                 config, self._CERTIFICATE_FOLDER_SETTING
             )
+            integration_enabled = self._get_value(
+                config, self._ENABLED
+            )
         else:
             from sgtk.util import UserSettings
             user_settings = UserSettings()
@@ -87,11 +91,13 @@ class Settings(object):
             certificate_folder = user_settings.get_setting(
                 self._BROWSER_INTEGRATION, self._CERTIFICATE_FOLDER_SETTING
             )
+            integration_enabled = UserSettings().get_boolean_setting(self._BROWSER_INTEGRATION, self._ENABLED)
 
         self._port = port or self._DEFAULT_PORT
         self._low_level_debug = low_level_debug or self._DEFAULT_LOW_LEVEL_DEBUG_VALUE
         self._whitelist = whitelist or self._DEFAULT_WHITELIST
         self._certificate_folder = certificate_folder or self._default_certificate_folder
+        self._integration_enabled = integration_enabled
 
     def _load_config(self, path):
         """
@@ -112,6 +118,13 @@ class Settings(object):
         :returns: The port to listen on for incoming websocket requests.
         """
         return self._port
+
+    @property
+    def integration_enabled(self):
+        """
+        :returns: True if the browser integration is enabled, False otherwise.
+        """
+        return self._integration_enabled if self._integration_enabled is not None else True
 
     @property
     def low_level_debug(self):
@@ -140,6 +153,7 @@ class Settings(object):
         """
         Dumps all the settings into the logger.
         """
+        logger.info("Integration enabled: %s" % self.integration_enabled)
         logger.info("Certificate folder: %s" % self.certificate_folder)
         logger.info("Low level debug: %s" % self.low_level_debug)
         logger.info("Port: %d" % self.port)
