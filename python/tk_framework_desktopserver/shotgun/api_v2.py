@@ -51,8 +51,10 @@ class ShotgunAPI(object):
     COMMAND_SUCCEEDED = 0
     COMMAND_FAILED = 1
 
-    # BASE_CONFIG_URI = "sgtk:descriptor:app_store?name=tk-config-basic"
-    BASE_CONFIG_URI = "sgtk:descriptor:dev?name=tk-config-basic&path=/Users/jeff/Documents/repositories/tk-config-basic"
+    BASE_CONFIG_URI = os.environ.get(
+        "SHOTGUN_DESKTOP_CONFIG_FALLBACK_DESCRIPTOR",
+        "sgtk:descriptor:app_store?name=tk-config-basic"
+    )
     ENGINE_NAME = "tk-shotgun"
 
     def __init__(self, host, process_manager, wss_key):
