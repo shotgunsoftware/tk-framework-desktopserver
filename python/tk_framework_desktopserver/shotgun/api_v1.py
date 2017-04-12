@@ -40,7 +40,7 @@ class ShotgunAPI(object):
     # Nothing for v1. This is used in v2.
     SYNCHRONOUS_METHODS = []
 
-    def __init__(self, host, process_manager, semaphore):
+    def __init__(self, host, process_manager, wss_key):
         """
         API Constructor.
         Keep initialization pretty fast as it is created on every message.
@@ -50,6 +50,7 @@ class ShotgunAPI(object):
         """
         self.host = host
         self.process_manager = process_manager
+        self.wss_key = wss_key
 
     def _handle_toolkit_output(self, out, err, return_code):
         """

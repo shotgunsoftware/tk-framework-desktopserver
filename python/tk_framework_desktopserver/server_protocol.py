@@ -93,6 +93,7 @@ class ServerProtocol(WebSocketServerProtocol):
             raise websocket.http.HttpException(403, "Domain origin was rejected by server.")
         else:
             self._logger.info("Connection accepted.")
+            self._wss_key = response.headers["sec-websocket-key"]
 
     def onMessage(self, payload, isBinary):
         """
@@ -161,6 +162,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 protocol_version,
                 message_host,
                 self.process_manager,
+                wss_key=self._wss_key,
             )
         except Exception, e:
             message_host.report_error("Unable to get a ShotgunAPI object: %s" % e)

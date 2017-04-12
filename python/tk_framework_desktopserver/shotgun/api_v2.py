@@ -39,6 +39,9 @@ class ShotgunAPI(object):
         "get_actions",
     ]
 
+    # Stores data persistently per wss connection.
+    WSS_KEY_CACHE = dict()
+
     DATABASE_FORMAT_VERSION = 1
 
     # Return codes.
@@ -52,16 +55,21 @@ class ShotgunAPI(object):
     BASE_CONFIG_URI = "sgtk:descriptor:dev?name=tk-config-basic&path=/Users/jeff/Documents/repositories/tk-config-basic"
     ENGINE_NAME = "tk-shotgun"
 
-    def __init__(self, host, process_manager):
+    def __init__(self, host, process_manager, wss_key):
         """
         API Constructor.
         Keep initialization pretty fast as it is created on every message.
 
         :param host: Host interface to communicate with. Abstracts the client.
         :param process_manager: Process Manager to use to interact with os processes.
+        :param str wss_key: The WSS connection's unique key.
         """
         self._host = host
         self._engine = sgtk.platform.current_engine()
+        self._wss_key = wss_key
+
+        if self._wss_key not in self.WSS_KEY_CACHE:
+            self.WSS_KEY_CACHE[self._wss_key] = dict()
 
         # Cache path on disk.
         self._cache_path = os.path.join(
@@ -162,9 +170,9 @@ class ShotgunAPI(object):
                 self.logger.error(output)
             raise
         else:
-            self.logger.info(output)
+            self.logger.debug(output)
 
-        self.logger.info("Command execution complete.")
+        self.logger.debug("Command execution complete.")
         self.host.reply(
             dict(
                 retcode=self.COMMAND_SUCCEEDED,
@@ -202,17 +210,6 @@ class ShotgunAPI(object):
         project_entity, entities = self._get_entities_from_payload(data)
         entity = entities[0]
 
-        # We're going to get all data associated with all Software entities
-        # that exist. This will be used both for hashing the contents of the cache
-        # as well as when filtering based on project once actions have been retrieved
-        # from the cache.
-        sg = self._engine.shotgun
-        sw_entities = sg.find(
-            "Software",
-            [],
-            fields=sg.schema_field_read("Software").keys(),
-        )
-
         # We can end up getting requests for actions for any entity type
         # that exists in Shotgun. Many of those we don't want to provide
         # commands for, so we can just notify the client that it's an
@@ -248,7 +245,10 @@ class ShotgunAPI(object):
             pc_key = pc_descriptor.get_uri()
 
             pc_data = dict()
-            pc_data["contents_hash"] = self._get_contents_hash(pc_descriptor, sw_entities)
+            pc_data["contents_hash"] = self._get_contents_hash(
+                pc_descriptor,
+                self._get_site_state_data(),
+            )
             pc_data["lookup_hash"] = self._get_lookup_hash(
                 pc_key,
                 project_entity,
@@ -288,17 +288,17 @@ class ShotgunAPI(object):
                                 project=project_entity,
                                 entities=entities,
                             )
-                            self.logger.info("Actions found in cache: %s" % actions)
+                            self.logger.debug("Actions found in cache: %s" % actions)
                             all_actions[pc["name"]] = dict(
                                 actions=self._filter_by_project(
                                     actions,
-                                    sw_entities,
+                                    self._get_software_entities(),
                                     project_entity,
                                 ),
                                 config=pc,
                             )
                         else:
-                            self.logger.info(
+                            self.logger.debug(
                                 "Cache is out of date, recaching: %s %s" % (
                                     contents_hash, cached_contents_hash
                                 )
@@ -307,7 +307,7 @@ class ShotgunAPI(object):
                             self.get_actions(data)
                             return
                     else:
-                        self.logger.info("Commands not found in hash, caching now...")
+                        self.logger.debug("Commands not found in hash, caching now...")
                         self._cache_actions(data, config_data)
                         self.get_actions(data)
                         return
@@ -358,7 +358,7 @@ class ShotgunAPI(object):
             id containing a dict that contains, at a minimum, "lookup_hash"
             and "contents_hash" keys.
         """
-        self.logger.info("Caching engine commands...")
+        self.logger.debug("Caching engine commands...")
 
         script = os.path.join(
             os.path.dirname(__file__),
@@ -395,9 +395,9 @@ class ShotgunAPI(object):
                 self.logger.error(output)
             raise
         else:
-            self.logger.info(output)
+            self.logger.debug(output)
 
-        self.logger.info("Caching complete.")
+        self.logger.debug("Caching complete.")
 
     def _clone_configuration(self, data):
         """
@@ -489,7 +489,7 @@ class ShotgunAPI(object):
 
         return args_file
 
-    def _get_contents_hash(self, config_descriptor, sw_entities):
+    def _get_contents_hash(self, config_descriptor, entities):
         """
         Computes an md5 hashsum for the given pipeline configuration. This
         hash includes the state of all fields for all Software entities in
@@ -497,8 +497,8 @@ class ShotgunAPI(object):
         is mutable, the modtimes of all yml files in the config.
 
         :param config_descriptor: The descriptor object for the pipeline config.
-        :param list sw_entities: A list of Software entity dicts to use when
-            creating the hash.
+        :param list entities: A list of entity dictionaries to be included in the
+            hash computation.
 
         :returns: hash value
         :rtype: int
@@ -506,7 +506,7 @@ class ShotgunAPI(object):
         # We dump the entities out as json, sorting on keys to ensure 
         # consistent ordering of data.
         hashable_data = dict(
-            entities=json.dumps(sw_entities, sort_keys=True, default=self.__json_default),
+            entities=json.dumps(entities, sort_keys=True, default=self.__json_default),
             modtimes="",
         )
 
@@ -582,9 +582,62 @@ class ShotgunAPI(object):
             entity_type=entity_type
         )
 
+    def _get_site_state_data(self):
+        """
+        Gets state-related data for the site. Exactly what data this is depends
+        on the "browser_integration" core hook's "get_site_state_data" method,
+        which returns a list of dicts passed to the Shotgun Python API's find
+        method as kwargs. The data returned by this method is cached based on
+        the WSS connection key provided to the API's constructor at instantiation
+        time. This means that this data is queried from Shotgun only once per
+        unique WSS connection.
+
+        :returns: A list of Shotgun entity dictionaries.
+        :rtype: list
+        """
+        if "site_state_data" not in self.WSS_KEY_CACHE[self._wss_key]:
+            self.WSS_KEY_CACHE[self._wss_key]["site_state_data"] = []
+
+            requested_data_specs = self._engine.sgtk.execute_core_hook_method(
+                "browser_integration",
+                "get_site_state_data",
+            )
+
+            for spec in requested_data_specs:
+                entities = self._engine.shotgun.find(**spec)
+                self.WSS_KEY_CACHE[self._wss_key]["site_state_data"].extend(entities)
+        else:
+            self.logger.debug("Cached site state data found for %s." % self._wss_key)
+
+        return self.WSS_KEY_CACHE[self._wss_key]["site_state_data"]
+
+    def _get_software_entities(self):
+        """
+        Gets all Software entities from the Shotgun client site. Included are
+        all existing fields. This data is cached per WSS connection key that
+        was provided to the API's constructor at instantiation time. This means
+        that this data is queried from SHotgun only once per unique WSS
+        connection.
+
+        :returns: A list of Software entity dictionaries.
+        :rtype: list
+        """
+        if "software_entities" not in self.WSS_KEY_CACHE[self._wss_key]:
+            self.WSS_KEY_CACHE[self._wss_key]["software_entities"] = self._engine.shotgun.find(
+                "Software",
+                [],
+                fields=self._engine.shotgun.schema_field_read("Software").keys(),
+            )
+        else:
+            self.logger.debug("Cache software entities found for %s." % self._wss_key)
+
+        return self.WSS_KEY_CACHE[self._wss_key]["software_entities"]
+
     def _init_db(self):
         """
-        Sets up the database if it doesn't exist.
+        Sets up the database if it doesn't exist. Calling this method directly
+        is not advised. It's best to instead make use of the _db_connect
+        context manager provided by this object.
 
         :returns: A handle that must be closed.
         """
