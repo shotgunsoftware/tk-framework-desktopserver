@@ -208,18 +208,6 @@ class ProcessManager(object):
         actions['err'] = err
         actions['retcode'] = code
 
-    def execute_engine_command(self, pipeline_configs, project_id, command, entity_type, entity_id):
-        """
-
-        """
-        return
-
-    def get_actions(self, pipeline_configs, project_id, entity_type, entity_id):
-        """
-
-        """
-        return []
-
     def get_project_actions(self, pipeline_config_paths):
         """
         Get all actions for all environments from project path
