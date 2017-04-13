@@ -374,7 +374,7 @@ class ShotgunAPI(object):
         for pc_id, pc_data in config_data.iteritems():
             hash_data[pc_id] = dict(
                 lookup_hash=config_data[pc_id]["lookup_hash"],
-                contents_hash = config_data[pc_id]["contents_hash"],
+                contents_hash=config_data[pc_id]["contents_hash"],
             )
 
         args_file = self._get_arguments_file(
@@ -609,7 +609,7 @@ class ShotgunAPI(object):
                 entities = self._engine.shotgun.find(**spec)
                 self.WSS_KEY_CACHE[self._wss_key]["site_state_data"].extend(entities)
         else:
-            self.logger.debug("Cached site state data found for %s." % self._wss_key)
+            self.logger.debug("Cached site state data found for %s" % self._wss_key)
 
         return self.WSS_KEY_CACHE[self._wss_key]["site_state_data"]
 
@@ -631,7 +631,7 @@ class ShotgunAPI(object):
                 fields=self._engine.shotgun.schema_field_read("Software").keys(),
             )
         else:
-            self.logger.debug("Cache software entities found for %s." % self._wss_key)
+            self.logger.debug("Cache software entities found for %s" % self._wss_key)
 
         return self.WSS_KEY_CACHE[self._wss_key]["software_entities"]
 
