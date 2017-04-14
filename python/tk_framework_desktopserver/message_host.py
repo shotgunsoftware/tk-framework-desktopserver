@@ -36,7 +36,7 @@ class MessageHost(object):
         :param data: Object to send
         """
 
-        message = Message(self._message["id"], self._host.PROTOCOL_VERSION)
+        message = Message(self._message["id"], self._host.protocol_version)
         message.reply(data)
 
         self._send_message(message.data)
@@ -53,7 +53,7 @@ class MessageHost(object):
         :param data: Optional object data to send in reply
         """
         get_logger().info("Websocket client error: %s" % error_message)
-        message = Message(self._message["id"], self._host.PROTOCOL_VERSION)
+        message = Message(self._message["id"], self._host.protocol_version)
         message.error(error_message, error_data)
 
         self._send_message(message.data)

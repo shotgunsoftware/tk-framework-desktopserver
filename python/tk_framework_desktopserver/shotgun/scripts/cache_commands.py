@@ -9,52 +9,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sys
-import logging
 import cPickle
-
-class _BootstrapLogHandler(logging.StreamHandler):
-    """
-    Manually flushes emitted records for js to pickup.
-    """
-
-    def emit(self, record):
-        """
-        Forwards the record back to to js via the engine communicator.
-
-        :param record: The record to log.
-        """
-        super(_BootstrapLogHandler, self).emit(record)
-
-        # always flush to ensure its seen by the js process
-        self.flush()
-
-def get_sgtk_logger(sgtk):
-    """
-    Sets up a log handler and logger.
-
-    :param sgtk: An sgtk module reference.
-
-    :returns: A logger and log handler.
-    """
-    # add a custom handler to the root logger so that all toolkit log messages
-    # are forwarded back to python via the communicator
-    bootstrap_log_formatter = logging.Formatter("[%(levelname)s]: %(message)s")
-    bootstrap_log_handler = _BootstrapLogHandler()
-    bootstrap_log_handler.setFormatter(bootstrap_log_formatter)
-    bootstrap_log_handler.setLevel(logging.DEBUG)
-
-    # now get a logger to use during bootstrap
-    sgtk_logger = sgtk.LogManager.get_logger("%s.%s" % ("tk-shotgun", "bootstrap"))
-    sgtk.LogManager().initialize_custom_handler(bootstrap_log_handler)
-
-    # allows for debugging to be turned on by the plugin build process
-    sgtk.LogManager().global_debug = True
-
-    # initializes the file where logging output will go
-    sgtk.LogManager().initialize_base_file_handler("tk-shotgun")
-    sgtk_logger.debug("Log dir: %s" % (sgtk.LogManager().log_folder))
-
-    return sgtk_logger, bootstrap_log_handler
 
 def cache(cache_file, data, base_configuration, hash_data, engine_name):
     import sqlite3
@@ -65,21 +20,14 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
 
     # Setup the bootstrap manager.
     toolkit_mgr = sgtk.bootstrap.ToolkitManager()
-    toolkit_mgr.plugin_id = "shotgun_toolkit_menu_caching"
+    toolkit_mgr.plugin_id = "basic.shotgun.cache"
     toolkit_mgr.base_configuration = base_configuration
 
-    for pc in data["pipeline_configs"]:
-        pc["project"] = pc.get("project", project_entity)
-    import pprint
-    pprint.pprint(data["pipeline_configs"])
-    pcs = toolkit_mgr.sort_and_filter_configuration_entities(
+    pcs = toolkit_mgr.get_pipeline_configurations(
         project=project_entity,
-        entities=data["pipeline_configs"],
     ) or [dict(id=None)]
 
     for pc in pcs:
-        logger, log_handler = get_sgtk_logger(sgtk)
-        pprint.pprint(hash_data)
         lookup_hash = hash_data[pc["id"]]["lookup_hash"]
         contents_hash = hash_data[pc["id"]]["contents_hash"]
 
@@ -87,9 +35,6 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
         engine = toolkit_mgr.bootstrap_engine(engine_name, entity=entity)
         pc_descriptor = toolkit_mgr.resolve_descriptor(project_entity)
 
-        # Clean up the pre-bootstrap logger since we can use the engine's
-        # logger from here on out.
-        sgtk.LogManager().root_logger.removeHandler(log_handler)
         engine.logger.debug("Processing engine commands...")
         commands = []
 
@@ -125,11 +70,10 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
         # Connect to the database and get the hashes we need to include in
         # the insert. Each of the lookups call out to the browser_integration
         # core hook.
-        connection = sqlite3.connect(cache_file)
-        connection.text_factory = str
-        cursor = connection.cursor()
+        with sqlite3.connect(cache_file) as connection:
+            connection.text_factory = str
+            cursor = connection.cursor()
 
-        try:
             commands_blob = sqlite3.Binary(
                 cPickle.dumps(commands, cPickle.HIGHEST_PROTOCOL)
             )
@@ -154,16 +98,12 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
                         commands_blob,
                     )
                 )
-            connection.commit()
-        finally:
-            connection.close()
 
         # Tear down the engine. This is both good practice before we exit
         # this process, but also necessary if there are multiple pipeline
         # configs that we're iterating over.
-        logger.debug("Shutting down engine...")
+        engine.logger.debug("Shutting down engine...")
         engine.destroy()
-        logger.debug("Engine shutdown complete.")
 
 if __name__ == "__main__":
     arg_data_file = sys.argv[1]

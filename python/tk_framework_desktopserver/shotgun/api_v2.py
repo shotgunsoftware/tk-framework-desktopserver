@@ -224,10 +224,9 @@ class ShotgunAPI(object):
 
         manager = sgtk.bootstrap.ToolkitManager()
         manager.base_configuration = self.BASE_CONFIG_URI
-
-        pcs = manager.sort_and_filter_configuration_entities(
-            project=project_entity,
-            entities=data["pipeline_configs"],
+        pcs = self._get_pipeline_configurations(
+            manager,
+            project_entity,
         ) or [dict(id=None, name="Primary")]
 
         # We'll need to pass up the config names in order along with a dict of
@@ -273,15 +272,14 @@ class ShotgunAPI(object):
                 lookup_hash = pc_data["lookup_hash"]
                 contents_hash = pc_data["contents_hash"]
 
-                res = list(cursor.execute(
+                cursor.execute(
                     "SELECT commands, contents_hash FROM engine_commands WHERE lookup_hash=?",
                     (lookup_hash,)
-                ))
+                )
+                cached_data = list(cursor.fetchone() or [])
 
                 try:
-                    if res:
-                        # We'll only ever get back a single row, if anything.
-                        cached_data = res[0]
+                    if cached_data:
                         cached_contents_hash = cached_data[1]
 
                         if str(contents_hash) == str(cached_contents_hash):
@@ -343,10 +341,10 @@ class ShotgunAPI(object):
         disconnects on exit.
         """
         connection = self._init_db()
-        cursor = connection.cursor()
-        yield (connection, cursor)
-        cursor.close()
-        connection.close()
+
+        with connection:
+            with contextlib.closing(connection.cursor()) as cursor:
+                yield (connection, cursor)
 
     ###########################################################################
     # Internal methods
@@ -437,7 +435,12 @@ class ShotgunAPI(object):
     def _filter_by_project(self, actions, sw_entities, project):
         """
         Filters out any actions that aren't permitted for the given project
-        by the action's associated Software entity in Shotgun.
+        by the action's associated Software entity in Shotgun. The gist of how
+        how all of this fits together is that we cache agnostic of any
+        specific project. That being the case, once we've pulled the actions
+        from the cache, we need to filter out any that are not permitted for
+        use within the given project by the "projects" field's data from the
+        associated Software entity in Shotgun.
 
         :param list actions: A list of action dictionaries, as stored in
             and queried from the api's associated sqlite database.
@@ -508,7 +511,7 @@ class ShotgunAPI(object):
         # We dump the entities out as json, sorting on keys to ensure 
         # consistent ordering of data.
         hashable_data = dict(
-            entities=json.dumps(entities, sort_keys=True, default=self.__json_default),
+            entities=entities,
             modtimes="",
         )
 
@@ -527,12 +530,13 @@ class ShotgunAPI(object):
                     full_path = os.path.join(root, file_name)
                     yml_files[full_path] = os.path.getmtime(full_path)
 
-            hashable_data["modtimes"] = json.dumps(yml_files, sort_keys=True)
+            hashable_data["modtimes"] = yml_files
 
         return hash(
             json.dumps(
                 hashable_data,
                 sort_keys=True,
+                default=self.__json_default,
             )
         )
 
@@ -556,7 +560,6 @@ class ShotgunAPI(object):
                 type=data["entity_type"],
                 id=data["entity_id"],
             )
-
             return (project_entity, [entity])
         elif "entity_ids" in data:
             entities = [dict(type=data["entity_type"], id=i) for i in data["entity_ids"]]
@@ -583,6 +586,33 @@ class ShotgunAPI(object):
             project=project,
             entity_type=entity_type
         )
+
+    def _get_pipeline_configurations(self, manager, project):
+        """
+        Gets all PipelineConfiguration entities for the given project.
+
+        :param bsm manager: The bootstrap toolkit manager object.
+        :type pc: :class:`~sgtk.bootstrap.ToolkitManager`
+        :param dict project: The project entity.
+
+        :returns: A list of PipelineConfiguration entity dictionaries.
+        :rtype: list
+        """
+        if "pipeline_configurations" not in self.WSS_KEY_CACHE[self._wss_key]:
+            self.WSS_KEY_CACHE[self._wss_key]["pipeline_configurations"] = dict()
+
+        pc_data = self.WSS_KEY_CACHE[self._wss_key]["pipeline_configurations"]
+
+        if project["id"] not in pc_data:
+            pc_data[project["id"]] = manager.get_pipeline_configurations(
+                project=project,
+            )
+        else:
+            self.logger.debug(
+                "Cached PipelineConfiguration entities found for %s" % self._wss_key
+            )
+
+        return pc_data[project["id"]]
 
     def _get_site_state_data(self):
         """
@@ -653,9 +683,8 @@ class ShotgunAPI(object):
         # as UTF-8 (byte string) or unicode. And in the latter case, the returned data
         # will always be unicode.
         connection.text_factory = str
-        c = connection.cursor()
 
-        try:
+        with contextlib.closing(connection.cursor()) as c:
             # Get a list of tables in the current database.
             ret = c.execute("SELECT name FROM main.sqlite_master WHERE type='table';")
             table_names = [x[0] for x in ret.fetchall()]
@@ -669,13 +698,6 @@ class ShotgunAPI(object):
                 """)
 
                 connection.commit()
-        except Exception:
-            connection.close()
-            c = None
-            raise
-        finally:
-            if c:
-                c.close()
 
         return connection
 

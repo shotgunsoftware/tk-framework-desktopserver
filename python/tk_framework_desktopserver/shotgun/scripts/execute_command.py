@@ -19,7 +19,7 @@ def execute(config, project, name, entities, base_configuration, engine_name):
 
     # Setup the bootstrap manager.
     toolkit_mgr = sgtk.bootstrap.ToolkitManager()
-    toolkit_mgr.plugin_id = "shotgun_toolkit_command_execution"
+    toolkit_mgr.plugin_id = "basic.shotgun.execute"
     toolkit_mgr.base_configuration = base_configuration
 
     if config:

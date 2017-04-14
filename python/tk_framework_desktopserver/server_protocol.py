@@ -34,13 +34,34 @@ class ServerProtocol(WebSocketServerProtocol):
 
     # Initial state is v2. This might change if we end up receiving a connection
     # from a client at v1.
-    PROTOCOL_VERSION = 2
     SUPPORTED_PROTOCOL_VERSIONS = (1, 2)
+    LOCK = threading.Lock()
 
     def __init__(self):
         self._logger = get_logger()
-        self.process_manager = ProcessManager.create()
-        self._semaphore = threading.Semaphore()
+        self._process_manager = ProcessManager.create()
+        self._protocol_version = 2
+
+    @property
+    def logger(self):
+        """
+        The log handler.
+        """
+        return self._logger
+
+    @property
+    def process_manager(self):
+        """
+        The protocol handler's associated process manager object.
+        """
+        return self._process_manager
+
+    @property
+    def protocol_version(self):
+        """
+        The protocol handler's currently-supported protocol version.
+        """
+        return self._protocol_version
 
     def onClose(self, wasClean, code, reason):
         pass
@@ -113,7 +134,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # Special message to get protocol version for this protocol. This message doesn't follow the standard
         # message format as it doesn't require a protocol version to be retrieved and is not json-encoded.
         if decoded_payload == "get_protocol_version":
-            self.json_reply(dict(protocol_version=self.PROTOCOL_VERSION))
+            self.json_reply(dict(protocol_version=self._protocol_version))
             return
 
         # Extract json response (every message is expected to be in json format)
@@ -132,10 +153,7 @@ class ServerProtocol(WebSocketServerProtocol):
             )
             return
 
-        # TODO: This isn't going to work if we have two different clients
-        # connecting at two different protocol versions. This is a temp
-        # hack to placate message_host.py. <jbee>
-        self.PROTOCOL_VERSION = message["protocol_version"]
+        self._protocol_version = message["protocol_version"]
 
         # Run each request from a thread, even though it might be something very simple like opening a file. This
         # will ensure the server is as responsive as possible. Twisted will take care of the thread.
@@ -188,7 +206,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 # are occurring at the same time, all of which potentially
                 # copying/downloading files to disk in the same location.
                 if requires_sync:
-                    self._semaphore.acquire()
+                    self.LOCK.acquire()
                 try:
                     func(data)
                 except Exception, e:
@@ -198,7 +216,7 @@ class ServerProtocol(WebSocketServerProtocol):
                     )
                 finally:
                     if requires_sync:
-                        self._semaphore.release()
+                        self.LOCK.release()
         else:
             message_host.report_error("Command %s is not supported." % cmd_name)
 

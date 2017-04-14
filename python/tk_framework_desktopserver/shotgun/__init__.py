@@ -10,7 +10,8 @@
 
 # We want class-level variables to persist, so we'll setup a cache here
 # that the factory functuon below populates.
-__API_CACHE = dict()
+from . import api_v1
+from . import api_v2
 
 def get_shotgun_api(protocol_version, host, process_manager, wss_key):
     """
@@ -31,18 +32,9 @@ def get_shotgun_api(protocol_version, host, process_manager, wss_key):
     :returns: An RPC API instance appropriate for the given protocol
         version.
     """
-    global __API_CACHE
-
-    if protocol_version in __API_CACHE:
-        ShotgunAPI = __API_CACHE[protocol_version]
+    if protocol_version == 1:
+        return api_v1.ShotgunAPI(host, process_manager, wss_key)
+    elif protocol_version == 2:
+        return api_v2.ShotgunAPI(host, process_manager, wss_key)
     else:
-        if protocol_version == 1:
-            from .api_v1 import ShotgunAPI
-            __API_CACHE[protocol_version] = ShotgunAPI
-        elif protocol_version == 2:
-            from .api_v2 import ShotgunAPI
-            __API_CACHE[protocol_version] = ShotgunAPI
-        else:
-            raise RuntimeError("Unsupported protocol version: %s" % protocol_version)
-
-    return ShotgunAPI(host, process_manager, wss_key)
+        raise RuntimeError("Unsupported protocol version: %s" % protocol_version)

@@ -103,7 +103,10 @@ class ShotgunAPI(object):
 
     def executeEngineCommand(self, data):
         """
+        Executes the engine command described in the payload sent by the
+        client.
 
+        :param dict data: The payload from the client.
         """
         self.process_manager.execute_engine_command(
             pipeline_configs=data.get("pipeline_configs"),
@@ -145,7 +148,9 @@ class ShotgunAPI(object):
 
     def getActions(self, data):
         """
+        Gets all actions for the given entity.
 
+        :param dict data: The payload sent down by the client.
         """
         self.host.reply(
             dict(
