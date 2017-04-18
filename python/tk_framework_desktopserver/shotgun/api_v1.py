@@ -1,4 +1,4 @@
-# Copyright (c) 2013 Shotgun Software Inc.
+# Copyright (c) 2017 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
 #
@@ -9,7 +9,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 
-class ShotgunAPI():
+class ShotgunAPI(object):
     """
     Public API For all the commands that can be sent from Shotgun Client.
 
@@ -26,11 +26,21 @@ class ShotgunAPI():
     Public API
     Callable methods from client. Every one of these methods can be called from the client.
     """
-    public_api = ["echo", "open", "executeToolkitCommand", "executeTankCommand",
-                  "pickFileOrDirectory", "pickFilesOrDirectories", "version",
-                  "getProjectActions"]
+    PUBLIC_API_METHODS = [
+        "echo",
+        "open",
+        "executeToolkitCommand",
+        "executeTankCommand",
+        "pickFileOrDirectory",
+        "pickFilesOrDirectories",
+        "version",
+        "getProjectActions",
+    ]
 
-    def __init__(self, host, process_manager):
+    # Nothing for v1. This is used in v2.
+    SYNCHRONOUS_METHODS = []
+
+    def __init__(self, host, process_manager, wss_key):
         """
         API Constructor.
         Keep initialization pretty fast as it is created on every message.
@@ -40,6 +50,7 @@ class ShotgunAPI():
         """
         self.host = host
         self.process_manager = process_manager
+        self.wss_key = wss_key
 
     def _handle_toolkit_output(self, out, err, return_code):
         """
@@ -90,6 +101,21 @@ class ShotgunAPI():
 
         self.host.reply(reply)
 
+    def executeEngineCommand(self, data):
+        """
+        Executes the engine command described in the payload sent by the
+        client.
+
+        :param dict data: The payload from the client.
+        """
+        self.process_manager.execute_engine_command(
+            pipeline_configs=data.get("pipeline_configs"),
+            project_id=data.get("project_id"),
+            command=data.get("command"),
+            entity_type=data.get("entity_type"),
+            entity_id=data.get("entity_id"),
+        )
+
     def executeToolkitCommand(self, data):
         """
         Executes a toolkit command.
@@ -119,6 +145,23 @@ class ShotgunAPI():
         Alias for executeToolkitCommand
         """
         return self.executeToolkitCommand(data)
+
+    def getActions(self, data):
+        """
+        Gets all actions for the given entity.
+
+        :param dict data: The payload sent down by the client.
+        """
+        self.host.reply(
+            dict(
+                actions=self.process_manager.get_actions(
+                    pipeline_configs=data.get("pipeline_configs"),
+                    project_id=data.get("project_id"),
+                    entity_type=data.get("entity_type"),
+                    entity_id=data.get("entity_id"),
+                )
+            )
+        )
 
     def getProjectActions(self, data):
         """
