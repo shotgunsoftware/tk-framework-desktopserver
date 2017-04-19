@@ -12,7 +12,7 @@ import os
 import threading
 import logging
 
-from server_protocol import ServerProtocol
+from .server_protocol import ServerProtocol
 
 from twisted.internet import reactor, ssl, error
 from twisted.python import log
@@ -21,7 +21,7 @@ from autobahn.twisted.websocket import WebSocketServerFactory, listenWS
 
 from .errors import MissingCertificateError, PortBusyError
 
-import logger
+from  . import logger
 
 
 class Server(object):

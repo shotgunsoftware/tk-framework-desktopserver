@@ -11,10 +11,10 @@
 import sys
 import os
 import glob
-from command import Command
+from .command import Command
 
 from PySide import QtGui, QtCore
-from sgtk_file_dialog import SgtkFileDialog
+from .sgtk_file_dialog import SgtkFileDialog
 
 
 def _create_invoker():

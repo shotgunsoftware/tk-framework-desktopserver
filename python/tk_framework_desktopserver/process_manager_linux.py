@@ -10,7 +10,7 @@
 
 import subprocess
 
-from process_manager import ProcessManager
+from .process_manager import ProcessManager
 
 
 class ProcessManagerLinux(ProcessManager):
