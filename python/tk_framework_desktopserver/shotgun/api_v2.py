@@ -22,6 +22,7 @@ import datetime
 
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
+from sgtk.util import process
 
 ###########################################################################
 # Classes
@@ -164,12 +165,13 @@ class ShotgunAPI(object):
         output = None
 
         try:
-            output = subprocess.check_output(
+            output = process.subprocess_check_output(
                 [sys.executable, script, args_file]
             )
-        except subprocess.CalledProcessError:
+        except process.SubprocessCalledProcessError:
             if output:
                 self.logger.error(output)
+            # TODO: This needs to be reported to the client somehow.
             raise
         else:
             self.logger.debug(output)
@@ -311,7 +313,7 @@ class ShotgunAPI(object):
                         self._cache_actions(data, config_data)
                         self.get_actions(data)
                         return
-                except subprocess.CalledProcessError, e:
+                except process.SubprocessCalledProcessError, e:
                     self.logger.error(str(e))
                     self.host.reply(
                         dict(
@@ -389,10 +391,11 @@ class ShotgunAPI(object):
         output = None
 
         try:
-            output = subprocess.check_output([sys.executable, script, args_file])
-        except subprocess.CalledProcessError:
+            output = process.subprocess_check_output([sys.executable, script, args_file])
+        except process.SubprocessCalledProcessError:
             if output:
                 self.logger.error(output)
+            # This will bubble up to get_actions and be handled there.
             raise
         else:
             self.logger.debug(output)
