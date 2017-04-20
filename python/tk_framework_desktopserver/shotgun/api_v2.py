@@ -174,8 +174,10 @@ class ShotgunAPI(object):
         self.logger.debug("Python executable: %s" % python_exe)
 
         try:
+            kwargs = self._get_subprocess_kwargs()
             output = process.subprocess_check_output(
-                [python_exe, script, args_file]
+                [python_exe, script, args_file],
+                **kwargs
             )
         except process.SubprocessCalledProcessError:
             if output:
@@ -409,7 +411,11 @@ class ShotgunAPI(object):
         output = None
 
         try:
-            output = process.subprocess_check_output([python_exe, script, args_file])
+            kwargs = self._get_subprocess_kwargs()
+            output = process.subprocess_check_output(
+                [python_exe, script, args_file],
+                **kwargs
+            )
         except process.SubprocessCalledProcessError:
             if output:
                 self.logger.error(output)
@@ -506,7 +512,7 @@ class ShotgunAPI(object):
         """
         args_file = tempfile.mkstemp()[1]
 
-        with open(args_file, "w") as fh:
+        with open(args_file, "wb") as fh:
             cPickle.dump(
                 args_data,
                 fh,
@@ -685,6 +691,24 @@ class ShotgunAPI(object):
             self.logger.debug("Cache software entities found for %s" % self._wss_key)
 
         return self.WSS_KEY_CACHE[self._wss_key]["software_entities"]
+
+    def _get_subprocess_kwargs(self):
+        """
+        Builds a list of kwargs to be passed to subprocesses.
+
+        :returns: A dict of kwargs.
+        :rtype: dict
+        """
+        kwargs = dict()
+
+        # If we're on Windows, we'll want to stop the cmd.exe window
+        # from flashing on/off when our subprocesses are run.
+        if sys.platform == "win32":
+            si = subprocess.STARTUPINFO()
+            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            kwargs["startupinfo"] = si
+
+        return kwargs
 
     def _init_db(self):
         """

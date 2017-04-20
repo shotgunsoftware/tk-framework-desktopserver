@@ -108,7 +108,7 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
 if __name__ == "__main__":
     arg_data_file = sys.argv[1]
 
-    with open(arg_data_file, "r") as fh:
+    with open(arg_data_file, "rb") as fh:
         arg_data = cPickle.load(fh)
 
     sys.path = arg_data["sys_path"]
