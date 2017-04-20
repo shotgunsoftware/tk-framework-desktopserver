@@ -164,9 +164,18 @@ class ShotgunAPI(object):
 
         output = None
 
+        # We'll need the Python executable when we shell out. We can't
+        # rely on sys.executable, because that's going to be the Desktop
+        # exe on Windows. We'll pull from the site config's interpreter
+        # cfg file.
+        python_exe = sgtk.get_python_interpreter_for_config(
+            self._engine.sgtk.pipeline_configuration.get_path(),
+        )
+        self.logger.debug("Python executable: %s" % python_exe)
+
         try:
             output = process.subprocess_check_output(
-                [sys.executable, script, args_file]
+                [python_exe, script, args_file]
             )
         except process.SubprocessCalledProcessError:
             if output:
@@ -371,6 +380,15 @@ class ShotgunAPI(object):
         self.logger.debug("Executing script: %s" % script)
         hash_data = dict()
 
+        # We'll need the Python executable when we shell out. We can't
+        # rely on sys.executable, because that's going to be the Desktop
+        # exe on Windows. We'll pull from the site config's interpreter
+        # cfg file.
+        python_exe = sgtk.get_python_interpreter_for_config(
+            self._engine.sgtk.pipeline_configuration.get_path(),
+        )
+        self.logger.debug("Python executable: %s" % python_exe)
+
         for pc_id, pc_data in config_data.iteritems():
             hash_data[pc_id] = dict(
                 lookup_hash=config_data[pc_id]["lookup_hash"],
@@ -391,7 +409,7 @@ class ShotgunAPI(object):
         output = None
 
         try:
-            output = process.subprocess_check_output([sys.executable, script, args_file])
+            output = process.subprocess_check_output([python_exe, script, args_file])
         except process.SubprocessCalledProcessError:
             if output:
                 self.logger.error(output)
