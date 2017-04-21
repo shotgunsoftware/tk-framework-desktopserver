@@ -10,6 +10,8 @@
 
 import sys
 import cPickle
+import glob
+import os
 
 def cache(cache_file, data, base_configuration, hash_data, engine_name):
     import sqlite3
@@ -32,8 +34,14 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
         contents_hash = hash_data[pc["id"]]["contents_hash"]
 
         toolkit_mgr.pipeline_configuration = pc["id"]
-        engine = toolkit_mgr.bootstrap_engine(engine_name, entity=entity)
         pc_descriptor = toolkit_mgr.resolve_descriptor(project_entity)
+        pc_path = pc_descriptor.get_path()
+
+        if glob.glob(os.path.join(pc_path, "config", "env", "shotgun_*.yml")):
+            # Legacy case where there are shotgun_*.yml environment files.
+            engine = toolkit_mgr.bootstrap_legacy_shotgun_engine(entity)
+        else:
+            engine = toolkit_mgr.bootstrap_engine(engine_name, entity=entity)
 
         engine.logger.debug("Processing engine commands...")
         commands = []

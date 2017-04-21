@@ -52,10 +52,13 @@ class ShotgunAPI(object):
     COMMAND_SUCCEEDED = 0
     COMMAND_FAILED = 1
 
-    BASE_CONFIG_URI = os.environ.get(
-        "TK_BOOTSTRAP_CONFIG_OVERRIDE",
-        "sgtk:descriptor:app_store?name=tk-config-basic"
-    )
+    OVERRIDE_CONFIG_PATH = os.environ.get("TK_BOOTSTRAP_CONFIG_OVERRIDE")
+
+    if OVERRIDE_CONFIG_PATH is not None:
+        BASE_CONFIG_URI = "sgtk:descriptor:dev?path=%s" % OVERRIDE_CONFIG_PATH
+    else:
+        BASE_CONFIG_URI = "sgtk:descriptor:app_store?name=tk-config-basic"
+
     ENGINE_NAME = "tk-shotgun"
 
     def __init__(self, host, process_manager, wss_key):
