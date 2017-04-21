@@ -21,8 +21,8 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
     project_entity = dict(id=data["project_id"], type="Project")
 
     # Setup the bootstrap manager.
-    toolkit_mgr = sgtk.bootstrap.ToolkitManager()
-    toolkit_mgr.plugin_id = "basic.shotgun.cache"
+    toolkit_mgr = sgtk.bootstrap.ToolkitManager(allow_config_overrides=False)
+    toolkit_mgr.plugin_id = "basic.shotgun"
     toolkit_mgr.base_configuration = base_configuration
 
     pcs = toolkit_mgr.get_pipeline_configurations(
@@ -35,15 +35,12 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
 
         toolkit_mgr.pipeline_configuration = pc["id"]
         pc_descriptor = toolkit_mgr.resolve_descriptor(project_entity)
-        pc_path = pc_descriptor.get_path()
+        engine = toolkit_mgr.bootstrap_engine(engine_name, entity=entity)
 
-        if glob.glob(os.path.join(pc_path, "config", "env", "shotgun_*.yml")):
-            # Legacy case where there are shotgun_*.yml environment files.
-            engine = toolkit_mgr.bootstrap_legacy_shotgun_engine(entity)
-        else:
-            engine = toolkit_mgr.bootstrap_engine(engine_name, entity=entity)
-
+        engine.logger.debug("Engine %s started using entity %s" % (engine, entity))
+        engine.logger.debug("Config descriptor: %s" % pc_descriptor)
         engine.logger.debug("Processing engine commands...")
+
         commands = []
 
         for cmd_name, data in engine.commands.iteritems():

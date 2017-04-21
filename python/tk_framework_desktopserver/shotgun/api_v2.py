@@ -238,12 +238,14 @@ class ShotgunAPI(object):
             self.host.reply(dict(retcode=self.UNSUPPORTED_ENTITY_TYPE))
             return
 
-        manager = sgtk.bootstrap.ToolkitManager()
+        manager = sgtk.bootstrap.ToolkitManager(allow_config_overrides=False)
         manager.base_configuration = self.BASE_CONFIG_URI
         pcs = self._get_pipeline_configurations(
             manager,
             project_entity,
         ) or [dict(id=None, name="Primary")]
+
+        self.logger.debug("Pipeline configurations found: %s" % pcs)
 
         # We'll need to pass up the config names in order along with a dict of
         # pc_name => commands.
@@ -252,6 +254,8 @@ class ShotgunAPI(object):
         config_data = dict()
 
         for pc in pcs:
+            self.logger.debug("Processing config: %s" % pc)
+
             # The hash that acts as the key we'll use to look up our cached
             # data will be based on the entity type and the pipeline config's
             # descriptor uri. We can get the descriptor from the toolkit
@@ -259,6 +263,8 @@ class ShotgunAPI(object):
             # to the core hook that computes the hash.
             manager.pipeline_configuration = pc["id"]
             pc_descriptor = manager.resolve_descriptor(project_entity)
+
+            self.logger.debug("Resolved config descriptor: %s" % pc_descriptor)
             pc_key = pc_descriptor.get_uri()
 
             pc_data = dict()
