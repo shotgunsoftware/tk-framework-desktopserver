@@ -53,7 +53,7 @@ class ShotgunAPI(object):
     COMMAND_FAILED = 1
 
     BASE_CONFIG_URI = os.environ.get(
-        "SHOTGUN_DESKTOP_CONFIG_FALLBACK_DESCRIPTOR",
+        "TK_BOOTSTRAP_CONFIG_OVERRIDE",
         "sgtk:descriptor:app_store?name=tk-config-basic"
     )
     ENGINE_NAME = "tk-shotgun"
