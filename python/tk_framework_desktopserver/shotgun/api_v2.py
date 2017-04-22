@@ -23,6 +23,7 @@ import datetime
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
 from sgtk.util import process
+from . import constants
 
 ###########################################################################
 # Classes
@@ -42,24 +43,7 @@ class ShotgunAPI(object):
 
     # Stores data persistently per wss connection.
     WSS_KEY_CACHE = dict()
-
     DATABASE_FORMAT_VERSION = 1
-
-    # Return codes.
-    SUCCESSFUL_LOOKUP = 0
-    UNSUPPORTED_ENTITY_TYPE = 2
-    CACHING_ERROR = 3
-    COMMAND_SUCCEEDED = 0
-    COMMAND_FAILED = 1
-
-    OVERRIDE_CONFIG_PATH = os.environ.get("TK_BOOTSTRAP_CONFIG_OVERRIDE")
-
-    if OVERRIDE_CONFIG_PATH is not None:
-        BASE_CONFIG_URI = "sgtk:descriptor:dev?path=%s" % OVERRIDE_CONFIG_PATH
-    else:
-        BASE_CONFIG_URI = "sgtk:descriptor:app_store?name=tk-config-basic"
-
-    ENGINE_NAME = "tk-shotgun"
 
     def __init__(self, host, process_manager, wss_key):
         """
@@ -117,7 +101,7 @@ class ShotgunAPI(object):
             except Exception as e:
                 self.host.reply(
                     dict(
-                        retcode=self.COMMAND_FAILED,
+                        retcode=constants.COMMAND_FAILED,
                         err=str(e),
                         out=str(e),
                     ),
@@ -127,7 +111,7 @@ class ShotgunAPI(object):
                 self.logger.debug("Clone configuration successful.")
                 self.host.reply(
                     dict(
-                        retcode=self.COMMAND_SUCCEEDED,
+                        retcode=constants.COMMAND_SUCCEEDED,
                         err="",
                         out="",
                     ),
@@ -154,8 +138,8 @@ class ShotgunAPI(object):
                 entities=entities,
                 project=project_entity,
                 sys_path=sys.path,
-                base_configuration=self.BASE_CONFIG_URI,
-                engine_name=self.ENGINE_NAME,
+                base_configuration=constants.BASE_CONFIG_URI,
+                engine_name=sgtk.platform.constants.SHOTGUN_ENGINE_NAME,
             ),
         )
 
@@ -193,7 +177,7 @@ class ShotgunAPI(object):
         self.logger.debug("Command execution complete.")
         self.host.reply(
             dict(
-                retcode=self.COMMAND_SUCCEEDED,
+                retcode=constants.COMMAND_SUCCEEDED,
                 out="Command executed successfully.",
                 err="",
             ),
@@ -235,11 +219,11 @@ class ShotgunAPI(object):
         env_name = self.__pick_environment(project_entity, entity)
 
         if env_name is None:
-            self.host.reply(dict(retcode=self.UNSUPPORTED_ENTITY_TYPE))
+            self.host.reply(dict(retcode=constants.UNSUPPORTED_ENTITY_TYPE))
             return
 
         manager = sgtk.bootstrap.ToolkitManager(allow_config_overrides=False)
-        manager.base_configuration = self.BASE_CONFIG_URI
+        manager.base_configuration = constants.BASE_CONFIG_URI
         pcs = self._get_pipeline_configurations(
             manager,
             project_entity,
@@ -338,7 +322,7 @@ class ShotgunAPI(object):
                     self.host.reply(
                         dict(
                             err="Shotgun Desktop failed to get engine commands.",
-                            retcode=self.CACHING_ERROR,
+                            retcode=constants.CACHING_ERROR,
                             out="Caching failed!",
                         ),
                     )
@@ -347,7 +331,7 @@ class ShotgunAPI(object):
         self.host.reply(
             dict(
                 err="",
-                retcode=self.SUCCESSFUL_LOOKUP,
+                retcode=constants.SUCCESSFUL_LOOKUP,
                 actions=all_actions,
                 pcs=pc_names,
             ),
@@ -411,9 +395,9 @@ class ShotgunAPI(object):
                 cache_file=self._cache_path,
                 data=data,
                 sys_path=sys.path,
-                base_configuration=self.BASE_CONFIG_URI,
+                base_configuration=constants.BASE_CONFIG_URI,
                 hash_data=hash_data,
-                engine_name=self.ENGINE_NAME,
+                engine_name=sgtk.platform.constants.SHOTGUN_ENGINE_NAME,
             )
         )
 
