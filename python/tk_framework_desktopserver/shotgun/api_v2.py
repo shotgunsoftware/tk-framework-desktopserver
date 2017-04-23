@@ -140,7 +140,7 @@ class ShotgunAPI(object):
                 project=project_entity,
                 sys_path=sys.path,
                 base_configuration=constants.BASE_CONFIG_URI,
-                engine_name=sgtk.platform.constants.SHOTGUN_ENGINE_NAME,
+                engine_name=constants.ENGINE_NAME,
             ),
         )
 
@@ -250,7 +250,7 @@ class ShotgunAPI(object):
             manager.pipeline_configuration = pc["id"]
             pc_descriptor = manager.resolve_descriptor(project_entity)
 
-            self.logger.debug("Resolved config descriptor: %s" % pc_descriptor)
+            self.logger.debug("Resolved config descriptor: %r" % pc_descriptor)
             pc_key = pc_descriptor.get_uri()
 
             pc_data = dict()
@@ -397,7 +397,7 @@ class ShotgunAPI(object):
                 sys_path=sys.path,
                 base_configuration=constants.BASE_CONFIG_URI,
                 hash_data=hash_data,
-                engine_name=sgtk.platform.constants.SHOTGUN_ENGINE_NAME,
+                engine_name=constants.ENGINE_NAME,
             )
         )
 
@@ -476,7 +476,14 @@ class ShotgunAPI(object):
         filtered = []
 
         for action in actions:
-            if "engine_name" not in action:
+            # The engine_name property of an engine command is defined by
+            # tk-multi-launchapp, and corresponds to the engine that provided
+            # the information necessary to register the launcher. If the action
+            # doesn't include that key, then it means the underlying engine
+            # command did not provide that property, and as such is not a
+            # launcher. Similarly, if it's set to None then the same applies
+            # and we don't need to test this action for filtering purposes.
+            if action.get("engine_name") is None:
                 continue
 
             # We're only interested in entities that are referring to the
@@ -489,7 +496,7 @@ class ShotgunAPI(object):
             for sw in associated_sw:
                 for sw_project in sw.get("projects", []):
                     if sw_project["id"] != project["id"]:
-                        self.logger.info("Action %s filtered out due to SW entity projects." % action)
+                        self.logger.debug("Action %s filtered out due to SW entity projects." % action)
                         filtered.append(action)
                         break
                 if action in filtered:
@@ -768,7 +775,7 @@ class ShotgunAPI(object):
                 self.logger.debug("Keeping command %s -- it has an associated app." % command)
                 filtered.append(command)
             else:
-                self.logger.info(
+                self.logger.debug(
                     "Command %s filtered out for browser integration." % command
                 )
 

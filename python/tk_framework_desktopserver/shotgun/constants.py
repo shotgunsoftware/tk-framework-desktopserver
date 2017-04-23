@@ -8,6 +8,8 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+# Constants here are in use in api_v2. The legacy api_v1 does not currently
+# make use of them.
 import os
 
 # RPC return codes.
@@ -24,3 +26,5 @@ if OVERRIDE_CONFIG_PATH is not None:
     BASE_CONFIG_URI = "sgtk:descriptor:dev?path=%s" % OVERRIDE_CONFIG_PATH
 else:
     BASE_CONFIG_URI = "sgtk:descriptor:app_store?name=tk-config-basic"
+
+ENGINE_NAME = "tk-shotgun"
