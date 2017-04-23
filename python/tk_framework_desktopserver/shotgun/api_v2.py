@@ -57,6 +57,7 @@ class ShotgunAPI(object):
         self._host = host
         self._engine = sgtk.platform.current_engine()
         self._wss_key = wss_key
+        self._logger = sgtk.platform.get_logger("api-v2")
 
         if self._wss_key not in self.WSS_KEY_CACHE:
             self.WSS_KEY_CACHE[self._wss_key] = dict()
@@ -75,7 +76,7 @@ class ShotgunAPI(object):
         """
         The associated engine's logger.
         """
-        return self._engine.logger
+        return self._logger
 
     @property
     def host(self):
@@ -289,6 +290,7 @@ class ShotgunAPI(object):
                         cached_contents_hash = cached_data[1]
 
                         if str(contents_hash) == str(cached_contents_hash):
+                            self.logger.debug("Cache is up to date.")
                             actions = self._process_commands(
                                 commands=cPickle.loads(str(cached_data[0])),
                                 project=project_entity,
@@ -303,17 +305,14 @@ class ShotgunAPI(object):
                                 ),
                                 config=pc,
                             )
+                            self.logger.debug("Actions after project filtering: %s" % actions)
                         else:
-                            self.logger.debug(
-                                "Cache is out of date, recaching: %s %s" % (
-                                    contents_hash, cached_contents_hash
-                                )
-                            )
+                            self.logger.debug("Cache is out of date, recaching...")
                             self._cache_actions(data, config_data)
                             self.get_actions(data)
                             return
                     else:
-                        self.logger.debug("Commands not found in hash, caching now...")
+                        self.logger.debug("Commands not found in cache, caching now...")
                         self._cache_actions(data, config_data)
                         self.get_actions(data)
                         return
@@ -476,9 +475,12 @@ class ShotgunAPI(object):
         filtered = []
 
         for action in actions:
+            if "engine_name" not in action:
+                continue
+
             # We're only interested in entities that are referring to the
             # same engine as is recorded in the action dict.
-            associated_sw = [s for s in sw_entities if s["engine"] == action.get("engine_name")]
+            associated_sw = [s for s in sw_entities if s["engine"] == action["engine_name"]]
 
             # Check the project against the projects list for matching Software
             # entities. If a Software entity's projects list is empty, then there
@@ -486,7 +488,7 @@ class ShotgunAPI(object):
             for sw in associated_sw:
                 for sw_project in sw.get("projects", []):
                     if sw_project["id"] != project["id"]:
-                        self.logger.debug("Action %s filtered due to SW entity projects." % action)
+                        self.logger.info("Action %s filtered out due to SW entity projects." % action)
                         filtered.append(action)
                         break
                 if action in filtered:
@@ -675,13 +677,16 @@ class ShotgunAPI(object):
         :rtype: list
         """
         if "software_entities" not in self.WSS_KEY_CACHE[self._wss_key]:
+            self.logger.debug(
+                "Software entities have not been cached for this connection, querying..."
+            )
             self.WSS_KEY_CACHE[self._wss_key]["software_entities"] = self._engine.shotgun.find(
                 "Software",
                 [],
                 fields=self._engine.shotgun.schema_field_read("Software").keys(),
             )
         else:
-            self.logger.debug("Cache software entities found for %s" % self._wss_key)
+            self.logger.debug("Cached software entities found for %s" % self._wss_key)
 
         return self.WSS_KEY_CACHE[self._wss_key]["software_entities"]
 
@@ -759,10 +764,11 @@ class ShotgunAPI(object):
 
         for command in commands:
             if command["app_name"] is not None:
+                self.logger.debug("Keeping command %s -- it has an associated app." % command)
                 filtered.append(command)
             else:
-                self.logger.debug(
-                    "Command filtered out for browser integration: %s" % command
+                self.logger.info(
+                    "Command %s filtered out for browser integration." % command
                 )
 
         return self._engine.sgtk.execute_core_hook_method(
