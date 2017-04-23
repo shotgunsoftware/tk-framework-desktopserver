@@ -21,7 +21,8 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
     project_entity = dict(id=data["project_id"], type="Project")
 
     # Setup the bootstrap manager.
-    toolkit_mgr = sgtk.bootstrap.ToolkitManager(allow_config_overrides=False)
+    toolkit_mgr = sgtk.bootstrap.ToolkitManager()
+    toolkit_mgr.allow_config_overrides = False
     toolkit_mgr.plugin_id = "basic.shotgun"
     toolkit_mgr.base_configuration = base_configuration
 

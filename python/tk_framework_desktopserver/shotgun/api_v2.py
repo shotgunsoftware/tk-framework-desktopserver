@@ -223,7 +223,8 @@ class ShotgunAPI(object):
             self.host.reply(dict(retcode=constants.UNSUPPORTED_ENTITY_TYPE))
             return
 
-        manager = sgtk.bootstrap.ToolkitManager(allow_config_overrides=False)
+        manager = sgtk.bootstrap.ToolkitManager()
+        manager.allow_config_overrides = False
         manager.base_configuration = constants.BASE_CONFIG_URI
         pcs = self._get_pipeline_configurations(
             manager,
