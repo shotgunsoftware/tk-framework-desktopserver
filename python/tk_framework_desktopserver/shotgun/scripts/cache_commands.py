@@ -10,6 +10,8 @@
 
 import sys
 import cPickle
+import glob
+import os
 
 def cache(cache_file, data, base_configuration, hash_data, engine_name):
     import sqlite3
@@ -20,7 +22,8 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
 
     # Setup the bootstrap manager.
     toolkit_mgr = sgtk.bootstrap.ToolkitManager()
-    toolkit_mgr.plugin_id = "basic.shotgun.cache"
+    toolkit_mgr.allow_config_overrides = False
+    toolkit_mgr.plugin_id = "basic.shotgun"
     toolkit_mgr.base_configuration = base_configuration
 
     pcs = toolkit_mgr.get_pipeline_configurations(
@@ -32,10 +35,13 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
         contents_hash = hash_data[pc["id"]]["contents_hash"]
 
         toolkit_mgr.pipeline_configuration = pc["id"]
-        engine = toolkit_mgr.bootstrap_engine(engine_name, entity=entity)
         pc_descriptor = toolkit_mgr.resolve_descriptor(project_entity)
+        engine = toolkit_mgr.bootstrap_engine(engine_name, entity=entity)
 
+        engine.logger.debug("Engine %s started using entity %s" % (engine, entity))
+        engine.logger.debug("Config descriptor: %s" % pc_descriptor)
         engine.logger.debug("Processing engine commands...")
+
         commands = []
 
         for cmd_name, data in engine.commands.iteritems():

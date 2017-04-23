@@ -23,6 +23,7 @@ import datetime
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
 from sgtk.util import process
+from . import constants
 
 ###########################################################################
 # Classes
@@ -42,21 +43,7 @@ class ShotgunAPI(object):
 
     # Stores data persistently per wss connection.
     WSS_KEY_CACHE = dict()
-
     DATABASE_FORMAT_VERSION = 1
-
-    # Return codes.
-    SUCCESSFUL_LOOKUP = 0
-    UNSUPPORTED_ENTITY_TYPE = 2
-    CACHING_ERROR = 3
-    COMMAND_SUCCEEDED = 0
-    COMMAND_FAILED = 1
-
-    BASE_CONFIG_URI = os.environ.get(
-        "TK_BOOTSTRAP_CONFIG_OVERRIDE",
-        "sgtk:descriptor:app_store?name=tk-config-basic"
-    )
-    ENGINE_NAME = "tk-shotgun"
 
     def __init__(self, host, process_manager, wss_key):
         """
@@ -70,6 +57,7 @@ class ShotgunAPI(object):
         self._host = host
         self._engine = sgtk.platform.current_engine()
         self._wss_key = wss_key
+        self._logger = sgtk.platform.get_logger("api-v2")
 
         if self._wss_key not in self.WSS_KEY_CACHE:
             self.WSS_KEY_CACHE[self._wss_key] = dict()
@@ -88,7 +76,7 @@ class ShotgunAPI(object):
         """
         The associated engine's logger.
         """
-        return self._engine.logger
+        return self._logger
 
     @property
     def host(self):
@@ -114,7 +102,7 @@ class ShotgunAPI(object):
             except Exception as e:
                 self.host.reply(
                     dict(
-                        retcode=self.COMMAND_FAILED,
+                        retcode=constants.COMMAND_FAILED,
                         err=str(e),
                         out=str(e),
                     ),
@@ -124,7 +112,7 @@ class ShotgunAPI(object):
                 self.logger.debug("Clone configuration successful.")
                 self.host.reply(
                     dict(
-                        retcode=self.COMMAND_SUCCEEDED,
+                        retcode=constants.COMMAND_SUCCEEDED,
                         err="",
                         out="",
                     ),
@@ -151,8 +139,8 @@ class ShotgunAPI(object):
                 entities=entities,
                 project=project_entity,
                 sys_path=sys.path,
-                base_configuration=self.BASE_CONFIG_URI,
-                engine_name=self.ENGINE_NAME,
+                base_configuration=constants.BASE_CONFIG_URI,
+                engine_name=constants.ENGINE_NAME,
             ),
         )
 
@@ -190,7 +178,7 @@ class ShotgunAPI(object):
         self.logger.debug("Command execution complete.")
         self.host.reply(
             dict(
-                retcode=self.COMMAND_SUCCEEDED,
+                retcode=constants.COMMAND_SUCCEEDED,
                 out="Command executed successfully.",
                 err="",
             ),
@@ -232,15 +220,18 @@ class ShotgunAPI(object):
         env_name = self.__pick_environment(project_entity, entity)
 
         if env_name is None:
-            self.host.reply(dict(retcode=self.UNSUPPORTED_ENTITY_TYPE))
+            self.host.reply(dict(retcode=constants.UNSUPPORTED_ENTITY_TYPE))
             return
 
         manager = sgtk.bootstrap.ToolkitManager()
-        manager.base_configuration = self.BASE_CONFIG_URI
+        manager.allow_config_overrides = False
+        manager.base_configuration = constants.BASE_CONFIG_URI
         pcs = self._get_pipeline_configurations(
             manager,
             project_entity,
         ) or [dict(id=None, name="Primary")]
+
+        self.logger.debug("Pipeline configurations found: %s" % pcs)
 
         # We'll need to pass up the config names in order along with a dict of
         # pc_name => commands.
@@ -249,6 +240,8 @@ class ShotgunAPI(object):
         config_data = dict()
 
         for pc in pcs:
+            self.logger.debug("Processing config: %s" % pc)
+
             # The hash that acts as the key we'll use to look up our cached
             # data will be based on the entity type and the pipeline config's
             # descriptor uri. We can get the descriptor from the toolkit
@@ -256,6 +249,8 @@ class ShotgunAPI(object):
             # to the core hook that computes the hash.
             manager.pipeline_configuration = pc["id"]
             pc_descriptor = manager.resolve_descriptor(project_entity)
+
+            self.logger.debug("Resolved config descriptor: %r" % pc_descriptor)
             pc_key = pc_descriptor.get_uri()
 
             pc_data = dict()
@@ -296,6 +291,7 @@ class ShotgunAPI(object):
                         cached_contents_hash = cached_data[1]
 
                         if str(contents_hash) == str(cached_contents_hash):
+                            self.logger.debug("Cache is up to date.")
                             actions = self._process_commands(
                                 commands=cPickle.loads(str(cached_data[0])),
                                 project=project_entity,
@@ -310,17 +306,14 @@ class ShotgunAPI(object):
                                 ),
                                 config=pc,
                             )
+                            self.logger.debug("Actions after project filtering: %s" % actions)
                         else:
-                            self.logger.debug(
-                                "Cache is out of date, recaching: %s %s" % (
-                                    contents_hash, cached_contents_hash
-                                )
-                            )
+                            self.logger.debug("Cache is out of date, recaching...")
                             self._cache_actions(data, config_data)
                             self.get_actions(data)
                             return
                     else:
-                        self.logger.debug("Commands not found in hash, caching now...")
+                        self.logger.debug("Commands not found in cache, caching now...")
                         self._cache_actions(data, config_data)
                         self.get_actions(data)
                         return
@@ -329,7 +322,7 @@ class ShotgunAPI(object):
                     self.host.reply(
                         dict(
                             err="Shotgun Desktop failed to get engine commands.",
-                            retcode=self.CACHING_ERROR,
+                            retcode=constants.CACHING_ERROR,
                             out="Caching failed!",
                         ),
                     )
@@ -338,7 +331,7 @@ class ShotgunAPI(object):
         self.host.reply(
             dict(
                 err="",
-                retcode=self.SUCCESSFUL_LOOKUP,
+                retcode=constants.SUCCESSFUL_LOOKUP,
                 actions=all_actions,
                 pcs=pc_names,
             ),
@@ -402,9 +395,9 @@ class ShotgunAPI(object):
                 cache_file=self._cache_path,
                 data=data,
                 sys_path=sys.path,
-                base_configuration=self.BASE_CONFIG_URI,
+                base_configuration=constants.BASE_CONFIG_URI,
                 hash_data=hash_data,
-                engine_name=self.ENGINE_NAME,
+                engine_name=constants.ENGINE_NAME,
             )
         )
 
@@ -483,9 +476,19 @@ class ShotgunAPI(object):
         filtered = []
 
         for action in actions:
+            # The engine_name property of an engine command is defined by
+            # tk-multi-launchapp, and corresponds to the engine that provided
+            # the information necessary to register the launcher. If the action
+            # doesn't include that key, then it means the underlying engine
+            # command did not provide that property, and as such is not a
+            # launcher. Similarly, if it's set to None then the same applies
+            # and we don't need to test this action for filtering purposes.
+            if action.get("engine_name") is None:
+                continue
+
             # We're only interested in entities that are referring to the
             # same engine as is recorded in the action dict.
-            associated_sw = [s for s in sw_entities if s["engine"] == action.get("engine_name")]
+            associated_sw = [s for s in sw_entities if s["engine"] == action["engine_name"]]
 
             # Check the project against the projects list for matching Software
             # entities. If a Software entity's projects list is empty, then there
@@ -493,7 +496,7 @@ class ShotgunAPI(object):
             for sw in associated_sw:
                 for sw_project in sw.get("projects", []):
                     if sw_project["id"] != project["id"]:
-                        self.logger.debug("Action %s filtered due to SW entity projects." % action)
+                        self.logger.debug("Action %s filtered out due to SW entity projects." % action)
                         filtered.append(action)
                         break
                 if action in filtered:
@@ -682,13 +685,16 @@ class ShotgunAPI(object):
         :rtype: list
         """
         if "software_entities" not in self.WSS_KEY_CACHE[self._wss_key]:
+            self.logger.debug(
+                "Software entities have not been cached for this connection, querying..."
+            )
             self.WSS_KEY_CACHE[self._wss_key]["software_entities"] = self._engine.shotgun.find(
                 "Software",
                 [],
                 fields=self._engine.shotgun.schema_field_read("Software").keys(),
             )
         else:
-            self.logger.debug("Cache software entities found for %s" % self._wss_key)
+            self.logger.debug("Cached software entities found for %s" % self._wss_key)
 
         return self.WSS_KEY_CACHE[self._wss_key]["software_entities"]
 
@@ -766,10 +772,11 @@ class ShotgunAPI(object):
 
         for command in commands:
             if command["app_name"] is not None:
+                self.logger.debug("Keeping command %s -- it has an associated app." % command)
                 filtered.append(command)
             else:
                 self.logger.debug(
-                    "Command filtered out for browser integration: %s" % command
+                    "Command %s filtered out for browser integration." % command
                 )
 
         return self._engine.sgtk.execute_core_hook_method(
