@@ -452,6 +452,10 @@ class ShotgunAPI(object):
             sgtk.pipelineconfig_utils.is_localized(data["pc_root_path"]),
         )
 
+        # Once the config is cloned, we need to invalidate the in-memory cache
+        # that contains the PipelineConfiguration entities queried from SG.
+        del self.WSS_KEY_CACHE[self._wss_key]["pipeline_configurations"]
+
     def _filter_by_project(self, actions, sw_entities, project):
         """
         Filters out any actions that aren't permitted for the given project
