@@ -13,7 +13,7 @@ import cPickle
 import glob
 import os
 
-def cache(cache_file, data, base_configuration, hash_data, engine_name):
+def cache(cache_file, data, base_configuration, engine_name, config_data):
     import sqlite3
     import sgtk
 
@@ -26,20 +26,15 @@ def cache(cache_file, data, base_configuration, hash_data, engine_name):
     toolkit_mgr.plugin_id = "basic.shotgun"
     toolkit_mgr.base_configuration = base_configuration
 
-    pcs = toolkit_mgr.get_pipeline_configurations(
-        project=project_entity,
-    ) or [dict(id=None)]
+    for pc_id, pc_data in config_data.iteritems():
+        pc = pc_data["entity"]
+        lookup_hash = pc_data["lookup_hash"]
+        contents_hash = pc_data["contents_hash"]
 
-    for pc in pcs:
-        lookup_hash = hash_data[pc["id"]]["lookup_hash"]
-        contents_hash = hash_data[pc["id"]]["contents_hash"]
-
-        toolkit_mgr.pipeline_configuration = pc["id"]
-        pc_descriptor = toolkit_mgr.resolve_descriptor(project_entity)
+        toolkit_mgr.pipeline_configuration = pc_id
         engine = toolkit_mgr.bootstrap_engine(engine_name, entity=entity)
 
         engine.logger.debug("Engine %s started using entity %s" % (engine, entity))
-        engine.logger.debug("Config descriptor: %s" % pc_descriptor)
         engine.logger.debug("Processing engine commands...")
 
         commands = []
@@ -123,8 +118,10 @@ if __name__ == "__main__":
         arg_data["cache_file"],
         arg_data["data"],
         arg_data["base_configuration"],
-        arg_data["hash_data"],
+        # arg_data["hash_data"],
         arg_data["engine_name"],
+        # arg_data["config_entities"],
+        arg_data["config_data"],
     )
 
     sys.exit(0)

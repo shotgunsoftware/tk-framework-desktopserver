@@ -225,57 +225,26 @@ class ShotgunAPI(object):
 
         manager = sgtk.bootstrap.ToolkitManager()
         manager.allow_config_overrides = False
+        manager.plugin_id = "basic.shotgun"
         manager.base_configuration = constants.BASE_CONFIG_URI
-        pcs = self._get_pipeline_configurations(
+
+        all_actions = dict()
+        all_pc_data = self._get_pipeline_configuration_data(
             manager,
             project_entity,
-        ) or [dict(id=None, name="Primary")]
-
-        self.logger.debug("Pipeline configurations found: %s" % pcs)
-
-        # We'll need to pass up the config names in order along with a dict of
-        # pc_name => commands.
-        pc_names = [pc["name"] for pc in pcs]
-        all_actions = dict()
-        config_data = dict()
-
-        for pc in pcs:
-            self.logger.debug("Processing config: %s" % pc)
-
-            # The hash that acts as the key we'll use to look up our cached
-            # data will be based on the entity type and the pipeline config's
-            # descriptor uri. We can get the descriptor from the toolkit
-            # manager and pass that through along with the entity type from SG
-            # to the core hook that computes the hash.
-            manager.pipeline_configuration = pc["id"]
-            pc_descriptor = manager.resolve_descriptor(project_entity)
-
-            self.logger.debug("Resolved config descriptor: %r" % pc_descriptor)
-            pc_key = pc_descriptor.get_uri()
-
-            pc_data = dict()
-            pc_data["contents_hash"] = self._get_contents_hash(
-                pc_descriptor,
-                self._get_site_state_data(),
-            )
-            pc_data["lookup_hash"] = self._get_lookup_hash(
-                pc_key,
-                project_entity,
-                data["entity_type"],
-            )
-            pc_data["descriptor"] = pc_descriptor
-            pc_data["entity"] = pc
-            config_data[pc["id"]] = pc_data
+            data,
+        )
 
         with self._db_connect() as (connection, cursor):
-            for pc in pcs:
+            for pc_id, pc_data in all_pc_data.iteritems():
+                pc = pc_data["entity"]
+
                 # The hash that acts as the key we'll use to look up our cached
                 # data will be based on the entity type and the pipeline config's
                 # descriptor uri. We can get the descriptor from the toolkit
                 # manager and pass that through along with the entity type from SG
                 # to the core hook that computes the hash.
-                pc_data = config_data[pc["id"]]
-                manager.pipeline_configuration = pc["id"]
+                manager.pipeline_configuration = pc_id
                 pc_descriptor = pc_data["descriptor"]
                 lookup_hash = pc_data["lookup_hash"]
                 contents_hash = pc_data["contents_hash"]
@@ -309,12 +278,12 @@ class ShotgunAPI(object):
                             self.logger.debug("Actions after project filtering: %s" % actions)
                         else:
                             self.logger.debug("Cache is out of date, recaching...")
-                            self._cache_actions(data, config_data)
+                            self._cache_actions(data, all_pc_data)
                             self.get_actions(data)
                             return
                     else:
                         self.logger.debug("Commands not found in cache, caching now...")
-                        self._cache_actions(data, config_data)
+                        self._cache_actions(data, all_pc_data)
                         self.get_actions(data)
                         return
                 except process.SubprocessCalledProcessError, e:
@@ -333,7 +302,7 @@ class ShotgunAPI(object):
                 err="",
                 retcode=constants.SUCCESSFUL_LOOKUP,
                 actions=all_actions,
-                pcs=pc_names,
+                pcs=[p["entity"]["name"] for p in all_pc_data.values()],
             ),
         )
 
@@ -384,10 +353,12 @@ class ShotgunAPI(object):
         )
         self.logger.debug("Python executable: %s" % python_exe)
 
+        arg_config_data = dict()
         for pc_id, pc_data in config_data.iteritems():
-            hash_data[pc_id] = dict(
-                lookup_hash=config_data[pc_id]["lookup_hash"],
-                contents_hash=config_data[pc_id]["contents_hash"],
+            arg_config_data[pc_id] = dict(
+                lookup_hash=pc_data["lookup_hash"],
+                contents_hash=pc_data["contents_hash"],
+                entity=pc_data["entity"],
             )
 
         args_file = self._get_arguments_file(
@@ -396,8 +367,8 @@ class ShotgunAPI(object):
                 data=data,
                 sys_path=sys.path,
                 base_configuration=constants.BASE_CONFIG_URI,
-                hash_data=hash_data,
                 engine_name=constants.ENGINE_NAME,
+                config_data=arg_config_data,
             )
         )
 
@@ -620,6 +591,68 @@ class ShotgunAPI(object):
             project=project,
             entity_type=entity_type
         )
+
+    def _get_pipeline_configuration_data(self, manager, project_entity, data):
+        """
+        Gathers all of the necessary data pertaining to the project's pipeline
+        configurations. This includes the PipelineConfiguration entity, the
+        contents and lookup hashes, and the associated descriptor object.
+
+        :param manager: A ToolkitManager.
+        :param dict project_entity: The Project entity dict.
+        :param dict data: The payload from the client.
+
+        :returns: A dictionary, keyed by PipelineConfiguration entity id, that
+            contains dictionaries with "contents_hash", "lookup_hash",
+            "descriptor", and "entity" keys.
+        :rtype: dict
+        """
+        if "config_data" in self.WSS_KEY_CACHE[self._wss_key]:
+            self.logger.debug("Pipeline config data found for %s", self._wss_key)
+        else:
+            config_data = dict()
+            pcs = self._get_pipeline_configurations(
+                manager,
+                project_entity,
+            ) or [dict(id=None, name="Primary")]
+
+            for pc in pcs:
+                self.logger.debug("Processing config: %s" % pc)
+
+                # The hash that acts as the key we'll use to look up our cached
+                # data will be based on the entity type and the pipeline config's
+                # descriptor uri. We can get the descriptor from the toolkit
+                # manager and pass that through along with the entity type from SG
+                # to the core hook that computes the hash.
+                manager.pipeline_configuration = pc["id"]
+
+                try:
+                    pc_descriptor = manager.resolve_descriptor(project_entity)
+                except sgtk.bootstrap.TankBootstrapError as exc:
+                    self.logger.debug("Unable to resolve config descriptor, skipping: %s" % pc)
+                    self.logger.debug(str(exc))
+                    continue
+
+                self.logger.debug("Resolved config descriptor: %r" % pc_descriptor)
+                pc_key = pc_descriptor.get_uri()
+
+                pc_data = dict()
+                pc_data["contents_hash"] = self._get_contents_hash(
+                    pc_descriptor,
+                    self._get_site_state_data(),
+                )
+                pc_data["lookup_hash"] = self._get_lookup_hash(
+                    pc_key,
+                    project_entity,
+                    data["entity_type"],
+                )
+                pc_data["descriptor"] = pc_descriptor
+                pc_data["entity"] = pc
+                config_data[pc["id"]] = pc_data
+
+            self.WSS_KEY_CACHE[self._wss_key]["config_data"] = config_data
+
+        return self.WSS_KEY_CACHE[self._wss_key]["config_data"]
 
     def _get_pipeline_configurations(self, manager, project):
         """
