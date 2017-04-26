@@ -296,6 +296,13 @@ class _WindowsCertificateHandler(_CertificateHandler):
             "registering the certificate",
             ("certutil", "-user", "-addstore", "root", self._cert_path.replace("/", "\\"))
         )
+        # On Windows, a Windows Server can push a group policy that prevents certificate registration
+        # from succeeding. When that happens, certutil actually silently fails. Detect this and
+        # report it.
+        if success and not self.is_registered():
+            raise CertificateRegistrationError(
+                "Certificate registration silently failed. Please contact support@shotgunsoftware.com."
+            )
 
     def unregister(self):
         """
