@@ -118,9 +118,7 @@ if __name__ == "__main__":
         arg_data["cache_file"],
         arg_data["data"],
         arg_data["base_configuration"],
-        # arg_data["hash_data"],
         arg_data["engine_name"],
-        # arg_data["config_entities"],
         arg_data["config_data"],
     )
 
