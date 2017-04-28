@@ -249,7 +249,6 @@ class ShotgunAPI(object):
                 # descriptor uri. We can get the descriptor from the toolkit
                 # manager and pass that through along with the entity type from SG
                 # to the core hook that computes the hash.
-                manager.pipeline_configuration = pc_id
                 pc_descriptor = pc_data["descriptor"]
                 lookup_hash = pc_data["lookup_hash"]
                 contents_hash = pc_data["contents_hash"]
