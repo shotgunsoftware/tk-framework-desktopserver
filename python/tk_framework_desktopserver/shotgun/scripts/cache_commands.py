@@ -12,9 +12,27 @@ import sys
 import cPickle
 import glob
 import os
+import sqlite3
+import contextlib
 
 def cache(cache_file, data, base_configuration, engine_name, config_data):
-    import sqlite3
+    """
+    Populates the sqlite cache with a row representing the desired pipeline
+    configuration and entity type. If an entry already exists, it is updated.
+
+    :param str cache_file: The path to the sqlite cache file on disk.
+    :param dict data: The raw payload send down by the client.
+    :param str base_configuration: The desired base pipeline configuration's
+        uri.
+    :param str engine_name: The name of the engine to bootstrap into. This
+        is most likely going to be "tk-shotgun"
+    :param dict config_data: All relevant pipeline configuration data. This
+        dict is keyed by pipeline config entity id, each containing a dict
+        that contains, at a minimum, "entity", "lookup_hash", and
+        "contents_hash" keys.
+    """
+    # The local import of sgtk ensures that it occurs after sys.path is set
+    # to what the server sent over.
     import sgtk
 
     entity = dict(type=data["entity_type"], id=data["entity_id"])
@@ -72,8 +90,32 @@ def cache(cache_file, data, base_configuration, engine_name, config_data):
         # the insert. Each of the lookups call out to the browser_integration
         # core hook.
         with sqlite3.connect(cache_file) as connection:
+            # This is to handle unicode properly - make sure that sqlite returns 
+            # str objects for TEXT fields rather than unicode. Note that any unicode
+            # objects that are passed into the database will be automatically
+            # converted to UTF-8 strs, so this text_factory guarantees that any character
+            # representation will work for any language, as long as data is either input
+            # as UTF-8 (byte string) or unicode. And in the latter case, the returned data
+            # will always be unicode.
             connection.text_factory = str
             cursor = connection.cursor()
+
+            # First, let's make sure that the database is actually setup with
+            # the table we're expecting. If it isn't, then we can do that here.
+            with contextlib.closing(connection.cursor()) as c:
+                # Get a list of tables in the current database.
+                ret = c.execute("SELECT name FROM main.sqlite_master WHERE type='table';")
+                table_names = [x[0] for x in ret.fetchall()]
+
+                if not table_names:
+                    engine.logger.debug("Creating schema in sqlite db.")
+
+                    # We have a brand new database. Create all tables and indices.
+                    cursor.executescript("""
+                        CREATE TABLE engine_commands (lookup_hash text, contents_hash text, commands blob);
+                    """)
+
+                    connection.commit()
 
             commands_blob = sqlite3.Binary(
                 cPickle.dumps(commands, cPickle.HIGHEST_PROTOCOL)

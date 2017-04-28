@@ -13,9 +13,21 @@ import cPickle
 import os
 
 def execute(config, project, name, entities, base_configuration, engine_name):
-    import sgtk
+    """
+    Executes an engine command in the desired environment.
 
-    ms_flag = sgtk.platform.constants.LEGACY_MULTI_SELECT_ACTION_FLAG
+    :param dict config: The pipeline configuration entity.
+    :param dict project: The project entity.
+    :param list entities: The list of entities selected in the web UI when the
+        command action was triggered.
+    :param str base_configuration: The desired base pipeline configuration's
+        uri.
+    :param str engine_name: The name of the engine to bootstrap into. This
+        is most likely going to be "tk-shotgun"
+    """
+    # The local import of sgtk ensures that it occurs after sys.path is set
+    # to what the server sent over.
+    import sgtk
 
     # Setup the bootstrap manager.
     toolkit_mgr = sgtk.bootstrap.ToolkitManager()
@@ -26,12 +38,21 @@ def execute(config, project, name, entities, base_configuration, engine_name):
     if config:
         toolkit_mgr.pipeline_configuration = config.get("id")
 
+    # We need a single, representative entity when we bootstrap. The fact that
+    # we might have gotten multiple entities from the client due to a
+    # multiselection is only relevant later on when we're actually executing
+    # the engine command. As such, pull the first entity off of the list.
     if entities:
         entity = entities[0]
     else:
         entity = project
 
     engine = toolkit_mgr.bootstrap_engine(engine_name, entity=entity)
+
+    # We need to make sure that sgtk is accessible to any process that the
+    # command execution spawns. We'll look up the path to the pipeline
+    # config's install location and set PYTHONPATH such that core is
+    # importable.
     core_root = os.path.join(
         engine.sgtk.pipeline_configuration.get_install_location(),
         "install",
@@ -50,6 +71,10 @@ def execute(config, project, name, entities, base_configuration, engine_name):
         engine.logger.error(msg)
         raise RuntimeError(msg)
 
+    # We need to know whether this command is allowed to be run when multiple
+    # entities are selected. We can look for the special flag in the command's
+    # properties to know whether that's the case.
+    ms_flag = sgtk.platform.constants.LEGACY_MULTI_SELECT_ACTION_FLAG
     props = command["properties"]
     old_style = ms_flag in props
 

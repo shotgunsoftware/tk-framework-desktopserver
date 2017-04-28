@@ -210,6 +210,11 @@ class ShotgunAPI(object):
                 )
                 data["entity_id"] = temp_entity["id"]
 
+        # It's possible that we got multiple entities from the client, which
+        # would be the result of multiple entities being selected in the web
+        # interface. Regardless of that, as far as getting a list of actions
+        # is concerned, we only need one. As such, we just take the first one
+        # off the list.
         project_entity, entities = self._get_entities_from_payload(data)
         entity = entities[0]
 
@@ -237,7 +242,7 @@ class ShotgunAPI(object):
 
         with self._db_connect() as (connection, cursor):
             for pc_id, pc_data in all_pc_data.iteritems():
-                pc = pc_data["entity"]
+                pipeline_config = pc_data["entity"]
 
                 # The hash that acts as the key we'll use to look up our cached
                 # data will be based on the entity type and the pipeline config's
@@ -248,12 +253,26 @@ class ShotgunAPI(object):
                 pc_descriptor = pc_data["descriptor"]
                 lookup_hash = pc_data["lookup_hash"]
                 contents_hash = pc_data["contents_hash"]
+                cached_data = []
 
-                cursor.execute(
-                    "SELECT commands, contents_hash FROM engine_commands WHERE lookup_hash=?",
-                    (lookup_hash,)
-                )
-                cached_data = list(cursor.fetchone() or [])
+                try:
+                    cursor.execute(
+                        "SELECT commands, contents_hash FROM engine_commands WHERE lookup_hash=?",
+                        (lookup_hash,)
+                    )
+                    cached_data = list(cursor.fetchone() or [])
+                except sqlite3.OperationalError:
+                    # This means the sqlite database hasn't been setup at all.
+                    # In that case, we just continue on with cached_data set
+                    # to an empty list, which will cause the caching subprocess
+                    # to be spawned, which will setup the database and populate
+                    # with the data we need. The behavior as a result of this
+                    # is the same as if we ended up with a cache miss or an
+                    # invalidated result due to a contents_hash mismatch.
+                    self.logger.debug(
+                        "Cache query failed due to missing table. "
+                        "Triggering caching subprocess..."
+                    )
 
                 try:
                     if cached_data:
@@ -267,13 +286,13 @@ class ShotgunAPI(object):
                                 entities=entities,
                             )
                             self.logger.debug("Actions found in cache: %s" % actions)
-                            all_actions[pc["name"]] = dict(
+                            all_actions[pipeline_config["name"]] = dict(
                                 actions=self._filter_by_project(
                                     actions,
                                     self._get_software_entities(),
                                     project_entity,
                                 ),
-                                config=pc,
+                                config=pipeline_config,
                             )
                             self.logger.debug("Actions after project filtering: %s" % actions)
                         else:
@@ -315,7 +334,16 @@ class ShotgunAPI(object):
         Context manager that initializes a DB connection on enter and
         disconnects on exit.
         """
-        connection = self._init_db()
+        connection = sqlite3.connect(self._cache_path)
+
+        # This is to handle unicode properly - make sure that sqlite returns 
+        # str objects for TEXT fields rather than unicode. Note that any unicode
+        # objects that are passed into the database will be automatically
+        # converted to UTF-8 strs, so this text_factory guarantees that any character
+        # representation will work for any language, as long as data is either input
+        # as UTF-8 (byte string) or unicode. And in the latter case, the returned data
+        # will always be unicode.
+        connection.text_factory = str
 
         with connection:
             with contextlib.closing(connection.cursor()) as cursor:
@@ -611,25 +639,32 @@ class ShotgunAPI(object):
             self.logger.debug("Pipeline config data found for %s", self._wss_key)
         else:
             config_data = dict()
-            pcs = self._get_pipeline_configurations(
+            pipeline_configs = self._get_pipeline_configurations(
                 manager,
                 project_entity,
-            ) or [dict(id=None, name="Primary")]
+            )
 
-            for pc in pcs:
-                self.logger.debug("Processing config: %s" % pc)
+            # If there are no configs that we got back, then we just operate on
+            # a dummy "Primary" entity with no id. This will cause the manager
+            # to have its pipeline_configuration property set to None, which
+            # will trigger the config resolution to use the base_configuration,
+            # which is the desired behavior.
+            pipeline_configs = pipeline_configs or [dict(id=None, name="Primary")]
+
+            for pipeline_config in pipeline_configs:
+                self.logger.debug("Processing config: %s" % pipeline_config)
 
                 # The hash that acts as the key we'll use to look up our cached
                 # data will be based on the entity type and the pipeline config's
                 # descriptor uri. We can get the descriptor from the toolkit
                 # manager and pass that through along with the entity type from SG
                 # to the core hook that computes the hash.
-                manager.pipeline_configuration = pc["id"]
+                manager.pipeline_configuration = pipeline_config["id"]
 
                 try:
                     pc_descriptor = manager.resolve_descriptor(project_entity)
                 except sgtk.bootstrap.TankBootstrapError as exc:
-                    self.logger.debug("Unable to resolve config descriptor, skipping: %s" % pc)
+                    self.logger.warning("Unable to resolve config descriptor, skipping: %s" % pipeline_config)
                     self.logger.debug(str(exc))
                     continue
 
@@ -647,8 +682,8 @@ class ShotgunAPI(object):
                     data["entity_type"],
                 )
                 pc_data["descriptor"] = pc_descriptor
-                pc_data["entity"] = pc
-                config_data[pc["id"]] = pc_data
+                pc_data["entity"] = pipeline_config
+                config_data[pipeline_config["id"]] = pc_data
 
             self.WSS_KEY_CACHE[self._wss_key]["config_data"] = config_data
 
@@ -659,15 +694,23 @@ class ShotgunAPI(object):
         Gets all PipelineConfiguration entities for the given project.
 
         :param bsm manager: The bootstrap toolkit manager object.
-        :type pc: :class:`~sgtk.bootstrap.ToolkitManager`
+        :type bsm: :class:`~sgtk.bootstrap.ToolkitManager`
         :param dict project: The project entity.
 
         :returns: A list of PipelineConfiguration entity dictionaries.
         :rtype: list
         """
+        # The in-memory cache is keyed by the wss_key that is unique to each
+        # wss connection. If we've already queried and cached pipeline configs
+        # for the current wss connection, then we can just return that back to
+        # the caller.
         if "pipeline_configurations" not in self.WSS_KEY_CACHE[self._wss_key]:
             self.WSS_KEY_CACHE[self._wss_key]["pipeline_configurations"] = dict()
 
+        # The configs are stored by project id. We can pull the dict out of the
+        # cache and check to see if our project has already been added. If it
+        # has then we return it back to the caller. If not, we query what we
+        # need and cache the results for next time.
         pc_data = self.WSS_KEY_CACHE[self._wss_key]["pipeline_configurations"]
 
         if project["id"] not in pc_data:
@@ -752,42 +795,6 @@ class ShotgunAPI(object):
             kwargs["startupinfo"] = si
 
         return kwargs
-
-    def _init_db(self):
-        """
-        Sets up the database if it doesn't exist. Calling this method directly
-        is not advised. It's best to instead make use of the _db_connect
-        context manager provided by this object.
-
-        :returns: A handle that must be closed.
-        """
-        connection = sqlite3.connect(self._cache_path)
-
-        # This is to handle unicode properly - make sure that sqlite returns 
-        # str objects for TEXT fields rather than unicode. Note that any unicode
-        # objects that are passed into the database will be automatically
-        # converted to UTF-8 strs, so this text_factory guarantees that any character
-        # representation will work for any language, as long as data is either input
-        # as UTF-8 (byte string) or unicode. And in the latter case, the returned data
-        # will always be unicode.
-        connection.text_factory = str
-
-        with contextlib.closing(connection.cursor()) as c:
-            # Get a list of tables in the current database.
-            ret = c.execute("SELECT name FROM main.sqlite_master WHERE type='table';")
-            table_names = [x[0] for x in ret.fetchall()]
-
-            if not table_names:
-                self.logger.debug("Creating schema in sqlite db.")
-
-                # We have a brand new database. Create all tables and indices.
-                c.executescript("""
-                    CREATE TABLE engine_commands (lookup_hash text, contents_hash text, commands blob);
-                """)
-
-                connection.commit()
-
-        return connection
 
     def _process_commands(self, commands, project, entities):
         """
