@@ -121,17 +121,6 @@ class ShotgunAPI(object):
 
         project_entity, entities = self._get_entities_from_payload(data)
 
-        # It shouldn't ever happen at this stage of the workflow, but we'll
-        # check to make sure that we can get an environment for the type of
-        # we're dealing with here.
-        env_name = self.__pick_environment(project_entity, entities[0])
-
-        if env_name is None:
-            self.logger.error(
-                "The provided entity does not correspond to any environment."
-            )
-            return
-
         args_file = self._get_arguments_file(
             dict(
                 config=data["pc"],
@@ -217,16 +206,6 @@ class ShotgunAPI(object):
         # off the list.
         project_entity, entities = self._get_entities_from_payload(data)
         entity = entities[0]
-
-        # We can end up getting requests for actions for any entity type
-        # that exists in Shotgun. Many of those we don't want to provide
-        # commands for, so we can just notify the client that it's an
-        # unsupported entity type.
-        env_name = self.__pick_environment(project_entity, entity)
-
-        if env_name is None:
-            self.host.reply(dict(retcode=constants.UNSUPPORTED_ENTITY_TYPE))
-            return
 
         manager = sgtk.bootstrap.ToolkitManager()
         manager.allow_config_overrides = False
@@ -846,25 +825,6 @@ class ShotgunAPI(object):
             return item.isoformat()
         raise TypeError("Item cannot be serialized: %s" % item)
 
-    def __pick_environment(self, project_entity, entity):
-        """
-        Calls the pick_environment core hook on a context built from the
-        provided entity.
-
-        :param dict project_entity: The project entity dictionary.
-        :param dict entity: The entity dictionary.
-
-        :returns: The name of the associated environment, or None.
-        :rtype: str or None
-        """
-        return self._engine.sgtk.execute_core_hook(
-            sgtk.platform.constants.PICK_ENVIRONMENT_CORE_HOOK_NAME,
-            context=sgtk.Context(
-                self._engine.sgtk,
-                project=project_entity,
-                entity=entity,
-            )
-        )
 
 
 
