@@ -90,6 +90,8 @@ class ServerProtocol(WebSocketServerProtocol):
             self._logger.exception("Unexpected error while losing connection.")
             StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
 
+        self._logger.debug("Reason received for connection loss: %s", reason) 
+
     def onConnect(self, response):
         """
         Called upon client connection to server. This is where we decide if we accept the connection
