@@ -275,12 +275,12 @@ class ShotgunAPI(object):
                             self.logger.debug("Actions after project filtering: %s" % actions)
                         else:
                             self.logger.debug("Cache is out of date, recaching...")
-                            self._cache_actions(data, all_pc_data)
+                            self._cache_actions(data, pc_data)
                             self.get_actions(data)
                             return
                     else:
                         self.logger.debug("Commands not found in cache, caching now...")
-                        self._cache_actions(data, all_pc_data)
+                        self._cache_actions(data, pc_data)
                         self.get_actions(data)
                         return
                 except process.SubprocessCalledProcessError, e:
@@ -335,9 +335,8 @@ class ShotgunAPI(object):
         Triggers the caching or recaching of engine commands.
 
         :param dict data: The data passed down from the wss client.
-        :param dict config_data: A dictionary keyed by PipelineConfiguration
-            id containing a dict that contains, at a minimum, "lookup_hash"
-            and "contents_hash" keys.
+        :param dict config_data: A dictionary that contains, at a minimum,
+            "lookup_hash", "contents_hash", and "entity" keys.
         """
         self.logger.debug("Caching engine commands...")
 
@@ -348,7 +347,6 @@ class ShotgunAPI(object):
         )
 
         self.logger.debug("Executing script: %s" % script)
-        hash_data = dict()
 
         # We'll need the Python executable when we shell out. We can't
         # rely on sys.executable, because that's going to be the Desktop
@@ -359,13 +357,11 @@ class ShotgunAPI(object):
         )
         self.logger.debug("Python executable: %s" % python_exe)
 
-        arg_config_data = dict()
-        for pc_id, pc_data in config_data.iteritems():
-            arg_config_data[pc_id] = dict(
-                lookup_hash=pc_data["lookup_hash"],
-                contents_hash=pc_data["contents_hash"],
-                entity=pc_data["entity"],
-            )
+        arg_config_data = dict(
+            lookup_hash = config_data["lookup_hash"],
+            contents_hash=config_data["contents_hash"],
+            entity=config_data["entity"],
+        )
 
         args_file = self._get_arguments_file(
             dict(

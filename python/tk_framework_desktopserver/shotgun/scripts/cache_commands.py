@@ -15,6 +15,40 @@ import os
 import sqlite3
 import contextlib
 
+def bootstrap(data, base_configuration, engine_name, config_data):
+    """
+    Bootstraps into sgtk and returns the resulting engine instance.
+
+    :param dict data: The raw payload send down by the client.
+    :param str base_configuration: The desired base pipeline configuration's
+        uri.
+    :param str engine_name: The name of the engine to bootstrap into. This
+        is most likely going to be "tk-shotgun"
+    :param dict config_data: All relevant pipeline configuration data. This
+        dict is keyed by pipeline config entity id, each containing a dict
+        that contains, at a minimum, "entity", "lookup_hash", and
+        "contents_hash" keys.
+
+    :returns: Bootstrapped engine instance.
+    """
+    # The local import of sgtk ensures that it occurs after sys.path is set
+    # to what the server sent over.
+    import sgtk
+
+    entity = dict(type=data["entity_type"], id=data["entity_id"])
+
+    # Setup the bootstrap manager.
+    manager = sgtk.bootstrap.ToolkitManager()
+    manager.allow_config_overrides = False
+    manager.plugin_id = "basic.shotgun"
+    manager.base_configuration = base_configuration
+    manager.pipeline_configuration = config_data["entity"]["id"]
+
+    engine = manager.bootstrap_engine(engine_name, entity=entity)
+    engine.logger.debug("Engine %s started using entity %s" % (engine, entity))
+
+    return engine
+
 def cache(cache_file, data, base_configuration, engine_name, config_data):
     """
     Populates the sqlite cache with a row representing the desired pipeline
@@ -31,57 +65,38 @@ def cache(cache_file, data, base_configuration, engine_name, config_data):
         that contains, at a minimum, "entity", "lookup_hash", and
         "contents_hash" keys.
     """
-    # The local import of sgtk ensures that it occurs after sys.path is set
-    # to what the server sent over.
-    import sgtk
+    engine = bootstrap(data, base_configuration, engine_name, config_data)
+    lookup_hash = config_data["lookup_hash"]
+    contents_hash = config_data["contents_hash"]
 
-    entity = dict(type=data["entity_type"], id=data["entity_id"])
-    project_entity = dict(id=data["project_id"], type="Project")
+    engine.logger.debug("Processing engine commands...")
+    commands = []
 
-    # Setup the bootstrap manager.
-    toolkit_mgr = sgtk.bootstrap.ToolkitManager()
-    toolkit_mgr.allow_config_overrides = False
-    toolkit_mgr.plugin_id = "basic.shotgun"
-    toolkit_mgr.base_configuration = base_configuration
+    for cmd_name, data in engine.commands.iteritems():
+        engine.logger.debug("Processing command: %s" % cmd_name)
+        props = data["properties"]
+        app = props.get("app")
 
-    for pc_id, pc_data in config_data.iteritems():
-        pc = pc_data["entity"]
-        lookup_hash = pc_data["lookup_hash"]
-        contents_hash = pc_data["contents_hash"]
+        if app:
+            app_name = app.name
+        else:
+            app_name = None
 
-        toolkit_mgr.pipeline_configuration = pc_id
-        engine = toolkit_mgr.bootstrap_engine(engine_name, entity=entity)
-
-        engine.logger.debug("Engine %s started using entity %s" % (engine, entity))
-        engine.logger.debug("Processing engine commands...")
-
-        commands = []
-
-        for cmd_name, data in engine.commands.iteritems():
-            engine.logger.debug("Processing command: %s" % cmd_name)
-            props = data["properties"]
-            app = props.get("app")
-
-            if app:
-                app_name = app.name
-            else:
-                app_name = None
-
-            commands.append(
-                dict(
-                    name=cmd_name,
-                    title=props.get("title", cmd_name),
-                    deny_permissions=props.get("deny_permissions", []),
-                    supports_multiple_selection=props.get(
-                        "supports_multiple_selection",
-                        False
-                    ),
-                    app_name=app_name,
-                    group=props.get("group"),
-                    group_default=props.get("group_default"),
-                    engine_name=props.get("engine_name"),
+        commands.append(
+            dict(
+                name=cmd_name,
+                title=props.get("title", cmd_name),
+                deny_permissions=props.get("deny_permissions", []),
+                supports_multiple_selection=props.get(
+                    "supports_multiple_selection",
+                    False
                 ),
-            )
+                app_name=app_name,
+                group=props.get("group"),
+                group_default=props.get("group_default"),
+                engine_name=props.get("engine_name"),
+            ),
+        )
 
         engine.logger.debug("Engine commands processed.")
         engine.logger.debug("Inserting commands into cache...")
