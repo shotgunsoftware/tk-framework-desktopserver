@@ -52,7 +52,7 @@ def bootstrap(data, base_configuration, engine_name, config_data):
     manager.pipeline_configuration = config_data["entity"]["id"]
 
     engine = manager.bootstrap_engine(engine_name, entity=entity)
-    logger.debug("Engine %s started using entity %s" % (engine, entity))
+    logger.debug("Engine %s started using entity %s", engine, entity)
 
     return engine
 
@@ -113,7 +113,7 @@ def cache(cache_file, data, base_configuration, engine_name, config_data):
         logger.debug("Not registering core and app update commands.")
 
     for cmd_name, data in engine.commands.iteritems():
-        logger.debug("Processing command: %s" % cmd_name)
+        logger.debug("Processing command: %s", cmd_name)
         props = data["properties"]
         app = props.get("app")
 

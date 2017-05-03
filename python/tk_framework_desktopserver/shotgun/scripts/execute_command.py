@@ -156,7 +156,7 @@ def bootstrap(config, base_configuration, entity, engine_name):
         manager.pipeline_configuration = config.get("id")
 
     engine = manager.bootstrap_engine(engine_name, entity=entity)
-    logger.debug("Engine %s started using entity %s" % (engine, entity))
+    logger.debug("Engine %s started using entity %s", (engine, entity))
 
     return engine
 
