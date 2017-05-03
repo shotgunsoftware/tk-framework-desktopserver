@@ -25,6 +25,8 @@ from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
 from sgtk.util import process
 from . import constants
 
+logger = sgtk.platform.get_logger(__name__)
+
 ###########################################################################
 # Classes
 
@@ -56,6 +58,7 @@ class ShotgunAPI(object):
         """
         self._host = host
         self._engine = sgtk.platform.current_engine()
+        self._bundle = sgtk.platform.current_bundle()
         self._wss_key = wss_key
         self._logger = sgtk.platform.get_logger("api-v2")
 
@@ -70,13 +73,6 @@ class ShotgunAPI(object):
 
     ###########################################################################
     # Properties
-
-    @property
-    def logger(self):
-        """
-        The associated engine's logger.
-        """
-        return self._logger
 
     @property
     def host(self):
@@ -96,7 +92,7 @@ class ShotgunAPI(object):
         :param dict data: The payload from the client.
         """
         if data["name"] == "__clone_pc":
-            self.logger.debug("Clone configuration command received.")
+            logger.debug("Clone configuration command received.")
             try:
                 self._clone_configuration(data)
             except Exception as e:
@@ -109,7 +105,7 @@ class ShotgunAPI(object):
                 )
                 raise
             else:
-                self.logger.debug("Clone configuration successful.")
+                logger.debug("Clone configuration successful.")
                 self.host.reply(
                     dict(
                         retcode=constants.COMMAND_SUCCEEDED,
@@ -148,27 +144,29 @@ class ShotgunAPI(object):
         python_exe = sgtk.get_python_interpreter_for_config(
             self._engine.sgtk.pipeline_configuration.get_path(),
         )
-        self.logger.debug("Python executable: %s" % python_exe)
+        logger.debug("Python executable: %s" % python_exe)
 
         try:
             kwargs = self._get_subprocess_kwargs()
+            args = [python_exe, script, args_file]
+            logger.debug("Subprocess arguments: %s", args)
             output = process.subprocess_check_output(
-                [python_exe, script, args_file],
+                args,
                 **kwargs
             )
-        except process.SubprocessCalledProcessError:
+        except process.SubprocessCalledProcessError as exc:
             if output:
-                self.logger.error(output)
-            # TODO: This needs to be reported to the client somehow.
+                logger.error(output)
+            self.host.report_error(exc.message)
             raise
         else:
-            self.logger.debug(output)
+            logger.debug(output)
 
-        self.logger.debug("Command execution complete.")
+        logger.debug("Command execution complete.")
         self.host.reply(
             dict(
                 retcode=constants.COMMAND_SUCCEEDED,
-                out="Command executed successfully.",
+                out=output,
                 err="",
             ),
         )
@@ -197,7 +195,18 @@ class ShotgunAPI(object):
                     data["entity_type"],
                     [["project", "is", dict(type="Project", id=data["project_id"])]],
                 )
-                data["entity_id"] = temp_entity["id"]
+
+                if temp_entity:
+                    data["entity_id"] = temp_entity["id"]
+                else:
+                    self.host.reply(
+                        dict(
+                            err="Shotgun Desktop failed to get engine commands.",
+                            retcode=constants.CACHING_ERROR,
+                            out="Caching failed!",
+                        ),
+                    )
+                    return
 
         # It's possible that we got multiple entities from the client, which
         # would be the result of multiple entities being selected in the web
@@ -247,23 +256,31 @@ class ShotgunAPI(object):
                     # with the data we need. The behavior as a result of this
                     # is the same as if we ended up with a cache miss or an
                     # invalidated result due to a contents_hash mismatch.
-                    self.logger.debug(
+                    logger.debug(
                         "Cache query failed due to missing table. "
                         "Triggering caching subprocess..."
                     )
 
                 try:
                     if cached_data:
+                        # Cache hit.
                         cached_contents_hash = cached_data[1]
 
+                        # Check to see if the current hash we created matches
+                        # that of the cached entry. If it matches then we know
+                        # that the data is up to date and that we can use it.
                         if str(contents_hash) == str(cached_contents_hash):
-                            self.logger.debug("Cache is up to date.")
+                            logger.debug("Cache is up to date.")
+                            logger.debug("Cache key was %s", lookup_hash)
+
                             actions = self._process_commands(
                                 commands=cPickle.loads(str(cached_data[0])),
                                 project=project_entity,
                                 entities=entities,
                             )
-                            self.logger.debug("Actions found in cache: %s" % actions)
+
+                            logger.debug("Actions found in cache: %s" % actions)
+
                             all_actions[pipeline_config["name"]] = dict(
                                 actions=self._filter_by_project(
                                     actions,
@@ -272,24 +289,28 @@ class ShotgunAPI(object):
                                 ),
                                 config=pipeline_config,
                             )
-                            self.logger.debug("Actions after project filtering: %s" % actions)
+                            logger.debug("Actions after project filtering: %s" % actions)
                         else:
-                            self.logger.debug("Cache is out of date, recaching...")
+                            # The hashes didn't match, so we know we need to
+                            # re-cache. Once we do that, we can just call the
+                            # get_actions method again with the same payload.
+                            logger.debug("Cache is out of date, recaching...")
                             self._cache_actions(data, pc_data)
                             self.get_actions(data)
                             return
                     else:
-                        self.logger.debug("Commands not found in cache, caching now...")
+                        # Cache miss.
+                        logger.debug("Commands not found in cache, caching now...")
                         self._cache_actions(data, pc_data)
                         self.get_actions(data)
                         return
-                except process.SubprocessCalledProcessError, e:
-                    self.logger.error(str(e))
+                except process.SubprocessCalledProcessError as exc:
+                    logger.error(str(exc))
                     self.host.reply(
                         dict(
                             err="Shotgun Desktop failed to get engine commands.",
                             retcode=constants.CACHING_ERROR,
-                            out="Caching failed!",
+                            out="Caching failed!\n%s" % exc.message,
                         ),
                     )
                     return
@@ -338,7 +359,7 @@ class ShotgunAPI(object):
         :param dict config_data: A dictionary that contains, at a minimum,
             "lookup_hash", "contents_hash", and "entity" keys.
         """
-        self.logger.debug("Caching engine commands...")
+        logger.debug("Caching engine commands...")
 
         script = os.path.join(
             os.path.dirname(__file__),
@@ -346,7 +367,7 @@ class ShotgunAPI(object):
             "cache_commands.py"
         )
 
-        self.logger.debug("Executing script: %s" % script)
+        logger.debug("Executing script: %s" % script)
 
         # We'll need the Python executable when we shell out. We can't
         # rely on sys.executable, because that's going to be the Desktop
@@ -355,7 +376,7 @@ class ShotgunAPI(object):
         python_exe = sgtk.get_python_interpreter_for_config(
             self._engine.sgtk.pipeline_configuration.get_path(),
         )
-        self.logger.debug("Python executable: %s" % python_exe)
+        logger.debug("Python executable: %s" % python_exe)
 
         arg_config_data = dict(
             lookup_hash = config_data["lookup_hash"],
@@ -384,13 +405,13 @@ class ShotgunAPI(object):
             )
         except process.SubprocessCalledProcessError:
             if output:
-                self.logger.error(output)
+                logger.error(output)
             # This will bubble up to get_actions and be handled there.
             raise
         else:
-            self.logger.debug(output)
+            logger.debug(output)
 
-        self.logger.debug("Caching complete.")
+        logger.debug("Caching complete.")
 
     def _clone_configuration(self, data):
         """
@@ -414,7 +435,7 @@ class ShotgunAPI(object):
         pc_entity_id = data.get("entity_id") or data["entity_ids"][0]
 
         clone_pipeline_configuration_html(
-            self.logger,
+            logger,
             self._engine.sgtk,
             pc_entity_id,
             user_id,
@@ -473,7 +494,7 @@ class ShotgunAPI(object):
             for sw in associated_sw:
                 for sw_project in sw.get("projects", []):
                     if sw_project["id"] != project["id"]:
-                        self.logger.debug("Action %s filtered out due to SW entity projects." % action)
+                        logger.debug("Action %s filtered out due to SW entity projects." % action)
                         filtered.append(action)
                         break
                 if action in filtered:
@@ -609,10 +630,14 @@ class ShotgunAPI(object):
             "descriptor", and "entity" keys.
         :rtype: dict
         """
-        if "config_data" in self.WSS_KEY_CACHE[self._wss_key]:
-            self.logger.debug("Pipeline config data found for %s", self._wss_key)
+        entity_type = data["entity_type"]
+        cache = self.WSS_KEY_CACHE[self._wss_key]
+
+        if "config_data" in cache and entity_type in cache["config_data"]:
+            logger.debug("%s pipeline config data found for %s", entity_type, self._wss_key)
         else:
-            config_data = dict()
+            config_data = { entity_type: dict() }
+
             pipeline_configs = self._get_pipeline_configurations(
                 manager,
                 project_entity,
@@ -626,7 +651,7 @@ class ShotgunAPI(object):
             pipeline_configs = pipeline_configs or [dict(id=None, name="Primary")]
 
             for pipeline_config in pipeline_configs:
-                self.logger.debug("Processing config: %s" % pipeline_config)
+                logger.debug("Processing config: %s" % pipeline_config)
 
                 # The hash that acts as the key we'll use to look up our cached
                 # data will be based on the entity type and the pipeline config's
@@ -638,11 +663,11 @@ class ShotgunAPI(object):
                 try:
                     pc_descriptor = manager.resolve_descriptor(project_entity)
                 except sgtk.bootstrap.TankBootstrapError as exc:
-                    self.logger.warning("Unable to resolve config descriptor, skipping: %s" % pipeline_config)
-                    self.logger.debug(str(exc))
+                    logger.warning("Unable to resolve config descriptor, skipping: %s" % pipeline_config)
+                    logger.debug(str(exc))
                     continue
 
-                self.logger.debug("Resolved config descriptor: %r" % pc_descriptor)
+                logger.debug("Resolved config descriptor: %r" % pc_descriptor)
                 pc_key = pc_descriptor.get_uri()
 
                 pc_data = dict()
@@ -657,11 +682,18 @@ class ShotgunAPI(object):
                 )
                 pc_data["descriptor"] = pc_descriptor
                 pc_data["entity"] = pipeline_config
-                config_data[pipeline_config["id"]] = pc_data
+                config_data[entity_type][pipeline_config["id"]] = pc_data
 
-            self.WSS_KEY_CACHE[self._wss_key]["config_data"] = config_data
+            # If we already have cached other entity types, we'll have the
+            # config_data key already present in the cache. In that case, we
+            # just need to update it's contents with the new data. Otherwise,
+            # we populate it from scratch.
+            if "config_data" in cache:
+                cache["config_data"].update(config_data)
+            else:
+                cache["config_data"] = config_data
 
-        return self.WSS_KEY_CACHE[self._wss_key]["config_data"]
+        return cache["config_data"][entity_type]
 
     def _get_pipeline_configurations(self, manager, project):
         """
@@ -692,7 +724,7 @@ class ShotgunAPI(object):
                 project=project,
             )
         else:
-            self.logger.debug(
+            logger.debug(
                 "Cached PipelineConfiguration entities found for %s" % self._wss_key
             )
 
@@ -723,7 +755,7 @@ class ShotgunAPI(object):
                 entities = self._engine.shotgun.find(**spec)
                 self.WSS_KEY_CACHE[self._wss_key]["site_state_data"].extend(entities)
         else:
-            self.logger.debug("Cached site state data found for %s" % self._wss_key)
+            logger.debug("Cached site state data found for %s" % self._wss_key)
 
         return self.WSS_KEY_CACHE[self._wss_key]["site_state_data"]
 
@@ -739,7 +771,7 @@ class ShotgunAPI(object):
         :rtype: list
         """
         if "software_entities" not in self.WSS_KEY_CACHE[self._wss_key]:
-            self.logger.debug(
+            logger.debug(
                 "Software entities have not been cached for this connection, querying..."
             )
             self.WSS_KEY_CACHE[self._wss_key]["software_entities"] = self._engine.shotgun.find(
@@ -748,7 +780,7 @@ class ShotgunAPI(object):
                 fields=self._engine.shotgun.schema_field_read("Software").keys(),
             )
         else:
-            self.logger.debug("Cached software entities found for %s" % self._wss_key)
+            logger.debug("Cached software entities found for %s" % self._wss_key)
 
         return self.WSS_KEY_CACHE[self._wss_key]["software_entities"]
 
@@ -790,10 +822,10 @@ class ShotgunAPI(object):
 
         for command in commands:
             if command["app_name"] is not None:
-                self.logger.debug("Keeping command %s -- it has an associated app." % command)
+                logger.debug("Keeping command %s -- it has an associated app." % command)
                 filtered.append(command)
             else:
-                self.logger.debug(
+                logger.debug(
                     "Command %s filtered out for browser integration." % command
                 )
 
