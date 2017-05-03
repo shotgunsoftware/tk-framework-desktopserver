@@ -15,6 +15,11 @@ import os
 import sqlite3
 import contextlib
 
+CORE_INFO_COMMAND = "__core_info"
+UPGRADE_CHECK_COMMAND = "__upgrade_check"
+
+LOGGER_NAME = "wss2.cache_commands"
+
 def bootstrap(data, base_configuration, engine_name, config_data):
     """
     Bootstraps into sgtk and returns the resulting engine instance.
@@ -34,6 +39,8 @@ def bootstrap(data, base_configuration, engine_name, config_data):
     # The local import of sgtk ensures that it occurs after sys.path is set
     # to what the server sent over.
     import sgtk
+    logger = sgtk.LogManager.get_logger(LOGGER_NAME)
+    logger.debug("Preparing ToolkitManager for bootstrap.")
 
     entity = dict(type=data["entity_type"], id=data["entity_id"])
 
@@ -45,7 +52,7 @@ def bootstrap(data, base_configuration, engine_name, config_data):
     manager.pipeline_configuration = config_data["entity"]["id"]
 
     engine = manager.bootstrap_engine(engine_name, entity=entity)
-    engine.logger.debug("Engine %s started using entity %s" % (engine, entity))
+    logger.debug("Engine %s started using entity %s", engine, entity)
 
     return engine
 
@@ -66,14 +73,47 @@ def cache(cache_file, data, base_configuration, engine_name, config_data):
         "contents_hash" keys.
     """
     engine = bootstrap(data, base_configuration, engine_name, config_data)
+
+    import sgtk
+    logger = sgtk.LogManager.get_logger(LOGGER_NAME)
+
+    logger.debug("Raw payload from client: %s", data)
+
     lookup_hash = config_data["lookup_hash"]
     contents_hash = config_data["contents_hash"]
 
-    engine.logger.debug("Processing engine commands...")
+    logger.debug("Processing engine commands...")
     commands = []
 
+    # Slug in the "special" commands that aren't associated with registered
+    # engine commands.
+    if data["entity_type"].lower() == "project":
+        logger.debug("Registering core and app upgrade commands...")
+        commands.extend([
+            dict(
+                name="__core_info",
+                title="Check for Core Upgrades...",
+                deny_permissions=["Artist"],
+                app_name="__builtin",
+                group=None,
+                group_default=False,
+                engine_name="tk-shotgun",
+            ),
+            dict(
+                name="__upgrade_check",
+                title="Check for App Upgrades...",
+                deny_permissions=["Artist"],
+                app_name="__builtin",
+                group=None,
+                group_default=False,
+                engine_name="tk-shotgun",
+            ),
+        ])
+    else:
+        logger.debug("Not registering core and app update commands.")
+
     for cmd_name, data in engine.commands.iteritems():
-        engine.logger.debug("Processing command: %s" % cmd_name)
+        logger.debug("Processing command: %s", cmd_name)
         props = data["properties"]
         app = props.get("app")
 
@@ -98,69 +138,70 @@ def cache(cache_file, data, base_configuration, engine_name, config_data):
             ),
         )
 
-        engine.logger.debug("Engine commands processed.")
-        engine.logger.debug("Inserting commands into cache...")
+    logger.debug("Engine commands processed.")
 
-        # Connect to the database and get the hashes we need to include in
-        # the insert. Each of the lookups call out to the browser_integration
-        # core hook.
-        with sqlite3.connect(cache_file) as connection:
-            # This is to handle unicode properly - make sure that sqlite returns 
-            # str objects for TEXT fields rather than unicode. Note that any unicode
-            # objects that are passed into the database will be automatically
-            # converted to UTF-8 strs, so this text_factory guarantees that any character
-            # representation will work for any language, as long as data is either input
-            # as UTF-8 (byte string) or unicode. And in the latter case, the returned data
-            # will always be unicode.
-            connection.text_factory = str
-            cursor = connection.cursor()
+    # Connect to the database and get the hashes we need to include in
+    # the insert. Each of the lookups call out to the browser_integration
+    # core hook.
+    with sqlite3.connect(cache_file) as connection:
+        logger.debug("Inserting commands into cache...")
 
-            # First, let's make sure that the database is actually setup with
-            # the table we're expecting. If it isn't, then we can do that here.
-            with contextlib.closing(connection.cursor()) as c:
-                # Get a list of tables in the current database.
-                ret = c.execute("SELECT name FROM main.sqlite_master WHERE type='table';")
-                table_names = [x[0] for x in ret.fetchall()]
+        # This is to handle unicode properly - make sure that sqlite returns 
+        # str objects for TEXT fields rather than unicode. Note that any unicode
+        # objects that are passed into the database will be automatically
+        # converted to UTF-8 strs, so this text_factory guarantees that any character
+        # representation will work for any language, as long as data is either input
+        # as UTF-8 (byte string) or unicode. And in the latter case, the returned data
+        # will always be unicode.
+        connection.text_factory = str
+        cursor = connection.cursor()
 
-                if not table_names:
-                    engine.logger.debug("Creating schema in sqlite db.")
+        # First, let's make sure that the database is actually setup with
+        # the table we're expecting. If it isn't, then we can do that here.
+        with contextlib.closing(connection.cursor()) as c:
+            # Get a list of tables in the current database.
+            ret = c.execute("SELECT name FROM main.sqlite_master WHERE type='table';")
+            table_names = [x[0] for x in ret.fetchall()]
 
-                    # We have a brand new database. Create all tables and indices.
-                    cursor.executescript("""
-                        CREATE TABLE engine_commands (lookup_hash text, contents_hash text, commands blob);
-                    """)
+            if not table_names:
+                logger.debug("Creating schema in sqlite db.")
 
-                    connection.commit()
+                # We have a brand new database. Create all tables and indices.
+                cursor.executescript("""
+                    CREATE TABLE engine_commands (lookup_hash text, contents_hash text, commands blob);
+                """)
 
-            commands_blob = sqlite3.Binary(
-                cPickle.dumps(commands, cPickle.HIGHEST_PROTOCOL)
+                connection.commit()
+
+        commands_blob = sqlite3.Binary(
+            cPickle.dumps(commands, cPickle.HIGHEST_PROTOCOL)
+        )
+
+        # Since we're likely to be updating out-of-date cached data more
+        # often than we're going to be inserting new rows into the cache,
+        # we'll try an update first. If no rows were affected by the update,
+        # we move on to an insert.
+        cursor.execute(
+            "UPDATE engine_commands SET contents_hash=?, commands=? WHERE lookup_hash=?",
+            (contents_hash, commands_blob, lookup_hash)
+        )
+
+        if cursor.rowcount == 0:
+            logger.debug(
+                "Update did not result in any rows altered, inserting..."
             )
-
-            # Since we're likely to be updating out-of-date cached data more
-            # often than we're going to be inserting new rows into the cache,
-            # we'll try an update first. If no rows were affected by the update,
-            # we move on to an insert.
             cursor.execute(
-                "UPDATE engine_commands SET contents_hash=?, commands=? WHERE lookup_hash=?",
-                (contents_hash, commands_blob, lookup_hash)
+                "INSERT INTO engine_commands VALUES (?, ?, ?)", (
+                    lookup_hash,
+                    contents_hash,
+                    commands_blob,
+                )
             )
-
-            if cursor.rowcount == 0:
-                engine.logger.debug(
-                    "Update did not result in any rows altered, inserting..."
-                )
-                cursor.execute(
-                    "INSERT INTO engine_commands VALUES (?, ?, ?)", (
-                        lookup_hash,
-                        contents_hash,
-                        commands_blob,
-                    )
-                )
 
         # Tear down the engine. This is both good practice before we exit
         # this process, but also necessary if there are multiple pipeline
         # configs that we're iterating over.
-        engine.logger.debug("Shutting down engine...")
+        logger.debug("Shutting down engine...")
         engine.destroy()
 
 if __name__ == "__main__":
