@@ -19,6 +19,7 @@ import contextlib
 import json
 import fnmatch
 import datetime
+import copy
 
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
@@ -237,7 +238,16 @@ class ShotgunAPI(object):
                 # descriptor uri. We can get the descriptor from the toolkit
                 # manager and pass that through along with the entity type from SG
                 # to the core hook that computes the hash.
-                pc_descriptor = pc_data["descriptor"]
+                pc_descriptor = pipeline_config["descriptor"]
+
+                # Since the config entity is going to be passed up as part of the
+                # reply to the client, we need to filter out the descriptor object.
+                # It's neither useful to the client, nor json encodable. We're
+                # copying the dict first, since the original is stored in an
+                # in-memory cache and is likely to be reused.
+                pipeline_config = copy.copy(pipeline_config)
+                del pipeline_config["descriptor"]
+
                 lookup_hash = pc_data["lookup_hash"]
                 contents_hash = pc_data["contents_hash"]
                 cached_data = []
@@ -381,8 +391,13 @@ class ShotgunAPI(object):
         arg_config_data = dict(
             lookup_hash = config_data["lookup_hash"],
             contents_hash=config_data["contents_hash"],
-            entity=config_data["entity"],
+            entity=copy.copy(config_data["entity"]),
         )
+
+        # If we have a descriptor, we don't want to pickle that. It's not
+        # needed in either the caching or execution scripts.
+        if "descriptor" in arg_config_data["entity"]:
+            del arg_config_data["entity"]["descriptor"]
 
         args_file = self._get_arguments_file(
             dict(
@@ -648,7 +663,14 @@ class ShotgunAPI(object):
             # to have its pipeline_configuration property set to None, which
             # will trigger the config resolution to use the base_configuration,
             # which is the desired behavior.
-            pipeline_configs = pipeline_configs or [dict(id=None, name="Primary")]
+            if not pipeline_configs:
+                pipeline_configs = [
+                    dict(
+                        id=None,
+                        name="Primary",
+                        descriptor=manager.resolve_descriptor(project_entity),
+                    ),
+                ]
 
             for pipeline_config in pipeline_configs:
                 logger.debug("Processing config: %s", pipeline_config)
@@ -659,12 +681,13 @@ class ShotgunAPI(object):
                 # manager and pass that through along with the entity type from SG
                 # to the core hook that computes the hash.
                 manager.pipeline_configuration = pipeline_config["id"]
+                pc_descriptor = pipeline_config["descriptor"]
 
-                try:
-                    pc_descriptor = manager.resolve_descriptor(project_entity)
-                except sgtk.bootstrap.TankBootstrapError as exc:
-                    logger.warning("Unable to resolve config descriptor, skipping: %s" % pipeline_config)
-                    logger.debug(str(exc))
+                if pc_descriptor is None:
+                    logger.warning(
+                        "Unable to resolve config descriptor, skipping: %s",
+                        pipeline_config,
+                    )
                     continue
 
                 logger.debug("Resolved config descriptor: %r", pc_descriptor)
@@ -832,7 +855,7 @@ class ShotgunAPI(object):
         return self._engine.sgtk.execute_core_hook_method(
             "browser_integration",
             "process_commands",
-            commands=commands,
+            commands=filtered,
             project=project,
             entities=entities,
         )
