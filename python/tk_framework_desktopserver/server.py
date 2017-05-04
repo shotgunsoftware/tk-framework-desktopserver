@@ -33,9 +33,9 @@ class Server(object):
     _DEFAULT_KEYS_PATH = "../resources/keys"
 
     class Notifier(QtCore.QObject):
-        different_user_requested = QtCore.Signal(str, str)
+        different_user_requested = QtCore.Signal(str, int)
 
-    def __init__(self, keys_path, user, port=None, low_level_debug=False):
+    def __init__(self, keys_path, host, user_id, port=None, low_level_debug=False):
         """
         Constructor.
 
@@ -47,7 +47,8 @@ class Server(object):
         self._port = port or self._DEFAULT_PORT
         self._keys_path = keys_path or self._DEFAULT_KEYS_PATH
         self._debug = low_level_debug
-        self._user = user
+        self._host = host
+        self._user_id = user_id
 
         self.notifier = self.Notifier()
 
@@ -110,7 +111,8 @@ class Server(object):
         )
 
         self.factory.protocol = ServerProtocol
-        self.factory.user = self._user
+        self.factory.host = self._host
+        self.factory.user_id = self._user_id
         self.factory.notifier = self.notifier
         self.factory.setProtocolOptions(allowHixie76=True, echoCloseCodeReason=True)
         try:

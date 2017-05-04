@@ -34,7 +34,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
 
     ##########################################################################################
     # init and destroy
-    def launch_desktop_server(self, user):
+    def launch_desktop_server(self, host, user_id):
         """
         Initializes the desktop server.
         """
@@ -74,7 +74,8 @@ class DesktopserverFramework(sgtk.platform.Framework):
 
             self._server = self._tk_framework_desktopserver.Server(
                 keys_path=self._settings.certificate_folder,
-                user=user,
+                host=host,
+                user_id=user_id,
                 low_level_debug=self._settings.low_level_debug,
                 port=self._settings.port
             )

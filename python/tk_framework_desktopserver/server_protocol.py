@@ -8,11 +8,8 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import os
 import json
-import re
 import datetime
-from urlparse import urlparse
 import OpenSSL
 import threading
 
@@ -44,13 +41,6 @@ class ServerProtocol(WebSocketServerProtocol):
         self._protocol_version = 2
 
     @property
-    def logger(self):
-        """
-        The log handler.
-        """
-        return self._logger
-
-    @property
     def process_manager(self):
         """
         The protocol handler's associated process manager object.
@@ -64,7 +54,7 @@ class ServerProtocol(WebSocketServerProtocol):
         """
         return self._protocol_version
 
-    def onClose(self, wasClean, code, reason):
+    def onClose(self, was_clean, code, reason):
         pass
 
     def connectionLost(self, reason):
@@ -77,8 +67,14 @@ class ServerProtocol(WebSocketServerProtocol):
             # Known certificate error. These work for firefox and safari, but chrome rejected certificate
             # are currently indistinguishable from lost connection. This is true as of July 21st, 2015.
             certificate_error = False
-            certificate_error |= reason.type is OpenSSL.SSL.Error and reason.value.message[0][2] == 'ssl handshake failure'
-            certificate_error |= reason.type is OpenSSL.SSL.Error and reason.value.message[0][2] == 'tlsv1 alert unknown ca'
+            certificate_error |= (
+                reason.type is OpenSSL.SSL.Error and
+                reason.value.message[0][2] == 'ssl handshake failure'
+            )
+            certificate_error |= (
+                reason.type is OpenSSL.SSL.Error and
+                reason.value.message[0][2] == 'tlsv1 alert unknown ca'
+            )
             certificate_error |= bool(reason.check(error.CertificateError))
 
             if certificate_error:
@@ -91,7 +87,7 @@ class ServerProtocol(WebSocketServerProtocol):
             logger.exception("Unexpected error while losing connection.")
             StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
 
-        self._logger.debug("Reason received for connection loss: %s", reason) 
+        logger.debug("Reason received for connection loss: %s", reason)
 
     def onConnect(self, response):
         """
@@ -100,24 +96,13 @@ class ServerProtocol(WebSocketServerProtocol):
 
         :param response: Object Response information.
         """
-
         # If we reach this point, then it means SSL handshake went well..
         StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTED
+        self._origin = response.origin.lower()
+        logger.info("Connection accepted.")
+        self._wss_key = response.headers["sec-websocket-key"]
 
-        # origin is formatted such as https://xyz.shotgunstudio.com:port_number
-        # host is https://xyz.shotgunstudio.com:port_number
-        host_network = self.factory.user.host.lower()
-        origin_network = response.origin.lower()
-        if host_network != origin_network:
-            # FIXME: Once the protocol gives us the user, pass the right user in.
-            self.factory.notifier.different_user_requested.emit(response.origin, self.factory.user.login)
-            # Don't accept connection
-            raise websocket.http.HttpException(403, "Domain origin was rejected by server.")
-        else:
-            logger.info("Connection accepted.")
-            self._wss_key = response.headers["sec-websocket-key"]
-
-    def onMessage(self, payload, isBinary):
+    def onMessage(self, payload, is_binary):
         """
         Called by 'WebSocketServerProtocol' when we receive a message from the websocket
 
@@ -128,10 +113,11 @@ class ServerProtocol(WebSocketServerProtocol):
         """
 
         # We don't currently handle any binary messages
-        if isBinary:
+        if is_binary:
             return
 
         decoded_payload = payload.decode("utf8")
+
         # Special message to get protocol version for this protocol. This message doesn't follow the standard
         # message format as it doesn't require a protocol version to be retrieved and is not json-encoded.
         if decoded_payload == "get_protocol_version":
@@ -156,6 +142,33 @@ class ServerProtocol(WebSocketServerProtocol):
 
         self._protocol_version = message["protocol_version"]
 
+        if self._protocol_version == 2:
+
+            # Version 2 of the protocol can't only answer requests from the site and user the server
+            # is authenticated into. Validate this.
+
+            # origin is formatted such as https://xyz.shotgunstudio.com:port_number
+            # host is https://xyz.shotgunstudio.com:port_number
+            origin_network = self._origin.lower()
+            host_network = self.factory.host.lower()
+
+            # Try to get the user information. If that fails, we need to report the error.
+            try:
+                user_id = message["command"]["data"]["user"]["entity"]["id"]
+            except Exception:
+                logger.exception("Unexpected error while trying to retrieve the user id.")
+                message_host.report_error("No user information was found in this request.")
+                return
+
+            # If the hosts are different or the user ids are different, report an error.
+            if host_network != origin_network or user_id != self.factory.user_id:
+                self.factory.notifier.different_user_requested.emit(self._origin, user_id)
+                message_host.report_error(
+                    "You are not authorized to make browser integration requests. "
+                    "Please re-authenticate in your desktop application."
+                )
+                return
+
         # Run each request from a thread, even though it might be something very simple like opening a file. This
         # will ensure the server is as responsive as possible. Twisted will take care of the thread.
         reactor.callInThread(
@@ -164,6 +177,14 @@ class ServerProtocol(WebSocketServerProtocol):
             message,
             message["protocol_version"],
         )
+
+    def _get_user_id(self, message):
+
+        for key in ["command", "data", "user", "entity", "id"]:
+            if key not in message:
+                return None
+            message = message[key]
+        return message
 
     def _process_message(self, message_host, message, protocol_version):
 
@@ -254,7 +275,8 @@ class ServerProtocol(WebSocketServerProtocol):
 
     def _json_date_handler(self, obj):
         """
-        JSON stringify python date handler from: http://stackoverflow.com/questions/455580/json-datetime-between-python-and-javascript
+        JSON stringify python date handler from:
+        http://stackoverflow.com/questions/455580/json-datetime-between-python-and-javascript
         :returns: return a serializable version of obj or raise TypeError
         :raises: TypeError if a serializable version of the object cannot be made
         """
