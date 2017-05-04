@@ -11,7 +11,7 @@
 import os
 import threading
 
-from server_protocol import ServerProtocol
+from .server_protocol import ServerProtocol
 
 from twisted.internet import reactor, ssl, error
 from twisted.python import log
@@ -19,11 +19,11 @@ from twisted.python import log
 from autobahn.twisted.websocket import WebSocketServerFactory, listenWS
 
 from .errors import MissingCertificateError, PortBusyError
+from . import certificates
 
 from .logger import get_logger
 
 from sgtk.platform.qt import QtCore
-
 
 logger = get_logger(__name__)
 
@@ -96,9 +96,7 @@ class Server(object):
 
         :param debug: Boolean Show debug output. Will also Start local web server to test client pages.
         """
-
-        cert_key_path = os.path.join(self._keys_path, "server.key")
-        cert_crt_path = os.path.join(self._keys_path, "server.crt")
+        cert_crt_path, cert_key_path = certificates.get_certificate_file_names(self._keys_path)
 
         self._raise_if_missing_certificate(cert_key_path)
         self._raise_if_missing_certificate(cert_crt_path)

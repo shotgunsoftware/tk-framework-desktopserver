@@ -10,7 +10,7 @@
 
 import os
 
-from process_manager import ProcessManager
+from .process_manager import ProcessManager
 
 
 class ProcessManagerWin(ProcessManager):

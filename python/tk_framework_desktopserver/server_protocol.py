@@ -14,8 +14,9 @@ import re
 import datetime
 from urlparse import urlparse
 import OpenSSL
+import threading
 
-import shotgun_api
+from .shotgun import get_shotgun_api
 from .message_host import MessageHost
 from .status_server_protocol import StatusServerProtocol
 from .process_manager import ProcessManager
@@ -33,11 +34,35 @@ class ServerProtocol(WebSocketServerProtocol):
     Server Protocol
     """
 
-    # Server protocol version
-    PROTOCOL_VERSION = 1
+    # Initial state is v2. This might change if we end up receiving a connection
+    # from a client at v1.
+    SUPPORTED_PROTOCOL_VERSIONS = (1, 2)
+    LOCK = threading.Lock()
 
     def __init__(self):
-        self.process_manager = ProcessManager.create()
+        self._process_manager = ProcessManager.create()
+        self._protocol_version = 2
+
+    @property
+    def logger(self):
+        """
+        The log handler.
+        """
+        return self._logger
+
+    @property
+    def process_manager(self):
+        """
+        The protocol handler's associated process manager object.
+        """
+        return self._process_manager
+
+    @property
+    def protocol_version(self):
+        """
+        The protocol handler's currently-supported protocol version.
+        """
+        return self._protocol_version
 
     def onClose(self, wasClean, code, reason):
         pass
@@ -66,6 +91,8 @@ class ServerProtocol(WebSocketServerProtocol):
             logger.exception("Unexpected error while losing connection.")
             StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
 
+        self._logger.debug("Reason received for connection loss: %s", reason) 
+
     def onConnect(self, response):
         """
         Called upon client connection to server. This is where we decide if we accept the connection
@@ -79,18 +106,16 @@ class ServerProtocol(WebSocketServerProtocol):
 
         # origin is formatted such as https://xyz.shotgunstudio.com:port_number
         # host is https://xyz.shotgunstudio.com:port_number
-        try:
-            host_network = self.factory.user.host.lower()
-            origin_network = response.origin.lower()
-            if host_network != origin_network:
-                # FIXME: Once the protocol gives us the user, pass the right user in.
-                self.factory.notifier.different_user_requested.emit(response.origin, self.factory.user.login)
-                # Don't accept connection
-                raise websocket.http.HttpException(403, "Domain origin was rejected by server.")
-            else:
-                logger.info("Connection accepted.")
-        except Exception:
-            logger.exception("Unexpected error while accepting connection:")
+        host_network = self.factory.user.host.lower()
+        origin_network = response.origin.lower()
+        if host_network != origin_network:
+            # FIXME: Once the protocol gives us the user, pass the right user in.
+            self.factory.notifier.different_user_requested.emit(response.origin, self.factory.user.login)
+            # Don't accept connection
+            raise websocket.http.HttpException(403, "Domain origin was rejected by server.")
+        else:
+            logger.info("Connection accepted.")
+            self._wss_key = response.headers["sec-websocket-key"]
 
     def onMessage(self, payload, isBinary):
         """
@@ -110,9 +135,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # Special message to get protocol version for this protocol. This message doesn't follow the standard
         # message format as it doesn't require a protocol version to be retrieved and is not json-encoded.
         if decoded_payload == "get_protocol_version":
-            data = {}
-            data["protocol_version"] = self.PROTOCOL_VERSION
-            self.json_reply(data)
+            self.json_reply(dict(protocol_version=self._protocol_version))
             return
 
         # Extract json response (every message is expected to be in json format)
@@ -125,45 +148,78 @@ class ServerProtocol(WebSocketServerProtocol):
         message_host = MessageHost(self, message)
 
         # Check protocol version
-        if message["protocol_version"] != self.PROTOCOL_VERSION:
-            message_host.report_error("Error. Wrong protocol version [%s] " % self.PROTOCOL_VERSION)
+        if message["protocol_version"] not in self.SUPPORTED_PROTOCOL_VERSIONS:
+            message_host.report_error(
+                "Unsupported protocol version: %s " % message["protocol_version"]
+            )
             return
 
-        # Run each request from a thread, even tough it might be something very simple like opening a file. This
-        # will ensure the server is as responsive as possible. Twisted will take care of the thread.
-        reactor.callInThread(self._process_message, message_host, message)
+        self._protocol_version = message["protocol_version"]
 
-    def _process_message(self, message_host, message):
+        # Run each request from a thread, even though it might be something very simple like opening a file. This
+        # will ensure the server is as responsive as possible. Twisted will take care of the thread.
+        reactor.callInThread(
+            self._process_message,
+            message_host,
+            message,
+            message["protocol_version"],
+        )
+
+    def _process_message(self, message_host, message, protocol_version):
 
         # Retrieve command from message
         command = message["command"]
 
         # Retrieve command data from message
-        data = {}
-        if "data" in command:
-            data = command["data"]
-
+        data = command.get("data", dict())
         cmd_name = command["name"]
 
         # Create API for this message
         try:
             # Do not resolve to simply ShotgunAPI in the imports, this allows tests to mock errors
-            shotgun = shotgun_api.ShotgunAPI(message_host, self.process_manager)
+            api = get_shotgun_api(
+                protocol_version,
+                message_host,
+                self.process_manager,
+                wss_key=self._wss_key,
+            )
         except Exception, e:
-            message_host.report_error("Error in loading ShotgunAPI. " + e.message)
+            message_host.report_error("Unable to get a ShotgunAPI object: %s" % e)
             return
 
         # Make sure the command is in the public API
-        if cmd_name in shotgun.public_api:
+        if cmd_name in api.PUBLIC_API_METHODS:
             # Call matching shotgun command
             try:
-                func = getattr(shotgun, cmd_name)
-                func(data)
+                func = getattr(api, cmd_name)
+                requires_sync = (cmd_name in api.SYNCHRONOUS_METHODS)
             except Exception, e:
-                message_host.report_error("Error! Could not execute function (possibly wrong command arguments) for [%s] -- %s"
-                                          % (cmd_name, e.message))
+                message_host.report_error(
+                    "Could not find API method %s: %s" % (cmd_name, e)
+                )
+            else:
+                # If a method is expecting to be run synchronously we
+                # need to make sure that happens. An example of this is
+                # the get_actions method in v2 of the api, which might
+                # trigger a cache update. If that happens, we can't let
+                # multiple cache processes occur at once, because each
+                # is bootstrapping sgtk, which won't play well if multiple
+                # are occurring at the same time, all of which potentially
+                # copying/downloading files to disk in the same location.
+                if requires_sync:
+                    self.LOCK.acquire()
+                try:
+                    func(data)
+                except Exception, e:
+                    import traceback
+                    message_host.report_error(
+                        "Method call failed for %s: %s" % (cmd_name, traceback.format_exc())
+                    )
+                finally:
+                    if requires_sync:
+                        self.LOCK.release()
         else:
-            message_host.report_error("Error! Wrong Command Sent: [%s]" % cmd_name)
+            message_host.report_error("Command %s is not supported." % cmd_name)
 
     def report_error(self, message, data=None):
         """
