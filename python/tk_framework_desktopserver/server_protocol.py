@@ -157,15 +157,16 @@ class ServerProtocol(WebSocketServerProtocol):
                 user_id = message["command"]["data"]["user"]["entity"]["id"]
             except Exception:
                 logger.exception("Unexpected error while trying to retrieve the user id.")
-                message_host.report_error("No user information was found in this request.")
+                self.sendClose(3000, u"No user information was found in this request.")
                 return
 
             # If the hosts are different or the user ids are different, report an error.
             if host_network != origin_network or user_id != self.factory.user_id:
                 self.factory.notifier.different_user_requested.emit(self._origin, user_id)
-                message_host.report_error(
-                    "You are not authorized to make browser integration requests. "
-                    "Please re-authenticate in your desktop application."
+                self.sendClose(
+                    3001,
+                    u"You are not authorized to make browser integration requests. "
+                    u"Please re-authenticate in your desktop application."
                 )
                 return
 
