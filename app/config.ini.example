@@ -30,8 +30,3 @@ low_level_debug=0
 # port.
 #
 port=9000
-
-# List of clients whitelisted to access this server. Use this when you have a
-# local server. If not specified, defaults to *.shotgunstudio.com.
-#
-whitelist=*.shotgunstudio.com

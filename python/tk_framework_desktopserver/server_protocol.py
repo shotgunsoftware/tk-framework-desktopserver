@@ -144,7 +144,7 @@ class ServerProtocol(WebSocketServerProtocol):
 
         if self._protocol_version == 2:
 
-            # Version 2 of the protocol can't only answer requests from the site and user the server
+            # Version 2 of the protocol can only answer requests from the site and user the server
             # is authenticated into. Validate this.
 
             # origin is formatted such as https://xyz.shotgunstudio.com:port_number
@@ -178,14 +178,6 @@ class ServerProtocol(WebSocketServerProtocol):
             message,
             message["protocol_version"],
         )
-
-    def _get_user_id(self, message):
-
-        for key in ["command", "data", "user", "entity", "id"]:
-            if key not in message:
-                return None
-            message = message[key]
-        return message
 
     def _process_message(self, message_host, message, protocol_version):
 

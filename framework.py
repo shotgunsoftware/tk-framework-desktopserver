@@ -27,6 +27,19 @@ class DesktopserverFramework(sgtk.platform.Framework):
         self._tk_framework_desktopserver = None
 
     def add_diffrent_user_requested_callback(self, cb):
+        """
+        Registers a callback for know when a different user or site is making browser integration requests.
+        The caller is not waiting for the callback to return.
+
+        :param function cb: Callback of the form:
+            def callback(site, user_id):
+                '''
+                Called when the site or user is different than the current site or user.
+
+                :param str site: Url of the site the request is coming from.
+                :param int user_id: Id of the HumanUser who made the request.
+                '''
+        """
         # Lazy-init because engine is initialized after its frameworks, so QtCore is not initialized yet.
         from sgtk.platform.qt import QtCore
         if self._server:
