@@ -391,10 +391,6 @@ class ShotgunAPI(object):
             entity=config_data["entity"],
         )
 
-        # If we have a descriptor, we don't want to pickle that. It's not
-        # needed in either the caching or execution scripts.
-        del arg_config_data["entity"]["descriptor"]
-
         args_file = self._get_arguments_file(
             dict(
                 cache_file=self._cache_path,
@@ -712,6 +708,9 @@ class ShotgunAPI(object):
             else:
                 cache["config_data"] = config_data
 
+        # We'll deepcopy the data before returning it. That will ensure that
+        # any destructive operations on the contents won't bubble up to the
+        # cache.
         return copy.deepcopy(cache["config_data"][entity_type])
 
     def _get_pipeline_configurations(self, manager, project):
@@ -747,6 +746,9 @@ class ShotgunAPI(object):
                 "Cached PipelineConfiguration entities found for %s", self._wss_key
             )
 
+        # We'll deepcopy the data before returning it. That will ensure that
+        # any destructive operations on the contents won't bubble up to the
+        # cache.
         return copy.deepcopy(pc_data[project["id"]])
 
     def _get_site_state_data(self):
@@ -776,6 +778,9 @@ class ShotgunAPI(object):
         else:
             logger.debug("Cached site state data found for %s", self._wss_key)
 
+        # We'll deepcopy the data before returning it. That will ensure that
+        # any destructive operations on the contents won't bubble up to the
+        # cache.
         return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key]["site_state_data"])
 
     def _get_software_entities(self):
@@ -801,6 +806,9 @@ class ShotgunAPI(object):
         else:
             logger.debug("Cached software entities found for %s", self._wss_key)
 
+        # We'll deepcopy the data before returning it. That will ensure that
+        # any destructive operations on the contents won't bubble up to the
+        # cache.
         return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key]["software_entities"])
 
     def _get_subprocess_kwargs(self):
