@@ -242,10 +242,7 @@ class ShotgunAPI(object):
 
                 # Since the config entity is going to be passed up as part of the
                 # reply to the client, we need to filter out the descriptor object.
-                # It's neither useful to the client, nor json encodable. We're
-                # copying the dict first, since the original is stored in an
-                # in-memory cache and is likely to be reused.
-                pipeline_config = copy.copy(pipeline_config)
+                # It's neither useful to the client, nor json encodable.
                 del pipeline_config["descriptor"]
 
                 lookup_hash = pc_data["lookup_hash"]
@@ -391,13 +388,12 @@ class ShotgunAPI(object):
         arg_config_data = dict(
             lookup_hash = config_data["lookup_hash"],
             contents_hash=config_data["contents_hash"],
-            entity=copy.copy(config_data["entity"]),
+            entity=config_data["entity"],
         )
 
         # If we have a descriptor, we don't want to pickle that. It's not
         # needed in either the caching or execution scripts.
-        if "descriptor" in arg_config_data["entity"]:
-            del arg_config_data["entity"]["descriptor"]
+        del arg_config_data["entity"]["descriptor"]
 
         args_file = self._get_arguments_file(
             dict(
@@ -716,7 +712,7 @@ class ShotgunAPI(object):
             else:
                 cache["config_data"] = config_data
 
-        return cache["config_data"][entity_type]
+        return copy.deepcopy(cache["config_data"][entity_type])
 
     def _get_pipeline_configurations(self, manager, project):
         """
@@ -751,7 +747,7 @@ class ShotgunAPI(object):
                 "Cached PipelineConfiguration entities found for %s", self._wss_key
             )
 
-        return pc_data[project["id"]]
+        return copy.deepcopy(pc_data[project["id"]])
 
     def _get_site_state_data(self):
         """
@@ -780,7 +776,7 @@ class ShotgunAPI(object):
         else:
             logger.debug("Cached site state data found for %s", self._wss_key)
 
-        return self.WSS_KEY_CACHE[self._wss_key]["site_state_data"]
+        return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key]["site_state_data"])
 
     def _get_software_entities(self):
         """
@@ -805,7 +801,7 @@ class ShotgunAPI(object):
         else:
             logger.debug("Cached software entities found for %s", self._wss_key)
 
-        return self.WSS_KEY_CACHE[self._wss_key]["software_entities"]
+        return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key]["software_entities"])
 
     def _get_subprocess_kwargs(self):
         """
