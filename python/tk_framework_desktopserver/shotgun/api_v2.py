@@ -677,7 +677,7 @@ class ShotgunAPI(object):
 
                 if pc_descriptor is None:
                     logger.warning(
-                        "Unable to resolve config descriptor, skipping: %s",
+                        "Unable to resolve config descriptor, skipping: %r",
                         pipeline_config,
                     )
                     continue
