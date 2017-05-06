@@ -19,6 +19,7 @@ import contextlib
 import json
 import fnmatch
 import datetime
+import copy
 
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
@@ -237,7 +238,13 @@ class ShotgunAPI(object):
                 # descriptor uri. We can get the descriptor from the toolkit
                 # manager and pass that through along with the entity type from SG
                 # to the core hook that computes the hash.
-                pc_descriptor = pc_data["descriptor"]
+                pc_descriptor = pipeline_config["descriptor"]
+
+                # Since the config entity is going to be passed up as part of the
+                # reply to the client, we need to filter out the descriptor object.
+                # It's neither useful to the client, nor json encodable.
+                del pipeline_config["descriptor"]
+
                 lookup_hash = pc_data["lookup_hash"]
                 contents_hash = pc_data["contents_hash"]
                 cached_data = []
@@ -648,7 +655,14 @@ class ShotgunAPI(object):
             # to have its pipeline_configuration property set to None, which
             # will trigger the config resolution to use the base_configuration,
             # which is the desired behavior.
-            pipeline_configs = pipeline_configs or [dict(id=None, name="Primary")]
+            if not pipeline_configs:
+                pipeline_configs = [
+                    dict(
+                        id=None,
+                        name="Primary",
+                        descriptor=manager.resolve_descriptor(project_entity),
+                    ),
+                ]
 
             for pipeline_config in pipeline_configs:
                 logger.debug("Processing config: %s", pipeline_config)
@@ -659,12 +673,13 @@ class ShotgunAPI(object):
                 # manager and pass that through along with the entity type from SG
                 # to the core hook that computes the hash.
                 manager.pipeline_configuration = pipeline_config["id"]
+                pc_descriptor = pipeline_config["descriptor"]
 
-                try:
-                    pc_descriptor = manager.resolve_descriptor(project_entity)
-                except sgtk.bootstrap.TankBootstrapError as exc:
-                    logger.warning("Unable to resolve config descriptor, skipping: %s" % pipeline_config)
-                    logger.debug(str(exc))
+                if pc_descriptor is None:
+                    logger.warning(
+                        "Unable to resolve config descriptor, skipping: %r",
+                        pipeline_config,
+                    )
                     continue
 
                 logger.debug("Resolved config descriptor: %r", pc_descriptor)
@@ -693,7 +708,10 @@ class ShotgunAPI(object):
             else:
                 cache["config_data"] = config_data
 
-        return cache["config_data"][entity_type]
+        # We'll deepcopy the data before returning it. That will ensure that
+        # any destructive operations on the contents won't bubble up to the
+        # cache.
+        return copy.deepcopy(cache["config_data"][entity_type])
 
     def _get_pipeline_configurations(self, manager, project):
         """
@@ -728,7 +746,10 @@ class ShotgunAPI(object):
                 "Cached PipelineConfiguration entities found for %s", self._wss_key
             )
 
-        return pc_data[project["id"]]
+        # We'll deepcopy the data before returning it. That will ensure that
+        # any destructive operations on the contents won't bubble up to the
+        # cache.
+        return copy.deepcopy(pc_data[project["id"]])
 
     def _get_site_state_data(self):
         """
@@ -757,7 +778,10 @@ class ShotgunAPI(object):
         else:
             logger.debug("Cached site state data found for %s", self._wss_key)
 
-        return self.WSS_KEY_CACHE[self._wss_key]["site_state_data"]
+        # We'll deepcopy the data before returning it. That will ensure that
+        # any destructive operations on the contents won't bubble up to the
+        # cache.
+        return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key]["site_state_data"])
 
     def _get_software_entities(self):
         """
@@ -782,7 +806,10 @@ class ShotgunAPI(object):
         else:
             logger.debug("Cached software entities found for %s", self._wss_key)
 
-        return self.WSS_KEY_CACHE[self._wss_key]["software_entities"]
+        # We'll deepcopy the data before returning it. That will ensure that
+        # any destructive operations on the contents won't bubble up to the
+        # cache.
+        return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key]["software_entities"])
 
     def _get_subprocess_kwargs(self):
         """
@@ -832,7 +859,7 @@ class ShotgunAPI(object):
         return self._engine.sgtk.execute_core_hook_method(
             "browser_integration",
             "process_commands",
-            commands=commands,
+            commands=filtered,
             project=project,
             entities=entities,
         )
