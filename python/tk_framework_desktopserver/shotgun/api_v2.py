@@ -39,6 +39,8 @@ class ShotgunAPI(object):
     PUBLIC_API_METHODS = [
         "get_actions",
         "execute_action",
+        "pick_file_or_directory",
+        "pick_files_or_directories",
     ]
     SYNCHRONOUS_METHODS = [
         "get_actions",
@@ -62,6 +64,7 @@ class ShotgunAPI(object):
         self._bundle = sgtk.platform.current_bundle()
         self._wss_key = wss_key
         self._logger = sgtk.platform.get_logger("api-v2")
+        self._process_manager = process_manager
 
         if self._wss_key not in self.WSS_KEY_CACHE:
             self.WSS_KEY_CACHE[self._wss_key] = dict()
@@ -81,6 +84,13 @@ class ShotgunAPI(object):
         The host associated with the currnt RPC transaction.
         """
         return self._host
+
+    @property
+    def process_manager(self):
+        """
+        The process manager object used to interact with os processes.
+        """
+        return self._process_manager
 
     ###########################################################################
     # Public methods
@@ -245,9 +255,22 @@ class ShotgunAPI(object):
                 # It's neither useful to the client, nor json encodable.
                 del pipeline_config["descriptor"]
 
-                lookup_hash = pc_data["lookup_hash"]
+                # In all cases except for Task entities, we'll already have a
+                # lookup hash computed. If we're dealing with a Task, though,
+                # it'll be a None and we'll need to compute is live. This is
+                # because the lookup hash depends on what the specific Task
+                # entity we're dealing with is linked to.
+                lookup_hash = pc_data["lookup_hash"] or self._get_lookup_hash(
+                    pc_descriptor.get_uri(),
+                    project_entity,
+                    entity["type"],
+                    entity["id"],
+                )
+                pc_data["lookup_hash"] = lookup_hash
                 contents_hash = pc_data["contents_hash"]
                 cached_data = []
+
+                logger.debug("Querying: %s", lookup_hash)
 
                 try:
                     cursor.execute(
@@ -330,6 +353,24 @@ class ShotgunAPI(object):
                 pcs=[p["entity"]["name"] for p in all_pc_data.values()],
             ),
         )
+
+    def pick_file_or_directory(self, data):
+        """
+        Pick single file or directory.
+
+        :param dict data: Message payload. (no data expected)
+        """
+        files = self.process_manager.pick_file_or_directory(False)
+        self.host.reply(files)
+
+    def pick_files_or_directories(self, data):
+        """
+        Pick multiple files or directories.
+
+        :param dict data: Message payload. (no data expected)
+        """
+        files = self.process_manager.pick_file_or_directory(True)
+        self.host.reply(files)
 
     ###########################################################################
     # Context managers
@@ -602,7 +643,7 @@ class ShotgunAPI(object):
         else:
             raise RuntimeError("Unable to determine an entity from data: %s" % data)
 
-    def _get_lookup_hash(self, config_uri, project, entity_type):
+    def _get_lookup_hash(self, config_uri, project, entity_type, entity_id):
         """
         Computes a unique key for a row in a cache database for the given
         pipeline configuration descriptor and entity type.
@@ -610,10 +651,19 @@ class ShotgunAPI(object):
         :param str config_uri: The pipeline configuration's descriptor uri.
         :param dict project: The project entity.
         :param str entity_type: The entity type.
+        :param int entity_id: The entity id.
 
         :returns: The computed lookup hash.
         :rtype: str
         """
+        # If this is a Task entity, then we have more work to do. We need
+        # to get the entity that the Task is linked to, and then get actions
+        # for that entity type.
+        if entity_type == "Task":
+            logger.debug("Task entity detected, looking up parent entity...")
+            entity_type = self._get_task_parent_entity_type(entity_id)
+            logger.debug("Task entity's parent entity type: %s", entity_type)
+
         return self._engine.sgtk.execute_core_hook_method(
             "browser_integration",
             "get_cache_key",
@@ -690,11 +740,21 @@ class ShotgunAPI(object):
                     pc_descriptor,
                     self._get_site_state_data(),
                 )
-                pc_data["lookup_hash"] = self._get_lookup_hash(
-                    pc_key,
-                    project_entity,
-                    data["entity_type"],
-                )
+
+                # Tricky bit here. We don't want to pre-compute the lookup hash
+                # if this is a Task entity. This is because Tasks can be linked
+                # to Shots or Assets, and we need to differentiate between the
+                # two. Whether we get Shot or Asset actions depends on the Task
+                # in question, and so the lookup hash needs to be computed live.
+                if data["entity_type"] == "Task":
+                    pc_data["lookup_hash"] = None
+                else:
+                    pc_data["lookup_hash"] = self._get_lookup_hash(
+                        pc_key,
+                        project_entity,
+                        data["entity_type"],
+                        data["entity_id"],
+                    )
                 pc_data["descriptor"] = pc_descriptor
                 pc_data["entity"] = pipeline_config
                 config_data[entity_type][pipeline_config["id"]] = pc_data
@@ -828,6 +888,29 @@ class ShotgunAPI(object):
             kwargs["startupinfo"] = si
 
         return kwargs
+
+    def _get_task_parent_entity_type(self, task_id):
+        """
+        Gets the Task entity's parent entity type.
+        """
+        cache = self.WSS_KEY_CACHE[self._wss_key]
+
+        if "task_parent_types" in cache and task_id in cache["task_parent_types"]:
+            logger.debug("Parent entity type found in cache for Task %s.", task_id)
+        else:
+            context = sgtk.context.from_entity(
+                self._engine.sgtk,
+                "Task",
+                task_id,
+            )
+            entity_type = context.entity["type"]
+
+            if "task_parent_types" in cache:
+                cache["task_parent_types"][task_id] = entity_type
+            else:
+                cache["task_parent_types"] = { task_id: entity_type }
+
+        return cache["task_parent_types"][task_id]
 
     def _process_commands(self, commands, project, entities):
         """
