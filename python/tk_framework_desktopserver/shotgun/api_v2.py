@@ -50,6 +50,13 @@ class ShotgunAPI(object):
     WSS_KEY_CACHE = dict()
     DATABASE_FORMAT_VERSION = 1
 
+    # Keys for the in-memory cache.
+    TASK_PARENT_TYPES = "task_parent_types"
+    PIPELINE_CONFIGS = "pipeline_configurations"
+    SITE_STATE_DATA = "site_state_data"
+    CONFIG_DATA = "config_data"
+    SOFTWARE_ENTITIES = "software_entities"
+
     def __init__(self, host, process_manager, wss_key):
         """
         API Constructor.
@@ -257,7 +264,7 @@ class ShotgunAPI(object):
 
                 # In all cases except for Task entities, we'll already have a
                 # lookup hash computed. If we're dealing with a Task, though,
-                # it'll be a None and we'll need to compute is live. This is
+                # it'll be a None and we'll need to compute it live. This is
                 # because the lookup hash depends on what the specific Task
                 # entity we're dealing with is linked to.
                 lookup_hash = pc_data["lookup_hash"] or self._get_lookup_hash(
@@ -496,7 +503,7 @@ class ShotgunAPI(object):
 
         # Once the config is cloned, we need to invalidate the in-memory cache
         # that contains the PipelineConfiguration entities queried from SG.
-        del self.WSS_KEY_CACHE[self._wss_key]["pipeline_configurations"]
+        del self.WSS_KEY_CACHE[self._wss_key][self.PIPELINE_CONFIGS]
 
     def _filter_by_project(self, actions, sw_entities, project):
         """
@@ -690,7 +697,7 @@ class ShotgunAPI(object):
         entity_type = data["entity_type"]
         cache = self.WSS_KEY_CACHE[self._wss_key]
 
-        if "config_data" in cache and entity_type in cache["config_data"]:
+        if self.CONFIG_DATA in cache and entity_type in cache[self.CONFIG_DATA]:
             logger.debug("%s pipeline config data found for %s", entity_type, self._wss_key)
         else:
             config_data = { entity_type: dict() }
@@ -763,15 +770,12 @@ class ShotgunAPI(object):
             # config_data key already present in the cache. In that case, we
             # just need to update it's contents with the new data. Otherwise,
             # we populate it from scratch.
-            if "config_data" in cache:
-                cache["config_data"].update(config_data)
-            else:
-                cache["config_data"] = config_data
+            cache.setdefault(self.CONFIG_DATA, dict()).update(config_data)
 
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
         # cache.
-        return copy.deepcopy(cache["config_data"][entity_type])
+        return copy.deepcopy(cache[self.CONFIG_DATA][entity_type])
 
     def _get_pipeline_configurations(self, manager, project):
         """
@@ -788,14 +792,14 @@ class ShotgunAPI(object):
         # wss connection. If we've already queried and cached pipeline configs
         # for the current wss connection, then we can just return that back to
         # the caller.
-        if "pipeline_configurations" not in self.WSS_KEY_CACHE[self._wss_key]:
-            self.WSS_KEY_CACHE[self._wss_key]["pipeline_configurations"] = dict()
+        if self.PIPELINE_CONFIGS not in self.WSS_KEY_CACHE[self._wss_key]:
+            self.WSS_KEY_CACHE[self._wss_key][self.PIPELINE_CONFIGS] = dict()
 
         # The configs are stored by project id. We can pull the dict out of the
         # cache and check to see if our project has already been added. If it
         # has then we return it back to the caller. If not, we query what we
         # need and cache the results for next time.
-        pc_data = self.WSS_KEY_CACHE[self._wss_key]["pipeline_configurations"]
+        pc_data = self.WSS_KEY_CACHE[self._wss_key][self.PIPELINE_CONFIGS]
 
         if project["id"] not in pc_data:
             pc_data[project["id"]] = manager.get_pipeline_configurations(
@@ -824,8 +828,8 @@ class ShotgunAPI(object):
         :returns: A list of Shotgun entity dictionaries.
         :rtype: list
         """
-        if "site_state_data" not in self.WSS_KEY_CACHE[self._wss_key]:
-            self.WSS_KEY_CACHE[self._wss_key]["site_state_data"] = []
+        if self.SITE_STATE_DATA not in self.WSS_KEY_CACHE[self._wss_key]:
+            self.WSS_KEY_CACHE[self._wss_key][self.SITE_STATE_DATA] = []
 
             requested_data_specs = self._engine.sgtk.execute_core_hook_method(
                 "browser_integration",
@@ -834,14 +838,14 @@ class ShotgunAPI(object):
 
             for spec in requested_data_specs:
                 entities = self._engine.shotgun.find(**spec)
-                self.WSS_KEY_CACHE[self._wss_key]["site_state_data"].extend(entities)
+                self.WSS_KEY_CACHE[self._wss_key][self.SITE_STATE_DATA].extend(entities)
         else:
             logger.debug("Cached site state data found for %s", self._wss_key)
 
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
         # cache.
-        return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key]["site_state_data"])
+        return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key][self.SITE_STATE_DATA])
 
     def _get_software_entities(self):
         """
@@ -854,11 +858,11 @@ class ShotgunAPI(object):
         :returns: A list of Software entity dictionaries.
         :rtype: list
         """
-        if "software_entities" not in self.WSS_KEY_CACHE[self._wss_key]:
+        if self.SOFTWARE_ENTITIES not in self.WSS_KEY_CACHE[self._wss_key]:
             logger.debug(
                 "Software entities have not been cached for this connection, querying..."
             )
-            self.WSS_KEY_CACHE[self._wss_key]["software_entities"] = self._engine.shotgun.find(
+            self.WSS_KEY_CACHE[self._wss_key][self.SOFTWARE_ENTITIES] = self._engine.shotgun.find(
                 "Software",
                 [],
                 fields=self._engine.shotgun.schema_field_read("Software").keys(),
@@ -869,7 +873,7 @@ class ShotgunAPI(object):
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
         # cache.
-        return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key]["software_entities"])
+        return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key][self.SOFTWARE_ENTITIES])
 
     def _get_subprocess_kwargs(self):
         """
@@ -895,7 +899,7 @@ class ShotgunAPI(object):
         """
         cache = self.WSS_KEY_CACHE[self._wss_key]
 
-        if "task_parent_types" in cache and task_id in cache["task_parent_types"]:
+        if self.TASK_PARENT_TYPES in cache and task_id in cache[self.TASK_PARENT_TYPES]:
             logger.debug("Parent entity type found in cache for Task %s.", task_id)
         else:
             context = sgtk.context.from_entity(
@@ -904,13 +908,9 @@ class ShotgunAPI(object):
                 task_id,
             )
             entity_type = context.entity["type"]
+            cache.setdefault(self.TASK_PARENT_TYPES, dict())[task_id] = entity_type
 
-            if "task_parent_types" in cache:
-                cache["task_parent_types"][task_id] = entity_type
-            else:
-                cache["task_parent_types"] = { task_id: entity_type }
-
-        return cache["task_parent_types"][task_id]
+        return cache[self.TASK_PARENT_TYPES][task_id]
 
     def _process_commands(self, commands, project, entities):
         """
