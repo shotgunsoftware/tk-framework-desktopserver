@@ -12,6 +12,8 @@ from .message import Message
 from .logger import get_logger
 from twisted.internet import reactor
 
+logger = get_logger(__name__)
+
 
 class MessageHost(object):
     """
@@ -52,7 +54,7 @@ class MessageHost(object):
         :param error_message: String error message
         :param data: Optional object data to send in reply
         """
-        get_logger().info("Websocket client error: %s" % error_message)
+        logger.info("Websocket client error: %s" % error_message)
         message = Message(self._message["id"], self._host.protocol_version)
         message.error(error_message, error_data)
 

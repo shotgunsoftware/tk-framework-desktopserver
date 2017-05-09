@@ -17,6 +17,8 @@ import sys
 import traceback
 from .logger import get_logger
 
+logger = get_logger(__name__)
+
 
 class ReadThread(Thread):
     """
@@ -141,7 +143,7 @@ class Command(object):
             except IOError:
                 # This fails on OSX 10.7, but it looks like there's no ill side effect
                 # from failing on that platform so we can ignore it.
-                get_logger().exception("Error while flushing file descriptor:")
+                logger.exception("Error while flushing file descriptor:")
             stdout_t.join()
             stderr_t.join()
 
@@ -154,7 +156,7 @@ class Command(object):
             ret = process.returncode
         except StandardError:
             # Do not log the command line, it might contain sensitive information!
-            get_logger().exception("Error running subprocess:")
+            logger.exception("Error running subprocess:")
 
             ret = 1
             stderr_lines = traceback.format_exc().split()
@@ -235,7 +237,7 @@ class Command(object):
             ret = process.returncode
 
         except StandardError:
-            get_logger().exception("Error running subprocess:")
+            logger.exception("Error running subprocess:")
 
             ret = 1
             stderr_lines = [traceback.format_exc().split()]

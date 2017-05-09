@@ -8,17 +8,13 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import logging
+import sgtk
 
-
-def get_logger(child_logger=None):
+def get_logger(child_logger):
     """
     Returns the logger used by this framework.
     """
-    # Follow 0.18 naming convention so the logging is picked up automatically by the new framework.
-    # Note that Toolkit is not available during startup of the Desktop 1.x so we can't rely on the API
-    # to build a proper logger name.
-    if not child_logger:
-        return logging.getLogger("sgtk.ext.tk-framework-desktopserver")
-    else:
-        return logging.getLogger("sgtk.ext.tk-framework-desktopserver.%s" % child_logger)
+    try:
+        return sgtk.platform.get_logger(child_logger)
+    except:
+        return sgtk.LogManager.get_logger("tk-framework.desktopserver.%s" % child_logger)

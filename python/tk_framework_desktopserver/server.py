@@ -10,7 +10,6 @@
 
 import os
 import threading
-import logging
 
 from .server_protocol import ServerProtocol
 
@@ -22,15 +21,21 @@ from autobahn.twisted.websocket import WebSocketServerFactory, listenWS
 from .errors import MissingCertificateError, PortBusyError
 from . import certificates
 
-from  . import logger
+from .logger import get_logger
+
+from sgtk.platform.qt import QtCore
+
+logger = get_logger(__name__)
 
 
 class Server(object):
     _DEFAULT_PORT = 9000
     _DEFAULT_KEYS_PATH = "../resources/keys"
-    _DEFAULT_WHITELIST = "*.shotgunstudio.com"
 
-    def __init__(self, keys_path, port=None, low_level_debug=False, whitelist=None):
+    class Notifier(QtCore.QObject):
+        different_user_requested = QtCore.Signal(str, int)
+
+    def __init__(self, keys_path, host, user_id, port=None, low_level_debug=False):
         """
         Constructor.
 
@@ -38,22 +43,19 @@ class Server(object):
             current working directory. Mandatory
         :param port: Port to listen for websocket requests from.
         :param low_level_debug: If True, wss traffic will be written to the console.
-        :param whitelist: Comma separated list of sites that can connect to the server.
-            For example:
-                - *.shotgunstudio.com (default)
-                - some-site.shotgunstudio.com
-                - localserver.localnetwork.com
-                - some-site.shotgunstudio.com,some-other-site.shotgunstudio.com
         """
         self._port = port or self._DEFAULT_PORT
         self._keys_path = keys_path or self._DEFAULT_KEYS_PATH
-        self._whitelist = whitelist or self._DEFAULT_WHITELIST
         self._debug = low_level_debug
+        self._host = host
+        self._user_id = user_id
+
+        self.notifier = self.Notifier()
 
         if not os.path.exists(keys_path):
             raise MissingCertificateError(keys_path)
 
-        twisted = logger.get_logger("twisted")
+        twisted = get_logger("twisted")
 
         if self._debug:
             # When running the server in low_level_debug mode, the twisted framework will print out
@@ -76,7 +78,7 @@ class Server(object):
         """
         :returns: The python logger root for the framework.
         """
-        return logger.get_logger()
+        return logger
 
     def _raise_if_missing_certificate(self, certificate_path):
         """
@@ -109,7 +111,9 @@ class Server(object):
         )
 
         self.factory.protocol = ServerProtocol
-        self.factory.websocket_server_whitelist = self._whitelist
+        self.factory.host = self._host
+        self.factory.user_id = self._user_id
+        self.factory.notifier = self.notifier
         self.factory.setProtocolOptions(allowHixie76=True, echoCloseCodeReason=True)
         try:
             self.listener = listenWS(self.factory, self.context_factory)
