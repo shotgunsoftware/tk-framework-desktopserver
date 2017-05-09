@@ -203,7 +203,7 @@ class ShotgunAPI(object):
         """
         # First, let's see if this is even an entity type that we need to worry
         # about. If it isn't, we can just tell the client to stop waiting.
-        if data["entity_type"] not in self._get_entity_type_whitelist():
+        if data["entity_type"] not in self._get_entity_type_whitelist(data.get("project_id")):
             logger.debug(
                 "Entity type %s is not supported, no actions will be returned.",
                 data["entity_type"],
@@ -293,6 +293,7 @@ class ShotgunAPI(object):
                     entity["id"],
                 )
                 pc_data["lookup_hash"] = lookup_hash
+                pc_data["descriptor"] = pc_descriptor
                 contents_hash = pc_data["contents_hash"]
                 cached_data = []
 
@@ -431,7 +432,7 @@ class ShotgunAPI(object):
 
         :param dict data: The data passed down from the wss client.
         :param dict config_data: A dictionary that contains, at a minimum,
-            "lookup_hash", "contents_hash", and "entity" keys.
+            "lookup_hash", "contents_hash", "descriptor", and "entity" keys.
         """
         logger.debug("Caching engine commands...")
 
@@ -452,6 +453,7 @@ class ShotgunAPI(object):
         )
         logger.debug("Python executable: %s", python_exe)
 
+        descriptor = config_data["descriptor"]
         arg_config_data = dict(
             lookup_hash = config_data["lookup_hash"],
             contents_hash=config_data["contents_hash"],
@@ -466,6 +468,7 @@ class ShotgunAPI(object):
                 base_configuration=constants.BASE_CONFIG_URI,
                 engine_name=constants.ENGINE_NAME,
                 config_data=arg_config_data,
+                config_is_mutable=(descriptor.is_immutable == False),
             )
         )
 
@@ -669,30 +672,40 @@ class ShotgunAPI(object):
         else:
             raise RuntimeError("Unable to determine an entity from data: %s" % data)
 
-    def _get_entity_type_whitelist(self):
+    def _get_entity_type_whitelist(self, project_id):
         """
         Gets a set of entity types that are supported by the browser
         integration. This set is built from a list of constant entity
         types, plus all entity types that a PublishedFile entity is
         allowed to link to, per the current site's schema.
 
+        :param int project_id: The associated project entity id. The
+            schema is queried by project, as project-level masking of the
+            PublishedFile entity's linkable types is possible. If no project
+            is given, the site-level schema is queried instead.
+
         :returns: A set of string entity types.
         :rtype: set
         """
-        if self.ENTITY_TYPE_WHITELIST not in self._cache:
+        cache_is_initialized = self.ENTITY_TYPE_WHITELIST in self._cache
+        project_in_cache = project_id in self._cache.get(self.ENTITY_TYPE_WHITELIST, dict())
+
+        if not cache_is_initialized or not project_in_cache:
             type_whitelist = constants.BASE_ENTITY_TYPE_WHITELIST
             schema = self._engine.shotgun.schema_field_read(
                 constants.PUBLISHED_FILE_ENTITY,
+                field_name="entity",
+                project_entity=dict(type="Project", id=project_id),
             )
             linkable_types = schema["entity"]["properties"]["valid_types"]["value"]
             type_whitelist = type_whitelist.union(set(linkable_types))
-            logger.debug("Entity-type whitelist: %s", type_whitelist)
-            self._cache[self.ENTITY_TYPE_WHITELIST] = type_whitelist
+            logger.debug("Entity-type whitelist for project %s: %s", project_id, type_whitelist)
+            self._cache.setdefault(self.ENTITY_TYPE_WHITELIST, dict())[project_id] = type_whitelist
 
         # We'll copy the data out of the cache, as we do elsewhere. This is
         # just to isolate the cache from any changes to the returned data
         # after it's returned.
-        return copy.deepcopy(self._cache[self.ENTITY_TYPE_WHITELIST])
+        return copy.deepcopy(self._cache[self.ENTITY_TYPE_WHITELIST][project_id])
 
     def _get_lookup_hash(self, config_uri, project, entity_type, entity_id):
         """
