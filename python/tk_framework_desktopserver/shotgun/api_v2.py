@@ -56,6 +56,7 @@ class ShotgunAPI(object):
     SITE_STATE_DATA = "site_state_data"
     CONFIG_DATA = "config_data"
     SOFTWARE_ENTITIES = "software_entities"
+    ENTITY_TYPE_WHITELIST = "entity_type_whitelist"
 
     def __init__(self, host, process_manager, wss_key):
         """
@@ -75,6 +76,8 @@ class ShotgunAPI(object):
 
         if self._wss_key not in self.WSS_KEY_CACHE:
             self.WSS_KEY_CACHE[self._wss_key] = dict()
+
+        self._cache = self.WSS_KEY_CACHE[self._wss_key]
 
         # Cache path on disk.
         self._cache_path = os.path.join(
@@ -198,6 +201,22 @@ class ShotgunAPI(object):
             the dict should contain the following keys: project_id, entity_id,
             entity_type, pipeline_configs, and user.
         """
+        # First, let's see if this is even an entity type that we need to worry
+        # about. If it isn't, we can just tell the client to stop waiting.
+        if data["entity_type"] not in self._get_entity_type_whitelist():
+            logger.debug(
+                "Entity type %s is not supported, no actions will be returned.",
+                data["entity_type"],
+            )
+            self.host.reply(
+                dict(
+                    retcode=constants.UNSUPPORTED_ENTITY_TYPE,
+                    err="",
+                    out="",
+                )
+            )
+            return
+
         # If we weren't sent a usable entity id, we can just query the first one
         # from the project. This isn't a big deal for us, because we're only
         # concerned with picking the correct environment when we bootstrap
@@ -503,7 +522,7 @@ class ShotgunAPI(object):
 
         # Once the config is cloned, we need to invalidate the in-memory cache
         # that contains the PipelineConfiguration entities queried from SG.
-        del self.WSS_KEY_CACHE[self._wss_key][self.PIPELINE_CONFIGS]
+        del self._cache[self.PIPELINE_CONFIGS]
 
     def _filter_by_project(self, actions, sw_entities, project):
         """
@@ -650,6 +669,31 @@ class ShotgunAPI(object):
         else:
             raise RuntimeError("Unable to determine an entity from data: %s" % data)
 
+    def _get_entity_type_whitelist(self):
+        """
+        Gets a set of entity types that are supported by the browser
+        integration. This set is built from a list of constant entity
+        types, plus all entity types that a PublishedFile entity is
+        allowed to link to, per the current site's schema.
+
+        :returns: A set of string entity types.
+        :rtype: set
+        """
+        if self.ENTITY_TYPE_WHITELIST not in self._cache:
+            type_whitelist = constants.BASE_ENTITY_TYPE_WHITELIST
+            schema = self._engine.shotgun.schema_field_read(
+                constants.PUBLISHED_FILE_ENTITY,
+            )
+            linkable_types = schema["entity"]["properties"]["valid_types"]["value"]
+            type_whitelist = type_whitelist.union(set(linkable_types))
+            logger.debug("Entity-type whitelist: %s", type_whitelist)
+            self._cache[self.ENTITY_TYPE_WHITELIST] = type_whitelist
+
+        # We'll copy the data out of the cache, as we do elsewhere. This is
+        # just to isolate the cache from any changes to the returned data
+        # after it's returned.
+        return copy.deepcopy(self._cache[self.ENTITY_TYPE_WHITELIST])
+
     def _get_lookup_hash(self, config_uri, project, entity_type, entity_id):
         """
         Computes a unique key for a row in a cache database for the given
@@ -695,7 +739,7 @@ class ShotgunAPI(object):
         :rtype: dict
         """
         entity_type = data["entity_type"]
-        cache = self.WSS_KEY_CACHE[self._wss_key]
+        cache = self._cache
 
         if self.CONFIG_DATA in cache and entity_type in cache[self.CONFIG_DATA]:
             logger.debug("%s pipeline config data found for %s", entity_type, self._wss_key)
@@ -792,14 +836,14 @@ class ShotgunAPI(object):
         # wss connection. If we've already queried and cached pipeline configs
         # for the current wss connection, then we can just return that back to
         # the caller.
-        if self.PIPELINE_CONFIGS not in self.WSS_KEY_CACHE[self._wss_key]:
-            self.WSS_KEY_CACHE[self._wss_key][self.PIPELINE_CONFIGS] = dict()
+        if self.PIPELINE_CONFIGS not in self._cache:
+            self._cache[self.PIPELINE_CONFIGS] = dict()
 
         # The configs are stored by project id. We can pull the dict out of the
         # cache and check to see if our project has already been added. If it
         # has then we return it back to the caller. If not, we query what we
         # need and cache the results for next time.
-        pc_data = self.WSS_KEY_CACHE[self._wss_key][self.PIPELINE_CONFIGS]
+        pc_data = self._cache[self.PIPELINE_CONFIGS]
 
         if project["id"] not in pc_data:
             pc_data[project["id"]] = manager.get_pipeline_configurations(
@@ -828,8 +872,8 @@ class ShotgunAPI(object):
         :returns: A list of Shotgun entity dictionaries.
         :rtype: list
         """
-        if self.SITE_STATE_DATA not in self.WSS_KEY_CACHE[self._wss_key]:
-            self.WSS_KEY_CACHE[self._wss_key][self.SITE_STATE_DATA] = []
+        if self.SITE_STATE_DATA not in self._cache:
+            self._cache[self.SITE_STATE_DATA] = []
 
             requested_data_specs = self._engine.sgtk.execute_core_hook_method(
                 "browser_integration",
@@ -838,14 +882,14 @@ class ShotgunAPI(object):
 
             for spec in requested_data_specs:
                 entities = self._engine.shotgun.find(**spec)
-                self.WSS_KEY_CACHE[self._wss_key][self.SITE_STATE_DATA].extend(entities)
+                self._cache[self.SITE_STATE_DATA].extend(entities)
         else:
             logger.debug("Cached site state data found for %s", self._wss_key)
 
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
         # cache.
-        return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key][self.SITE_STATE_DATA])
+        return copy.deepcopy(self._cache[self.SITE_STATE_DATA])
 
     def _get_software_entities(self):
         """
@@ -858,11 +902,13 @@ class ShotgunAPI(object):
         :returns: A list of Software entity dictionaries.
         :rtype: list
         """
-        if self.SOFTWARE_ENTITIES not in self.WSS_KEY_CACHE[self._wss_key]:
+        cache = self._cache
+
+        if self.SOFTWARE_ENTITIES not in cache:
             logger.debug(
                 "Software entities have not been cached for this connection, querying..."
             )
-            self.WSS_KEY_CACHE[self._wss_key][self.SOFTWARE_ENTITIES] = self._engine.shotgun.find(
+            cache[self.SOFTWARE_ENTITIES] = self._engine.shotgun.find(
                 "Software",
                 [],
                 fields=self._engine.shotgun.schema_field_read("Software").keys(),
@@ -873,7 +919,7 @@ class ShotgunAPI(object):
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
         # cache.
-        return copy.deepcopy(self.WSS_KEY_CACHE[self._wss_key][self.SOFTWARE_ENTITIES])
+        return copy.deepcopy(cache[self.SOFTWARE_ENTITIES])
 
     def _get_subprocess_kwargs(self):
         """
@@ -897,7 +943,7 @@ class ShotgunAPI(object):
         """
         Gets the Task entity's parent entity type.
         """
-        cache = self.WSS_KEY_CACHE[self._wss_key]
+        cache = self._cache
 
         if self.TASK_PARENT_TYPES in cache and task_id in cache[self.TASK_PARENT_TYPES]:
             logger.debug("Parent entity type found in cache for Task %s.", task_id)

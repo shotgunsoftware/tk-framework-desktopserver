@@ -28,3 +28,16 @@ else:
     BASE_CONFIG_URI = "sgtk:descriptor:app_store?name=tk-config-basic"
 
 ENGINE_NAME = "tk-shotgun"
+PUBLISHED_FILE_ENTITY = "PublishedFile"
+
+# The base set of supported entity types. All others are provided
+# by the PublishedFile entity's schema, where we pull the list of
+# entity types that it can be linked to. Out of the box, this will
+# include things like Asset, Shot, Episode, and Level.
+BASE_ENTITY_TYPE_WHITELIST = set([
+    "Project",
+    PUBLISHED_FILE_ENTITY,
+    "Sequence",
+    "Task",
+    "Version",
+])
