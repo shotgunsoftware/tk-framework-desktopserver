@@ -8,11 +8,8 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import os
 import json
-import re
 import datetime
-from urlparse import urlparse
 import OpenSSL
 import threading
 
@@ -26,6 +23,8 @@ from autobahn import websocket
 from autobahn.twisted.websocket import WebSocketServerProtocol
 from twisted.internet import error, reactor
 
+logger = get_logger(__name__)
+
 
 class ServerProtocol(WebSocketServerProtocol):
     """
@@ -38,16 +37,8 @@ class ServerProtocol(WebSocketServerProtocol):
     LOCK = threading.Lock()
 
     def __init__(self):
-        self._logger = get_logger()
         self._process_manager = ProcessManager.create()
         self._protocol_version = 2
-
-    @property
-    def logger(self):
-        """
-        The log handler.
-        """
-        return self._logger
 
     @property
     def process_manager(self):
@@ -63,7 +54,7 @@ class ServerProtocol(WebSocketServerProtocol):
         """
         return self._protocol_version
 
-    def onClose(self, wasClean, code, reason):
+    def onClose(self, was_clean, code, reason):
         pass
 
     def connectionLost(self, reason):
@@ -76,49 +67,42 @@ class ServerProtocol(WebSocketServerProtocol):
             # Known certificate error. These work for firefox and safari, but chrome rejected certificate
             # are currently indistinguishable from lost connection. This is true as of July 21st, 2015.
             certificate_error = False
-            certificate_error |= reason.type is OpenSSL.SSL.Error and reason.value.message[0][2] == 'ssl handshake failure'
-            certificate_error |= reason.type is OpenSSL.SSL.Error and reason.value.message[0][2] == 'tlsv1 alert unknown ca'
+            certificate_error |= (
+                reason.type is OpenSSL.SSL.Error and
+                reason.value.message[0][2] == 'ssl handshake failure'
+            )
+            certificate_error |= (
+                reason.type is OpenSSL.SSL.Error and
+                reason.value.message[0][2] == 'tlsv1 alert unknown ca'
+            )
             certificate_error |= bool(reason.check(error.CertificateError))
 
             if certificate_error:
-                self._logger.info("Certificate error!")
+                logger.info("Certificate error!")
                 StatusServerProtocol.serverStatus = StatusServerProtocol.SSL_CERTIFICATE_INVALID
             else:
-                self._logger.info("Connection closed.")
+                logger.info("Connection closed.")
                 StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
         except Exception:
-            self._logger.exception("Unexpected error while losing connection.")
+            logger.exception("Unexpected error while losing connection.")
             StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
 
-        self._logger.debug("Reason received for connection loss: %s", reason) 
+        logger.debug("Reason received for connection loss: %s", reason)
 
     def onConnect(self, response):
         """
         Called upon client connection to server. This is where we decide if we accept the connection
-        or refuse it based on domain origin filtering.
+        or refuse it based on domain origin.
 
         :param response: Object Response information.
         """
-
         # If we reach this point, then it means SSL handshake went well..
         StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTED
+        self._origin = response.origin.lower()
+        logger.info("Connection accepted.")
+        self._wss_key = response.headers["sec-websocket-key"]
 
-        domain_valid = False
-        try:
-            # response.origin: xyz.shotgunstudio.com
-            domain_valid = self._is_domain_valid(response.origin)
-        except:
-            self._logger.exception("Unexpected error while trying to determine the originating domain.")
-
-        if not domain_valid:
-            self._logger.info("Invalid domain: %s" % response.origin)
-            # Don't accept connection
-            raise websocket.http.HttpException(403, "Domain origin was rejected by server.")
-        else:
-            self._logger.info("Connection accepted.")
-            self._wss_key = response.headers["sec-websocket-key"]
-
-    def onMessage(self, payload, isBinary):
+    def onMessage(self, payload, is_binary):
         """
         Called by 'WebSocketServerProtocol' when we receive a message from the websocket
 
@@ -129,10 +113,11 @@ class ServerProtocol(WebSocketServerProtocol):
         """
 
         # We don't currently handle any binary messages
-        if isBinary:
+        if is_binary:
             return
 
         decoded_payload = payload.decode("utf8")
+
         # Special message to get protocol version for this protocol. This message doesn't follow the standard
         # message format as it doesn't require a protocol version to be retrieved and is not json-encoded.
         if decoded_payload == "get_protocol_version":
@@ -156,6 +141,34 @@ class ServerProtocol(WebSocketServerProtocol):
             return
 
         self._protocol_version = message["protocol_version"]
+
+        if self._protocol_version == 2:
+
+            # Version 2 of the protocol can only answer requests from the site and user the server
+            # is authenticated into. Validate this.
+
+            # origin is formatted such as https://xyz.shotgunstudio.com:port_number
+            # host is https://xyz.shotgunstudio.com:port_number
+            origin_network = self._origin.lower()
+            host_network = self.factory.host.lower()
+
+            # Try to get the user information. If that fails, we need to report the error.
+            try:
+                user_id = message["command"]["data"]["user"]["entity"]["id"]
+            except Exception:
+                logger.exception("Unexpected error while trying to retrieve the user id.")
+                self.sendClose(3000, u"No user information was found in this request.")
+                return
+
+            # If the hosts are different or the user ids are different, report an error.
+            if host_network != origin_network or user_id != self.factory.user_id:
+                self.factory.notifier.different_user_requested.emit(self._origin, user_id)
+                self.sendClose(
+                    3001,
+                    u"You are not authorized to make browser integration requests. "
+                    u"Please re-authenticate in your desktop application."
+                )
+                return
 
         # Run each request from a thread, even though it might be something very simple like opening a file. This
         # will ensure the server is as responsive as possible. Twisted will take care of the thread.
@@ -237,7 +250,7 @@ class ServerProtocol(WebSocketServerProtocol):
         error["error_message"] = message
 
         # Log error to console
-        self._logger.warning("Error in reply: " + message)
+        logger.warning("Error in reply: " + message)
 
         self.json_reply(error)
 
@@ -253,72 +266,10 @@ class ServerProtocol(WebSocketServerProtocol):
         is_binary = False
         self.sendMessage(payload, is_binary)
 
-    def _wildcard_match(self, wildcard, match):
-        """
-        Matches a string that may contain wildcard (*) with another string.
-
-        :param wildcard: String that may contain wildcards
-        :param match: String to match with.
-        :return: True if there is a match, False otherwise
-        """
-
-        #
-        # Make a regex with wildcard string by substituting every '*' with .* and make sure to keep '.' intact.
-        #    ex: from *.shotgunstudios.com   -->   '.*(\\.shotgunstudios\\.com)$'
-
-        # Regex string to build
-        expr_str = ""
-
-        wildcard_tokens = wildcard.split("*")
-        for i in range(0, len(wildcard_tokens)):
-            token = wildcard_tokens[i]
-
-            # Make token regex literal (we want to keep '.' for instance)
-            literal = "(" + re.escape(token) + ")"
-
-            expr_str += literal
-
-            if i >= (len(wildcard_tokens) - 1):
-                # Make sure there can't be any other character at the end
-                expr_str += "$"
-            else:
-                expr_str += ".*"
-
-        # Match regexp
-        exp = re.compile(expr_str, re.IGNORECASE)
-        match = exp.match(match)
-
-        if match:
-            return True
-        else:
-            return False
-
-    def _is_domain_valid(self, origin_str):
-        """
-        Filters for valid origin domain names.
-
-        :param origin_str: Domain origin string (ex: http://localhost:8080)
-        :return: True if domain is accepted, False otherwise
-        """
-        domain_env = os.environ.get("SHOTGUN_PLUGIN_DOMAIN_RESTRICTION", self.factory.websocket_server_whitelist)
-
-        origin = urlparse(origin_str)
-
-        # split domain on commas
-        domain_match = False
-        domains = domain_env.split(",")
-        for domain in domains:
-            domain = domain.strip()
-
-            domain_match = self._wildcard_match(domain, origin.hostname)
-            if domain_match:
-                break
-
-        return domain_match
-
     def _json_date_handler(self, obj):
         """
-        JSON stringify python date handler from: http://stackoverflow.com/questions/455580/json-datetime-between-python-and-javascript
+        JSON stringify python date handler from:
+        http://stackoverflow.com/questions/455580/json-datetime-between-python-and-javascript
         :returns: return a serializable version of obj or raise TypeError
         :raises: TypeError if a serializable version of the object cannot be made
         """

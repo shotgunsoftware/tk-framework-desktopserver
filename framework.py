@@ -26,11 +26,37 @@ class DesktopserverFramework(sgtk.platform.Framework):
         self._settings = None
         self._tk_framework_desktopserver = None
 
+    def add_different_user_requested_callback(self, cb):
+        """
+        Registers a callback to know when a different user or site is making browser integration requests.
+        The caller is not waiting for the callback to return.
+
+        :param function cb: Callback of the form:
+            def callback(site, user_id):
+                '''
+                Called when the site or user is different than the current site or user.
+
+                :param str site: Url of the site the request is coming from.
+                :param int user_id: Id of the HumanUser who made the request.
+                '''
+        """
+        # Lazy-init because engine is initialized after its frameworks, so QtCore is not initialized yet.
+        from sgtk.platform.qt import QtCore
+        if self._server:
+            self._server.notifier.different_user_requested.connect(cb, type=QtCore.Qt.QueuedConnection)
+
     ##########################################################################################
     # init and destroy
-    def launch_desktop_server(self):
+    def launch_desktop_server(self, host, user_id):
         """
         Initializes the desktop server.
+
+        The server actually supports two protocols, named v1 and v2. v1 can be used to process requests from any
+        users from any sites, while v2 can only be used to process requests from the currently authenticated
+        user.
+
+        :param str host: Host for which we desire to answer requests.
+        :param int user_id: Id of the user for which we desire to answer requests.
         """
         self._tk_framework_desktopserver = self.import_module("tk_framework_desktopserver")
 
@@ -67,10 +93,11 @@ class DesktopserverFramework(sgtk.platform.Framework):
             self.__ensure_certificate_ready()
 
             self._server = self._tk_framework_desktopserver.Server(
-                port=self._settings.port,
+                keys_path=self._settings.certificate_folder,
+                host=host,
+                user_id=user_id,
                 low_level_debug=self._settings.low_level_debug,
-                whitelist=self._settings.whitelist,
-                keys_path=self._settings.certificate_folder
+                port=self._settings.port
             )
 
             self._server.start()
