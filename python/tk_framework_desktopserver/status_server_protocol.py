@@ -14,9 +14,8 @@ import re
 import datetime
 from urlparse import urlparse
 
-from shotgun_api import ShotgunAPI
-from message_host import MessageHost
-from message import Message
+from .message_host import MessageHost
+from .message import Message
 
 from autobahn import websocket
 from autobahn.twisted.websocket import WebSocketServerProtocol
