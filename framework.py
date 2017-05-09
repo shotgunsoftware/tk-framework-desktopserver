@@ -26,9 +26,9 @@ class DesktopserverFramework(sgtk.platform.Framework):
         self._settings = None
         self._tk_framework_desktopserver = None
 
-    def add_diffrent_user_requested_callback(self, cb):
+    def add_different_user_requested_callback(self, cb):
         """
-        Registers a callback for know when a different user or site is making browser integration requests.
+        Registers a callback to know when a different user or site is making browser integration requests.
         The caller is not waiting for the callback to return.
 
         :param function cb: Callback of the form:
@@ -50,6 +50,13 @@ class DesktopserverFramework(sgtk.platform.Framework):
     def launch_desktop_server(self, host, user_id):
         """
         Initializes the desktop server.
+
+        The server actually supports two protocols, named v1 and v2. v1 can be used to process requests from any
+        users from any sites, while v2 can only be used to process requests from the currently authenticated
+        user.
+
+        :param str host: Host for which we desire to answer requests.
+        :param int user_id: Id of the user for which we desire to answer requests.
         """
         self._tk_framework_desktopserver = self.import_module("tk_framework_desktopserver")
 
