@@ -468,7 +468,7 @@ class ShotgunAPI(object):
                 base_configuration=constants.BASE_CONFIG_URI,
                 engine_name=constants.ENGINE_NAME,
                 config_data=arg_config_data,
-                config_is_mutable=(descriptor.is_immutable == False),
+                config_is_mutable=(descriptor.is_immutable() == False),
             )
         )
 

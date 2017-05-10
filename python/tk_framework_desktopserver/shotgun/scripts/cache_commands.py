@@ -91,6 +91,8 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
     # engine commands. We only do this for mutable configs, as it doesn't
     # make sense to ask for upgrade information for a config that can't be
     # upgraded.
+    logger.debug("Configuration data: %s", config_data)
+
     if data["entity_type"].lower() == "project" and config_is_mutable:
         logger.debug("Registering core and app upgrade commands...")
         commands.extend([
@@ -114,7 +116,10 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
             ),
         ])
     else:
-        logger.debug("Not registering core and app update commands.")
+        if config_is_mutable:
+            logger.debug("Not a Project entity: not registering core and app update commands.")
+        else:
+            logger.debug("Config is immutable: not registering core and app update commands.")
 
     for cmd_name, data in engine.commands.iteritems():
         logger.debug("Processing command: %s", cmd_name)
