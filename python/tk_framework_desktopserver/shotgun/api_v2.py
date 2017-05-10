@@ -687,6 +687,13 @@ class ShotgunAPI(object):
         :returns: A set of string entity types.
         :rtype: set
         """
+        if project_id is None:
+            logger.debug("Project id is None, looking up site schema.")
+            project_entity = None
+        else:
+            project_entity = dict(type="Project", id=project_id)
+            logger.debug("Looking up schema for project %s", project_entity)
+
         cache_is_initialized = self.ENTITY_TYPE_WHITELIST in self._cache
         project_in_cache = project_id in self._cache.get(self.ENTITY_TYPE_WHITELIST, dict())
 
@@ -695,7 +702,7 @@ class ShotgunAPI(object):
             schema = self._engine.shotgun.schema_field_read(
                 constants.PUBLISHED_FILE_ENTITY,
                 field_name="entity",
-                project_entity=dict(type="Project", id=project_id),
+                project_entity=project_entity,
             )
             linkable_types = schema["entity"]["properties"]["valid_types"]["value"]
             type_whitelist = type_whitelist.union(set(linkable_types))
