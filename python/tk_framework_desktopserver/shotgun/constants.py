@@ -34,6 +34,11 @@ PUBLISHED_FILE_ENTITY = "PublishedFile"
 # by the PublishedFile entity's schema, where we pull the list of
 # entity types that it can be linked to. Out of the box, this will
 # include things like Asset, Shot, Episode, and Level.
+#
+# Once combined with the PublishedFile's entity link types, this
+# forms the list of entity types that we provide action menu items
+# for. Any entity type requesting action menu items that is not in
+# the whitelist is informed that none will be provided.
 BASE_ENTITY_TYPE_WHITELIST = set([
     "Project",
     PUBLISHED_FILE_ENTITY,
