@@ -56,7 +56,7 @@ def bootstrap(data, base_configuration, engine_name, config_data):
 
     return engine
 
-def cache(cache_file, data, base_configuration, engine_name, config_data):
+def cache(cache_file, data, base_configuration, engine_name, config_data, config_is_mutable):
     """
     Populates the sqlite cache with a row representing the desired pipeline
     configuration and entity type. If an entry already exists, it is updated.
@@ -71,6 +71,8 @@ def cache(cache_file, data, base_configuration, engine_name, config_data):
         dict is keyed by pipeline config entity id, each containing a dict
         that contains, at a minimum, "entity", "lookup_hash", and
         "contents_hash" keys.
+    :param bool config_is_mutable: Whether the pipeline config is mutable. If
+        it is, then we include the __core_info and __upgrade_check commands.
     """
     engine = bootstrap(data, base_configuration, engine_name, config_data)
 
@@ -86,8 +88,12 @@ def cache(cache_file, data, base_configuration, engine_name, config_data):
     commands = []
 
     # Slug in the "special" commands that aren't associated with registered
-    # engine commands.
-    if data["entity_type"].lower() == "project":
+    # engine commands. We only do this for mutable configs, as it doesn't
+    # make sense to ask for upgrade information for a config that can't be
+    # upgraded.
+    logger.debug("Configuration data: %s", config_data)
+
+    if data["entity_type"].lower() == "project" and config_is_mutable:
         logger.debug("Registering core and app upgrade commands...")
         commands.extend([
             dict(
@@ -110,7 +116,10 @@ def cache(cache_file, data, base_configuration, engine_name, config_data):
             ),
         ])
     else:
-        logger.debug("Not registering core and app update commands.")
+        if config_is_mutable:
+            logger.debug("Not a Project entity: not registering core and app update commands.")
+        else:
+            logger.debug("Config is immutable: not registering core and app update commands.")
 
     for cmd_name, data in engine.commands.iteritems():
         logger.debug("Processing command: %s", cmd_name)
@@ -218,6 +227,7 @@ if __name__ == "__main__":
         arg_data["base_configuration"],
         arg_data["engine_name"],
         arg_data["config_data"],
+        arg_data["config_is_mutable"],
     )
 
     sys.exit(0)
