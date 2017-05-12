@@ -23,8 +23,8 @@ import copy
 
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
-from sgtk.util import process
 from . import constants
+from .. import command
 
 logger = sgtk.platform.get_logger(__name__)
 
@@ -167,27 +167,25 @@ class ShotgunAPI(object):
         )
         logger.debug("Python executable: %s", python_exe)
 
-        try:
-            kwargs = self._get_subprocess_kwargs()
-            args = [python_exe, script, args_file]
-            logger.debug("Subprocess arguments: %s", args)
-            output = process.subprocess_check_output(
-                args,
-                **kwargs
-            )
-        except process.SubprocessCalledProcessError as exc:
-            if output:
-                logger.error(output)
-            self.host.report_error(exc.message)
-            raise
+        args = [python_exe, script, args_file]
+        logger.debug("Subprocess arguments: %s", args)
+        retcode, stdout, stderr = command.Command.call_cmd(args)
+
+        if retcode == 0:
+            logger.debug("Command stdout: %s", stdout)
+            logger.debug("Command stderr: %s", stderr)
         else:
-            logger.debug(output)
+            logger.error("Command failed: %s", args)
+            logger.error("Failed command stdout: %s", stdout)
+            logger.error("Failed command stderr: %s", stderr)
+            self.host.report_error("%s\n\n%s" % (stdout, stderr))
+            return
 
         logger.debug("Command execution complete.")
         self.host.reply(
             dict(
                 retcode=constants.COMMAND_SUCCEEDED,
-                out=output,
+                out=stdout + stderr,
                 err="",
             ),
         )
@@ -361,7 +359,7 @@ class ShotgunAPI(object):
                         self._cache_actions(data, pc_data)
                         self.get_actions(data)
                         return
-                except process.SubprocessCalledProcessError as exc:
+                except RuntimeError as exc:
                     logger.error(str(exc))
                     self.host.reply(
                         dict(
@@ -472,21 +470,18 @@ class ShotgunAPI(object):
             )
         )
 
-        output = None
+        args = [python_exe, script, args_file]
+        logger.debug("Command arguments: %s", args)
 
-        try:
-            kwargs = self._get_subprocess_kwargs()
-            output = process.subprocess_check_output(
-                [python_exe, script, args_file],
-                **kwargs
-            )
-        except process.SubprocessCalledProcessError:
-            if output:
-                logger.error(output)
-            # This will bubble up to get_actions and be handled there.
-            raise
+        retcode, stdout, stderr = command.Command.call_cmd(args)
+
+        if retcode == 0:
+            logger.debug("Command stdout: %s", stdout)
         else:
-            logger.debug(output)
+            logger.error("Command failed: %s", args)
+            logger.error("Failed command stdout: %s", stdout)
+            logger.error("Failed command stderr: %s", stderr)
+            raise RuntimeError("%s\n\n%s" % (stdout, stderr))
 
         logger.debug("Caching complete.")
 
@@ -940,24 +935,6 @@ class ShotgunAPI(object):
         # any destructive operations on the contents won't bubble up to the
         # cache.
         return copy.deepcopy(cache[self.SOFTWARE_ENTITIES])
-
-    def _get_subprocess_kwargs(self):
-        """
-        Builds a list of kwargs to be passed to subprocesses.
-
-        :returns: A dict of kwargs.
-        :rtype: dict
-        """
-        kwargs = dict()
-
-        # If we're on Windows, we'll want to stop the cmd.exe window
-        # from flashing on/off when our subprocesses are run.
-        if sys.platform == "win32":
-            si = subprocess.STARTUPINFO()
-            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            kwargs["startupinfo"] = si
-
-        return kwargs
 
     def _get_task_parent_entity_type(self, task_id):
         """
