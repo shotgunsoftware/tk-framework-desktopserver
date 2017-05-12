@@ -233,12 +233,12 @@ class ShotgunAPI(object):
 
                 if temp_entity:
                     data["entity_id"] = temp_entity["id"]
-                else:
+                elif data["entity_type"].lower() == "task":
                     self.host.reply(
                         dict(
-                            err="Shotgun Desktop failed to get engine commands.",
+                            err="No Tasks existed when actions were requested. Please refresh the page.",
                             retcode=constants.CACHING_ERROR,
-                            out="Caching failed!",
+                            out="Please refresh the page to get Toolkit actions.",
                         ),
                     )
                     return
@@ -284,12 +284,28 @@ class ShotgunAPI(object):
                 # it'll be a None and we'll need to compute it live. This is
                 # because the lookup hash depends on what the specific Task
                 # entity we're dealing with is linked to.
-                lookup_hash = pc_data["lookup_hash"] or self._get_lookup_hash(
-                    pc_descriptor.get_uri(),
-                    project_entity,
-                    entity["type"],
-                    entity["id"],
-                )
+                try:
+                    lookup_hash = pc_data["lookup_hash"] or self._get_lookup_hash(
+                        pc_descriptor.get_uri(),
+                        project_entity,
+                        entity["type"],
+                        entity["id"],
+                    )
+                except TankTaskNotLinkedError:
+                    # If we're dealing with a Task entity, it needs to be linked
+                    # to something. If it's not, then we have nothing to pass
+                    # back to the client, so we should inform the user as to
+                    # how to proceed.
+                    logger.debug("Task entity %s is not linked to an entity.", entity)
+                    self.host.reply(
+                        dict(
+                            err="Link this Task to an entity and refresh to get Toolkit actions!",
+                            retcode=constants.CACHING_ERROR,
+                            out="",
+                        ),
+                    )
+                    return
+
                 pc_data["lookup_hash"] = lookup_hash
                 pc_data["descriptor"] = pc_descriptor
                 contents_hash = pc_data["contents_hash"]
@@ -659,10 +675,11 @@ class ShotgunAPI(object):
             entity = dict(
                 type=data["entity_type"],
                 id=data["entity_id"],
+                project=project_entity,
             )
             return (project_entity, [entity])
         elif "entity_ids" in data:
-            entities = [dict(type=data["entity_type"], id=i) for i in data["entity_ids"]]
+            entities = [dict(type=data["entity_type"], id=i, project=project_entity) for i in data["entity_ids"]]
             return (project_entity, entities)
         else:
             raise RuntimeError("Unable to determine an entity from data: %s" % data)
@@ -950,7 +967,11 @@ class ShotgunAPI(object):
                 "Task",
                 task_id,
             )
-            entity_type = context.entity["type"]
+
+            if context.entity is None:
+                raise TankTaskNotLinkedError("Task is not linked to an entity.")
+            else:
+                entity_type = context.entity["type"]
             cache.setdefault(self.TASK_PARENT_TYPES, dict())[task_id] = entity_type
 
         return cache[self.TASK_PARENT_TYPES][task_id]
@@ -1005,6 +1026,15 @@ class ShotgunAPI(object):
         if isinstance(item, datetime.datetime):
             return item.isoformat()
         raise TypeError("Item cannot be serialized: %s" % item)
+
+###########################################################################
+# Exceptions
+
+class TankTaskNotLinkedError(sgtk.TankError):
+    """
+    Raised when a Task entity is being processed, but it is not linked to any entity.
+    """
+    pass
 
 
 
