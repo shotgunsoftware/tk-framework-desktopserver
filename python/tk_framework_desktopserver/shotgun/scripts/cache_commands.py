@@ -42,7 +42,14 @@ def bootstrap(data, base_configuration, engine_name, config_data):
     logger = sgtk.LogManager.get_logger(LOGGER_NAME)
     logger.debug("Preparing ToolkitManager for bootstrap.")
 
-    entity = dict(type=data["entity_type"], id=data["entity_id"])
+    entity = dict(
+        type=data["entity_type"],
+        id=data["entity_id"],
+        project=dict(
+            type="Project",
+            id=data["project_id"],
+        ),
+    )
 
     # Setup the bootstrap manager.
     manager = sgtk.bootstrap.ToolkitManager()
@@ -51,6 +58,7 @@ def bootstrap(data, base_configuration, engine_name, config_data):
     manager.base_configuration = base_configuration
     manager.pipeline_configuration = config_data["entity"]["id"]
 
+    logger.debug("Starting %s using entity %s", engine_name, entity)
     engine = manager.bootstrap_engine(engine_name, entity=entity)
     logger.debug("Engine %s started using entity %s", engine, entity)
 

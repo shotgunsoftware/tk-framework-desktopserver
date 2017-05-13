@@ -233,11 +233,17 @@ class ShotgunAPI(object):
 
                 if temp_entity:
                     data["entity_id"] = temp_entity["id"]
-                elif data["entity_type"].lower() == "task":
+                else:
+                    # This is the case if we're on an entity page, but there
+                    # are no entities that exist. The page's pre-caching call
+                    # here can't proceed, but we can let it know what the situation
+                    # is via the retcode, and the tank_action_menu will be sure to
+                    # re-query the actions if an entity is created and the menu
+                    # shown.
                     self.host.reply(
                         dict(
-                            err="No Tasks existed when actions were requested. Please refresh the page.",
-                            retcode=constants.CACHING_ERROR,
+                            err="No entity existed when actions were requested. Please refresh the page.",
+                            retcode=constants.CACHING_NOT_COMPLETED,
                             out="Please refresh the page to get Toolkit actions.",
                         ),
                     )
