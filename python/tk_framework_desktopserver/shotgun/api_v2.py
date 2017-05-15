@@ -39,6 +39,7 @@ class ShotgunAPI(object):
     PUBLIC_API_METHODS = [
         "get_actions",
         "execute_action",
+        "open",
         "pick_file_or_directory",
         "pick_files_or_directories",
     ]
@@ -400,6 +401,25 @@ class ShotgunAPI(object):
                 pcs=[p["entity"]["name"] for p in all_pc_data.values()],
             ),
         )
+
+    def open(self, data):
+        """
+        Open a file on localhost.
+
+        :param dict data: Message payload.
+        """
+        try:
+            # Retrieve filepath.
+            filepath = data.get("filepath")
+            result = self.process_manager.open(filepath)
+
+            # Send back information regarding the success of the operation.
+            reply = {}
+            reply["result"] = result
+
+            self.host.reply(reply)
+        except Exception, e:
+            self.host.report_error(e.message)
 
     def pick_file_or_directory(self, data):
         """
