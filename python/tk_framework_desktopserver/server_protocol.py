@@ -19,7 +19,6 @@ from .status_server_protocol import StatusServerProtocol
 from .process_manager import ProcessManager
 from .logger import get_logger
 
-from autobahn import websocket
 from autobahn.twisted.websocket import WebSocketServerProtocol
 from twisted.internet import error, reactor
 
@@ -142,15 +141,15 @@ class ServerProtocol(WebSocketServerProtocol):
 
         self._protocol_version = message["protocol_version"]
 
+        # origin is formatted such as https://xyz.shotgunstudio.com:port_number
+        # host is https://xyz.shotgunstudio.com:port_number
+        origin_network = self._origin.lower()
+        host_network = self.factory.host.lower()
+
         if self._protocol_version == 2:
 
             # Version 2 of the protocol can only answer requests from the site and user the server
             # is authenticated into. Validate this.
-
-            # origin is formatted such as https://xyz.shotgunstudio.com:port_number
-            # host is https://xyz.shotgunstudio.com:port_number
-            origin_network = self._origin.lower()
-            host_network = self.factory.host.lower()
 
             # Try to get the user information. If that fails, we need to report the error.
             try:
@@ -159,16 +158,18 @@ class ServerProtocol(WebSocketServerProtocol):
                 logger.exception("Unexpected error while trying to retrieve the user id.")
                 self.sendClose(3000, u"No user information was found in this request.")
                 return
+        else:
+            user_id = None
 
-            # If the hosts are different or the user ids are different, report an error.
-            if host_network != origin_network or user_id != self.factory.user_id:
-                self.factory.notifier.different_user_requested.emit(self._origin, user_id)
-                self.sendClose(
-                    3001,
-                    u"You are not authorized to make browser integration requests. "
-                    u"Please re-authenticate in your desktop application."
-                )
-                return
+        # If the hosts are different or the user ids are different, report an error.
+        if host_network != origin_network or (user_id is not None and user_id != self.factory.user_id):
+            self.factory.notifier.different_user_requested.emit(self._origin, user_id)
+            self.sendClose(
+                3001,
+                u"You are not authorized to make browser integration requests. "
+                u"Please re-authenticate in your desktop application."
+            )
+            return
 
         # Run each request from a thread, even though it might be something very simple like opening a file. This
         # will ensure the server is as responsive as possible. Twisted will take care of the thread.
