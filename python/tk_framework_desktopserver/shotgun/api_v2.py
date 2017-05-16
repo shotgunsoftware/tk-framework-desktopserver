@@ -156,8 +156,6 @@ class ShotgunAPI(object):
             "execute_command.py"
         )
 
-        output = None
-
         # We'll need the Python executable when we shell out. We can't
         # rely on sys.executable, because that's going to be the Desktop
         # exe on Windows. We'll pull from the site config's interpreter
@@ -169,6 +167,12 @@ class ShotgunAPI(object):
 
         args = [python_exe, script, args_file]
         logger.debug("Subprocess arguments: %s", args)
+
+        # Ensure the credentials are still valid before launching the command in
+        # a separate process. We need do to this in advance because the process
+        # that will be launched might not have PySide and as such won't be able
+        # to prompt the user to re-authenticate.
+        sgtk.get_authenticated_user().refresh_credentials()
         retcode, stdout, stderr = command.Command.call_cmd(args)
 
         if retcode == 0:
