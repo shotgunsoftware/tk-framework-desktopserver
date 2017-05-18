@@ -468,7 +468,7 @@ class ShotgunAPI(object):
         :returns: Path to the current core.
         """
         # While core swapping, the Python path is not updated with the new core's Python path,
-        # so make sure the current os if at the front of the Python path for our subprocess.
+        # so make sure the current core is at the front of the Python path for out subprocesses.
         tank_folder = os.path.dirname(sgtk.__file__)
         python_folder = os.path.dirname(tank_folder)
         return [python_folder] + sys.path
