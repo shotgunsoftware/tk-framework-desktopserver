@@ -29,17 +29,14 @@ def app_upgrade_info(engine):
 
     :param engine: The currently-running engine instance.
     """
-    import sgtk
-    logger = sgtk.LogManager.get_logger(LOGGER_NAME)
-
     code_css_block = "display: block; padding: 0.5em 1em; border: 1px solid #bebab0; background: #faf8f0;"
 
-    logger.info(
+    engine.log_info(
         "In order to check if your installed apps and engines are up to date, "
         "you can run the following command in a console:"
     )
 
-    logger.info("")
+    engine.log_info("")
     config_root = engine.sgtk.pipeline_configuration.get_path()
 
     if sys.platform == "win32":
@@ -47,8 +44,8 @@ def app_upgrade_info(engine):
     else:
         tank_cmd = os.path.join(config_root, "tank")
 
-    logger.info("<code style='%s'>%s updates</code>" % (code_css_block, tank_cmd))
-    logger.info("")
+    engine.log_info("<code style='%s'>%s updates</code>" % (code_css_block, tank_cmd))
+    engine.log_info("")
 
 def core_info(engine):
     """
@@ -59,7 +56,6 @@ def core_info(engine):
     """
     import sgtk
     from sgtk.commands.core_upgrade import TankCoreUpdater
-    logger = sgtk.LogManager.get_logger(LOGGER_NAME)
 
     code_css_block = "display: block; padding: 0.5em 1em; border: 1px solid #bebab0; background: #faf8f0;"
 
@@ -72,51 +68,51 @@ def core_info(engine):
     cv = installer.get_current_version_number()
     lv = installer.get_update_version_number()
 
-    logger.info(
+    engine.log_info(
         "You are currently running version %s of the Shotgun Pipeline Toolkit." % cv
     )
 
     if not engine.sgtk.pipeline_configuration.is_localized():
-        logger.info("")
-        logger.info(
+        engine.log_info("")
+        engine.log_info(
             "Your core API is located in <code>%s</code> and is shared with other "
             "projects." % install_root
         )
 
-    logger.info("")
+    engine.log_info("")
     status = installer.get_update_status()
 
     if status == TankCoreUpdater.UP_TO_DATE:
-        logger.info(
+        engine.log_info(
             "<b>You are up to date! There is no need to update the Toolkit "
             "Core API at this time!</b>"
         )
     elif status == TankCoreUpdater.UPDATE_BLOCKED_BY_SG:
         req_sg = installer.get_required_sg_version_for_update()
-        logger.warning(
+        engine.log_warning(
             "<b>A new version (%s) of the core API is available however "
             "it requires a more recent version (%s) of Shotgun!</b>" % (lv, req_sg)
         )
     elif status == TankCoreUpdater.UPDATE_POSSIBLE:
         (summary, url) = installer.get_release_notes()
 
-        logger.info("<b>A new version of the Toolkit API (%s) is available!</b>" % lv)
-        logger.info("")
-        logger.info(
+        engine.log_info("<b>A new version of the Toolkit API (%s) is available!</b>" % lv)
+        engine.log_info("")
+        engine.log_info(
             "<b>Change Summary:</b> %s <a href='%s' target=_new>"
             "Click for detailed Release Notes</a>" % (summary, url)
         )
-        logger.info("")
-        logger.info("In order to upgrade, execute the following command in a shell:")
-        logger.info("")
+        engine.log_info("")
+        engine.log_info("In order to upgrade, execute the following command in a shell:")
+        engine.log_info("")
 
         if sys.platform == "win32":
             tank_cmd = os.path.join(install_root, "tank.bat")
         else:
             tank_cmd = os.path.join(install_root, "tank")
 
-        logger.info("<code style='%s'>%s core</code>" % (code_css_block, tank_cmd))
-        logger.info("")
+        engine.log_info("<code style='%s'>%s core</code>" % (code_css_block, tank_cmd))
+        engine.log_info("")
     else:
         raise sgtk.TankError("Unknown Upgrade state!")
 
@@ -188,7 +184,6 @@ def execute(config, project, name, entities, base_configuration, engine_name):
     engine = bootstrap(config, base_configuration, entity, engine_name)
 
     import sgtk
-    logger = sgtk.LogManager.get_logger(LOGGER_NAME)
 
     # Handle the "special" commands that aren't tied to any registered engine
     # commands.
@@ -222,7 +217,7 @@ def execute(config, project, name, entities, base_configuration, engine_name):
 
     if not command:
         msg = "Unable to find engine command: %s" % name
-        logger.error(msg)
+        engine.log_error(msg)
         raise sgtk.TankError(msg)
 
     # We need to know whether this command is allowed to be run when multiple

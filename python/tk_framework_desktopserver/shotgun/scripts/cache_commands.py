@@ -85,26 +85,22 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
         it is, then we include the __core_info and __upgrade_check commands.
     """
     engine = bootstrap(data, base_configuration, engine_name, config_data)
-
-    import sgtk
-    logger = sgtk.LogManager.get_logger(LOGGER_NAME)
-
-    logger.debug("Raw payload from client: %s", data)
+    engine.log_debug("Raw payload from client: %s", data)
 
     lookup_hash = config_data["lookup_hash"]
     contents_hash = config_data["contents_hash"]
 
-    logger.debug("Processing engine commands...")
+    engine.log_debug("Processing engine commands...")
     commands = []
 
     # Slug in the "special" commands that aren't associated with registered
     # engine commands. We only do this for mutable configs, as it doesn't
     # make sense to ask for upgrade information for a config that can't be
     # upgraded.
-    logger.debug("Configuration data: %s", config_data)
+    engine.log_debug("Configuration data: %s", config_data)
 
     if data["entity_type"].lower() == "project" and config_is_mutable:
-        logger.debug("Registering core and app upgrade commands...")
+        engine.log_debug("Registering core and app upgrade commands...")
         commands.extend([
             dict(
                 name="__core_info",
@@ -127,12 +123,12 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
         ])
     else:
         if config_is_mutable:
-            logger.debug("Not a Project entity: not registering core and app update commands.")
+            engine.log_debug("Not a Project entity: not registering core and app update commands.")
         else:
-            logger.debug("Config is immutable: not registering core and app update commands.")
+            engine.log_debug("Config is immutable: not registering core and app update commands.")
 
     for cmd_name, data in engine.commands.iteritems():
-        logger.debug("Processing command: %s", cmd_name)
+        engine.log_debug("Processing command: %s", cmd_name)
         props = data["properties"]
         app = props.get("app")
 
@@ -157,13 +153,13 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
             ),
         )
 
-    logger.debug("Engine commands processed.")
+    engine.log_debug("Engine commands processed.")
 
     # Connect to the database and get the hashes we need to include in
     # the insert. Each of the lookups call out to the browser_integration
     # core hook.
     with sqlite3.connect(cache_file) as connection:
-        logger.debug("Inserting commands into cache...")
+        engine.log_debug("Inserting commands into cache...")
 
         # This is to handle unicode properly - make sure that sqlite returns 
         # str objects for TEXT fields rather than unicode. Note that any unicode
@@ -183,7 +179,7 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
             table_names = [x[0] for x in ret.fetchall()]
 
             if not table_names:
-                logger.debug("Creating schema in sqlite db.")
+                engine.log_debug("Creating schema in sqlite db.")
 
                 # We have a brand new database. Create all tables and indices.
                 cursor.executescript("""
@@ -206,7 +202,7 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
         )
 
         if cursor.rowcount == 0:
-            logger.debug(
+            engine.log_debug(
                 "Update did not result in any rows altered, inserting..."
             )
             cursor.execute(
@@ -220,7 +216,7 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
         # Tear down the engine. This is both good practice before we exit
         # this process, but also necessary if there are multiple pipeline
         # configs that we're iterating over.
-        logger.debug("Shutting down engine...")
+        engine.log_debug("Shutting down engine...")
         engine.destroy()
 
 if __name__ == "__main__":

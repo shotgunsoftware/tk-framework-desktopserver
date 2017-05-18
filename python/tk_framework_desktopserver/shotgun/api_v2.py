@@ -787,8 +787,8 @@ class ShotgunAPI(object):
             entity_type = self._get_task_parent_entity_type(entity_id)
             logger.debug("Task entity's parent entity type: %s", entity_type)
 
-        return self._engine.sgtk.execute_core_hook_method(
-            "browser_integration",
+        return self._bundle.execute_hook_method(
+            "browser_integration_hook",
             "get_cache_key",
             config_uri=config_uri,
             project=project,
@@ -934,7 +934,7 @@ class ShotgunAPI(object):
     def _get_site_state_data(self):
         """
         Gets state-related data for the site. Exactly what data this is depends
-        on the "browser_integration" core hook's "get_site_state_data" method,
+        on the "browser_integration" hook's "get_site_state_data" method,
         which returns a list of dicts passed to the Shotgun Python API's find
         method as kwargs. The data returned by this method is cached based on
         the WSS connection key provided to the API's constructor at instantiation
@@ -947,8 +947,8 @@ class ShotgunAPI(object):
         if self.SITE_STATE_DATA not in self._cache:
             self._cache[self.SITE_STATE_DATA] = []
 
-            requested_data_specs = self._engine.sgtk.execute_core_hook_method(
-                "browser_integration",
+            requested_data_specs = self._bundle.execute_hook_method(
+                "browser_integration_hook",
                 "get_site_state_data",
             )
 
@@ -1020,7 +1020,7 @@ class ShotgunAPI(object):
         """
         Filters out commands that are not associated with an app, and then
         calls the process_commands methods from the browser_integration
-        core hook, returning the result.
+        hook, returning the result.
 
         :param list commands: The list of command dictionaries to be processed.
         :param dict project: The project entity.
@@ -1043,8 +1043,8 @@ class ShotgunAPI(object):
                     "Command %s filtered out for browser integration.", command
                 )
 
-        return self._engine.sgtk.execute_core_hook_method(
-            "browser_integration",
+        return self._bundle.execute_hook_method(
+            "browser_integration_hook",
             "process_commands",
             commands=filtered,
             project=project,
