@@ -145,7 +145,7 @@ class ShotgunAPI(object):
                 name=data["name"],
                 entities=entities,
                 project=project_entity,
-                sys_path=sys.path,
+                sys_path=self._compute_sys_path(),
                 base_configuration=constants.BASE_CONFIG_URI,
                 engine_name=constants.ENGINE_NAME,
             ),
@@ -463,6 +463,16 @@ class ShotgunAPI(object):
             with contextlib.closing(connection.cursor()) as cursor:
                 yield (connection, cursor)
 
+    def _compute_sys_path(self):
+        """
+        :returns: Path to the current core.
+        """
+        # While core swapping, the Python path is not updated with the new core's Python path,
+        # so make sure the current os if at the front of the Python path for our subprocess.
+        tank_folder = os.path.dirname(sgtk.__file__)
+        python_folder = os.path.dirname(tank_folder)
+        return [python_folder] + sys.path
+
     ###########################################################################
     # Internal methods
 
@@ -504,7 +514,7 @@ class ShotgunAPI(object):
             dict(
                 cache_file=self._cache_path,
                 data=data,
-                sys_path=sys.path,
+                sys_path=self._compute_sys_path(),
                 base_configuration=constants.BASE_CONFIG_URI,
                 engine_name=constants.ENGINE_NAME,
                 config_data=arg_config_data,

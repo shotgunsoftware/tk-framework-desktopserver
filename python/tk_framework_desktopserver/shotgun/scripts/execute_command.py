@@ -137,6 +137,8 @@ def bootstrap(config, base_configuration, entity, engine_name):
     # The local import of sgtk ensures that it occurs after sys.path is set
     # to what the server sent over.
     import sgtk
+    sgtk.LogManager().initialize_base_file_handler("tk-shotgun")
+
     logger = sgtk.LogManager.get_logger(LOGGER_NAME)
 
     # Setup the bootstrap manager.
