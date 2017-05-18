@@ -469,8 +469,8 @@ class ShotgunAPI(object):
         """
         # While core swapping, the Python path is not updated with the new core's Python path,
         # so make sure the current core is at the front of the Python path for out subprocesses.
-        tank_folder = os.path.dirname(sgtk.__file__)
-        python_folder = os.path.dirname(tank_folder)
+        python_folder = sgtk.bootstrap.ToolkitManager.get_core_python_path()
+        logger.debug("Adding %s to sys.path for subprocesses.", python_folder)
         return [python_folder] + sys.path
 
     ###########################################################################
