@@ -62,7 +62,7 @@ def core_info(engine):
     # Create an upgrader instance that we can query if the install is up to date.
     installer = TankCoreUpdater(
         engine.sgtk.pipeline_configuration.get_install_location(),
-        logger,
+        engine._log,
     )
 
     cv = installer.get_current_version_number()

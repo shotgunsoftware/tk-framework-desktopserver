@@ -85,7 +85,7 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
         it is, then we include the __core_info and __upgrade_check commands.
     """
     engine = bootstrap(data, base_configuration, engine_name, config_data)
-    engine.log_debug("Raw payload from client: %s", data)
+    engine.log_debug("Raw payload from client: %s" % data)
 
     lookup_hash = config_data["lookup_hash"]
     contents_hash = config_data["contents_hash"]
@@ -97,7 +97,7 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
     # engine commands. We only do this for mutable configs, as it doesn't
     # make sense to ask for upgrade information for a config that can't be
     # upgraded.
-    engine.log_debug("Configuration data: %s", config_data)
+    engine.log_debug("Configuration data: %s" % config_data)
 
     if data["entity_type"].lower() == "project" and config_is_mutable:
         engine.log_debug("Registering core and app upgrade commands...")
@@ -128,7 +128,7 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
             engine.log_debug("Config is immutable: not registering core and app update commands.")
 
     for cmd_name, data in engine.commands.iteritems():
-        engine.log_debug("Processing command: %s", cmd_name)
+        engine.log_debug("Processing command: %s" % cmd_name)
         props = data["properties"]
         app = props.get("app")
 
