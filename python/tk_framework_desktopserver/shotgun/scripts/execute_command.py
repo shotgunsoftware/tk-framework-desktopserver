@@ -29,14 +29,11 @@ def app_upgrade_info(engine):
 
     :param engine: The currently-running engine instance.
     """
-    code_css_block = "display: block; padding: 0.5em 1em; border: 1px solid #bebab0; background: #faf8f0;"
-
     engine.log_info(
         "In order to check if your installed apps and engines are up to date, "
         "you can run the following command in a console:"
     )
 
-    engine.log_info("")
     config_root = engine.sgtk.pipeline_configuration.get_path()
 
     if sys.platform == "win32":
@@ -44,7 +41,7 @@ def app_upgrade_info(engine):
     else:
         tank_cmd = os.path.join(config_root, "tank")
 
-    engine.log_info("<code style='%s'>%s updates</code>" % (code_css_block, tank_cmd))
+    engine.log_info("*%s updates*" % tank_cmd)
     engine.log_info("")
 
 def core_info(engine):
@@ -56,8 +53,6 @@ def core_info(engine):
     """
     import sgtk
     from sgtk.commands.core_upgrade import TankCoreUpdater
-
-    code_css_block = "display: block; padding: 0.5em 1em; border: 1px solid #bebab0; background: #faf8f0;"
 
     # Create an upgrader instance that we can query if the install is up to date.
     installer = TankCoreUpdater(
@@ -75,7 +70,7 @@ def core_info(engine):
     if not engine.sgtk.pipeline_configuration.is_localized():
         engine.log_info("")
         engine.log_info(
-            "Your core API is located in <code>%s</code> and is shared with other "
+            "Your core API is located in `%s` and is shared with other "
             "projects." % install_root
         )
 
@@ -84,23 +79,22 @@ def core_info(engine):
 
     if status == TankCoreUpdater.UP_TO_DATE:
         engine.log_info(
-            "<b>You are up to date! There is no need to update the Toolkit "
-            "Core API at this time!</b>"
+            "*You are up to date! There is no need to update the Toolkit "
+            "Core API at this time!*"
         )
     elif status == TankCoreUpdater.UPDATE_BLOCKED_BY_SG:
         req_sg = installer.get_required_sg_version_for_update()
         engine.log_warning(
-            "<b>A new version (%s) of the core API is available however "
-            "it requires a more recent version (%s) of Shotgun!</b>" % (lv, req_sg)
+            "*A new version (%s) of the core API is available however "
+            "it requires a more recent version (%s) of Shotgun!*" % (lv, req_sg)
         )
     elif status == TankCoreUpdater.UPDATE_POSSIBLE:
         (summary, url) = installer.get_release_notes()
 
-        engine.log_info("<b>A new version of the Toolkit API (%s) is available!</b>" % lv)
+        engine.log_info("*A new version of the Toolkit API (%s) is available!*" % lv)
         engine.log_info("")
         engine.log_info(
-            "<b>Change Summary:</b> %s <a href='%s' target=_new>"
-            "Click for detailed Release Notes</a>" % (summary, url)
+            "*Change Summary:* %s [Click for detailed Release Notes](%s)" % (summary, url)
         )
         engine.log_info("")
         engine.log_info("In order to upgrade, execute the following command in a shell:")
@@ -111,7 +105,7 @@ def core_info(engine):
         else:
             tank_cmd = os.path.join(install_root, "tank")
 
-        engine.log_info("<code style='%s'>%s core</code>" % (code_css_block, tank_cmd))
+        engine.log_info("*%s core*" % tank_cmd)
         engine.log_info("")
     else:
         raise sgtk.TankError("Unknown Upgrade state!")
