@@ -10,6 +10,7 @@
 
 import sys
 import os
+import re
 import cPickle
 import sqlite3
 import json
@@ -183,14 +184,31 @@ class ShotgunAPI(object):
             logger.error("Command failed: %s", args)
             logger.error("Failed command stdout: %s", stdout)
             logger.error("Failed command stderr: %s", stderr)
-            self.host.report_error("%s\n\n%s" % (stdout, stderr))
+            self.host.reply(
+                dict(
+                    retcode=constants.COMMAND_FAILED,
+                    out=stdout,
+                    err=stderr,
+                )
+            )
             return
+
+        filtered_output = []
+
+        # We need to filter stdout before we send it to the client.
+        # We look for lines that we know came from the custom log
+        # handler that the execute_command script builds, and we
+        # remove that header from those lines and keep them so that
+        # they're passed up to the client.
+        for line in stdout.split("\n"):
+            if line.startswith("SGTK_LOG_OUTPUT:"):
+                filtered_output.append(re.sub(r"^SGTK_LOG_OUTPUT:\s*", "", line))
 
         logger.debug("Command execution complete.")
         self.host.reply(
             dict(
                 retcode=constants.COMMAND_SUCCEEDED,
-                out=stdout + stderr,
+                out="\n".join(filtered_output),
                 err="",
             ),
         )

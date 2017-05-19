@@ -20,7 +20,7 @@ UPGRADE_CHECK_COMMAND = "__upgrade_check"
 # We can't have a global logger instance, because we can't import sgtk
 # in the global scope, but we can go ahead and define the logger name
 # to be used throughout the script.
-LOGGER_NAME = "wss2.execute_command"
+LOGGER_NAME = "wss2.sgtk_command_output"
 
 def app_upgrade_info(engine):
     """
@@ -42,7 +42,6 @@ def app_upgrade_info(engine):
         tank_cmd = os.path.join(config_root, "tank")
 
     engine.log_info("*%s updates*" % tank_cmd)
-    engine.log_info("")
 
 def core_info(engine):
     """
@@ -68,13 +67,11 @@ def core_info(engine):
     )
 
     if not engine.sgtk.pipeline_configuration.is_localized():
-        engine.log_info("")
         engine.log_info(
             "Your core API is located in `%s` and is shared with other "
             "projects." % install_root
         )
 
-    engine.log_info("")
     status = installer.get_update_status()
 
     if status == TankCoreUpdater.UP_TO_DATE:
@@ -92,13 +89,10 @@ def core_info(engine):
         (summary, url) = installer.get_release_notes()
 
         engine.log_info("*A new version of the Toolkit API (%s) is available!*" % lv)
-        engine.log_info("")
         engine.log_info(
             "*Change Summary:* %s [Click for detailed Release Notes](%s)" % (summary, url)
         )
-        engine.log_info("")
         engine.log_info("In order to upgrade, execute the following command in a shell:")
-        engine.log_info("")
 
         if sys.platform == "win32":
             tank_cmd = os.path.join(install_root, "tank.bat")
@@ -106,9 +100,38 @@ def core_info(engine):
             tank_cmd = os.path.join(install_root, "tank")
 
         engine.log_info("*%s core*" % tank_cmd)
-        engine.log_info("")
     else:
         raise sgtk.TankError("Unknown Upgrade state!")
+
+def pre_engine_start_callback(context):
+    """
+    The pre-engine-start callback that's given to the bootstrap API.
+    This callback handles attaching a custom logger to SGTK prior to
+    the Shotgun engine being initialized. This allows us to customize
+    the output of the logger in such a way that it is easily identified
+    and filtered before going back to the client for display.
+
+    :param context: The context object being used during the bootstrap
+        process.
+    """
+    import sgtk
+
+    sgtk.LogManager().initialize_base_file_handler("tk-shotgun")
+
+    # We need to make sure messages from this logger end up going to
+    # stdout. We'll be trapping stdout from the RPC API, which will
+    # give us the output that gets sent back to the client when the
+    # command is completed.
+    handler = logging.StreamHandler(sys.stdout)
+    sgtk.LogManager().initialize_custom_handler(handler)
+
+    # Give it an easily-identifiable format. We'll use this in the RPC API
+    # when filtering stdout before passing it up to the client.
+    formatter = logging.Formatter("SGTK_LOG_OUTPUT: %(message)s")
+    handler.setFormatter(formatter)
+
+    logger = sgtk.LogManager.get_logger(LOGGER_NAME)
+    context.sgtk.log = logger
 
 def bootstrap(config, base_configuration, entity, engine_name):
     """
@@ -143,6 +166,7 @@ def bootstrap(config, base_configuration, entity, engine_name):
     manager.allow_config_overrides = False
     manager.plugin_id = "basic.shotgun"
     manager.base_configuration = base_configuration
+    manager.pre_engine_start_callback = pre_engine_start_callback
 
     if config:
         manager.pipeline_configuration = config.get("id")
