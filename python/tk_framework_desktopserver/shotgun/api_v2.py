@@ -21,6 +21,7 @@ import json
 import fnmatch
 import datetime
 import copy
+import base64
 
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
@@ -200,15 +201,28 @@ class ShotgunAPI(object):
         # handler that the execute_command script builds, and we
         # remove that header from those lines and keep them so that
         # they're passed up to the client.
-        for line in stdout.split("\n"):
-            if line.startswith("SGTK_LOG_OUTPUT:"):
-                filtered_output.append(re.sub(r"^SGTK_LOG_OUTPUT:\s*", "", line))
+        tag = "SGTK:"
+        tag_length = len(tag)
+
+        # We check both stdout and stderr. We identify lines that start with
+        # our tag, and if we find one, we remove the tag, and then base64
+        # decode the rest of the message. The message is encoded this way
+        # because it collapses multi-line log messages into a single line
+        # of text. This is important, because there's only one tag per log
+        # message, and we would otherwise filter out everything in the log
+        # message that wasn't on the first line of text before any newlines.
+        for line in stdout.split("\n") + stderr.split("\n"):
+            if line.startswith(tag):
+                filtered_output.append(base64.b64decode(line[tag_length:]))
+
+        filtered_output_string = "\n".join(filtered_output)
+        logger.debug("Filtered and decoded log output: %s", filtered_output_string)
 
         logger.debug("Command execution complete.")
         self.host.reply(
             dict(
                 retcode=constants.COMMAND_SUCCEEDED,
-                out="\n".join(filtered_output),
+                out=filtered_output_string,
                 err="",
             ),
         )
@@ -769,6 +783,10 @@ class ShotgunAPI(object):
 
         if not cache_is_initialized or not project_in_cache:
             type_whitelist = constants.BASE_ENTITY_TYPE_WHITELIST
+
+            # This will only ever happen once per unique connection. That means
+            # on page refresh it happens, but not every time menu actions are
+            # requested.
             schema = self._engine.shotgun.schema_field_read(
                 constants.PUBLISHED_FILE_ENTITY,
                 field_name="entity",

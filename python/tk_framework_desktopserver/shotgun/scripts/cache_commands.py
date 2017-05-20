@@ -85,6 +85,11 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
         it is, then we include the __core_info and __upgrade_check commands.
     """
     engine = bootstrap(data, base_configuration, engine_name, config_data)
+
+    # Note that from here on out, we have to use the legacy log_* methods
+    # that the engine provides. This is because we're now operating in the
+    # tk-core that is configured for the project, which means we can't
+    # guarantee that it is v0.18+.
     engine.log_debug("Raw payload from client: %s" % data)
 
     lookup_hash = config_data["lookup_hash"]
