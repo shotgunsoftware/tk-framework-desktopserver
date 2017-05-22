@@ -55,6 +55,7 @@ def bootstrap(data, base_configuration, engine_name, config_data):
 
     # Setup the bootstrap manager.
     manager = sgtk.bootstrap.ToolkitManager()
+    manager.caching_policy = manager.CACHE_FULL
     manager.allow_config_overrides = False
     manager.plugin_id = "basic.shotgun"
     manager.base_configuration = base_configuration
