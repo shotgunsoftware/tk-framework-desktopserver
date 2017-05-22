@@ -150,6 +150,7 @@ class ShotgunAPI(object):
                 sys_path=self._compute_sys_path(),
                 base_configuration=constants.BASE_CONFIG_URI,
                 engine_name=constants.ENGINE_NAME,
+                logging_prefix=constants.LOGGING_PREFIX,
             ),
         )
 
@@ -201,7 +202,7 @@ class ShotgunAPI(object):
         # handler that the execute_command script builds, and we
         # remove that header from those lines and keep them so that
         # they're passed up to the client.
-        tag = "SGTK:"
+        tag = constants.LOGGING_PREFIX
         tag_length = len(tag)
 
         # We check both stdout and stderr. We identify lines that start with
@@ -216,9 +217,8 @@ class ShotgunAPI(object):
                 filtered_output.append(base64.b64decode(line[tag_length:]))
 
         filtered_output_string = "\n".join(filtered_output)
-        logger.debug("Filtered and decoded log output: %s", filtered_output_string)
-
         logger.debug("Command execution complete.")
+
         self.host.reply(
             dict(
                 retcode=constants.COMMAND_SUCCEEDED,

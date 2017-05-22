@@ -18,6 +18,7 @@ import functools
 # Special, non-engine commands that we'll need to handle ourselves.
 CORE_INFO_COMMAND = "__core_info"
 UPGRADE_CHECK_COMMAND = "__upgrade_check"
+LOGGING_PREFIX = None
 
 class _Formatter(logging.Formatter):
     """
@@ -32,10 +33,7 @@ class _Formatter(logging.Formatter):
         making output from a logger using this formatter easily identifiable.
         """
         result = super(_Formatter, self).format(*args, **kwargs)
-        return "{tag}:{log_data}".format(
-            tag="SGTK",
-            log_data=base64.b64encode(result),
-        )
+        return "%s%s" % (LOGGING_PREFIX, base64.b64encode(result))
 
 def app_upgrade_info(engine):
     """
@@ -302,6 +300,9 @@ if __name__ == "__main__":
         arg_data = cPickle.load(fh)
 
     sys.path = arg_data["sys_path"]
+
+    global LOGGING_PREFIX
+    LOGGING_PREFIX = arg_data["logging_prefix"]
 
     execute(
         arg_data["config"],
