@@ -12,15 +12,28 @@ import sys
 import cPickle
 import os
 import logging
+import base64
+import functools
 
 # Special, non-engine commands that we'll need to handle ourselves.
 CORE_INFO_COMMAND = "__core_info"
 UPGRADE_CHECK_COMMAND = "__upgrade_check"
+LOGGING_PREFIX = None
 
-# We can't have a global logger instance, because we can't import sgtk
-# in the global scope, but we can go ahead and define the logger name
-# to be used throughout the script.
-LOGGER_NAME = "wss2.execute_command"
+class _Formatter(logging.Formatter):
+    """
+    Custom logging formatter that base64 encodes all log messages.
+    """
+    def format(self, *args, **kwargs):
+        """
+        Encodes log messages as base64. This allows us to collapse multiline
+        log messages into a single line of text. Before presenting the log
+        messages to a user, the caller of execute_command.py will be required
+        to decode the message. Every message is tag at its head with "SGTK:",
+        making output from a logger using this formatter easily identifiable.
+        """
+        result = super(_Formatter, self).format(*args, **kwargs)
+        return "%s%s" % (LOGGING_PREFIX, base64.b64encode(result))
 
 def app_upgrade_info(engine):
     """
@@ -29,17 +42,15 @@ def app_upgrade_info(engine):
 
     :param engine: The currently-running engine instance.
     """
-    import sgtk
-    logger = sgtk.LogManager.get_logger(LOGGER_NAME)
-
-    code_css_block = "display: block; padding: 0.5em 1em; border: 1px solid #bebab0; background: #faf8f0;"
-
-    logger.info(
+    # NOTE: The output here is in Slack-style markdown syntax. This means that
+    # we can do things like *Show this stuff in bold!* and when it makes it to
+    # the web app, the markdown will be handled and we'll end up with a bold
+    # message.
+    engine.log_info(
         "In order to check if your installed apps and engines are up to date, "
         "you can run the following command in a console:"
     )
 
-    logger.info("")
     config_root = engine.sgtk.pipeline_configuration.get_path()
 
     if sys.platform == "win32":
@@ -47,8 +58,7 @@ def app_upgrade_info(engine):
     else:
         tank_cmd = os.path.join(config_root, "tank")
 
-    logger.info("<code style='%s'>%s updates</code>" % (code_css_block, tank_cmd))
-    logger.info("")
+    engine.log_info("*%s updates*" % tank_cmd)
 
 def core_info(engine):
     """
@@ -59,66 +69,82 @@ def core_info(engine):
     """
     import sgtk
     from sgtk.commands.core_upgrade import TankCoreUpdater
-    logger = sgtk.LogManager.get_logger(LOGGER_NAME)
-
-    code_css_block = "display: block; padding: 0.5em 1em; border: 1px solid #bebab0; background: #faf8f0;"
 
     # Create an upgrader instance that we can query if the install is up to date.
+    install_root = engine.sgtk.pipeline_configuration.get_install_location()
+
+    # Note the use of engine.sgtk.log below. Since we don't know for certain
+    # that we're using a v0.18+ tk-core, we can't rely on engine.logger existing.
+    # As such, we're getting at the logger in a way that works with older cores,
+    # even dating back to v0.16.x. This is an approach that is warrented here,
+    # given the backwards-compatibility requirements, and the fact that the
+    # tk-shotgun engine is generally treated as "special" in general.
     installer = TankCoreUpdater(
-        engine.sgtk.pipeline_configuration.get_install_location(),
-        logger,
+        install_root,
+        engine.sgtk.log,
     )
 
     cv = installer.get_current_version_number()
     lv = installer.get_update_version_number()
 
-    logger.info(
+    # NOTE: The output here is in Slack-style markdown syntax. This means that
+    # we can do things like *Show this stuff in bold!* and when it makes it to
+    # the web app, the markdown will be handled and we'll end up with a bold
+    # message.
+    engine.log_info(
         "You are currently running version %s of the Shotgun Pipeline Toolkit." % cv
     )
 
     if not engine.sgtk.pipeline_configuration.is_localized():
-        logger.info("")
-        logger.info(
-            "Your core API is located in <code>%s</code> and is shared with other "
+        engine.log_info(
+            "Your core API is located in `%s` and is shared with other "
             "projects." % install_root
         )
 
-    logger.info("")
     status = installer.get_update_status()
 
     if status == TankCoreUpdater.UP_TO_DATE:
-        logger.info(
-            "<b>You are up to date! There is no need to update the Toolkit "
-            "Core API at this time!</b>"
+        engine.log_info(
+            "*You are up to date! There is no need to update the Toolkit "
+            "Core API at this time!*"
         )
     elif status == TankCoreUpdater.UPDATE_BLOCKED_BY_SG:
         req_sg = installer.get_required_sg_version_for_update()
-        logger.warning(
-            "<b>A new version (%s) of the core API is available however "
-            "it requires a more recent version (%s) of Shotgun!</b>" % (lv, req_sg)
+        engine.log_warning(
+            "*A new version (%s) of the core API is available however "
+            "it requires a more recent version (%s) of Shotgun!*" % (lv, req_sg)
         )
     elif status == TankCoreUpdater.UPDATE_POSSIBLE:
         (summary, url) = installer.get_release_notes()
 
-        logger.info("<b>A new version of the Toolkit API (%s) is available!</b>" % lv)
-        logger.info("")
-        logger.info(
-            "<b>Change Summary:</b> %s <a href='%s' target=_new>"
-            "Click for detailed Release Notes</a>" % (summary, url)
+        engine.log_info("*A new version of the Toolkit API (%s) is available!*" % lv)
+        engine.log_info(
+            "*Change Summary:* %s [Click for detailed Release Notes](%s)" % (summary, url)
         )
-        logger.info("")
-        logger.info("In order to upgrade, execute the following command in a shell:")
-        logger.info("")
+        engine.log_info("In order to upgrade, execute the following command in a shell:")
 
         if sys.platform == "win32":
             tank_cmd = os.path.join(install_root, "tank.bat")
         else:
             tank_cmd = os.path.join(install_root, "tank")
 
-        logger.info("<code style='%s'>%s core</code>" % (code_css_block, tank_cmd))
-        logger.info("")
+        engine.log_info("*%s core*" % tank_cmd)
     else:
         raise sgtk.TankError("Unknown Upgrade state!")
+
+def pre_engine_start_callback(logger, context):
+    """
+    The pre-engine-start callback that's given to the bootstrap API.
+    This callback handles attaching a custom logger to SGTK prior to
+    the Shotgun engine being initialized. This allows us to customize
+    the output of the logger in such a way that it is easily identified
+    and filtered before going back to the client for display.
+
+    :param logger: The logger to inject into the sgtk api instance.
+    :param context: The context object being used during the bootstrap
+        process.
+    """
+    context.sgtk.log = logger
 
 def bootstrap(config, base_configuration, entity, engine_name):
     """
@@ -137,9 +163,30 @@ def bootstrap(config, base_configuration, entity, engine_name):
     # The local import of sgtk ensures that it occurs after sys.path is set
     # to what the server sent over.
     import sgtk
-    sgtk.LogManager().initialize_base_file_handler("tk-shotgun")
+    sgtk.LogManager().initialize_base_file_handler(engine_name)
 
-    logger = sgtk.LogManager.get_logger(LOGGER_NAME)
+    # Note that we don't have enough information here to determine the
+    # name of the environment. As such, we just have to hardcode
+    # that as "project", which isn't necessarily going to be true. For
+    # tk-config-basic it will be, but when we're dealing with classic
+    # configs it often won't be. We have to live with it, though, and
+    # in the end it matters little.
+    logger = sgtk.LogManager.get_logger("env.project.%s" % (engine_name))
+
+    # We need to make sure messages from this logger end up going to
+    # stdout. We'll be trapping stdout from the RPC API, which will
+    # give us the output that gets sent back to the client when the
+    # command is completed.
+    handler = logging.StreamHandler(sys.stdout)
+    sgtk.LogManager().initialize_custom_handler(handler)
+
+    # Give it an easily-identifiable format. We'll use this in the RPC API
+    # when filtering stdout before passing it up to the client. This custom
+    # formatter also base64 encodes the raw log message before adding the
+    # "SGTK:" tag at its head. This will mean that multi-line log messages
+    # are collapsed into a single line of text, which can then be decoded
+    # by the caller of execute_command.py to get the original log message.
+    handler.setFormatter(_Formatter())
 
     # Setup the bootstrap manager.
     logger.debug("Preparing ToolkitManager for bootstrap.")
@@ -153,6 +200,14 @@ def bootstrap(config, base_configuration, entity, engine_name):
     manager.allow_config_overrides = False
     manager.plugin_id = "basic.shotgun"
     manager.base_configuration = base_configuration
+
+    # By building a partial object, we can go ahead and attach the logger
+    # to the callback function, where it will become the first argument
+    # at call time.
+    manager.pre_engine_start_callback = functools.partial(
+        pre_engine_start_callback,
+        logger,
+    )
 
     if config:
         manager.pipeline_configuration = config.get("id")
@@ -188,7 +243,6 @@ def execute(config, project, name, entities, base_configuration, engine_name):
     engine = bootstrap(config, base_configuration, entity, engine_name)
 
     import sgtk
-    logger = sgtk.LogManager.get_logger(LOGGER_NAME)
 
     # Handle the "special" commands that aren't tied to any registered engine
     # commands.
@@ -222,7 +276,7 @@ def execute(config, project, name, entities, base_configuration, engine_name):
 
     if not command:
         msg = "Unable to find engine command: %s" % name
-        logger.error(msg)
+        engine.log_error(msg)
         raise sgtk.TankError(msg)
 
     # We need to know whether this command is allowed to be run when multiple
@@ -246,6 +300,9 @@ if __name__ == "__main__":
         arg_data = cPickle.load(fh)
 
     sys.path = arg_data["sys_path"]
+
+    global LOGGING_PREFIX
+    LOGGING_PREFIX = arg_data["logging_prefix"]
 
     execute(
         arg_data["config"],

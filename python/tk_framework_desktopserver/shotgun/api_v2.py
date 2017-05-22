@@ -10,6 +10,7 @@
 
 import sys
 import os
+import re
 import cPickle
 import sqlite3
 import json
@@ -20,6 +21,7 @@ import json
 import fnmatch
 import datetime
 import copy
+import base64
 
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
@@ -148,6 +150,7 @@ class ShotgunAPI(object):
                 sys_path=self._compute_sys_path(),
                 base_configuration=constants.BASE_CONFIG_URI,
                 engine_name=constants.ENGINE_NAME,
+                logging_prefix=constants.LOGGING_PREFIX,
             ),
         )
 
@@ -183,14 +186,43 @@ class ShotgunAPI(object):
             logger.error("Command failed: %s", args)
             logger.error("Failed command stdout: %s", stdout)
             logger.error("Failed command stderr: %s", stderr)
-            self.host.report_error("%s\n\n%s" % (stdout, stderr))
+            self.host.reply(
+                dict(
+                    retcode=constants.COMMAND_FAILED,
+                    out=stdout,
+                    err=stderr,
+                )
+            )
             return
 
+        filtered_output = []
+
+        # We need to filter stdout before we send it to the client.
+        # We look for lines that we know came from the custom log
+        # handler that the execute_command script builds, and we
+        # remove that header from those lines and keep them so that
+        # they're passed up to the client.
+        tag = constants.LOGGING_PREFIX
+        tag_length = len(tag)
+
+        # We check both stdout and stderr. We identify lines that start with
+        # our tag, and if we find one, we remove the tag, and then base64
+        # decode the rest of the message. The message is encoded this way
+        # because it collapses multi-line log messages into a single line
+        # of text. This is important, because there's only one tag per log
+        # message, and we would otherwise filter out everything in the log
+        # message that wasn't on the first line of text before any newlines.
+        for line in stdout.split("\n") + stderr.split("\n"):
+            if line.startswith(tag):
+                filtered_output.append(base64.b64decode(line[tag_length:]))
+
+        filtered_output_string = "\n".join(filtered_output)
         logger.debug("Command execution complete.")
+
         self.host.reply(
             dict(
                 retcode=constants.COMMAND_SUCCEEDED,
-                out=stdout + stderr,
+                out=filtered_output_string,
                 err="",
             ),
         )
@@ -751,6 +783,10 @@ class ShotgunAPI(object):
 
         if not cache_is_initialized or not project_in_cache:
             type_whitelist = constants.BASE_ENTITY_TYPE_WHITELIST
+
+            # This will only ever happen once per unique connection. That means
+            # on page refresh it happens, but not every time menu actions are
+            # requested.
             schema = self._engine.shotgun.schema_field_read(
                 constants.PUBLISHED_FILE_ENTITY,
                 field_name="entity",
@@ -787,8 +823,8 @@ class ShotgunAPI(object):
             entity_type = self._get_task_parent_entity_type(entity_id)
             logger.debug("Task entity's parent entity type: %s", entity_type)
 
-        return self._engine.sgtk.execute_core_hook_method(
-            "browser_integration",
+        return self._bundle.execute_hook_method(
+            "browser_integration_hook",
             "get_cache_key",
             config_uri=config_uri,
             project=project,
@@ -934,7 +970,7 @@ class ShotgunAPI(object):
     def _get_site_state_data(self):
         """
         Gets state-related data for the site. Exactly what data this is depends
-        on the "browser_integration" core hook's "get_site_state_data" method,
+        on the "browser_integration" hook's "get_site_state_data" method,
         which returns a list of dicts passed to the Shotgun Python API's find
         method as kwargs. The data returned by this method is cached based on
         the WSS connection key provided to the API's constructor at instantiation
@@ -947,8 +983,8 @@ class ShotgunAPI(object):
         if self.SITE_STATE_DATA not in self._cache:
             self._cache[self.SITE_STATE_DATA] = []
 
-            requested_data_specs = self._engine.sgtk.execute_core_hook_method(
-                "browser_integration",
+            requested_data_specs = self._bundle.execute_hook_method(
+                "browser_integration_hook",
                 "get_site_state_data",
             )
 
@@ -1020,7 +1056,7 @@ class ShotgunAPI(object):
         """
         Filters out commands that are not associated with an app, and then
         calls the process_commands methods from the browser_integration
-        core hook, returning the result.
+        hook, returning the result.
 
         :param list commands: The list of command dictionaries to be processed.
         :param dict project: The project entity.
@@ -1043,8 +1079,8 @@ class ShotgunAPI(object):
                     "Command %s filtered out for browser integration.", command
                 )
 
-        return self._engine.sgtk.execute_core_hook_method(
-            "browser_integration",
+        return self._bundle.execute_hook_method(
+            "browser_integration_hook",
             "process_commands",
             commands=filtered,
             project=project,

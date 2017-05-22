@@ -47,3 +47,9 @@ BASE_ENTITY_TYPE_WHITELIST = set([
     "Task",
     "Version",
 ])
+
+# The execute_command.py script creates a custom log handler that
+# logs messages to stdout. Each message is prefixed with a known
+# tag that we can then use after the command completes to identify
+# output that we want to send back to the client.
+LOGGING_PREFIX = "SGTK:"

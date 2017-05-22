@@ -12,6 +12,10 @@
 
 # expected fields in the configuration file for this engine
 configuration:
+    browser_integration_hook:
+        type: hook
+        description: Hook for customizing some aspects of Toolkit's integration with the Shotgun web app.
+        default_value: '{self}/browser_integration.py'
 
 # the Shotgun fields that this engine needs in order to operate correctly
 requires_shotgun_fields:
@@ -22,7 +26,7 @@ description: "Provides the server used to listen to Shotgun client requests, suc
 
 # Required minimum versions for this item to run
 requires_shotgun_version:
-requires_core_version: "v0.14.41"
+requires_core_version: "v0.16.0"
 
  
         
