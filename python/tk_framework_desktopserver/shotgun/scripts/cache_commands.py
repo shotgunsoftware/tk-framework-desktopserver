@@ -128,7 +128,10 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
         ])
     else:
         if config_is_mutable:
-            engine.log_debug("Not a Project entity: not registering core and app update commands.")
+            engine.log_debug(
+                "The config is mutable, but this is not a Project entity: "
+                "not registering core and app update commands."
+            )
         else:
             engine.log_debug("Config is immutable: not registering core and app update commands.")
 
