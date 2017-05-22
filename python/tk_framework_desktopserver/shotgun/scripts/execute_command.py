@@ -300,8 +300,6 @@ if __name__ == "__main__":
         arg_data = cPickle.load(fh)
 
     sys.path = arg_data["sys_path"]
-
-    global LOGGING_PREFIX
     LOGGING_PREFIX = arg_data["logging_prefix"]
 
     execute(
