@@ -287,7 +287,14 @@ def execute(config, project, name, entities, base_configuration, engine_name):
     # We need to know whether this command is allowed to be run when multiple
     # entities are selected. We can look for the special flag in the command's
     # properties to know whether that's the case.
-    ms_flag = sgtk.platform.constants.LEGACY_MULTI_SELECT_ACTION_FLAG
+    try:
+        ms_flag = sgtk.platform.constants.LEGACY_MULTI_SELECT_ACTION_FLAG
+    except AttributeError:
+        # If the constant doesn't exist, it's because we're in a 0.16.x core.
+        # In that case, we just hardcode it to what we know the value to have
+        # been at that time. It's the best we can do.
+        ms_flag = "shotgun_multi_select_action"
+
     props = command["properties"]
     old_style = ms_flag in props
 
