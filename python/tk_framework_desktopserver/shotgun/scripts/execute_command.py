@@ -73,7 +73,12 @@ def core_info(engine):
         from sgtk.commands.core_upgrade import TankCoreUpdater
     except ImportError:
         engine.log_debug("Legacy core detected, importing from sgtk.deploy.tank_commands.")
-        from sgtk.deploy.tank_commands.core_upgrade import TankCoreUpdater
+        try:
+            from sgtk.deploy.tank_commands.core_upgrade import TankCoreUpdater
+        except ImportError:
+            # EVEN MORE LEGACY. In 0.16.x cores, the class is named differently.
+            from sgtk.deploy.tank_commands.core_upgrade import TankCoreUpgrader
+            TankCoreUpdater = TankCoreUpgrader
 
     # Create an upgrader instance that we can query if the install is up to date.
     install_root = engine.sgtk.pipeline_configuration.get_install_location()
@@ -293,7 +298,7 @@ def execute(config, project, name, entities, base_configuration, engine_name):
         # If the constant doesn't exist, it's because we're in a 0.16.x core.
         # In that case, we just hardcode it to what we know the value to have
         # been at that time. It's the best we can do.
-        ms_flag = "shotgun_multi_select_action"
+        ms_flag = "supports_multiple_selection"
 
     props = command["properties"]
     old_style = ms_flag in props
