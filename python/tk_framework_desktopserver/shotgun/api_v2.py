@@ -179,10 +179,7 @@ class ShotgunAPI(object):
         sgtk.get_authenticated_user().refresh_credentials()
         retcode, stdout, stderr = command.Command.call_cmd(args)
 
-        if retcode == 0:
-            logger.debug("Command stdout: %s", stdout)
-            logger.debug("Command stderr: %s", stderr)
-        else:
+        if retcode != 0:
             logger.error("Command failed: %s", args)
             logger.error("Failed command stdout: %s", stdout)
             logger.error("Failed command stderr: %s", stderr)
@@ -751,7 +748,23 @@ class ShotgunAPI(object):
             )
             return (project_entity, [entity])
         elif "entity_ids" in data:
-            entities = [dict(type=data["entity_type"], id=i, project=project_entity) for i in data["entity_ids"]]
+            entities = []
+
+            for entity in data["entity_ids"]:
+                # Did we get an entity list, or a list of entity ids?
+                if isinstance(entity, dict):
+                    if "project" not in entity:
+                        entity["project"] = project_entity
+
+                    entities.append(entity)
+                else:
+                    entities.append(
+                        dict(
+                            type=data["entity_type"],
+                            id=entity,
+                            project=project_entity,
+                        )
+                    )
             return (project_entity, entities)
         else:
             raise RuntimeError("Unable to determine an entity from data: %s" % data)

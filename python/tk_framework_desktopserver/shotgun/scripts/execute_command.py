@@ -68,7 +68,12 @@ def core_info(engine):
     :param engine: The currently-running engine instance.
     """
     import sgtk
-    from sgtk.commands.core_upgrade import TankCoreUpdater
+
+    try:
+        from sgtk.commands.core_upgrade import TankCoreUpdater
+    except ImportError:
+        engine.log_debug("Legacy core detected, importing from sgtk.deploy.tank_commands.")
+        from sgtk.deploy.tank_commands.core_upgrade import TankCoreUpdater
 
     # Create an upgrader instance that we can query if the install is up to date.
     install_root = engine.sgtk.pipeline_configuration.get_install_location()
