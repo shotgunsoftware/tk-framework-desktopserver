@@ -889,6 +889,14 @@ class ShotgunAPI(object):
             for pipeline_config in pipeline_configs:
                 logger.debug("Processing config: %s", pipeline_config)
 
+                # We're not going to need the project field in the config
+                # entity, since we already know what Project we're dealing
+                # with. In the event that the project name has non-ascii
+                # characters in it, it could also cause unicode decode issues
+                # later on. Best to just ditch it now.
+                if "project" in pipeline_config:
+                    del pipeline_config["project"]
+
                 # The hash that acts as the key we'll use to look up our cached
                 # data will be based on the entity type and the pipeline config's
                 # descriptor uri. We can get the descriptor from the toolkit

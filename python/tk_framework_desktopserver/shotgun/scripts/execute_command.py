@@ -68,7 +68,6 @@ def core_info(engine):
     :param engine: The currently-running engine instance.
     """
     import sgtk
-    legacy_updater = False
 
     try:
         from sgtk.commands.core_upgrade import TankCoreUpdater
@@ -78,11 +77,13 @@ def core_info(engine):
             from sgtk.deploy.tank_commands.core_upgrade import TankCoreUpdater
         except ImportError:
             # EVEN MORE LEGACY. In 0.16.x cores, the class is named differently.
+            # We also have changes to method names, which we'll monkey patch.
             from sgtk.deploy.tank_commands.core_upgrade import TankCoreUpgrader
             TankCoreUpdater = TankCoreUpgrader
             TankCoreUpdater.UPDATE_BLOCKED_BY_SG = TankCoreUpdater.UPGRADE_BLOCKED_BY_SG
             TankCoreUpdater.UPDATE_POSSIBLE = TankCoreUpdater.UPGRADE_POSSIBLE
-            legacy_updater = True
+            TankCoreUpdater.get_update_version_number = TankCoreUpdater.get_latest_version_number
+            TankCoreUpdater.get_required_sg_version_for_update = TankCoreUpdater.get_required_sg_version_for_upgrade
 
     # Create an upgrader instance that we can query if the install is up to date.
     install_root = engine.sgtk.pipeline_configuration.get_install_location()
@@ -103,10 +104,7 @@ def core_info(engine):
     # The interface for the core updater changed with the release of tk-core
     # 0.17.x. If we know we're dealing with a core that's 0.16.x, we need to
     # call a different method to get the same information.
-    if legacy_updater:
-        lv = installer.get_latest_version_number()
-    else:
-        lv = installer.get_update_version_number()
+    lv = installer.get_update_version_number()
 
     # NOTE: The output here is in Slack-style markdown syntax. This means that
     # we can do things like *Show this stuff in bold!* and when it makes it to
