@@ -262,7 +262,11 @@ class ServerProtocol(WebSocketServerProtocol):
         :param data: Object Data that will be converted to JSON and sent to client.
         """
         # ensure_ascii allows unicode strings.
-        payload = json.dumps(data, ensure_ascii=False, default=self._json_date_handler).encode("utf8")
+        payload = json.dumps(
+            data,
+            ensure_ascii=False,
+            default=self._json_date_handler,
+        ).encode("utf8")
 
         is_binary = False
         self.sendMessage(payload, is_binary)
