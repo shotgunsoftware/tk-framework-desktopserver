@@ -80,6 +80,8 @@ def core_info(engine):
             # EVEN MORE LEGACY. In 0.16.x cores, the class is named differently.
             from sgtk.deploy.tank_commands.core_upgrade import TankCoreUpgrader
             TankCoreUpdater = TankCoreUpgrader
+            TankCoreUpdater.UPDATE_BLOCKED_BY_SG = TankCoreUpdater.UPGRADE_BLOCKED_BY_SG
+            TankCoreUpdater.UPDATE_POSSIBLE = TankCoreUpdater.UPGRADE_POSSIBLE
             legacy_updater = True
 
     # Create an upgrader instance that we can query if the install is up to date.
