@@ -165,7 +165,7 @@ def pre_engine_start_callback(logger, context):
     """
     context.sgtk.log = logger
 
-def bootstrap(config, base_configuration, entity, engine_name):
+def bootstrap(config, base_configuration, entity, engine_name, bundle_cache_fallback_paths):
     """
     Executes an engine command in the desired environment.
 
@@ -219,6 +219,7 @@ def bootstrap(config, base_configuration, entity, engine_name):
     manager.allow_config_overrides = False
     manager.plugin_id = "basic.shotgun"
     manager.base_configuration = base_configuration
+    manager.bundle_cache_fallback_paths = bundle_cache_fallback_paths
 
     # By building a partial object, we can go ahead and attach the logger
     # to the callback function, where it will become the first argument
@@ -236,7 +237,8 @@ def bootstrap(config, base_configuration, entity, engine_name):
 
     return engine
 
-def execute(config, project, name, entities, base_configuration, engine_name):
+
+def execute(config, project, name, entities, base_configuration, engine_name, bundle_cache_fallback_paths):
     """
     Executes an engine command in the desired environment.
 
@@ -259,7 +261,9 @@ def execute(config, project, name, entities, base_configuration, engine_name):
     else:
         entity = project
 
-    engine = bootstrap(config, base_configuration, entity, engine_name)
+    engine = bootstrap(
+        config, base_configuration, entity, engine_name, bundle_cache_fallback_paths
+    )
 
     import sgtk
 
@@ -335,6 +339,7 @@ if __name__ == "__main__":
         arg_data["entities"],
         arg_data["base_configuration"],
         arg_data["engine_name"],
+        arg_data["bundle_cache_fallback_paths"]
     )
 
     sys.exit(0)

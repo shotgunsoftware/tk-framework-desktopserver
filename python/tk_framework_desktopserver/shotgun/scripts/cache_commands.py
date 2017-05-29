@@ -20,7 +20,7 @@ UPGRADE_CHECK_COMMAND = "__upgrade_check"
 
 LOGGER_NAME = "wss2.cache_commands"
 
-def bootstrap(data, base_configuration, engine_name, config_data):
+def bootstrap(data, base_configuration, engine_name, config_data, bundle_cache_fallback_paths):
     """
     Bootstraps into sgtk and returns the resulting engine instance.
 
@@ -60,6 +60,7 @@ def bootstrap(data, base_configuration, engine_name, config_data):
     manager.plugin_id = "basic.shotgun"
     manager.base_configuration = base_configuration
     manager.pipeline_configuration = config_data["entity"]["id"]
+    manager.bundle_cache_fallback_paths = bundle_cache_fallback_paths
 
     logger.debug("Starting %s using entity %s", engine_name, entity)
     engine = manager.bootstrap_engine(engine_name, entity=entity)
@@ -67,7 +68,15 @@ def bootstrap(data, base_configuration, engine_name, config_data):
 
     return engine
 
-def cache(cache_file, data, base_configuration, engine_name, config_data, config_is_mutable):
+def cache(
+    cache_file,
+    data,
+    base_configuration,
+    engine_name,
+    config_data,
+    config_is_mutable,
+    bundle_cache_fallback_paths
+):
     """
     Populates the sqlite cache with a row representing the desired pipeline
     configuration and entity type. If an entry already exists, it is updated.
@@ -85,7 +94,9 @@ def cache(cache_file, data, base_configuration, engine_name, config_data, config
     :param bool config_is_mutable: Whether the pipeline config is mutable. If
         it is, then we include the __core_info and __upgrade_check commands.
     """
-    engine = bootstrap(data, base_configuration, engine_name, config_data)
+    engine = bootstrap(
+        data, base_configuration, engine_name, config_data, bundle_cache_fallback_paths
+    )
 
     # Note that from here on out, we have to use the legacy log_* methods
     # that the engine provides. This is because we're now operating in the
@@ -243,6 +254,7 @@ if __name__ == "__main__":
         arg_data["engine_name"],
         arg_data["config_data"],
         arg_data["config_is_mutable"],
+        arg_data["bundle_cache_fallback_paths"]
     )
 
     sys.exit(0)
