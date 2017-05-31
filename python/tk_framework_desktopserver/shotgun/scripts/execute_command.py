@@ -316,6 +316,13 @@ def execute(config, project, name, entities, base_configuration, engine_name, bu
     props = command["properties"]
     old_style = ms_flag in props
 
+    # Desktop sets this to the site configuration path. That will cause
+    # problems for us in DCCs if it's allowed to persist, as it's checked
+    # during a routine that ensures the current config matches what's
+    # expected for an open work file. As such, we need to change it to
+    # match the project's config path instead.
+    os.environ["TANK_CURRENT_PC"] = engine.sgtk.pipeline_configuration.get_path()
+
     if old_style:
         entity_ids = [e["id"] for e in entities]
         entity_type = entity["type"]
