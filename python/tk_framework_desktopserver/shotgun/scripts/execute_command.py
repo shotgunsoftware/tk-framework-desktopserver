@@ -290,6 +290,13 @@ def execute(config, project, name, entities, base_configuration, engine_name, bu
         "core",
         "python"
     )
+
+    # We need to make sure that we're not introducing unicode into the
+    # environment. This cropped up with some studio-team apps that ended
+    # up causing some hangs on launch.
+    if isinstance(core_root, unicode):
+        core_root = core_root.encode("utf-8")
+
     sgtk.util.prepend_path_to_env_var(
         "PYTHONPATH",
         core_root,
@@ -321,7 +328,16 @@ def execute(config, project, name, entities, base_configuration, engine_name, bu
     # during a routine that ensures the current config matches what's
     # expected for an open work file. As such, we need to change it to
     # match the project's config path instead.
-    os.environ["TANK_CURRENT_PC"] = engine.sgtk.pipeline_configuration.get_path()
+    config_path = engine.sgtk.pipeline_configuration.get_path()
+
+    # We need to make sure that we don't introduce unicode into the
+    # environment. This appears to happen at times, likely due to some
+    # component of the path built by pipeline_configuration "infecting"
+    # the resulting aggregate path.
+    if isinstance(config_path, unicode):
+        config_path = config_path.encode("utf-8")
+
+    os.environ["TANK_CURRENT_PC"] = config_path
 
     if old_style:
         entity_ids = [e["id"] for e in entities]

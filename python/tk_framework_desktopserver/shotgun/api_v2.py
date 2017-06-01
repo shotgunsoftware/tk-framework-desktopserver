@@ -713,10 +713,13 @@ class ShotgunAPI(object):
             # TODO: Deeper traversal that takes into account possible includes stuff
             # based on environment variables, which this might not catch if the included
             # file is outside of the config. <jbee>
-            for root, dir_names, file_names in os.walk(config_descriptor.get_path()):
-                for file_name in fnmatch.filter(file_names, "*.yml"):
-                    full_path = os.path.join(root, file_name)
-                    yml_files[full_path] = os.path.getmtime(full_path)
+            config_path = config_descriptor.get_path()
+
+            if config_path is not None:
+                for root, dir_names, file_names in os.walk(config_path):
+                    for file_name in fnmatch.filter(file_names, "*.yml"):
+                        full_path = os.path.join(root, file_name)
+                        yml_files[full_path] = os.path.getmtime(full_path)
 
             hashable_data["modtimes"] = yml_files
 
