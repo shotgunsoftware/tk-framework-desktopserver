@@ -142,10 +142,51 @@ class ShotgunAPI(object):
                 return
 
         project_entity, entities = self._get_entities_from_payload(data)
+        config_entity = data["pc"]
+        command_name = data["name"]
+
+        # We have to do a couple of things here. The first is that we ALWAYS
+        # stick to the non-legacy code path for the __core_info and __upgrade_check
+        # commands. Neither of these require a bootstrap to occur, and are therefore
+        # fast when run through the modern code path. In addition, the implementation
+        # of these "special" project-level commands already outputs markdown syntax,
+        # which is preferable to the HTML we would get from the tank command.
+        #
+        # The second bit is that we can identify commands that need to be run in
+        # legacy mode by whether the config entity dictionary we got from the client
+        # contains a "_legacy_config_root" key that was shoved into it when the
+        # get_actions method ran through its own legacy code path. In that case, we
+        # shell out to the tank command by way of our process_manager object instead
+        # of using the modern code path.
+        if command_name not in ["__core_info", "__upgrade_check"]:
+            if "_legacy_config_root" in config_entity:
+                (out, err, retcode) = self.process_manager.execute_toolkit_command(
+                    config_entity["_legacy_config_root"],
+                    "shotgun_run_action",
+                    [data["name"], entities[0]["type"], str(entities[0]["id"])],
+                )
+
+                # Sanitize the output. By going the legacy route here, we're going
+                # to end up with HTML in the output from the tank command. We need
+                # to filter that and sanitize anything we keep, because the client
+                # is going to believe that we're sending v2-style output, which is
+                # taken and displayed as is, and is assumed to be markdown and not
+                # HTML.
+                out = self._legacy_sanitize_output(out)
+
+                self.host.reply(
+                    dict(
+                        retcode=retcode,
+                        err=err,
+                        out=out,
+                    )
+                )
+
+                return
 
         args_file = self._get_arguments_file(
             dict(
-                config=data["pc"],
+                config=config_entity,
                 name=data["name"],
                 entities=entities,
                 project=project_entity,
@@ -235,54 +276,7 @@ class ShotgunAPI(object):
         :param dict data: The data passed down by the client. At a minimum,
             the dict should contain the following keys: project_id, entity_id,
             entity_type, pipeline_configs, and user.
-
-        try {
-            // process each line of the result independently
-            // assume a very fixed structure for the returned data from the client
-            // warning! this is old and brittle code which is ripe for a refactor.
-            var lines = toolkit_data.split("\n");
-            for ( var i=0; i < lines.length; i++ ) {
-
-                if ( lines[i] == "" ) continue;
-                var a = lines[i].split("$");
-
-                actions.push({
-                    name: a[0],
-                    // the title is just the name for primary things and PC + name for user PCs
-                    // note that this is just a convention - when a PC is called Primary, we hide
-                    // its name and place it at the top of the list.
-                    title: root_name.toLowerCase() == "primary" ? a[1] : "<b>" + root_name + ":</b> " + a[1],
-                    is_error: false,
-                    tank_command_title: a[1],
-                    pc_root_name: root_name,
-                    pc_root_path: root_path,
-                    deny_permissions: a[2] != "" ? a[2].split(",") : [],
-                    supports_multiple_selection: a[3] == "True"
-                });
-            }
-        } catch (err) {
-            // put this on the menu as an error
-            actions.push( this.create_error_action(root_name,
-                                                   "Parse Error",
-                                                   "Invalid data returned from Tookit: " + err));
-        }
         """
-        # First, let's see if this is even an entity type that we need to worry
-        # about. If it isn't, we can just tell the client to stop waiting.
-        if data["entity_type"] not in self._get_entity_type_whitelist(data.get("project_id")):
-            logger.debug(
-                "Entity type %s is not supported, no actions will be returned.",
-                data["entity_type"],
-            )
-            self.host.reply(
-                dict(
-                    retcode=constants.UNSUPPORTED_ENTITY_TYPE,
-                    err="",
-                    out="",
-                )
-            )
-            return
-
         # If we weren't sent a usable entity id, we can just query the first one
         # from the project. This isn't a big deal for us, because we're only
         # concerned with picking the correct environment when we bootstrap
@@ -364,6 +358,26 @@ class ShotgunAPI(object):
 
             # We're done. The legacy code path will have handled responding
             # to the client.
+            return
+
+        # Let's see if this is even an entity type that we need to worry
+        # about. If it isn't, we can just tell the client to stop waiting.
+        #
+        # NOTE: This is happening after the legacy pathway above because we want
+        # to let the tank command determine whether an entity type is valid or not
+        # in the case where we do go down that code path.
+        if data["entity_type"] not in self._get_entity_type_whitelist(data.get("project_id")):
+            logger.debug(
+                "Entity type %s is not supported, no actions will be returned.",
+                data["entity_type"],
+            )
+            self.host.reply(
+                dict(
+                    retcode=constants.UNSUPPORTED_ENTITY_TYPE,
+                    err="",
+                    out="",
+                )
+            )
             return
 
         with self._db_connect() as (connection, cursor):
@@ -1142,7 +1156,16 @@ class ShotgunAPI(object):
 
     def _legacy_get_project_actions(self, config_paths):
         """
+        Gets all actions for all shotgun_xxx environments for the project and
+        caches them in memory, keyed by the unique session key provided by
+        the websocket server.
 
+        :param list config_paths: A list of string file paths to the root
+            directory of each pipeline configuration to get actions for.
+
+        :returns: All commands for all shotgun_xxx environments for all
+            requested pipeline configs.
+        :rtype: dict
         """
         # The in-memory cache is keyed by the wss_key that is unique to each
         # wss connection.
@@ -1158,7 +1181,17 @@ class ShotgunAPI(object):
 
     def _legacy_process_configs(self, config_data, entity_type):
         """
+        Processes the raw engine command data coming from the tank command
+        and organizes it into the data structure expected from the v2 wss
+        server by the client. This method acts as the adapter between the
+        legacy v1 API method of getting toolkit actions and the v2 menu
+        logic in the Shotgun web app versions 7.2.0+.
 
+        :param dict config_data: A dictionary, keyed by PipelineConfiguration
+            entity name, containing a tuple of config root path and config
+            entity dict, in that order.
+        :param str entity_type: The entity type that we're getting actions
+            for.
         """
         config_paths = [p[0] for n, p in config_data.iteritems()]
         project_actions = self._legacy_get_project_actions(config_paths)
@@ -1205,6 +1238,12 @@ class ShotgunAPI(object):
             # Since we're done with this config for this invokation, we can just
             # delete it from the entity dict.
             del config_entity["descriptor"]
+
+            # And since we know this set of actions came from this legacy path, we
+            # can go ahead and include some extra data in the config dict that we
+            # can key off of when this action is called from the client.
+            config_entity["_legacy_config_root"] = config_path
+
             all_actions[config_name] = dict(
                 actions=commands,
                 config=config_entity,
@@ -1218,6 +1257,30 @@ class ShotgunAPI(object):
                 pcs=config_names,
             ),
         )
+
+    def _legacy_sanitize_output(self, out):
+        """
+        Sanitizes HTML output coming from the Shotgun engine by way of the
+        tank command. This method filters out any lines of output not wrapped
+        in span tags, and replaces HTML bold tags with Slack-style markdown
+        bold syntax.
+
+        :param str out: The raw output string to sanitize.
+
+        :returns: The sanitized output.
+        :rtype: str
+        """
+        sanitized = []
+        bold_match = re.compile(r"</*b>")
+        span_match = re.compile(r"</*span>")
+
+        for line in out.split("\n"):
+            if line.startswith("<span>"):
+                line = re.sub(span_match, "", line)
+                line = re.sub(bold_match, "*", line)
+                sanitized.append(line)
+
+        return "\n".join(sanitized)
 
     def _process_commands(self, commands, project, entities):
         """
