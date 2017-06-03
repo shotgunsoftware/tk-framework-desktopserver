@@ -25,6 +25,7 @@ import base64
 
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
+from sgtk.util.shotgun_path import ShotgunPath
 from . import constants
 from .. import command
 
@@ -60,6 +61,7 @@ class ShotgunAPI(object):
     CONFIG_DATA = "config_data"
     SOFTWARE_ENTITIES = "software_entities"
     ENTITY_TYPE_WHITELIST = "entity_type_whitelist"
+    LEGACY_PROJECT_ACTIONS = "legacy_project_actions"
 
     def __init__(self, host, process_manager, wss_key):
         """
@@ -233,6 +235,37 @@ class ShotgunAPI(object):
         :param dict data: The data passed down by the client. At a minimum,
             the dict should contain the following keys: project_id, entity_id,
             entity_type, pipeline_configs, and user.
+
+        try {
+            // process each line of the result independently
+            // assume a very fixed structure for the returned data from the client
+            // warning! this is old and brittle code which is ripe for a refactor.
+            var lines = toolkit_data.split("\n");
+            for ( var i=0; i < lines.length; i++ ) {
+
+                if ( lines[i] == "" ) continue;
+                var a = lines[i].split("$");
+
+                actions.push({
+                    name: a[0],
+                    // the title is just the name for primary things and PC + name for user PCs
+                    // note that this is just a convention - when a PC is called Primary, we hide
+                    // its name and place it at the top of the list.
+                    title: root_name.toLowerCase() == "primary" ? a[1] : "<b>" + root_name + ":</b> " + a[1],
+                    is_error: false,
+                    tank_command_title: a[1],
+                    pc_root_name: root_name,
+                    pc_root_path: root_path,
+                    deny_permissions: a[2] != "" ? a[2].split(",") : [],
+                    supports_multiple_selection: a[3] == "True"
+                });
+            }
+        } catch (err) {
+            // put this on the menu as an error
+            actions.push( this.create_error_action(root_name,
+                                                   "Parse Error",
+                                                   "Invalid data returned from Tookit: " + err));
+        }
         """
         # First, let's see if this is even an entity type that we need to worry
         # about. If it isn't, we can just tell the client to stop waiting.
@@ -304,6 +337,34 @@ class ShotgunAPI(object):
             project_entity,
             data,
         )
+
+        # The first thing we do is check to see if we're dealing with a
+        # classic SGTK setup. In that case, we're going to short-circuit
+        # the get_actions call and go into a legacy setup that makes use
+        # of the "tank" command by way of this api's process_manager.
+        config_entities = [d["entity"] for i, d in all_pc_data.iteritems()]
+        legacy_config_data = dict()
+
+        # A classic-style config will contain a roots.yml file that defines
+        # a set of storage roots. We can access that by way of the descriptor
+        # object that we already have. If there are required storages, then
+        # we know we're in a classic situation.
+        for config in config_entities:
+            if config["descriptor"].required_storages:
+                legacy_config_data[config["name"]] = (
+                    config["descriptor"].get_path(),
+                    config
+                )
+
+        # If there are any classic configs, then we use the legacy code
+        # path.
+        if legacy_config_data:
+            logger.debug("Classic SGTK config(s) found, proceeding with legacy code path.")
+            self._legacy_process_configs(legacy_config_data, entity["type"])
+
+            # We're done. The legacy code path will have handled responding
+            # to the client.
+            return
 
         with self._db_connect() as (connection, cursor):
             for pc_id, pc_data in all_pc_data.iteritems():
@@ -1078,6 +1139,85 @@ class ShotgunAPI(object):
             cache.setdefault(self.TASK_PARENT_TYPES, dict())[task_id] = entity_type
 
         return cache[self.TASK_PARENT_TYPES][task_id]
+
+    def _legacy_get_project_actions(self, config_paths):
+        """
+
+        """
+        # The in-memory cache is keyed by the wss_key that is unique to each
+        # wss connection.
+        if self.LEGACY_PROJECT_ACTIONS not in self._cache:
+            self._cache[self.LEGACY_PROJECT_ACTIONS] = self.process_manager.get_project_actions(
+                config_paths,
+            )
+
+        # We'll deepcopy the data before returning it. That will ensure that
+        # any destructive operations on the contents won't bubble up to the
+        # cache.
+        return copy.deepcopy(self._cache[self.LEGACY_PROJECT_ACTIONS])
+
+    def _legacy_process_configs(self, config_data, entity_type):
+        """
+
+        """
+        config_paths = [p[0] for n, p in config_data.iteritems()]
+        project_actions = self._legacy_get_project_actions(config_paths)
+        all_actions = dict()
+        config_names = []
+
+        for config_name, config_data in config_data.iteritems():
+            config_path, config_entity = config_data
+            commands = []
+            get_actions_data = project_actions[config_path]["shotgun_get_actions"]
+            env_file_name = "shotgun_%s.yml" % entity_type.lower()
+            raw_actions_data = get_actions_data[env_file_name]
+
+            if raw_actions_data["retcode"] != 0:
+                logger.error("A shotgun_get_actions call did not succeed: %s" % raw_actions_data)
+                continue
+
+            config_names.append(config_name)
+
+            for line in raw_actions_data["out"].split("\n"):
+                action = line.split("$")
+
+                if action[2] == "":
+                    deny_permissions = []
+                else:
+                    deny_permissions = action[2].split(",")
+
+                multi_select = action[3] == "True"
+
+                commands.append(
+                    dict(
+                        name=action[0],
+                        title=action[1],
+                        deny_permissions=deny_permissions,
+                        supports_multiple_selection=multi_select,
+                        app_name=None, # Not used here.
+                        group=None, # Not used here.
+                        group_default=None, # Not used here.
+                        engine_name=None, # Not used here.
+                    )
+                )
+
+            # We don't need or want the descriptor object to be sent to the client.
+            # Since we're done with this config for this invokation, we can just
+            # delete it from the entity dict.
+            del config_entity["descriptor"]
+            all_actions[config_name] = dict(
+                actions=commands,
+                config=config_entity,
+            )
+
+        self.host.reply(
+            dict(
+                err="",
+                retcode=constants.SUCCESSFUL_LOOKUP,
+                actions=all_actions,
+                pcs=config_names,
+            ),
+        )
 
     def _process_commands(self, commands, project, entities):
         """
