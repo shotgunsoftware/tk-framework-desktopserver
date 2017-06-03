@@ -25,7 +25,6 @@ import base64
 
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
-from sgtk.util.shotgun_path import ShotgunPath
 from . import constants
 from .. import command
 
