@@ -78,6 +78,13 @@ class ShotgunAPI(object):
         self._logger = sgtk.platform.get_logger("api-v2")
         self._process_manager = process_manager
 
+        if constants.DISABLE_LEGACY_BROWSER_INTEGRATION_WORKAROUND in os.environ:
+            logger.debug("Legacy tank command pathway disabled.")
+            self._allow_legacy_workaround = False
+        else:
+            logger.debug("Legacy tank command pathway allowed for classic configs.")
+            self._allow_legacy_workaround = True
+
         if self._wss_key not in self.WSS_KEY_CACHE:
             self.WSS_KEY_CACHE[self._wss_key] = dict()
 
@@ -157,12 +164,15 @@ class ShotgunAPI(object):
         # get_actions method ran through its own legacy code path. In that case, we
         # shell out to the tank command by way of our process_manager object instead
         # of using the modern code path.
-        if command_name not in ["__core_info", "__upgrade_check"]:
-            if "_legacy_config_root" in config_entity:
+        if command_name not in constants.LEGACY_EXEMPT_ACTIONS and self._allow_legacy_workaround:
+            if constants.LEGACY_CONFIG_ROOT in config_entity:
+                # The arguments list is the name of the command, then the entity
+                # type, and then a comma-separated list of entity ids.
+                entity_ids = [str(e["id"]) for e in entities]
                 (out, err, retcode) = self.process_manager.execute_toolkit_command(
-                    config_entity["_legacy_config_root"],
+                    config_entity[constants.LEGACY_CONFIG_ROOT],
                     "shotgun_run_action",
-                    [data["name"], entities[0]["type"], str(entities[0]["id"])],
+                    [data["name"], entities[0]["type"], ",".join(entity_ids)],
                 )
 
                 # Sanitize the output. By going the legacy route here, we're going
@@ -171,13 +181,11 @@ class ShotgunAPI(object):
                 # is going to believe that we're sending v2-style output, which is
                 # taken and displayed as is, and is assumed to be markdown and not
                 # HTML.
-                out = self._legacy_sanitize_output(out)
-
                 self.host.reply(
                     dict(
                         retcode=retcode,
-                        err=err,
-                        out=out,
+                        err=self._legacy_sanitize_output(err),
+                        out=self._legacy_sanitize_output(out),
                     )
                 )
 
@@ -324,7 +332,6 @@ class ShotgunAPI(object):
         manager.base_configuration = constants.BASE_CONFIG_URI
         manager.bundle_cache_fallback_paths = self._engine.sgtk.bundle_cache_fallback_paths
 
-        all_actions = dict()
         all_pc_data = self._get_pipeline_configuration_data(
             manager,
             project_entity,
@@ -335,29 +342,49 @@ class ShotgunAPI(object):
         # classic SGTK setup. In that case, we're going to short-circuit
         # the get_actions call and go into a legacy setup that makes use
         # of the "tank" command by way of this api's process_manager.
-        config_entities = [d["entity"] for i, d in all_pc_data.iteritems()]
-        legacy_config_data = dict()
+        did_legacy_lookup = False
+        all_actions = dict()
+        config_names = []
+        legacy_config_ids = []
 
-        # A classic-style config will contain a roots.yml file that defines
-        # a set of storage roots. We can access that by way of the descriptor
-        # object that we already have. If there are required storages, then
-        # we know we're in a classic situation.
-        for config in config_entities:
-            if config["descriptor"].required_storages:
-                legacy_config_data[config["name"]] = (
-                    config["descriptor"].get_path(),
-                    config
+        if self._allow_legacy_workaround:
+            config_entities = []
+            legacy_config_data = dict()
+
+            for config_id, config_data in all_pc_data.iteritems():
+                config = config_data["entity"]
+
+                if config["descriptor"].required_storages:
+                    # We're using os.path.dirname to chop the last directory off
+                    # the end of the config descriptor path. This is because that
+                    # path is routed to <root>/config, while the v1 api is just
+                    # wanting the root path where the tank command lives.
+                    legacy_config_data[config["name"]] = (
+                        os.path.dirname(config["descriptor"].get_path()),
+                        config
+                    )
+
+                    legacy_config_ids.append(config_id)
+
+            # We're going to remove this config from the data structure
+            # housing all of the project's pipeline configuration information.
+            # With this, we can allow the legacy pathway to handle the classic
+            # configs, while allowing descriptor-driven configs to run through
+            # the v2 flow.
+            for config_id in legacy_config_ids:
+                del all_pc_data[config_id]
+
+            # If there are any classic configs, then we use the legacy code
+            # path.
+            if legacy_config_data:
+                logger.debug("Classic SGTK config(s) found, proceeding with legacy code path.")
+                self._legacy_process_configs(
+                    legacy_config_data,
+                    entity["type"],
+                    all_actions,
+                    config_names,
                 )
-
-        # If there are any classic configs, then we use the legacy code
-        # path.
-        if legacy_config_data:
-            logger.debug("Classic SGTK config(s) found, proceeding with legacy code path.")
-            self._legacy_process_configs(legacy_config_data, entity["type"])
-
-            # We're done. The legacy code path will have handled responding
-            # to the client.
-            return
+                did_legacy_lookup = True
 
         # Let's see if this is even an entity type that we need to worry
         # about. If it isn't, we can just tell the client to stop waiting.
@@ -365,7 +392,11 @@ class ShotgunAPI(object):
         # NOTE: This is happening after the legacy pathway above because we want
         # to let the tank command determine whether an entity type is valid or not
         # in the case where we do go down that code path.
-        if data["entity_type"] not in self._get_entity_type_whitelist(data.get("project_id")):
+        supported_entity_type = data["entity_type"] in self._get_entity_type_whitelist(
+            data.get("project_id")
+        )
+
+        if not supported_entity_type and not did_legacy_lookup:
             logger.debug(
                 "Entity type %s is not supported, no actions will be returned.",
                 data["entity_type"],
@@ -376,6 +407,19 @@ class ShotgunAPI(object):
                     err="",
                     out="",
                 )
+            )
+            return
+        elif not supported_entity_type and did_legacy_lookup:
+            # In this case, the legacy lookup supported the entity type, but the
+            # wss2 flow does not. We can just reply to the client with the actions that
+            # the legacy flow discovered and exit.
+            self.host.reply(
+                dict(
+                    err="",
+                    retcode=constants.SUCCESSFUL_LOOKUP,
+                    actions=all_actions,
+                    pcs=config_names,
+                ),
             )
             return
 
@@ -502,12 +546,16 @@ class ShotgunAPI(object):
                     )
                     return
 
+        # Combine the config names processed by the v2 flow with those handled
+        # by the legacy pathway.
+        config_names = config_names + [p["entity"]["name"] for p in all_pc_data.values()]
+
         self.host.reply(
             dict(
                 err="",
                 retcode=constants.SUCCESSFUL_LOOKUP,
                 actions=all_actions,
-                pcs=[p["entity"]["name"] for p in all_pc_data.values()],
+                pcs=config_names,
             ),
         )
 
@@ -1178,7 +1226,7 @@ class ShotgunAPI(object):
         # cache.
         return copy.deepcopy(self._cache[self.LEGACY_PROJECT_ACTIONS])
 
-    def _legacy_process_configs(self, config_data, entity_type):
+    def _legacy_process_configs(self, config_data, entity_type, all_actions, config_names):
         """
         Processes the raw engine command data coming from the tank command
         and organizes it into the data structure expected from the v2 wss
@@ -1191,25 +1239,59 @@ class ShotgunAPI(object):
             entity dict, in that order.
         :param str entity_type: The entity type that we're getting actions
             for.
+        :param dict all_actions: The dict object to add the discovered actions
+            to.
+        :param list config_names: The list object to add processed config names
+            to.
         """
+        # The config_data is structured as dict(name=(path, entity)), so
+        # to extract just the paths, we get index 0 of each tuple stored
+        # in the dict.
         config_paths = [p[0] for n, p in config_data.iteritems()]
         project_actions = self._legacy_get_project_actions(config_paths)
-        all_actions = dict()
-        config_names = []
 
         for config_name, config_data in config_data.iteritems():
             config_path, config_entity = config_data
             commands = []
-            get_actions_data = project_actions[config_path]["shotgun_get_actions"]
+
+            try:
+                get_actions_data = project_actions[config_path]["shotgun_get_actions"]
+            except KeyError:
+                logger.debug(
+                    "The tank command didn't return any actions for this config: %s",
+                    config_path
+                )
+                continue
+
             env_file_name = "shotgun_%s.yml" % entity_type.lower()
-            raw_actions_data = get_actions_data[env_file_name]
+            raw_actions_data = get_actions_data.get(env_file_name)
+
+            # In the case where the specific shotgun_*.yml environment
+            # file we're looking for doesn't exit in the data returned by
+            # the tank command, we just skip the config. The reason for this
+            # will be that there is not shotgun_<entity_type>.yml file for the
+            # entity type requesting actions. In that case, silence is the
+            # correct approach, because this isn't considered an error case by
+            # the client.
+            if raw_actions_data is None:
+                logger.debug(
+                    "No actions were found for %s in config %s",
+                    entity_type,
+                    config_path
+                )
+                continue
 
             if raw_actions_data["retcode"] != 0:
-                logger.error("A shotgun_get_actions call did not succeed: %s" % raw_actions_data)
+                logger.error(
+                    "A shotgun_get_actions call did not succeed: %s",
+                    raw_actions_data
+                )
                 continue
 
             config_names.append(config_name)
 
+            # The data returned by the tank command is a newline delimited string
+            # that defines rows of ordered data delimited by $ characters.
             for line in raw_actions_data["out"].split("\n"):
                 action = line.split("$")
 
@@ -1241,21 +1323,12 @@ class ShotgunAPI(object):
             # And since we know this set of actions came from this legacy path, we
             # can go ahead and include some extra data in the config dict that we
             # can key off of when this action is called from the client.
-            config_entity["_legacy_config_root"] = config_path
+            config_entity[constants.LEGACY_CONFIG_ROOT] = config_path
 
             all_actions[config_name] = dict(
                 actions=commands,
                 config=config_entity,
             )
-
-        self.host.reply(
-            dict(
-                err="",
-                retcode=constants.SUCCESSFUL_LOOKUP,
-                actions=all_actions,
-                pcs=config_names,
-            ),
-        )
 
     def _legacy_sanitize_output(self, out):
         """
