@@ -381,6 +381,7 @@ class ShotgunAPI(object):
                 self._legacy_process_configs(
                     legacy_config_data,
                     entity["type"],
+                    project_entity["id"],
                     all_actions,
                     config_names,
                 )
@@ -990,10 +991,14 @@ class ShotgunAPI(object):
         entity_type = data["entity_type"]
         cache = self._cache
 
-        if self.CONFIG_DATA in cache and entity_type in cache[self.CONFIG_DATA]:
+        config_data_in_cache = self.CONFIG_DATA in cache
+
+        if config_data_in_cache and \
+           entity_type in cache[self.CONFIG_DATA] and \
+           project_entity["id"] in cache[self.CONFIG_DATA][entity_type]:
             logger.debug("%s pipeline config data found for %s", entity_type, self._wss_key)
         else:
-            config_data = { entity_type: dict() }
+            config_data = dict()
 
             pipeline_configs = self._get_pipeline_configurations(
                 manager,
@@ -1065,18 +1070,20 @@ class ShotgunAPI(object):
                     )
                 pc_data["descriptor"] = pc_descriptor
                 pc_data["entity"] = pipeline_config
-                config_data[entity_type][pipeline_config["id"]] = pc_data
+                config_data[pipeline_config["id"]] = pc_data
 
             # If we already have cached other entity types, we'll have the
             # config_data key already present in the cache. In that case, we
             # just need to update it's contents with the new data. Otherwise,
             # we populate it from scratch.
-            cache.setdefault(self.CONFIG_DATA, dict()).update(config_data)
+            cache.setdefault(self.CONFIG_DATA, dict())
+            cache[self.CONFIG_DATA].setdefault(entity_type, dict())
+            cache[self.CONFIG_DATA][entity_type].setdefault(project_entity["id"], dict()).update(config_data)
 
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
         # cache.
-        return copy.deepcopy(cache[self.CONFIG_DATA][entity_type])
+        return copy.deepcopy(cache[self.CONFIG_DATA][entity_type][project_entity["id"]])
 
     def _get_pipeline_configurations(self, manager, project):
         """
@@ -1201,7 +1208,7 @@ class ShotgunAPI(object):
 
         return cache[self.TASK_PARENT_TYPES][task_id]
 
-    def _legacy_get_project_actions(self, config_paths):
+    def _legacy_get_project_actions(self, config_paths, project_id):
         """
         Gets all actions for all shotgun_xxx environments for the project and
         caches them in memory, keyed by the unique session key provided by
@@ -1216,17 +1223,24 @@ class ShotgunAPI(object):
         """
         # The in-memory cache is keyed by the wss_key that is unique to each
         # wss connection.
-        if self.LEGACY_PROJECT_ACTIONS not in self._cache:
-            self._cache[self.LEGACY_PROJECT_ACTIONS] = self.process_manager.get_project_actions(
+        cache_not_initialized = self.LEGACY_PROJECT_ACTIONS not in self._cache
+
+        if cache_not_initialized:
+            self._cache[self.LEGACY_PROJECT_ACTIONS] = dict()
+
+        project_not_cached = project_id not in self._cache[self.LEGACY_PROJECT_ACTIONS]
+
+        if project_not_cached:
+            self._cache[self.LEGACY_PROJECT_ACTIONS][project_id] = self.process_manager.get_project_actions(
                 config_paths,
             )
 
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
         # cache.
-        return copy.deepcopy(self._cache[self.LEGACY_PROJECT_ACTIONS])
+        return copy.deepcopy(self._cache[self.LEGACY_PROJECT_ACTIONS][project_id])
 
-    def _legacy_process_configs(self, config_data, entity_type, all_actions, config_names):
+    def _legacy_process_configs(self, config_data, entity_type, project_id, all_actions, config_names):
         """
         Processes the raw engine command data coming from the tank command
         and organizes it into the data structure expected from the v2 wss
@@ -1239,6 +1253,8 @@ class ShotgunAPI(object):
             entity dict, in that order.
         :param str entity_type: The entity type that we're getting actions
             for.
+        :param int project_id: The Project entity's id. This is used to key the
+            in-memory cache of project actions.
         :param dict all_actions: The dict object to add the discovered actions
             to.
         :param list config_names: The list object to add processed config names
@@ -1248,7 +1264,7 @@ class ShotgunAPI(object):
         # to extract just the paths, we get index 0 of each tuple stored
         # in the dict.
         config_paths = [p[0] for n, p in config_data.iteritems()]
-        project_actions = self._legacy_get_project_actions(config_paths)
+        project_actions = self._legacy_get_project_actions(config_paths, project_id)
 
         for config_name, config_data in config_data.iteritems():
             config_path, config_entity = config_data
