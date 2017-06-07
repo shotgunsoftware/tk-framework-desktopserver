@@ -227,7 +227,12 @@ class ShotgunAPI(object):
         # a separate process. We need do to this in advance because the process
         # that will be launched might not have PySide and as such won't be able
         # to prompt the user to re-authenticate.
-        sgtk.get_authenticated_user().refresh_credentials()
+
+        # If you are running in Shotgun Desktop 1.0.2 there is no authenticated
+        # user, only a script user, so skip this.
+        if sgtk.get_authenticated_user():
+            sgtk.get_authenticated_user().refresh_credentials()
+
         retcode, stdout, stderr = command.Command.call_cmd(args)
 
         if retcode != 0:
