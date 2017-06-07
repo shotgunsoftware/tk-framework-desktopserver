@@ -57,6 +57,8 @@ class DesktopserverFramework(sgtk.platform.Framework):
 
         :param str host: Host for which we desire to answer requests.
         :param int user_id: Id of the user for which we desire to answer requests.
+        :param parent: Parent widget for any pop-ups to show during initialization.
+        :type parent: :class:`PySide.QtGui.QWidget`
         """
         self._tk_framework_desktopserver = self.import_module("tk_framework_desktopserver")
 
@@ -105,6 +107,12 @@ class DesktopserverFramework(sgtk.platform.Framework):
             self.logger.exception("Could not start the browser integration:")
 
     def regenerate_certificates(self, parent=None):
+        """
+        Regenerates the certificates.
+
+        :param parent: Parent widget for any pop-ups to show during certificate generation.
+        :type parent: :class:`PySide.QtGui.QWidget`
+        """
         self.__ensure_certificate_ready(regenerate_certs=True, parent=parent)
 
     def destroy_framework(self):
@@ -120,6 +128,10 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         Ensures that the certificates are created and registered. If something is amiss, then the
         certificates are regenerated.
+
+        :param bool regenerate_certs: If ``True``, certificates will be regenerated.
+        :param parent: Parent widget for any pop-ups to show during certificate generation.
+        :type parent: :class:`PySide.QtGui.QWidget`
         """
         cert_handler = self._tk_framework_desktopserver.get_certificate_handler(
             self._settings.certificate_folder

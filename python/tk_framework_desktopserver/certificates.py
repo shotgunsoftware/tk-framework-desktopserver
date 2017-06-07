@@ -50,7 +50,7 @@ class _CertificateHandler(object):
 
     def backup_files(self):
         """
-        Removes the files from the
+        Backups the certificate files to the backup/year-month-day-hour-minute-second folder.
         """
         parent_folder = os.path.dirname(self._cert_path)
         backup_folder = os.path.join(
@@ -63,7 +63,7 @@ class _CertificateHandler(object):
 
     def _backup_file(self, src_file, dst_folder):
         """
-        Takes a certificate file (if it exists) and moves it to the backup folder.
+        Takes a certificate file (if it exists) and moves it to the destination folder.
 
         :param src_file: File to move.
         :param dst_folder: Folder in which we will be backing up the file.
