@@ -26,6 +26,15 @@ class DesktopserverFramework(sgtk.platform.Framework):
         self._settings = None
         self._tk_framework_desktopserver = None
 
+    def can_run_server(self):
+        """
+        Checks if we can use the framework to run the server.
+
+        :returns: ``True`` if we can, ``False`` otherwise.
+        """
+        # Server requires 64-bit libraries to run.
+        return self.__is_64bit_python()
+
     def add_different_user_requested_callback(self, cb):
         """
         Registers a callback to know when a different user or site is making browser integration requests.
