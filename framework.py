@@ -47,7 +47,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
 
     ##########################################################################################
     # init and destroy
-    def launch_desktop_server(self, host, user_id):
+    def launch_desktop_server(self, host, user_id, parent=None):
         """
         Initializes the desktop server.
 
@@ -90,7 +90,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
             return
 
         try:
-            self.__ensure_certificate_ready()
+            self.__ensure_certificate_ready(regenerate_certs=False, parent=parent)
 
             self._server = self._tk_framework_desktopserver.Server(
                 keys_path=self._settings.certificate_folder,
@@ -104,6 +104,9 @@ class DesktopserverFramework(sgtk.platform.Framework):
         except Exception:
             self.logger.exception("Could not start the browser integration:")
 
+    def regenerate_certificates(self, parent=None):
+        self.__ensure_certificate_ready(regenerate_certs=True, parent=parent)
+
     def destroy_framework(self):
         """
         Called on finalization of the framework.
@@ -113,7 +116,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         if self._server and self._server.is_running():
             self._server.tear_down()
 
-    def __ensure_certificate_ready(self):
+    def __ensure_certificate_ready(self, regenerate_certs=False, parent=None):
         """
         Ensures that the certificates are created and registered. If something is amiss, then the
         certificates are regenerated.
@@ -121,6 +124,10 @@ class DesktopserverFramework(sgtk.platform.Framework):
         cert_handler = self._tk_framework_desktopserver.get_certificate_handler(
             self._settings.certificate_folder
         )
+
+        if regenerate_certs:
+            self.logger.info("Backing up current certificates files if they exist.")
+            cert_handler.backup_files()
 
         # We only warn once.
         warned = False
@@ -132,7 +139,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
             if cert_handler.is_registered():
                 self.logger.info("Unregistering lingering certificate.")
                 # Warn once.
-                self.__warn_for_prompt()
+                self.__warn_for_prompt(parent)
                 warned = True
                 cert_handler.unregister()
                 self.logger.info("Unregistered.")
@@ -148,7 +155,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
 
             # Only if we've never been warned before.
             if not warned:
-                self.__warn_for_prompt()
+                self.__warn_for_prompt(parent)
             cert_handler.register()
             self.logger.info("Certificate registered.")
         else:
@@ -165,9 +172,10 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         return ("The Shotgun Desktop needs to update the security certificate list from your %s before "
                 "it can turn on the browser integration.\n"
+                "\n"
                 "%s" % (keychain_name, action))
 
-    def __warn_for_prompt(self):
+    def __warn_for_prompt(self, parent):
         """
         Warn the user he will be prompted.
         """
@@ -175,7 +183,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
 
         if sys.platform == "darwin":
             QtGui.QMessageBox.information(
-                None,
+                parent,
                 "Shotgun browser integration",
                 self.__get_certificate_prompt(
                     "keychain",
@@ -185,7 +193,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
             )
         elif sys.platform == "win32":
             QtGui.QMessageBox.information(
-                None,
+                parent,
                 "Shotgun browser integration",
                 self.__get_certificate_prompt(
                     "Windows certificate store",
