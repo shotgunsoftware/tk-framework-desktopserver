@@ -71,7 +71,7 @@ def __remove_certificate(certificate_folder, logger):
     # Removes the actual certificate files on disk.
     if cert_handler.exists():
         logger.debug("Certificate was found on disk at %s." % certificate_folder)
-        cert_handler.remove_files()
+        cert_handler.backup_files()
         logger.info("The certificate was removed at %s." % certificate_folder)
     else:
         logger.info("No certificate was found on disk at %s." % certificate_folder)

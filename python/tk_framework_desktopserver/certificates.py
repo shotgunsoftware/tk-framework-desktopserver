@@ -12,10 +12,14 @@ from __future__ import with_statement
 import os
 import sys
 import subprocess
+import random
+import datetime
 from .logger import get_logger
 from .errors import CertificateRegistrationError
 
 from OpenSSL import crypto
+
+import sgtk
 
 logger = get_logger(__name__)
 
@@ -46,12 +50,42 @@ class _CertificateHandler(object):
         """
         return os.path.exists(self._cert_path) and os.path.exists(self._key_path)
 
-    def remove_files(self):
+    def backup_files(self):
         """
-        Removes the files from the
+        Backups the certificate files to the backup/year-month-day-hour-minute-second folder.
         """
-        os.unlink(self._cert_path)
-        os.unlink(self._key_path)
+        parent_folder = os.path.dirname(self._cert_path)
+        backup_folder = os.path.join(
+            parent_folder,
+            "backups",
+            datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        )
+        self._backup_file(self._cert_path, backup_folder)
+        self._backup_file(self._key_path, backup_folder)
+
+    def _backup_file(self, src_file, dst_folder):
+        """
+        Takes a certificate file (if it exists) and moves it to the destination folder.
+
+        :param src_file: File to move.
+        :param dst_folder: Folder in which we will be backing up the file.
+        """
+
+        # If the certificate file does not exist, no need to backup.
+        if not os.path.exists(src_file):
+            return
+
+        # Move the original certificate into a backup folder.
+        dst_file = os.path.join(
+            dst_folder,
+            os.path.basename(src_file)
+        )
+        logger.debug("Backing up certificate from '%s' to '%s'.", src_file, dst_file)
+
+        # If the backup folder does not exist, create it.
+        sgtk.util.filesystem.ensure_folder_exists(dst_folder)
+
+        os.rename(src_file, dst_file)
 
     def create(self):
         """
@@ -87,7 +121,11 @@ class _CertificateHandler(object):
         cert.get_subject().O = "Autodesk"
         cert.get_subject().OU = "Shotgun Software"
         cert.get_subject().CN = "localhost"
-        cert.set_serial_number(1000)
+        # Generate a random serial number since Firefox is picky about
+        # serial number reuse.
+        cert.set_serial_number(random.getrandbits(128))
+        # Set the certificate version to 2, which supports X509 extensions.
+        cert.set_version(2) # 0 = version 1, 1 = version, 2 = version 3.
         cert.gmtime_adj_notBefore(0)
         # 10 years should be enough for everyone
         cert.gmtime_adj_notAfter(10 * 365 * 24 * 60 * 60)
@@ -125,7 +163,7 @@ class _CertificateHandler(object):
 
         # Do not use popen.check_call because it won't redirect stderr to stdout properly
         # and it can't close stdin which causes issues in certain configurations on Windows.
-        logger.debug("%s: %s" % (ctx.capitalize(), cmd))
+        logger.info("%s: %s" % (ctx.capitalize(), cmd))
         if sys.platform == "win32":
             # More on this Windows specific fix here: https://bugs.python.org/issue3905
             p = subprocess.Popen(
@@ -133,13 +171,13 @@ class _CertificateHandler(object):
                 stderr=subprocess.STDOUT, stdout=subprocess.PIPE, stdin=subprocess.PIPE
             )
             # Close the standard in as this can cause issues on Windows (Pixomondo in particular).
-            # Ironically, closing it on other platforms makes p.communicate raise an error, so only
+            # Closing it on other platforms makes p.communicate raise an error, so only
             # do this for Windows.
             p.stdin.close()
         else:
             p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
         stdout, _ = p.communicate()
-        logger.debug("Stdout:\n%s" % stdout)
+        logger.info("Stdout:\n%s" % stdout)
         if p.returncode != 0:
             raise CertificateRegistrationError("There was a problem %s." % ctx)
         return stdout
@@ -169,7 +207,7 @@ class _CertificateHandler(object):
 
     def _get_is_registered_cmd(self):
         """
-        Returns the command to execute to determine if a certificate is registered. Invoked by 
+        Returns the command to execute to determine if a certificate is registered. Invoked by
         is_registered.
 
         :retuns: The command string to execute.
@@ -197,14 +235,9 @@ class _CertificateHandler(object):
         :param filepath: Path to the file we want to make sure the parent directory
                          exists.
         """
-
         folder = os.path.dirname(filepath)
-        if not os.path.exists(folder):
-            old_umask = os.umask(0077)
-            try:
-                os.makedirs(folder, 0700)
-            finally:
-                os.umask(old_umask)
+        logger.info("Ensuring '%s' exists.", folder)
+        sgtk.util.filesystem.ensure_folder_exists(folder)
         if os.path.exists(filepath):
             os.remove(filepath)
 
@@ -225,14 +258,13 @@ class _LinuxCertificateHandler(_CertificateHandler):
         super(_LinuxCertificateHandler, self).__init__(certificate_folder)
 
         # Ensure that the Chrome certificate registry folder exists
-        if not os.path.exists(self._PKI_DB_PATH):
-            logger.debug("Creating '%s'", self._PKI_DB_PATH)
-            os.makedirs(self._PKI_DB_PATH)
+        logger.info("Ensuring Chrome certificate registry folder '%s' exists.", self._PKI_DB_PATH)
+        sgtk.util.filesystem.ensure_folder_exists(self._PKI_DB_PATH)
 
         # If the Chrome certificate registry is empty, create it. If there is already a database in
         # there, the folder won't be empty.
         if not os.listdir(self._PKI_DB_PATH):
-            logger.debug("Initializing db at '%s'", self._PKI_DB_PATH)
+            logger.info("Initializing Chrome certificate registry at '%s'", self._PKI_DB_PATH)
             self._check_call("initializing the database", "certutil -N --empty-password -d %s" % self._SQL_PKI_DB_PATH)
 
     def _get_is_registered_cmd(self):
