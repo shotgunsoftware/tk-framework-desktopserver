@@ -83,7 +83,7 @@ class _CertificateHandler(object):
         logger.debug("Backing up certificate from '%s' to '%s'.", src_file, dst_file)
 
         # If the backup folder does not exist, create it.
-        sgtk.util.ensure_folder_exists(dst_folder)
+        sgtk.util.filesystem.ensure_folder_exists(dst_folder)
 
         os.rename(src_file, dst_file)
 
@@ -237,7 +237,7 @@ class _CertificateHandler(object):
         """
         folder = os.path.dirname(filepath)
         logger.info("Ensuring '%s' exists.", folder)
-        sgtk.util.ensure_folder_exists(folder)
+        sgtk.util.filesystem.ensure_folder_exists(folder)
         if os.path.exists(filepath):
             os.remove(filepath)
 
@@ -259,7 +259,7 @@ class _LinuxCertificateHandler(_CertificateHandler):
 
         # Ensure that the Chrome certificate registry folder exists
         logger.info("Ensuring Chrome certificate registry folder '%s' exists.", self._PKI_DB_PATH)
-        sgtk.util.ensure_folder_exists(self._PKI_DB_PATH)
+        sgtk.util.filesystem.ensure_folder_exists(self._PKI_DB_PATH)
 
         # If the Chrome certificate registry is empty, create it. If there is already a database in
         # there, the folder won't be empty.
