@@ -60,6 +60,13 @@ class DesktopserverFramework(sgtk.platform.Framework):
         :param parent: Parent widget for any pop-ups to show during initialization.
         :type parent: :class:`PySide.QtGui.QWidget`
         """
+        # Twisted only runs on 64-bits.
+        # No not even attempt to import the framework, as it will cause 64-bits DLLs to be loaded.
+        if not self.__is_64bit_python():
+            self.logger.warning("The browser integration is only available with 64-bit versions of Python.")
+            self._integration_enabled = False
+            return
+
         self._tk_framework_desktopserver = self.import_module("tk_framework_desktopserver")
 
         # Read the browser integration settings from disk. By passing in location=None, the Toolkit API will be
@@ -77,12 +84,8 @@ class DesktopserverFramework(sgtk.platform.Framework):
         )
         self._settings.dump(self.logger)
 
-        # Twisted only runs on 64-bits.
-        if not self.__is_64bit_python():
-            self.logger.warning("The browser integration is only available with 64-bit versions of Python.")
-            self._integration_enabled = False
         # Did the user disable it?
-        elif not self._settings.integration_enabled:
+        if not self._settings.integration_enabled:
             self.logger.info("Browser integration has been disabled in the Toolkit settings.")
             self._integration_enabled = False
         else:
