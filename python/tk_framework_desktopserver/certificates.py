@@ -19,6 +19,8 @@ from .errors import CertificateRegistrationError
 
 from OpenSSL import crypto
 
+import sgtk
+
 logger = get_logger(__name__)
 
 
@@ -73,15 +75,16 @@ class _CertificateHandler(object):
         if not os.path.exists(src_file):
             return
 
-        # If the backup folder does not exist, create it.
-        if not os.path.exists(dst_folder):
-            os.makedirs(dst_folder)
-
         # Move the original certificate into a backup folder.
         dst_file = os.path.join(
             dst_folder,
             os.path.basename(src_file)
         )
+        logger.debug("Backing up certificate from '%s' to '%s'.", src_file, dst_file)
+
+        # If the backup folder does not exist, create it.
+        sgtk.util.ensure_folder_exists(dst_folder)
+
         os.rename(src_file, dst_file)
 
     def create(self):
@@ -168,7 +171,7 @@ class _CertificateHandler(object):
                 stderr=subprocess.STDOUT, stdout=subprocess.PIPE, stdin=subprocess.PIPE
             )
             # Close the standard in as this can cause issues on Windows (Pixomondo in particular).
-            # Ironically, closing it on other platforms makes p.communicate raise an error, so only
+            # Closing it on other platforms makes p.communicate raise an error, so only
             # do this for Windows.
             p.stdin.close()
         else:
@@ -232,14 +235,9 @@ class _CertificateHandler(object):
         :param filepath: Path to the file we want to make sure the parent directory
                          exists.
         """
-
         folder = os.path.dirname(filepath)
-        if not os.path.exists(folder):
-            old_umask = os.umask(0077)
-            try:
-                os.makedirs(folder, 0700)
-            finally:
-                os.umask(old_umask)
+        logger.info("Ensuring '%s' exists.", folder)
+        sgtk.util.ensure_folder_exists(folder)
         if os.path.exists(filepath):
             os.remove(filepath)
 
@@ -260,14 +258,13 @@ class _LinuxCertificateHandler(_CertificateHandler):
         super(_LinuxCertificateHandler, self).__init__(certificate_folder)
 
         # Ensure that the Chrome certificate registry folder exists
-        if not os.path.exists(self._PKI_DB_PATH):
-            logger.info("Creating '%s'", self._PKI_DB_PATH)
-            os.makedirs(self._PKI_DB_PATH)
+        logger.info("Ensuring Chrome certificate registry folder '%s' exists.", self._PKI_DB_PATH)
+        sgtk.util.ensure_folder_exists(self._PKI_DB_PATH)
 
         # If the Chrome certificate registry is empty, create it. If there is already a database in
         # there, the folder won't be empty.
         if not os.listdir(self._PKI_DB_PATH):
-            logger.info("Initializing db at '%s'", self._PKI_DB_PATH)
+            logger.info("Initializing Chrome certificate registry at '%s'", self._PKI_DB_PATH)
             self._check_call("initializing the database", "certutil -N --empty-password -d %s" % self._SQL_PKI_DB_PATH)
 
     def _get_is_registered_cmd(self):
