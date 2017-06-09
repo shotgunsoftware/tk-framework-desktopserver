@@ -1275,6 +1275,16 @@ class ShotgunAPI(object):
             config_path, config_entity = config_data
             commands = []
 
+            # We don't need or want the descriptor object to be sent to the client.
+            # Since we're done with this config for this invokation, we can just
+            # delete it from the entity dict.
+            del config_entity["descriptor"]
+
+            # And since we know this set of actions came from this legacy path, we
+            # can go ahead and include some extra data in the config dict that we
+            # can key off of when this action is called from the client.
+            config_entity[constants.LEGACY_CONFIG_ROOT] = config_path
+
             try:
                 get_actions_data = project_actions[config_path]["shotgun_get_actions"]
             except KeyError:
@@ -1300,6 +1310,12 @@ class ShotgunAPI(object):
                     entity_type,
                     config_path
                 )
+
+                all_actions[config_name] = dict(
+                    actions=[],
+                    config=config_entity,
+                )
+
                 continue
 
             if raw_actions_data["retcode"] != 0:
@@ -1307,6 +1323,12 @@ class ShotgunAPI(object):
                     "A shotgun_get_actions call did not succeed: %s",
                     raw_actions_data
                 )
+
+                all_actions[config_name] = dict(
+                    actions=[],
+                    config=config_entity,
+                )
+
                 continue
 
             config_names.append(config_name)
@@ -1338,17 +1360,6 @@ class ShotgunAPI(object):
                     )
             except IndexError:
                 logger.error("Unable to parse legacy cache file: %s", env_file_name)
-                continue
-
-            # We don't need or want the descriptor object to be sent to the client.
-            # Since we're done with this config for this invokation, we can just
-            # delete it from the entity dict.
-            del config_entity["descriptor"]
-
-            # And since we know this set of actions came from this legacy path, we
-            # can go ahead and include some extra data in the config dict that we
-            # can key off of when this action is called from the client.
-            config_entity[constants.LEGACY_CONFIG_ROOT] = config_path
 
             all_actions[config_name] = dict(
                 actions=commands,
