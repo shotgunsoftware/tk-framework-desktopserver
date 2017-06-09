@@ -22,6 +22,7 @@ import fnmatch
 import datetime
 import copy
 import base64
+import glob
 
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
@@ -835,21 +836,29 @@ class ShotgunAPI(object):
         # the modtimes of all yml files found. When they're added to the digest,
         # we'll dump as json sorting alphanumeric on yml file name to ensure
         # consistent ordering of data.
+        scanned = 0
+
         if config_descriptor and config_descriptor.is_immutable() == False:
             yml_files = dict()
 
-            # TODO: Deeper traversal that takes into account possible includes stuff
-            # based on environment variables, which this might not catch if the included
-            # file is outside of the config. <jbee>
-            config_path = config_descriptor.get_path()
+            # We do a shallow scan here of the bare minimum of yml files due
+            # to speed concerns when network file servers are in use. We support
+            # tk-shotgun configured in either the shotgun or non-shotgun yml
+            # so we will stat all of the top level env files that we find. Note
+            # that this means we are not covering included yml files, but we
+            # accept that for the sake of speed.
+            config_path = os.path.join(config_descriptor.get_path(), "env")
 
             if config_path is not None:
-                for root, dir_names, file_names in os.walk(config_path):
-                    for file_name in fnmatch.filter(file_names, "*.yml"):
-                        full_path = os.path.join(root, file_name)
-                        yml_files[full_path] = os.path.getmtime(full_path)
+                logger.debug("Statting yml files in %s", config_path)
+
+                for file_path in glob.glob(os.path.join(config_path, "*.yml")):
+                    yml_files[file_path] = os.path.getmtime(file_path)
+                    scanned += 1
 
             hashable_data["modtimes"] = yml_files
+
+        logger.debug("Files statted for mtime: %s", scanned)
 
         return hash(
             json.dumps(
