@@ -1313,28 +1313,32 @@ class ShotgunAPI(object):
 
             # The data returned by the tank command is a newline delimited string
             # that defines rows of ordered data delimited by $ characters.
-            for line in raw_actions_data["out"].split("\n"):
-                action = line.split("$")
+            try:
+                for line in raw_actions_data["out"].split("\n"):
+                    action = line.split("$")
 
-                if action[2] == "":
-                    deny_permissions = []
-                else:
-                    deny_permissions = action[2].split(",")
+                    if action[2] == "":
+                        deny_permissions = []
+                    else:
+                        deny_permissions = action[2].split(",")
 
-                multi_select = action[3] == "True"
+                    multi_select = action[3] == "True"
 
-                commands.append(
-                    dict(
-                        name=action[0],
-                        title=action[1],
-                        deny_permissions=deny_permissions,
-                        supports_multiple_selection=multi_select,
-                        app_name=None, # Not used here.
-                        group=None, # Not used here.
-                        group_default=None, # Not used here.
-                        engine_name=None, # Not used here.
+                    commands.append(
+                        dict(
+                            name=action[0],
+                            title=action[1],
+                            deny_permissions=deny_permissions,
+                            supports_multiple_selection=multi_select,
+                            app_name=None, # Not used here.
+                            group=None, # Not used here.
+                            group_default=None, # Not used here.
+                            engine_name=None, # Not used here.
+                        )
                     )
-                )
+            except IndexError:
+                logger.error("Unable to parse legacy cache file: %s", env_file_name)
+                continue
 
             # We don't need or want the descriptor object to be sent to the client.
             # Since we're done with this config for this invokation, we can just
