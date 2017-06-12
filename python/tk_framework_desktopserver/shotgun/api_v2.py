@@ -416,6 +416,7 @@ class ShotgunAPI(object):
                     type=pipeline_config["type"],
                     name=pipeline_config["name"],
                 )
+                all_pc_data[pc_id]["entity"] = pipeline_config
 
                 # We start with an empty action set for this config. If we end up finding
                 # finding stuff for this entity type in this config, then the empty
