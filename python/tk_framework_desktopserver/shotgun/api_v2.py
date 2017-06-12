@@ -415,7 +415,6 @@ class ShotgunAPI(object):
                     id=pipeline_config["id"],
                     type=pipeline_config["type"],
                     name=pipeline_config["name"],
-                    project=pipeline_config["project"],
                 )
 
                 # We start with an empty action set for this config. If we end up finding
