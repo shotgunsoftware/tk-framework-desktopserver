@@ -406,10 +406,17 @@ class ShotgunAPI(object):
                 # to the core hook that computes the hash.
                 pc_descriptor = pipeline_config["descriptor"]
 
-                # Since the config entity is going to be passed up as part of the
-                # reply to the client, we need to filter out the descriptor object.
-                # It's neither useful to the client, nor json encodable.
-                del pipeline_config["descriptor"]
+                # We'll rebuild this pipeline_config dict to only include the keys
+                # that we know we want to pass back to the client. In the event that
+                # the interface to getting these config dicts changes in the future,
+                # it will help us keep from passing back uneeded data or, even worse,
+                # data that can't be serialized, which would cause an exception.
+                pipeline_config = dict(
+                    id=pipeline_config["id"],
+                    type=pipeline_config["type"],
+                    name=pipeline_config["name"],
+                    project=pipeline_config["project"],
+                )
 
                 # We start with an empty action set for this config. If we end up finding
                 # finding stuff for this entity type in this config, then the empty
@@ -1447,7 +1454,7 @@ class ShotgunAPI(object):
                             engine_name=None, # Not used here.
                         )
                     )
-            except IndexError:
+            except Exception:
                 logger.error("Unable to parse legacy cache file: %s", env_file_name)
 
             all_actions[config_name] = dict(
