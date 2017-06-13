@@ -972,7 +972,7 @@ class ShotgunAPI(object):
                             type_name,
                             yml_file,
                         )
-                        type_whitelist.add(match.group(1))
+                        type_whitelist.add(type_name)
 
             logger.debug("Entity-type whitelist for project %s: %s", project_id, type_whitelist)
             self._cache.setdefault(self.ENTITY_TYPE_WHITELIST, dict())[project_id] = type_whitelist
@@ -995,21 +995,32 @@ class ShotgunAPI(object):
         :returns: The computed lookup hash.
         :rtype: str
         """
-        # If this is a Task entity, then we have more work to do. We need
-        # to get the entity that the Task is linked to, and then get actions
-        # for that entity type.
-        if entity_type == "Task":
-            logger.debug("Task entity detected, looking up parent entity...")
-            entity_type = self._get_task_parent_entity_type(entity_id)
-            logger.debug("Task entity's parent entity type: %s", entity_type)
-
-        return self._bundle.execute_hook_method(
+        cache_key = self._bundle.execute_hook_method(
             "browser_integration_hook",
             "get_cache_key",
             config_uri=config_uri,
             project=project,
             entity_type=entity_type
         )
+
+        # Tasks are a bit special. We lookup actions by the Task entity type,
+        # as is normal, but we cache it including the parent entity's type to
+        # ensure that we allow for different actions to be configured for Tasks
+        # linked to different parent entity types(ie: Shot vs. Asset). This has
+        # no impact on legacy configurations that contain a shotgun_task.yml file,
+        # but it does when tk-shotgun is configured in a non-shotgun_xxx.yml
+        # environment that the config's pick_environment hook recognizes as a
+        # Task entity's target environment. In that case, it would be possible
+        # to configure different engine commands for tk-shotgun when a Task is
+        # linked to a Shot versus when it's linked to an Asset.
+        if entity_type == "Task":
+            logger.debug("Task entity detected, looking up parent entity...")
+            parent_entity_type = self._get_task_parent_entity_type(entity_id)
+            logger.debug("Task entity's parent entity type: %s", entity_type)
+            cache_key += parent_entity_type
+            logger.debug("Task entity's cache key is: %s", cache_key)
+
+        return cache_key
 
     @sgtk.LogManager.log_timing
     def _get_pipeline_configuration_data(self, manager, project_entity, data):
