@@ -62,6 +62,7 @@ class ShotgunAPI(object):
     SOFTWARE_ENTITIES = "software_entities"
     ENTITY_TYPE_WHITELIST = "entity_type_whitelist"
     LEGACY_PROJECT_ACTIONS = "legacy_project_actions"
+    YML_FILE_DATA = "yml_file_data"
 
     def __init__(self, host, process_manager, wss_key):
         """
@@ -117,6 +118,7 @@ class ShotgunAPI(object):
     ###########################################################################
     # Public methods
 
+    @sgtk.LogManager.log_timing
     def execute_action(self, data):
         """
         Executes the engine command associated with the action triggered
@@ -393,43 +395,6 @@ class ShotgunAPI(object):
                 )
                 did_legacy_lookup = True
 
-        # Let's see if this is even an entity type that we need to worry
-        # about. If it isn't, we can just tell the client to stop waiting.
-        #
-        # NOTE: This is happening after the legacy pathway above because we want
-        # to let the tank command determine whether an entity type is valid or not
-        # in the case where we do go down that code path.
-        supported_entity_type = data["entity_type"] in self._get_entity_type_whitelist(
-            data.get("project_id")
-        )
-
-        if not supported_entity_type and not did_legacy_lookup:
-            logger.debug(
-                "Entity type %s is not supported, no actions will be returned.",
-                data["entity_type"],
-            )
-            self.host.reply(
-                dict(
-                    retcode=constants.UNSUPPORTED_ENTITY_TYPE,
-                    err="",
-                    out="",
-                )
-            )
-            return
-        elif not supported_entity_type and did_legacy_lookup:
-            # In this case, the legacy lookup supported the entity type, but the
-            # wss2 flow does not. We can just reply to the client with the actions that
-            # the legacy flow discovered and exit.
-            self.host.reply(
-                dict(
-                    err="",
-                    retcode=constants.SUCCESSFUL_LOOKUP,
-                    actions=all_actions,
-                    pcs=config_names,
-                ),
-            )
-            return
-
         with self._db_connect() as (connection, cursor):
             for pc_id, pc_data in all_pc_data.iteritems():
                 pipeline_config = pc_data["entity"]
@@ -441,10 +406,43 @@ class ShotgunAPI(object):
                 # to the core hook that computes the hash.
                 pc_descriptor = pipeline_config["descriptor"]
 
-                # Since the config entity is going to be passed up as part of the
-                # reply to the client, we need to filter out the descriptor object.
-                # It's neither useful to the client, nor json encodable.
-                del pipeline_config["descriptor"]
+                # We'll rebuild this pipeline_config dict to only include the keys
+                # that we know we want to pass back to the client. In the event that
+                # the interface to getting these config dicts changes in the future,
+                # it will help us keep from passing back uneeded data or, even worse,
+                # data that can't be serialized, which would cause an exception.
+                pipeline_config = dict(
+                    id=pipeline_config["id"],
+                    type=pipeline_config["type"],
+                    name=pipeline_config["name"],
+                )
+                all_pc_data[pc_id]["entity"] = pipeline_config
+
+                # We start with an empty action set for this config. If we end up finding
+                # finding stuff for this entity type in this config, then the empty
+                # entry here will be replaced prior to replying to the client.
+                all_actions[pipeline_config["name"]] = dict(
+                    actions=[],
+                    config=pipeline_config,
+                )
+
+                # Let's see if this is even an entity type that we need to worry
+                # about. If it isn't, we can just move on to the next config.
+                #
+                # Note: The entity type whitelist contains entity type names that
+                # have been lower cased.
+                supported_entity_type = data["entity_type"].lower() in self._get_entity_type_whitelist(
+                    data.get("project_id"),
+                    pc_descriptor,
+                )
+
+                if not supported_entity_type and not did_legacy_lookup:
+                    logger.debug(
+                        "Entity type %s is not supported by %r, no actions will be returned.",
+                        data["entity_type"],
+                        pc_descriptor,
+                    )
+                    continue
 
                 # In all cases except for Task entities, we'll already have a
                 # lookup hash computed. If we're dealing with a Task, though,
@@ -640,6 +638,7 @@ class ShotgunAPI(object):
     ###########################################################################
     # Internal methods
 
+    @sgtk.LogManager.log_timing
     def _cache_actions(self, data, config_data):
         """
         Triggers the caching or recaching of engine commands.
@@ -832,34 +831,16 @@ class ShotgunAPI(object):
             modtimes="",
         )
 
-        # If the config is mutable, we'll crawl its structure on disk, adding
-        # the modtimes of all yml files found. When they're added to the digest,
-        # we'll dump as json sorting alphanumeric on yml file name to ensure
-        # consistent ordering of data.
-        scanned = 0
-
         if config_descriptor and config_descriptor.is_immutable() == False:
-            yml_files = dict()
+            yml_files = self._get_yml_file_data(config_descriptor)
 
-            # We do a shallow scan here of the bare minimum of yml files due
-            # to speed concerns when network file servers are in use. We support
-            # tk-shotgun configured in either the shotgun or non-shotgun yml
-            # so we will stat all of the top level env files that we find. Note
-            # that this means we are not covering included yml files, but we
-            # accept that for the sake of speed.
-            config_path = os.path.join(config_descriptor.get_path(), "env")
+            if config_descriptor.get_path() in yml_files:
+                hashable_data["modtimes"] = yml_files
 
-            if config_path is not None:
-                logger.debug("Statting yml files in %s", config_path)
-
-                for file_path in glob.glob(os.path.join(config_path, "*.yml")):
-                    yml_files[file_path] = os.path.getmtime(file_path)
-                    scanned += 1
-
-            hashable_data["modtimes"] = yml_files
-
-        logger.debug("Files statted for mtime: %s", scanned)
-
+        # Dict objects aren't hashable directly by way of hash() or the md5
+        # module, so we need to create a stable string representation of the
+        # data structure. The quickest way to do that is to json encode 
+        # everything, sorting on keys to stabilize the results.
         return hash(
             json.dumps(
                 hashable_data,
@@ -912,7 +893,7 @@ class ShotgunAPI(object):
         else:
             raise RuntimeError("Unable to determine an entity from data: %s" % data)
 
-    def _get_entity_type_whitelist(self, project_id):
+    def _get_entity_type_whitelist(self, project_id, config_descriptor):
         """
         Gets a set of entity types that are supported by the browser
         integration. This set is built from a list of constant entity
@@ -923,8 +904,13 @@ class ShotgunAPI(object):
             schema is queried by project, as project-level masking of the
             PublishedFile entity's linkable types is possible. If no project
             is given, the site-level schema is queried instead.
+        :param config_descriptor: The Descriptor object for the pipeline
+            configuration being processed. This is used to get the config's
+            root path if it is determined that the config is mutable, in which
+            case the entity type whitelist will include those entities that
+            have an associated shotgun_{entity_type}.yml file.
 
-        :returns: A set of string entity types.
+        :returns: A set of lowercased string entity types.
         :rtype: set
         """
         if project_id is None:
@@ -938,7 +924,11 @@ class ShotgunAPI(object):
         project_in_cache = project_id in self._cache.get(self.ENTITY_TYPE_WHITELIST, dict())
 
         if not cache_is_initialized or not project_in_cache:
-            type_whitelist = constants.BASE_ENTITY_TYPE_WHITELIST
+            # We're storing lowercased type names because we have the possibility
+            # of also merging in types defined as shotgun_xxx.yml files in a config's
+            # environment. Those files contain entity type names that are lower cased,
+            # so it's easiest just to do everything that way.
+            type_whitelist = set([t.lower() for t in constants.BASE_ENTITY_TYPE_WHITELIST])
 
             # This will only ever happen once per unique connection. That means
             # on page refresh it happens, but not every time menu actions are
@@ -949,7 +939,41 @@ class ShotgunAPI(object):
                 project_entity=project_entity,
             )
             linkable_types = schema["entity"]["properties"]["valid_types"]["value"]
+            linkable_types = [t.lower() for t in linkable_types]
             type_whitelist = type_whitelist.union(set(linkable_types))
+
+            # The config is mutable, which means we need to also get those entity
+            # types that have an associated shotgun_xxx.yml file.
+            if config_descriptor.is_immutable() == False:
+                logger.debug(
+                    "Config %r is mutable -- including shotgun_xxx.yml entity types in the whitelist.",
+                    config_descriptor,
+                )
+
+                # Matches something like "/shotgun/config/env/shotgun_shot.yml" and
+                # extracts "shot" from the yml file basename.
+                match_re = re.compile(r".+shotgun_([^.]+)[.]yml$")
+
+                for yml_file in self._get_yml_file_data(config_descriptor).keys():
+                    logger.debug("Checking %s for entity type whitelisting...", yml_file)
+                    match = re.match(match_re, yml_file)
+                    if match:
+                        logger.debug(
+                            "File %s is a shotgun_xxx.yml file, extracting entity type...",
+                            yml_file,
+                        )
+
+                        # Group 0 is the entire match, group 1 is the extracted
+                        # entity type name.
+                        type_name = match.group(1)
+
+                        logger.debug(
+                            "Adding entity type %s to whitelist from %s.",
+                            type_name,
+                            yml_file,
+                        )
+                        type_whitelist.add(type_name)
+
             logger.debug("Entity-type whitelist for project %s: %s", project_id, type_whitelist)
             self._cache.setdefault(self.ENTITY_TYPE_WHITELIST, dict())[project_id] = type_whitelist
 
@@ -971,15 +995,7 @@ class ShotgunAPI(object):
         :returns: The computed lookup hash.
         :rtype: str
         """
-        # If this is a Task entity, then we have more work to do. We need
-        # to get the entity that the Task is linked to, and then get actions
-        # for that entity type.
-        if entity_type == "Task":
-            logger.debug("Task entity detected, looking up parent entity...")
-            entity_type = self._get_task_parent_entity_type(entity_id)
-            logger.debug("Task entity's parent entity type: %s", entity_type)
-
-        return self._bundle.execute_hook_method(
+        cache_key = self._bundle.execute_hook_method(
             "browser_integration_hook",
             "get_cache_key",
             config_uri=config_uri,
@@ -987,6 +1003,26 @@ class ShotgunAPI(object):
             entity_type=entity_type
         )
 
+        # Tasks are a bit special. We lookup actions by the Task entity type,
+        # as is normal, but we cache it including the parent entity's type to
+        # ensure that we allow for different actions to be configured for Tasks
+        # linked to different parent entity types(ie: Shot vs. Asset). This has
+        # no impact on legacy configurations that contain a shotgun_task.yml file,
+        # but it does when tk-shotgun is configured in a non-shotgun_xxx.yml
+        # environment that the config's pick_environment hook recognizes as a
+        # Task entity's target environment. In that case, it would be possible
+        # to configure different engine commands for tk-shotgun when a Task is
+        # linked to a Shot versus when it's linked to an Asset.
+        if entity_type == "Task":
+            logger.debug("Task entity detected, looking up parent entity...")
+            parent_entity_type = self._get_task_parent_entity_type(entity_id)
+            logger.debug("Task entity's parent entity type: %s", entity_type)
+            cache_key += parent_entity_type
+            logger.debug("Task entity's cache key is: %s", cache_key)
+
+        return cache_key
+
+    @sgtk.LogManager.log_timing
     def _get_pipeline_configuration_data(self, manager, project_entity, data):
         """
         Gathers all of the necessary data pertaining to the project's pipeline
@@ -1169,6 +1205,7 @@ class ShotgunAPI(object):
         # cache.
         return copy.deepcopy(self._cache[self.SITE_STATE_DATA])
 
+    @sgtk.LogManager.log_timing
     def _get_software_entities(self):
         """
         Gets all Software entities from the Shotgun client site. Included are
@@ -1199,9 +1236,15 @@ class ShotgunAPI(object):
         # cache.
         return copy.deepcopy(cache[self.SOFTWARE_ENTITIES])
 
+    @sgtk.LogManager.log_timing
     def _get_task_parent_entity_type(self, task_id):
         """
         Gets the Task entity's parent entity type.
+
+        :param int task_id: The id of the Task entity to find the parent of.
+
+        :returns: The Task's parent entity type.
+        :rtype: str
         """
         cache = self._cache
 
@@ -1221,6 +1264,61 @@ class ShotgunAPI(object):
             cache.setdefault(self.TASK_PARENT_TYPES, dict())[task_id] = entity_type
 
         return cache[self.TASK_PARENT_TYPES][task_id]
+
+    @sgtk.LogManager.log_timing
+    def _get_yml_file_data(self, config_descriptor):
+        """
+        Gets environment yml file paths and their associated mtimes for the
+        given pipeline configuration descriptor object. The data will be looked
+        up once per unique wss connection and cached.
+
+        ..Example:
+            {
+                "/shotgun/my_project/config": {
+                    "/shotgun/my_project/config/env/project.yml": 1234567,
+                    ...
+                },
+                ...
+            }
+
+        :param config_descriptor: The descriptor object for the config to get
+            yml file data for.
+
+        :returns: A dictionary keyed by yml file path, set to the file's mtime
+            at the time the data was cached.
+        :rtype: dict
+        """
+        root_path = config_descriptor.get_path()
+
+        if self.YML_FILE_DATA not in self._cache or root_path not in self._cache[self.YML_FILE_DATA]:
+            # We do a shallow scan here of the bare minimum of yml files due
+            # to speed concerns when network file servers are in use. We support
+            # tk-shotgun configured in either the shotgun or non-shotgun yml
+            # so we will stat all of the top level env files that we find. Note
+            # that this means we are not covering included yml files, but we
+            # accept that for the sake of speed.
+            yml_files = dict()
+            config_path = os.path.join(root_path, "env")
+
+            if config_path is not None:
+                logger.debug(
+                    "Config %s is mutable -- environment file mtimes will be used to determine cache validity.",
+                    config_path,
+                )
+
+                for file_path in glob.glob(os.path.join(config_path, "*.yml")):
+                    yml_files[file_path] = os.path.getmtime(file_path)
+
+            logger.debug(
+                "Contents hash computed using %s yml files -- shallow scan, no subdirectories.",
+                len(yml_files),
+            )
+
+            self._cache.setdefault(self.YML_FILE_DATA, dict())[root_path] = yml_files
+        else:
+            logger.debug("Cached yml file data found for %r.", config_descriptor)
+
+        return copy.deepcopy(self._cache[self.YML_FILE_DATA][root_path])
 
     def _legacy_get_project_actions(self, config_paths, project_id):
         """
@@ -1367,7 +1465,7 @@ class ShotgunAPI(object):
                             engine_name=None, # Not used here.
                         )
                     )
-            except IndexError:
+            except Exception:
                 logger.error("Unable to parse legacy cache file: %s", env_file_name)
 
             all_actions[config_name] = dict(
