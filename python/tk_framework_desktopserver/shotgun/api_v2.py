@@ -413,8 +413,8 @@ class ShotgunAPI(object):
                 # data that can't be serialized, which would cause an exception.
                 pipeline_config = dict(
                     id=pipeline_config["id"],
-                    type=pipeline_config["type"],
-                    name=pipeline_config["name"],
+                    type=pipeline_config.get("type", "PipelineConfiguration"),
+                    name=pipeline_config.get("name", "Primary"),
                 )
                 all_pc_data[pc_id]["entity"] = pipeline_config
 
