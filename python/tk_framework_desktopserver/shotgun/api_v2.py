@@ -1095,6 +1095,13 @@ class ShotgunAPI(object):
                     )
                     continue
 
+                if pc_descriptor.get_path() is None:
+                    logger.warning(
+                        "Config does not point to a valid location on disk, skipping: %r",
+                        pipeline_config,
+                    )
+                    continue
+
                 logger.debug("Resolved config descriptor: %r", pc_descriptor)
                 pc_key = pc_descriptor.get_uri()
 
