@@ -46,7 +46,7 @@ class ShotgunAPI(object):
         "pick_file_or_directory",
         "pick_files_or_directories",
     ]
-    SYNCHRONOUS_METHODS = []
+    SYNCHRONOUS_METHODS = ["get_actions"]
 
     # Stores data persistently per wss connection.
     WSS_KEY_CACHE = dict()
