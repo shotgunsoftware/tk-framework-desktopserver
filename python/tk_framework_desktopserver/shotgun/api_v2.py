@@ -549,6 +549,8 @@ class ShotgunAPI(object):
                         if str(contents_hash) == str(cached_contents_hash):
                             logger.debug("Cache is up to date.")
                             logger.debug("Cache key was %s", lookup_hash)
+                            logger.debug("Contents hash (computed) was %s", contents_hash)
+                            logger.debug("Contents hash (cached) was %s", cached_contents_hash)
 
                             actions = self._process_commands(
                                 commands=cPickle.loads(str(cached_data[0])),
@@ -875,7 +877,7 @@ class ShotgunAPI(object):
         if config_descriptor and config_descriptor.is_immutable() == False:
             yml_files = self._get_yml_file_data(config_descriptor)
 
-            if config_descriptor.get_path() in yml_files:
+            if yml_files is not None:
                 hashable_data["modtimes"] = yml_files
 
         # Dict objects aren't hashable directly by way of hash() or the md5
@@ -1366,7 +1368,7 @@ class ShotgunAPI(object):
         else:
             logger.debug("Cached yml file data found for %r.", config_descriptor)
 
-        return copy.deepcopy(self._cache[self.YML_FILE_DATA][root_path])
+        return copy.deepcopy(self._cache[self.YML_FILE_DATA].get(root_path))
 
     def _legacy_get_project_actions(self, config_paths, project_id):
         """
