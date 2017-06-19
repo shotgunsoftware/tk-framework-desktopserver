@@ -327,9 +327,7 @@ class ShotgunAPI(object):
         # passing down a specific entity that's been selected in an already-loaded
         # page.
         if "entity_id" in data and data["entity_id"] == -1:
-            if data["entity_type"] == "Project":
-                data["entity_id"] = data["project_id"]
-            elif not data.get("entity_type"):
+            if not data.get("entity_type"):
                 # There's likely some gap in the pre-caching logic that's run on
                 # toolkit action menu init that's causing either an empty string
                 # or an undefined value for the entity type. We can't really do
@@ -343,6 +341,8 @@ class ShotgunAPI(object):
                     ),
                 )
                 return
+            elif data["entity_type"] == "Project":
+                data["entity_id"] = data["project_id"]
             else:
                 temp_entity = self._engine.shotgun.find_one(
                     data["entity_type"],
