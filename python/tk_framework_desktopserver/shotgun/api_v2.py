@@ -292,6 +292,33 @@ class ShotgunAPI(object):
             the dict should contain the following keys: project_id, entity_id,
             entity_type, pipeline_configs, and user.
         """
+        # When the v2 protocol is being used, the Shotgun web app makes use of
+        # Javascript Promises to handle the reply from the server, whether there
+        # is success or failure. When getting actions, we want to make sure that
+        # if there was some kind of unhandled exception that there is a proper
+        # reply to the client so that the Promise can be kept or broken, as is
+        # appropriate.
+        try:
+            self._get_actions(data)
+        except Exception:
+            import traceback
+            self.host.reply(
+                dict(
+                    err="Failed to get actions: %s" % traceback.format_exc(),
+                    retcode=constants.CACHING_ERROR,
+                    out="",
+                ),
+            )   
+
+    def _get_actions(self, data):
+        """
+        RPC method that sends back a dictionary containing engine commands
+        for each pipeline configuration associated with the project.
+
+        :param dict data: The data passed down by the client. At a minimum,
+            the dict should contain the following keys: project_id, entity_id,
+            entity_type, pipeline_configs, and user.
+        """
         # If we weren't sent a usable entity id, we can just query the first one
         # from the project. This isn't a big deal for us, because we're only
         # concerned with picking the correct environment when we bootstrap
