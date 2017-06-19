@@ -163,6 +163,11 @@ class ServerProtocol(WebSocketServerProtocol):
 
         # If the hosts are different or the user ids are different, report an error.
         if host_network != origin_network or (user_id is not None and user_id != self.factory.user_id):
+            logger.debug("Browser integration request received a different user.")
+            logger.debug("Desktop site: %s", host_network)
+            logger.debug("Desktop user: %s", self.factory.user_id)
+            logger.debug("Origin site: %s", origin_network)
+            logger.debug("Origin user: %s", user_id)
             self.factory.notifier.different_user_requested.emit(self._origin, user_id)
             self.sendClose(
                 3001,
