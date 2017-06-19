@@ -46,9 +46,7 @@ class ShotgunAPI(object):
         "pick_file_or_directory",
         "pick_files_or_directories",
     ]
-    SYNCHRONOUS_METHODS = [
-        "get_actions",
-    ]
+    SYNCHRONOUS_METHODS = []
 
     # Stores data persistently per wss connection.
     WSS_KEY_CACHE = dict()
@@ -310,6 +308,7 @@ class ShotgunAPI(object):
                 ),
             )   
 
+    @sgtk.LogManager.log_timing
     def _get_actions(self, data):
         """
         RPC method that sends back a dictionary containing engine commands
