@@ -302,6 +302,20 @@ class ShotgunAPI(object):
         if "entity_id" in data and data["entity_id"] == -1:
             if data["entity_type"] == "Project":
                 data["entity_id"] = data["project_id"]
+            elif not data.get("entity_type"):
+                # There's likely some gap in the pre-caching logic that's run on
+                # toolkit action menu init that's causing either an empty string
+                # or an undefined value for the entity type. We can't really do
+                # anything here in that case, so it's best to reply with an error
+                # that explains as best we can what's happened.
+                self.host.reply(
+                    dict(
+                        err="Toolkit received no entity type for this menu -- no actions can be returned!",
+                        retcode=constants.CACHING_ERROR,
+                        out="",
+                    ),
+                )
+                return
             else:
                 temp_entity = self._engine.shotgun.find_one(
                     data["entity_type"],
