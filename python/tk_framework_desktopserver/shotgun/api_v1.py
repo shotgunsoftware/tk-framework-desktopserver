@@ -37,9 +37,6 @@ class ShotgunAPI(object):
         "getProjectActions",
     ]
 
-    # Nothing for v1. This is used in v2.
-    SYNCHRONOUS_METHODS = []
-
     def __init__(self, host, process_manager, wss_key):
         """
         API Constructor.
@@ -47,6 +44,7 @@ class ShotgunAPI(object):
 
         :param host: Host interface to communicate with. Abstracts the client.
         :param process_manager: Process Manager to use to interact with os processes.
+        :param str wss_key: The unique key assigned the current wss connection.
         """
         self.host = host
         self.process_manager = process_manager

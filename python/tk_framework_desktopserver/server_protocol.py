@@ -33,7 +33,6 @@ class ServerProtocol(WebSocketServerProtocol):
     # Initial state is v2. This might change if we end up receiving a connection
     # from a client at v1.
     SUPPORTED_PROTOCOL_VERSIONS = (1, 2)
-    LOCK = threading.Lock()
 
     def __init__(self):
         self._process_manager = ProcessManager.create()
@@ -212,7 +211,6 @@ class ServerProtocol(WebSocketServerProtocol):
             # Call matching shotgun command
             try:
                 func = getattr(api, cmd_name)
-                requires_sync = (cmd_name in api.SYNCHRONOUS_METHODS)
             except Exception, e:
                 message_host.report_error(
                     "Could not find API method %s: %s" % (cmd_name, e)
@@ -226,8 +224,6 @@ class ServerProtocol(WebSocketServerProtocol):
                 # is bootstrapping sgtk, which won't play well if multiple
                 # are occurring at the same time, all of which potentially
                 # copying/downloading files to disk in the same location.
-                if requires_sync:
-                    self.LOCK.acquire()
                 try:
                     func(data)
                 except Exception, e:
@@ -235,9 +231,6 @@ class ServerProtocol(WebSocketServerProtocol):
                     message_host.report_error(
                         "Method call failed for %s: %s" % (cmd_name, traceback.format_exc())
                     )
-                finally:
-                    if requires_sync:
-                        self.LOCK.release()
         else:
             message_host.report_error("Command %s is not supported." % cmd_name)
 

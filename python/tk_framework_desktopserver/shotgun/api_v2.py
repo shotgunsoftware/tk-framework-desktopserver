@@ -23,6 +23,8 @@ import datetime
 import copy
 import base64
 import glob
+import threading
+import hashlib
 
 import sgtk
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
@@ -46,11 +48,12 @@ class ShotgunAPI(object):
         "pick_file_or_directory",
         "pick_files_or_directories",
     ]
-    SYNCHRONOUS_METHODS = ["get_actions"]
 
     # Stores data persistently per wss connection.
     WSS_KEY_CACHE = dict()
     DATABASE_FORMAT_VERSION = 1
+    SOFTWARE_FIELDS = None
+    TOOLKIT_MANAGER = None
 
     # Keys for the in-memory cache.
     TASK_PARENT_TYPES = "task_parent_types"
@@ -61,6 +64,12 @@ class ShotgunAPI(object):
     ENTITY_TYPE_WHITELIST = "entity_type_whitelist"
     LEGACY_PROJECT_ACTIONS = "legacy_project_actions"
     YML_FILE_DATA = "yml_file_data"
+
+    # We need to protect against concurrent bootstraps happening.
+    # This is a reentrant lock because get_actions is recursive
+    # when caching occurs, so might need to lock multiple times
+    # within the same thread.
+    _LOCK = threading.RLock()
 
     def __init__(self, host, process_manager, wss_key):
         """
@@ -281,6 +290,7 @@ class ShotgunAPI(object):
             ),
         )
 
+    @sgtk.LogManager.log_timing
     def get_actions(self, data):
         """
         RPC method that sends back a dictionary containing engine commands
@@ -308,7 +318,6 @@ class ShotgunAPI(object):
                 ),
             )   
 
-    @sgtk.LogManager.log_timing
     def _get_actions(self, data):
         """
         RPC method that sends back a dictionary containing engine commands
@@ -374,17 +383,21 @@ class ShotgunAPI(object):
         project_entity, entities = self._get_entities_from_payload(data)
         entity = entities[0]
 
-        manager = sgtk.bootstrap.ToolkitManager()
-        manager.allow_config_overrides = False
-        manager.plugin_id = "basic.shotgun"
-        manager.base_configuration = constants.BASE_CONFIG_URI
-        manager.bundle_cache_fallback_paths = self._engine.sgtk.bundle_cache_fallback_paths
+        if self.TOOLKIT_MANAGER is None:
+            self.TOOLKIT_MANAGER = sgtk.bootstrap.ToolkitManager()
+            self.TOOLKIT_MANAGER.allow_config_overrides = False
+            self.TOOLKIT_MANAGER.plugin_id = "basic.shotgun"
+            self.TOOLKIT_MANAGER.base_configuration = constants.BASE_CONFIG_URI
 
-        all_pc_data = self._get_pipeline_configuration_data(
-            manager,
-            project_entity,
-            data,
-        )
+        manager = self.TOOLKIT_MANAGER
+
+        with self._LOCK:
+            manager.bundle_cache_fallback_paths = self._engine.sgtk.bundle_cache_fallback_paths
+            all_pc_data = self._get_pipeline_configuration_data(
+                manager,
+                project_entity,
+                data,
+            )
 
         # The first thing we do is check to see if we're dealing with a
         # classic SGTK setup. In that case, we're going to short-circuit
@@ -516,82 +529,87 @@ class ShotgunAPI(object):
                 contents_hash = pc_data["contents_hash"]
                 cached_data = []
 
-                logger.debug("Querying: %s", lookup_hash)
+                # We lock here because we cannot allow concurrent bootstraps to
+                # occur. We do it this early because we also want others to wait
+                # in the event that we end up caching what they need while they
+                # wait for the lock to be released.
+                with self._LOCK:
+                    logger.debug("Querying: %s", lookup_hash)
 
-                try:
-                    cursor.execute(
-                        "SELECT commands, contents_hash FROM engine_commands WHERE lookup_hash=?",
-                        (lookup_hash,)
-                    )
-                    cached_data = list(cursor.fetchone() or [])
-                except sqlite3.OperationalError:
-                    # This means the sqlite database hasn't been setup at all.
-                    # In that case, we just continue on with cached_data set
-                    # to an empty list, which will cause the caching subprocess
-                    # to be spawned, which will setup the database and populate
-                    # with the data we need. The behavior as a result of this
-                    # is the same as if we ended up with a cache miss or an
-                    # invalidated result due to a contents_hash mismatch.
-                    logger.debug(
-                        "Cache query failed due to missing table. "
-                        "Triggering caching subprocess..."
-                    )
+                    try:
+                        cursor.execute(
+                            "SELECT commands, contents_hash FROM engine_commands WHERE lookup_hash=?",
+                            (lookup_hash,)
+                        )
+                        cached_data = list(cursor.fetchone() or [])
+                    except sqlite3.OperationalError:
+                        # This means the sqlite database hasn't been setup at all.
+                        # In that case, we just continue on with cached_data set
+                        # to an empty list, which will cause the caching subprocess
+                        # to be spawned, which will setup the database and populate
+                        # with the data we need. The behavior as a result of this
+                        # is the same as if we ended up with a cache miss or an
+                        # invalidated result due to a contents_hash mismatch.
+                        logger.debug(
+                            "Cache query failed due to missing table. "
+                            "Triggering caching subprocess..."
+                        )
 
-                try:
-                    if cached_data:
-                        # Cache hit.
-                        cached_contents_hash = cached_data[1]
+                    try:
+                        if cached_data:
+                            # Cache hit.
+                            cached_contents_hash = cached_data[1]
 
-                        # Check to see if the current hash we created matches
-                        # that of the cached entry. If it matches then we know
-                        # that the data is up to date and that we can use it.
-                        if str(contents_hash) == str(cached_contents_hash):
-                            logger.debug("Cache is up to date.")
-                            logger.debug("Cache key was %s", lookup_hash)
-                            logger.debug("Contents hash (computed) was %s", contents_hash)
-                            logger.debug("Contents hash (cached) was %s", cached_contents_hash)
+                            # Check to see if the current hash we created matches
+                            # that of the cached entry. If it matches then we know
+                            # that the data is up to date and that we can use it.
+                            if str(contents_hash) == str(cached_contents_hash):
+                                logger.debug("Cache is up to date.")
+                                logger.debug("Cache key was %s", lookup_hash)
+                                logger.debug("Contents hash (computed) was %s", contents_hash)
+                                logger.debug("Contents hash (cached) was %s", cached_contents_hash)
 
-                            actions = self._process_commands(
-                                commands=cPickle.loads(str(cached_data[0])),
-                                project=project_entity,
-                                entities=entities,
-                            )
+                                actions = self._process_commands(
+                                    commands=cPickle.loads(str(cached_data[0])),
+                                    project=project_entity,
+                                    entities=entities,
+                                )
 
-                            logger.debug("Actions found in cache: %s", actions)
+                                logger.debug("Actions found in cache: %s", actions)
 
-                            all_actions[pipeline_config["name"]] = dict(
-                                actions=self._filter_by_project(
-                                    actions,
-                                    self._get_software_entities(),
-                                    project_entity,
-                                ),
-                                config=pipeline_config,
-                            )
-                            logger.debug("Actions after project filtering: %s", actions)
+                                all_actions[pipeline_config["name"]] = dict(
+                                    actions=self._filter_by_project(
+                                        actions,
+                                        self._get_software_entities(),
+                                        project_entity,
+                                    ),
+                                    config=pipeline_config,
+                                )
+                                logger.debug("Actions after project filtering: %s", actions)
+                            else:
+                                # The hashes didn't match, so we know we need to
+                                # re-cache. Once we do that, we can just call the
+                                # get_actions method again with the same payload.
+                                logger.debug("Cache is out of date, recaching...")
+                                self._cache_actions(data, pc_data)
+                                self._get_actions(data)
+                                return
                         else:
-                            # The hashes didn't match, so we know we need to
-                            # re-cache. Once we do that, we can just call the
-                            # get_actions method again with the same payload.
-                            logger.debug("Cache is out of date, recaching...")
+                            # Cache miss.
+                            logger.debug("Commands not found in cache, caching now...")
                             self._cache_actions(data, pc_data)
-                            self.get_actions(data)
+                            self._get_actions(data)
                             return
-                    else:
-                        # Cache miss.
-                        logger.debug("Commands not found in cache, caching now...")
-                        self._cache_actions(data, pc_data)
-                        self.get_actions(data)
+                    except RuntimeError as exc:
+                        logger.error(str(exc))
+                        self.host.reply(
+                            dict(
+                                err="Shotgun Desktop failed to get engine commands.",
+                                retcode=constants.CACHING_ERROR,
+                                out="Caching failed!\n%s" % exc.message,
+                            ),
+                        )
                         return
-                except RuntimeError as exc:
-                    logger.error(str(exc))
-                    self.host.reply(
-                        dict(
-                            err="Shotgun Desktop failed to get engine commands.",
-                            retcode=constants.CACHING_ERROR,
-                            out="Caching failed!\n%s" % exc.message,
-                        ),
-                    )
-                    return
 
         # Combine the config names processed by the v2 flow with those handled
         # by the legacy pathway.
@@ -780,6 +798,7 @@ class ShotgunAPI(object):
         # that contains the PipelineConfiguration entities queried from SG.
         del self._cache[self.PIPELINE_CONFIGS]
 
+    @sgtk.LogManager.log_timing
     def _filter_by_project(self, actions, sw_entities, project):
         """
         Filters out any actions that aren't permitted for the given project
@@ -852,6 +871,7 @@ class ShotgunAPI(object):
 
         return args_file
 
+    @sgtk.LogManager.log_timing
     def _get_contents_hash(self, config_descriptor, entities):
         """
         Computes an md5 hashsum for the given pipeline configuration. This
@@ -883,13 +903,15 @@ class ShotgunAPI(object):
         # module, so we need to create a stable string representation of the
         # data structure. The quickest way to do that is to json encode 
         # everything, sorting on keys to stabilize the results.
-        return hash(
+        hash_data = hashlib.md5()
+        hash_data.update(
             json.dumps(
                 hashable_data,
                 sort_keys=True,
                 default=self.__json_default,
             )
         )
+        return hash_data.digest()
 
     def _get_entities_from_payload(self, data):
         """
@@ -935,6 +957,7 @@ class ShotgunAPI(object):
         else:
             raise RuntimeError("Unable to determine an entity from data: %s" % data)
 
+    @sgtk.LogManager.log_timing
     def _get_entity_type_whitelist(self, project_id, config_descriptor):
         """
         Gets a set of entity types that are supported by the browser
@@ -1024,6 +1047,7 @@ class ShotgunAPI(object):
         # after it's returned.
         return copy.deepcopy(self._cache[self.ENTITY_TYPE_WHITELIST][project_id])
 
+    @sgtk.LogManager.log_timing
     def _get_lookup_hash(self, config_uri, project, entity_type, entity_id):
         """
         Computes a unique key for a row in a cache database for the given
@@ -1137,7 +1161,7 @@ class ShotgunAPI(object):
                     )
                     continue
 
-                if pc_descriptor.get_path() is None:
+                if not pc_descriptor.is_immutable() and pc_descriptor.get_path() is None:
                     logger.warning(
                         "Config does not point to a valid location on disk, skipping: %r",
                         pipeline_config,
@@ -1184,6 +1208,7 @@ class ShotgunAPI(object):
         # cache.
         return copy.deepcopy(cache[self.CONFIG_DATA][entity_type][project_entity["id"]])
 
+    @sgtk.LogManager.log_timing
     def _get_pipeline_configurations(self, manager, project):
         """
         Gets all PipelineConfiguration entities for the given project.
@@ -1222,6 +1247,7 @@ class ShotgunAPI(object):
         # cache.
         return copy.deepcopy(pc_data[project["id"]])
 
+    @sgtk.LogManager.log_timing
     def _get_site_state_data(self):
         """
         Gets state-related data for the site. Exactly what data this is depends
@@ -1272,10 +1298,16 @@ class ShotgunAPI(object):
             logger.debug(
                 "Software entities have not been cached for this connection, querying..."
             )
+
+            # We only get the Software entity schema once and use it for all
+            # connections. This data is unlikely to change very often.
+            if self.SOFTWARE_FIELDS is None:
+                self.SOFTWARE_FIELDS = self._engine.shotgun.schema_field_read("Software").keys()
+
             cache[self.SOFTWARE_ENTITIES] = self._engine.shotgun.find(
                 "Software",
                 [],
-                fields=self._engine.shotgun.schema_field_read("Software").keys(),
+                fields=self.SOFTWARE_FIELDS,
             )
         else:
             logger.debug("Cached software entities found for %s", self._wss_key)
@@ -1546,6 +1578,7 @@ class ShotgunAPI(object):
 
         return "\n".join(sanitized)
 
+    @sgtk.LogManager.log_timing
     def _process_commands(self, commands, project, entities):
         """
         Filters out commands that are not associated with an app, and then
