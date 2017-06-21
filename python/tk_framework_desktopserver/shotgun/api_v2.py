@@ -985,10 +985,11 @@ class ShotgunAPI(object):
             project_entity = dict(type="Project", id=project_id)
             logger.debug("Looking up schema for project %s", project_entity)
 
+        config_root = config_descriptor.get_path()
         cache_is_initialized = self.ENTITY_TYPE_WHITELIST in self._cache
-        project_in_cache = project_id in self._cache.get(self.ENTITY_TYPE_WHITELIST, dict())
+        config_in_cache = config_root in self._cache.get(self.ENTITY_TYPE_WHITELIST, dict())
 
-        if not cache_is_initialized or not project_in_cache:
+        if not cache_is_initialized or not config_in_cache:
             # We're storing lowercased type names because we have the possibility
             # of also merging in types defined as shotgun_xxx.yml files in a config's
             # environment. Those files contain entity type names that are lower cased,
@@ -1040,12 +1041,12 @@ class ShotgunAPI(object):
                         type_whitelist.add(type_name)
 
             logger.debug("Entity-type whitelist for project %s: %s", project_id, type_whitelist)
-            self._cache.setdefault(self.ENTITY_TYPE_WHITELIST, dict())[project_id] = type_whitelist
+            self._cache.setdefault(self.ENTITY_TYPE_WHITELIST, dict())[config_root] = type_whitelist
 
         # We'll copy the data out of the cache, as we do elsewhere. This is
         # just to isolate the cache from any changes to the returned data
         # after it's returned.
-        return copy.deepcopy(self._cache[self.ENTITY_TYPE_WHITELIST][project_id])
+        return copy.deepcopy(self._cache[self.ENTITY_TYPE_WHITELIST][config_root])
 
     @sgtk.LogManager.log_timing
     def _get_lookup_hash(self, config_uri, project, entity_type, entity_id):
