@@ -52,7 +52,7 @@ class ShotgunAPI(object):
     # Stores data persistently per wss connection.
     WSS_KEY_CACHE = dict()
     DATABASE_FORMAT_VERSION = 1
-    SOFTWARE_FIELDS = None
+    SOFTWARE_FIELDS = ["id", "code", "updated_at", "type", "engine"]
     TOOLKIT_MANAGER = None
 
     # Keys for the in-memory cache.
@@ -903,14 +903,16 @@ class ShotgunAPI(object):
         # module, so we need to create a stable string representation of the
         # data structure. The quickest way to do that is to json encode 
         # everything, sorting on keys to stabilize the results.
-        hash_data = hashlib.md5()
-        hash_data.update(
-            json.dumps(
-                hashable_data,
-                sort_keys=True,
-                default=self.__json_default,
-            )
+        json_data = json.dumps(
+            hashable_data,
+            sort_keys=True,
+            default=self.__json_default,
         )
+
+        logger.debug("Contents data to be used in hash generation: %s", json_data)
+
+        hash_data = hashlib.md5()
+        hash_data.update(json_data)
         return hash_data.digest()
 
     def _get_entities_from_payload(self, data):
@@ -1263,7 +1265,7 @@ class ShotgunAPI(object):
         :rtype: list
         """
         if self.SITE_STATE_DATA not in self._cache:
-            self._cache[self.SITE_STATE_DATA] = []
+            self._cache[self.SITE_STATE_DATA] = self._get_software_entities()
 
             requested_data_specs = self._bundle.execute_hook_method(
                 "browser_integration_hook",
@@ -1300,11 +1302,6 @@ class ShotgunAPI(object):
                 "Software entities have not been cached for this connection, querying..."
             )
 
-            # We only get the Software entity schema once and use it for all
-            # connections. This data is unlikely to change very often.
-            if self.SOFTWARE_FIELDS is None:
-                self.SOFTWARE_FIELDS = self._engine.shotgun.schema_field_read("Software").keys()
-
             cache[self.SOFTWARE_ENTITIES] = self._engine.shotgun.find(
                 "Software",
                 [],
@@ -1316,7 +1313,7 @@ class ShotgunAPI(object):
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
         # cache.
-        return copy.deepcopy(cache[self.SOFTWARE_ENTITIES])
+        return cache[self.SOFTWARE_ENTITIES]
 
     @sgtk.LogManager.log_timing
     def _get_task_parent_entity_type(self, task_id):
@@ -1396,11 +1393,13 @@ class ShotgunAPI(object):
                 len(yml_files),
             )
 
+            logger.debug("Files checked for mtime: %s", sorted(yml_files.keys()))
+
             self._cache.setdefault(self.YML_FILE_DATA, dict())[root_path] = yml_files
         else:
             logger.debug("Cached yml file data found for %r.", config_descriptor)
 
-        return copy.deepcopy(self._cache[self.YML_FILE_DATA].get(root_path))
+        return self._cache[self.YML_FILE_DATA].get(root_path)
 
     def _legacy_get_project_actions(self, config_paths, project_id):
         """

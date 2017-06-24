@@ -46,7 +46,8 @@ class BrowserIntegration(HookBaseClass):
         used to control what determines whether cached data is valid or not.
         By default, we track the state of the Shotgun site's Software entities
         to determine whether any fields there have changed since the data was
-        cached.
+        cached. If any additional entities are to be added to the contents hash,
+        they can be defined and returned from this method.
 
         .. Note:
             Changing the logic in this method will invalidate related cache
@@ -57,13 +58,6 @@ class BrowserIntegration(HookBaseClass):
         :rtype: list
         """
         data_requests = []
-        data_requests.append(
-            dict(
-                entity_type="Software",
-                filters=[],
-                fields=self.parent.shotgun.schema_field_read("Software").keys(),
-            )
-        )
 
         return data_requests
 
