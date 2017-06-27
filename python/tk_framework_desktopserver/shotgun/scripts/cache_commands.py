@@ -17,8 +17,8 @@ import contextlib
 
 CORE_INFO_COMMAND = "__core_info"
 UPGRADE_CHECK_COMMAND = "__upgrade_check"
-
 LOGGER_NAME = "wss2.cache_commands"
+ENGINE_INIT_ERROR_EXIT_CODE = 77
 
 def bootstrap(data, base_configuration, engine_name, config_data, bundle_cache_fallback_paths):
     """
@@ -94,9 +94,19 @@ def cache(
     :param bool config_is_mutable: Whether the pipeline config is mutable. If
         it is, then we include the __core_info and __upgrade_check commands.
     """
-    engine = bootstrap(
-        data, base_configuration, engine_name, config_data, bundle_cache_fallback_paths
-    )
+    try:
+        engine = bootstrap(
+            data,
+            base_configuration,
+            engine_name,
+            config_data,
+            bundle_cache_fallback_paths,
+        )
+    except Exception:
+        # We need to give the server a way to know that this failed due
+        # to an engine initialization issue. That will allow it to skip
+        # this config gracefully and log appropriately.
+        sys.exit(ENGINE_INIT_ERROR_EXIT_CODE)
 
     # Note that from here on out, we have to use the legacy log_* methods
     # that the engine provides. This is because we're now operating in the

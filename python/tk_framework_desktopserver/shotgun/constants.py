@@ -20,6 +20,9 @@ CACHING_ERROR = 3
 COMMAND_SUCCEEDED = 0
 COMMAND_FAILED = 1
 
+# Subprocess return codes.
+ENGINE_INIT_ERROR_EXIT_CODE = 77
+
 # Pipeline configurations.
 OVERRIDE_CONFIG_PATH = os.environ.get("TK_BOOTSTRAP_CONFIG_OVERRIDE")
 

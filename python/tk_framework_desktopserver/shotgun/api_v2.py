@@ -600,16 +600,17 @@ class ShotgunAPI(object):
                             self._cache_actions(data, pc_data)
                             self._get_actions(data)
                             return
-                    except RuntimeError as exc:
+                    except TankCachingSubprocessFailed as exc:
                         logger.error(str(exc))
-                        self.host.reply(
-                            dict(
-                                err="Shotgun Desktop failed to get engine commands.",
-                                retcode=constants.CACHING_ERROR,
-                                out="Caching failed!\n%s" % exc.message,
-                            ),
+                        raise
+                    except TankCachingEngineBootstrapError:
+                        logger.error(
+                            "The Shotgun engine failed to initialize in the caching "
+                            "subprocess. This most likely corresponds to a configuration "
+                            "problem in the config %r as it relates to entity type %s." %
+                            (pc_descriptor, entity["type"])
                         )
-                        return
+                        continue
 
         # Combine the config names processed by the v2 flow with those handled
         # by the legacy pathway.
@@ -753,11 +754,16 @@ class ShotgunAPI(object):
 
         if retcode == 0:
             logger.debug("Command stdout: %s", stdout)
+            logger.debug("Command stderr: %s", stderr)
+        elif retcode == constants.ENGINE_INIT_ERROR_EXIT_CODE:
+            logger.debug("Caching subprocess reported a problem buring bootstrap.")
+            raise TankCachingEngineBootstrapError("%s\n\n%s" % (stdout, stderr))
         else:
             logger.error("Command failed: %s", args)
             logger.error("Failed command stdout: %s", stdout)
             logger.error("Failed command stderr: %s", stderr)
-            raise RuntimeError("%s\n\n%s" % (stdout, stderr))
+            logger.error("Failed command retcode: %s", retcode)
+            raise TankCachingSubprocessFailed("%s\n\n%s" % (stdout, stderr))
 
         logger.debug("Caching complete.")
 
@@ -1636,6 +1642,19 @@ class ShotgunAPI(object):
 class TankTaskNotLinkedError(sgtk.TankError):
     """
     Raised when a Task entity is being processed, but it is not linked to any entity.
+    """
+    pass
+
+class TankCachingSubprocessFailed(sgtk.TankError):
+    """
+    Raised when the subprocess used to cache toolkit actions fails unexpectedly.
+    """
+    pass
+
+class TankCachingEngineBootstrapError(sgtk.TankError):
+    """
+    Raised when the caching subprocess reports that the engine failed to initialize
+    during bootstrap.
     """
     pass
 
