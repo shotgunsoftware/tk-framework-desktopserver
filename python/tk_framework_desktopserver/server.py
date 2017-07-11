@@ -107,14 +107,14 @@ class Server(object):
                                                                 cert_crt_path)
 
         self.factory = WebSocketServerFactory(
-            "wss://localhost:%d" % self._port, debug=self._debug, debugCodePaths=self._debug
+            "wss://localhost:%d" % self._port
         )
 
         self.factory.protocol = ServerProtocol
         self.factory.host = self._host
         self.factory.user_id = self._user_id
         self.factory.notifier = self.notifier
-        self.factory.setProtocolOptions(allowHixie76=True, echoCloseCodeReason=True)
+        # self.factory.setProtocolOptions(allowHixie76=True, echoCloseCodeReason=True)
         try:
             self.listener = listenWS(self.factory, self.context_factory)
         except error.CannotListenError, e:

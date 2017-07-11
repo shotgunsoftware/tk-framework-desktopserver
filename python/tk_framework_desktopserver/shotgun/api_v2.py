@@ -45,7 +45,7 @@ class ShotgunAPI(object):
         "execute_action",
         "open",
         "pick_file_or_directory",
-        "pick_files_or_directories",
+        "pick_files_or_directories"
     ]
 
     # Stores data persistently per wss connection.
@@ -70,16 +70,16 @@ class ShotgunAPI(object):
     # within the same thread.
     _LOCK = threading.RLock()
 
-    def __init__(self, host, process_manager, wss_key):
+    def __init__(self, client_request, process_manager, wss_key):
         """
         API Constructor.
         Keep initialization pretty fast as it is created on every message.
 
-        :param host: Host interface to communicate with. Abstracts the client.
+        :param client_request: Host interface to communicate with. Abstracts the client.
         :param process_manager: Process Manager to use to interact with os processes.
         :param str wss_key: The WSS connection's unique key.
         """
-        self._host = host
+        self._client_request = client_request
         self._engine = sgtk.platform.current_engine()
         self._bundle = sgtk.platform.current_bundle()
         self._wss_key = wss_key
@@ -108,11 +108,11 @@ class ShotgunAPI(object):
     # Properties
 
     @property
-    def host(self):
+    def client_request(self):
         """
-        The host associated with the currnt RPC transaction.
+        The client request associated with the current RPC transaction.
         """
-        return self._host
+        return self._client_request
 
     @property
     def process_manager(self):
@@ -137,7 +137,7 @@ class ShotgunAPI(object):
             try:
                 self._clone_configuration(data)
             except Exception as e:
-                self.host.reply(
+                self.client_request.reply(
                     dict(
                         retcode=constants.COMMAND_FAILED,
                         err=str(e),
@@ -147,7 +147,7 @@ class ShotgunAPI(object):
                 raise
             else:
                 logger.debug("Clone configuration successful.")
-                self.host.reply(
+                self.client_request.reply(
                     dict(
                         retcode=constants.COMMAND_SUCCEEDED,
                         err="",
@@ -190,7 +190,7 @@ class ShotgunAPI(object):
                 # is going to believe that we're sending v2-style output, which is
                 # taken and displayed as is, and is assumed to be markdown and not
                 # HTML.
-                self.host.reply(
+                self.client_request.reply(
                     dict(
                         retcode=retcode,
                         err=self._legacy_sanitize_output(err),
@@ -258,7 +258,7 @@ class ShotgunAPI(object):
             logger.error("Command failed: %s", args)
             logger.error("Failed command stdout: %s", stdout)
             logger.error("Failed command stderr: %s", stderr)
-            self.host.reply(
+            self.client_request.reply(
                 dict(
                     retcode=constants.COMMAND_FAILED,
                     out=stdout,
@@ -291,7 +291,7 @@ class ShotgunAPI(object):
         filtered_output_string = "\n".join(filtered_output)
         logger.debug("Command execution complete.")
 
-        self.host.reply(
+        self.client_request.reply(
             dict(
                 retcode=constants.COMMAND_SUCCEEDED,
                 out=filtered_output_string,
@@ -319,7 +319,7 @@ class ShotgunAPI(object):
             self._get_actions(data)
         except Exception:
             import traceback
-            self.host.reply(
+            self.client_request.reply(
                 dict(
                     err="Failed to get actions: %s" % traceback.format_exc(),
                     retcode=constants.CACHING_ERROR,
@@ -350,7 +350,7 @@ class ShotgunAPI(object):
                 # or an undefined value for the entity type. We can't really do
                 # anything here in that case, so it's best to reply with an error
                 # that explains as best we can what's happened.
-                self.host.reply(
+                self.client_request.reply(
                     dict(
                         err="Toolkit received no entity type for this menu -- no actions can be returned!",
                         retcode=constants.CACHING_ERROR,
@@ -375,7 +375,7 @@ class ShotgunAPI(object):
                     # is via the retcode, and the tank_action_menu will be sure to
                     # re-query the actions if an entity is created and the menu
                     # shown.
-                    self.host.reply(
+                    self.client_request.reply(
                         dict(
                             err="No entity existed when actions were requested. Please refresh the page.",
                             retcode=constants.CACHING_NOT_COMPLETED,
@@ -517,7 +517,7 @@ class ShotgunAPI(object):
                     # back to the client, so we should inform the user as to
                     # how to proceed.
                     logger.debug("Task entity %s is not linked to an entity.", entity)
-                    self.host.reply(
+                    self.client_request.reply(
                         dict(
                             err="Link this Task to an entity and refresh to get Toolkit actions!",
                             retcode=constants.CACHING_ERROR,
@@ -618,7 +618,7 @@ class ShotgunAPI(object):
         # by the legacy pathway.
         config_names = config_names + [p["entity"]["name"] for p in all_pc_data.values()]
 
-        self.host.reply(
+        self.client_request.reply(
             dict(
                 err="",
                 retcode=constants.SUCCESSFUL_LOOKUP,
@@ -642,9 +642,9 @@ class ShotgunAPI(object):
             reply = {}
             reply["result"] = result
 
-            self.host.reply(reply)
+            self.client_request.reply(reply)
         except Exception, e:
-            self.host.report_error(e.message)
+            self.client_request.report_error(e.message)
 
     def pick_file_or_directory(self, data):
         """
@@ -653,7 +653,7 @@ class ShotgunAPI(object):
         :param dict data: Message payload. (no data expected)
         """
         files = self.process_manager.pick_file_or_directory(False)
-        self.host.reply(files)
+        self.client_request.reply(files)
 
     def pick_files_or_directories(self, data):
         """
@@ -662,7 +662,7 @@ class ShotgunAPI(object):
         :param dict data: Message payload. (no data expected)
         """
         files = self.process_manager.pick_file_or_directory(True)
-        self.host.reply(files)
+        self.client_request.reply(files)
 
     ###########################################################################
     # Context managers

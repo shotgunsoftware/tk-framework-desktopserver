@@ -11,12 +11,15 @@
 import json
 import datetime
 import OpenSSL
-import threading
+import base64
+import sgtk
+import os
+from cryptography.fernet import Fernet
 
 from .shotgun import get_shotgun_api
-from .message_host import MessageHost
-from .status_server_protocol import StatusServerProtocol
+from .client_request import ClientRequest
 from .process_manager import ProcessManager
+from .message import Message
 from .logger import get_logger
 
 from autobahn.twisted.websocket import WebSocketServerProtocol
@@ -37,6 +40,11 @@ class ServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         self._process_manager = ProcessManager.create()
         self._protocol_version = 2
+        self._encryption_enabled = False
+        # urandom is considered cryptographically secure as it calls the OS's CSRNG, so we can use
+        # that to generate our own server id.
+        self._ws_secret_id = base64.urlsafe_b64encode(os.urandom(16))
+        self._encryption_key = None
 
     @property
     def process_manager(self):
@@ -77,13 +85,10 @@ class ServerProtocol(WebSocketServerProtocol):
 
             if certificate_error:
                 logger.info("Certificate error!")
-                StatusServerProtocol.serverStatus = StatusServerProtocol.SSL_CERTIFICATE_INVALID
             else:
                 logger.info("Connection closed.")
-                StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
         except Exception:
             logger.exception("Unexpected error while losing connection.")
-            StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
 
         logger.debug("Reason received for connection loss: %s", reason)
 
@@ -95,7 +100,6 @@ class ServerProtocol(WebSocketServerProtocol):
         :param response: Object Response information.
         """
         # If we reach this point, then it means SSL handshake went well..
-        StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTED
         self._origin = response.origin.lower()
         logger.info("Connection accepted.")
         self._wss_key = response.headers["sec-websocket-key"]
@@ -109,10 +113,17 @@ class ServerProtocol(WebSocketServerProtocol):
         :param payload: String Message payload
         :param isBinary: If the message is in binary format
         """
-
-        # We don't currently handle any binary messages
-        if is_binary:
-            return
+        if self._encryption_enabled:
+            try:
+                payload = self._decode_payload(payload)
+            except Exception as e:
+                self.report_error("There was an error while decrypting the message: %s" % e.message)
+                logger.exception("Unexpected error while decrypting:")
+                return
+        else:
+            # We don't currently handle any binary messages
+            if is_binary:
+                return
 
         decoded_payload = payload.decode("utf8")
 
@@ -129,16 +140,19 @@ class ServerProtocol(WebSocketServerProtocol):
             self.report_error("Error in decoding the message's json data: %s" % e.message)
             return
 
-        message_host = MessageHost(self, message)
+        client_request = ClientRequest(self, message)
 
         # Check protocol version
         if message["protocol_version"] not in self.SUPPORTED_PROTOCOL_VERSIONS:
-            message_host.report_error(
+            client_request.report_error(
                 "Unsupported protocol version: %s " % message["protocol_version"]
             )
             return
 
         self._protocol_version = message["protocol_version"]
+
+        if self._handle_encryption_handshake(message):
+            return
 
         # origin is formatted such as https://xyz.shotgunstudio.com:port_number
         # host is https://xyz.shotgunstudio.com:port_number
@@ -179,12 +193,51 @@ class ServerProtocol(WebSocketServerProtocol):
         # will ensure the server is as responsive as possible. Twisted will take care of the thread.
         reactor.callInThread(
             self._process_message,
-            message_host,
+            client_request,
             message,
             message["protocol_version"],
         )
 
-    def _process_message(self, message_host, message, protocol_version):
+    def _handle_encryption_handshake(self, message):
+
+        if self._protocol_version == 1:
+            return False
+
+        # These messages are meant for the protocol and not the API
+        if message["command"]["name"] == "activate_encryption":
+            # FIXME: Need to regenerate a new session token so we can bind a new secret id to it.
+            shotgun = sgtk.platform.current_engine().shotgun
+            shotgun = shotgun.reauthenticate()
+            response = shotgun.retrieve_ws_server_secret(self._ws_secret_id)
+
+            # Get the urlsafe encoded encryption key from the Shotgun server response.
+            ws_server_secret = response["ws_server_secret"]
+
+            # Build a response for the web app.
+            # FIXME: Stop sending the encryption key and retrieve it via a POST on the webapp side.
+            message = Message(message["id"], self._protocol_version)
+            message.reply(
+                {
+                    "ws_server_id": self._ws_secret_id,
+                    "encryption_key": ws_server_secret
+                }
+            )
+
+            # send the response.
+            self.json_reply(message.data)
+
+            # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
+            # doesn't seem to complain however, so I'm not sure whose implementation is broken.
+            if ws_server_secret[-1] != "=":
+                ws_server_secret += "="
+            self._encryption_key = ws_server_secret
+
+            self._encryption_enabled = True
+            return True
+
+        return False
+
+    def _process_message(self, client_request, message, protocol_version):
 
         # Retrieve command from message
         command = message["command"]
@@ -198,12 +251,12 @@ class ServerProtocol(WebSocketServerProtocol):
             # Do not resolve to simply ShotgunAPI in the imports, this allows tests to mock errors
             api = get_shotgun_api(
                 protocol_version,
-                message_host,
+                client_request,
                 self.process_manager,
                 wss_key=self._wss_key,
             )
         except Exception, e:
-            message_host.report_error("Unable to get a ShotgunAPI object: %s" % e)
+            client_request.report_error("Unable to get a ShotgunAPI object: %s" % e)
             return
 
         # Make sure the command is in the public API
@@ -212,7 +265,7 @@ class ServerProtocol(WebSocketServerProtocol):
             try:
                 func = getattr(api, cmd_name)
             except Exception, e:
-                message_host.report_error(
+                client_request.report_error(
                     "Could not find API method %s: %s" % (cmd_name, e)
                 )
             else:
@@ -228,11 +281,11 @@ class ServerProtocol(WebSocketServerProtocol):
                     func(data)
                 except Exception, e:
                     import traceback
-                    message_host.report_error(
+                    client_request.report_error(
                         "Method call failed for %s: %s" % (cmd_name, traceback.format_exc())
                     )
         else:
-            message_host.report_error("Command %s is not supported." % cmd_name)
+            client_request.report_error("Command %s is not supported." % cmd_name)
 
     def report_error(self, message, data=None):
         """
@@ -266,7 +319,11 @@ class ServerProtocol(WebSocketServerProtocol):
             default=self._json_date_handler,
         ).encode("utf8")
 
-        is_binary = False
+        if self._encryption_enabled:
+            payload = self._encode_payload(payload)
+            is_binary = False
+        else:
+            is_binary = False
         self.sendMessage(payload, is_binary)
 
     def _json_date_handler(self, obj):
@@ -282,3 +339,17 @@ class ServerProtocol(WebSocketServerProtocol):
             return obj.isoformat()
         else:
             return json.JSONEncoder().default(obj)
+
+    def _encode_payload(self, payload):
+        return Fernet(self._encryption_key).encrypt(payload)
+
+    def _decode_payload(self, payload):
+        return Fernet(self._encryption_key).decrypt(payload)
+        # # https://stackoverflow.com/questions/12524994/encrypt-decrypt-using-pycrypto-aes-256
+        # # Extract initialization vector and payload from the data.
+        # iv = payload[:AES.block_size]
+        # encrypted = payload[AES.block_size:]
+        # cipher = AES.new(self._encryption_key, AES.MODE_CBC, iv)
+        # decrypted = cipher.decrypt(encrypted)
+        # # The stringified JSON was base64 encoded so undo that
+        # return base64.standard_b64decode(decrypted)

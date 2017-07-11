@@ -37,16 +37,16 @@ class ShotgunAPI(object):
         "getProjectActions",
     ]
 
-    def __init__(self, host, process_manager, wss_key):
+    def __init__(self, client_request, process_manager, wss_key):
         """
         API Constructor.
         Keep initialization pretty fast as it is created on every message.
 
-        :param host: Host interface to communicate with. Abstracts the client.
+        :param client_request: Client request we must respond to. Abstracts the client.
         :param process_manager: Process Manager to use to interact with os processes.
         :param str wss_key: The unique key assigned the current wss connection.
         """
-        self.host = host
+        self.client_request = client_request
         self.process_manager = process_manager
         self.wss_key = wss_key
 
@@ -64,7 +64,7 @@ class ShotgunAPI(object):
         reply["out"] = out
         reply["err"] = err
 
-        self.host.reply(reply)
+        self.client_request.reply(reply)
 
     def open(self, data):
         """
@@ -82,9 +82,9 @@ class ShotgunAPI(object):
             reply = {}
             reply["result"] = result
 
-            self.host.reply(reply)
+            self.client_request.reply(reply)
         except Exception, e:
-            self.host.report_error(e.message)
+            self.client_request.report_error(e.message)
 
     def echo(self, data):
         """
@@ -97,7 +97,7 @@ class ShotgunAPI(object):
         reply = {}
         reply["message"] = data.get("message")
 
-        self.host.reply(reply)
+        self.client_request.reply(reply)
 
     def executeEngineCommand(self, data):
         """
@@ -130,13 +130,13 @@ class ShotgunAPI(object):
 
         if not isinstance(args, list):
             message = "ExecuteToolkitCommand 'args' must be a list."
-            self.host.report_error(message)
+            self.client_request.report_error(message)
 
         try:
             (out, err, returncode) = self.process_manager.execute_toolkit_command(pipeline_config_path, command, args)
             self._handle_toolkit_output(out, err, returncode)
         except Exception, e:
-            self.host.report_error(e.message)
+            self.client_request.report_error(e.message)
 
     def executeTankCommand(self, data):
         """
@@ -150,7 +150,7 @@ class ShotgunAPI(object):
 
         :param dict data: The payload sent down by the client.
         """
-        self.host.reply(
+        self.client_request.reply(
             dict(
                 actions=self.process_manager.get_actions(
                     pipeline_configs=data.get("pipeline_configs"),
@@ -172,7 +172,7 @@ class ShotgunAPI(object):
         reply = {}
         reply["actions"] = actions
 
-        self.host.reply(reply)
+        self.client_request.reply(reply)
 
     def pickFileOrDirectory(self, data):
         """
@@ -181,7 +181,7 @@ class ShotgunAPI(object):
         """
 
         files = self.process_manager.pick_file_or_directory(False)
-        self.host.reply(files)
+        self.client_request.reply(files)
 
     def pickFilesOrDirectories(self, data):
         """
@@ -190,7 +190,7 @@ class ShotgunAPI(object):
         """
 
         files = self.process_manager.pick_file_or_directory(True)
-        self.host.reply(files)
+        self.client_request.reply(files)
 
     def version(self, data=None):
         """
@@ -202,4 +202,4 @@ class ShotgunAPI(object):
         reply["minor"] = self._SHOTGUN_INTEGRATION_API_MINOR
         reply["patch"] = self._SHOTGUN_INTEGRATION_API_PATCH
 
-        self.host.reply(reply)
+        self.client_request.reply(reply)

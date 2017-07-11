@@ -13,7 +13,8 @@
 from . import api_v1
 from . import api_v2
 
-def get_shotgun_api(protocol_version, host, process_manager, wss_key):
+
+def get_shotgun_api(protocol_version, client_request, process_manager, wss_key):
     """
     A factory function that returns an rpc API instance. The given
     protocol version will be taken into account when determining which
@@ -21,7 +22,7 @@ def get_shotgun_api(protocol_version, host, process_manager, wss_key):
 
     :param int protocol_version: The protocol version that the returned
         API instance must support.
-    :param host: The message host.
+    :param client_request: The client request.
     :param process_manager: A process manager. This is only used by the
         protocol verion 1 API, but provided to all APIs for the sake of
         consistency.
@@ -33,8 +34,8 @@ def get_shotgun_api(protocol_version, host, process_manager, wss_key):
         version.
     """
     if protocol_version == 1:
-        return api_v1.ShotgunAPI(host, process_manager, wss_key)
+        return api_v1.ShotgunAPI(client_request, process_manager, wss_key)
     elif protocol_version == 2:
-        return api_v2.ShotgunAPI(host, process_manager, wss_key)
+        return api_v2.ShotgunAPI(client_request, process_manager, wss_key)
     else:
         raise RuntimeError("Unsupported protocol version: %s" % protocol_version)

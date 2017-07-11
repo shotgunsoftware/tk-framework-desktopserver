@@ -12,15 +12,15 @@ import os
 import sys
 
 python_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../resources/python"))
-sys.path.append(os.path.join(python_path, "common"))
+sys.path.insert(0, os.path.join(python_path, "test"))
 
-distributions_path = os.path.join(python_path, "dist")
-if sys.platform.startswith("darwin"):
-    sys.path.append(os.path.join(distributions_path, "mac"))
-elif os.name == "nt":
-    sys.path.append(os.path.join(distributions_path, "win"))
-elif os.name == "posix":
-    sys.path.append(os.path.join(distributions_path, "linux"))
+# distributions_path = os.path.join(python_path, "dist")
+# if sys.platform.startswith("darwin"):
+#     sys.path.insert(0, os.path.join(distributions_path, "mac"))
+# elif os.name == "nt":
+#     sys.path.insert(0, os.path.join(distributions_path, "win"))
+# elif os.name == "posix":
+#     sys.path.insert(0, os.path.join(distributions_path, "linux"))
 
 from .server import Server
 from .settings import Settings

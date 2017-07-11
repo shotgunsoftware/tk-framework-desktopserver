@@ -15,7 +15,7 @@ from twisted.internet import reactor
 logger = get_logger(__name__)
 
 
-class MessageHost(object):
+class ClientRequest(object):
     """
     Message Host Interface for the Shotgun API. We don't pass the actual websocket host directly in order to make
     sure that the API communicates with the client using the proper protocol.
@@ -28,7 +28,7 @@ class MessageHost(object):
         :param host: WebSocketServerProtocol instance of actual host to communicate with.
         :param message: Message related to this host communication.
         """
-        self._host = host
+        self.host = host
         self._message = message         # Message context that initiated this communication
 
     def reply(self, data):
@@ -38,14 +38,14 @@ class MessageHost(object):
         :param data: Object to send
         """
 
-        message = Message(self._message["id"], self._host.protocol_version)
+        message = Message(self._message["id"], self.host.protocol_version)
         message.reply(data)
 
         self._send_message(message.data)
 
     def _send_message(self, data):
         # Writing to a protocol is not thread safe and must be called from reactor thread.
-        reactor.callFromThread(lambda: self._host.json_reply(data))
+        reactor.callFromThread(lambda: self.host.json_reply(data))
 
     def report_error(self, error_message, error_data=None):
         """
@@ -55,7 +55,7 @@ class MessageHost(object):
         :param data: Optional object data to send in reply
         """
         logger.info("Websocket client error: %s" % error_message)
-        message = Message(self._message["id"], self._host.protocol_version)
+        message = Message(self._message["id"], self.host.protocol_version)
         message.error(error_message, error_data)
 
         self._send_message(message.data)
