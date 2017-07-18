@@ -52,7 +52,7 @@ class ShotgunAPI(object):
     # Stores data persistently per wss connection.
     WSS_KEY_CACHE = dict()
     DATABASE_FORMAT_VERSION = 1
-    SOFTWARE_FIELDS = ["id", "code", "updated_at", "type", "engine"]
+    SOFTWARE_FIELDS = ["id", "code", "updated_at", "type", "engine", "projects"]
     TOOLKIT_MANAGER = None
 
     # Keys for the in-memory cache.
@@ -1007,46 +1007,54 @@ class ShotgunAPI(object):
             # This will only ever happen once per unique connection. That means
             # on page refresh it happens, but not every time menu actions are
             # requested.
-            schema = self._engine.shotgun.schema_field_read(
-                constants.PUBLISHED_FILE_ENTITY,
-                field_name="entity",
-                project_entity=project_entity,
-            )
+            #
+            # The conditional here is simply for the case of test suites. At this
+            # time, Mockgun's schema_field_read method doesn't accept a project_entity
+            # argument, and when running unit tests it's really not needed anyway.
+            if project_entity is not None:
+                schema = self._engine.shotgun.schema_field_read(
+                    constants.PUBLISHED_FILE_ENTITY,
+                    field_name="entity",
+                    project_entity=project_entity,
+                )
+            else:
+                schema = self._engine.shotgun.schema_field_read(
+                    constants.PUBLISHED_FILE_ENTITY,
+                    field_name="entity",
+                )
             linkable_types = schema["entity"]["properties"]["valid_types"]["value"]
             linkable_types = [t.lower() for t in linkable_types]
             type_whitelist = type_whitelist.union(set(linkable_types))
 
-            # The config is mutable, which means we need to also get those entity
-            # types that have an associated shotgun_xxx.yml file.
-            if config_descriptor.is_immutable() == False:
-                logger.debug(
-                    "Config %r is mutable -- including shotgun_xxx.yml entity types in the whitelist.",
-                    config_descriptor,
-                )
+            # It's less likely that an immutable config will contain legacy shotgun_xxx.yml
+            # environment files that we need to take into account. However, it's possible
+            # and we have seen the Studio team internal to Shotgun tinkering with some
+            # configs built this way. As such, the below logic will check for shotgun_xxx.yml
+            # files regardless of whether this is an immutable config or not.
+            #
+            # Matches something like "/shotgun/config/env/shotgun_shot.yml" and
+            # extracts "shot" from the yml file basename.
+            match_re = re.compile(r".+shotgun_([^.]+)[.]yml$")
 
-                # Matches something like "/shotgun/config/env/shotgun_shot.yml" and
-                # extracts "shot" from the yml file basename.
-                match_re = re.compile(r".+shotgun_([^.]+)[.]yml$")
+            for yml_file in self._get_yml_file_data(config_descriptor).keys():
+                logger.debug("Checking %s for entity type whitelisting...", yml_file)
+                match = re.match(match_re, yml_file)
+                if match:
+                    logger.debug(
+                        "File %s is a shotgun_xxx.yml file, extracting entity type...",
+                        yml_file,
+                    )
 
-                for yml_file in self._get_yml_file_data(config_descriptor).keys():
-                    logger.debug("Checking %s for entity type whitelisting...", yml_file)
-                    match = re.match(match_re, yml_file)
-                    if match:
-                        logger.debug(
-                            "File %s is a shotgun_xxx.yml file, extracting entity type...",
-                            yml_file,
-                        )
+                    # Group 0 is the entire match, group 1 is the extracted
+                    # entity type name.
+                    type_name = match.group(1)
 
-                        # Group 0 is the entire match, group 1 is the extracted
-                        # entity type name.
-                        type_name = match.group(1)
-
-                        logger.debug(
-                            "Adding entity type %s to whitelist from %s.",
-                            type_name,
-                            yml_file,
-                        )
-                        type_whitelist.add(type_name)
+                    logger.debug(
+                        "Adding entity type %s to whitelist from %s.",
+                        type_name,
+                        yml_file,
+                    )
+                    type_whitelist.add(type_name)
 
             logger.debug("Entity-type whitelist for project %s: %s", project_id, type_whitelist)
             self._cache.setdefault(self.ENTITY_TYPE_WHITELIST, dict())[config_root] = type_whitelist

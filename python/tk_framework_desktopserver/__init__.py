@@ -27,4 +27,5 @@ from .settings import Settings
 from .process_manager import ProcessManager
 from .certificates import get_certificate_handler
 from .logger import get_logger
+from .shotgun import get_shotgun_api
 from .errors import MissingCertificateError, PortBusyError, MissingConfigurationFileError, BrowserIntegrationError
