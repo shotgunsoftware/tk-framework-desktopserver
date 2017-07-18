@@ -23,6 +23,84 @@ class TestUtilMethods(TestDesktopServerFramework):
     """
     Tests for various utility methods for api_v2.
     """
+    def test_payload_parsing(self):
+        """
+        Tests to ensure that payload parsing to extract entities passed down from
+        Shotgun works properly.
+        """
+        # If a single entity is passed down.
+        test_payload = dict(
+            project_id=1,
+            entity_type="Shot",
+            entity_id=2,
+        )
+
+        project_entity = dict(
+            type="Project",
+            id=1,
+        )
+
+        expected_return = (
+            project_entity,
+            [
+                dict(
+                    type="Shot",
+                    id=2,
+                    project=project_entity,
+                ),
+            ],
+        )
+
+        self.assertEqual(
+            expected_return,
+            self.api._get_entities_from_payload(test_payload)
+        )
+
+        # If multiple entities are passed down.
+        # If a single entity is passed down.
+        test_payload = dict(
+            project_id=1,
+            entity_type="Shot",
+            entity_ids=[2, 3, 4],
+        )
+
+        expected_return = (
+            project_entity,
+            [
+                dict(
+                    type="Shot",
+                    id=2,
+                    project=project_entity,
+                ),
+                dict(
+                    type="Shot",
+                    id=3,
+                    project=project_entity,
+                ),
+                dict(
+                    type="Shot",
+                    id=4,
+                    project=project_entity,
+                ),
+            ],
+        )
+
+        actual_return = self.api._get_entities_from_payload(test_payload)
+
+        # Make sure we got the Project entity.
+        self.assertEqual(
+            expected_return[0],
+            actual_return[0]
+        )
+
+        # The list of entities is unordered, so we can't just compare it directly.
+        # Instead, we'll make sure the length is correct and that all of the expected
+        # entities are there.
+        self.assertEqual(len(expected_return[1]), len(actual_return[1]))
+
+        for expected_entity in expected_return[1]:
+            self.assertTrue((expected_entity in actual_return[1]))
+
     def test_get_task_entity_parent_type(self):
         """
         Tests that we get the correct parent entity type from Tasks.
