@@ -16,7 +16,7 @@ install:
     # Travis CI servers use virtualenvs, so we need to finish the install by the following
     - python ~/virtualenv/python${TRAVIS_PYTHON_VERSION}/bin/pyside_postinstall.py -install
     # We need to ensure that libffi.so.5 is available.
-    - sudo apt-get install --reinstall libffi5
+    - find / -name libffi.so.6
 
 # command to run tests
 script: cd tests && ./run_travis_tests.sh
