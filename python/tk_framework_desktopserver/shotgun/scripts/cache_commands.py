@@ -107,8 +107,7 @@ def cache(
         # to an engine initialization issue. That will allow it to skip
         # this config gracefully and log appropriately.
         sys.exit(ENGINE_INIT_ERROR_EXIT_CODE)
-    import pdb
-    pdb.set_trace()
+
     # Note that from here on out, we have to use the legacy log_* methods
     # that the engine provides. This is because we're now operating in the
     # tk-core that is configured for the project, which means we can't
