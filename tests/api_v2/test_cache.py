@@ -11,13 +11,12 @@
 import os
 import sys
 
-from tank_test.tank_test_base import *
+from tank_test.tank_test_base import setUpModule
 
 # import the test base class
 test_python_path = os.path.abspath(os.path.join( os.path.dirname(__file__), "..", "python"))
 sys.path.append(test_python_path)
 from base_test import TestDesktopServerFramework, MockConfigDescriptor
-
 
 class TestCacheMethods(TestDesktopServerFramework):
     """
@@ -33,7 +32,6 @@ class TestCacheMethods(TestDesktopServerFramework):
             path=self.config_root,
             is_immutable=True,
         )
-
         key_1 = self.api._get_lookup_hash(
             config_uri=config_descriptor.get_uri(),
             project=dict(type="Project", id=1),
@@ -59,7 +57,6 @@ class TestCacheMethods(TestDesktopServerFramework):
             entity_type="Shot",
             entity_id=11111,
         )
-
         self.assertEqual(key_2, key_3)
 
         # Different projects should not make a difference with the default
@@ -70,7 +67,6 @@ class TestCacheMethods(TestDesktopServerFramework):
             entity_type="Shot",
             entity_id=1,
         )
-
         self.assertEqual(key_3, key_4)
 
         # Task entities are treated special, because they can be linked to
@@ -92,7 +88,6 @@ class TestCacheMethods(TestDesktopServerFramework):
                 entity=dict(type="Asset", id=2),
             ),
         ]
-
         self.add_to_sg_mock_db(task_entities)
 
         key_5 = self.api._get_lookup_hash(
@@ -122,7 +117,6 @@ class TestCacheMethods(TestDesktopServerFramework):
             path=self.config_root,
             is_immutable=True,
         )
-
         hash_1 = self.api._get_contents_hash(
             config_descriptor,
             self.api._get_software_entities(),
@@ -150,24 +144,20 @@ class TestCacheMethods(TestDesktopServerFramework):
         # We have to clear the entity cache, though, because the wss_key isn't
         # changing the way it would on a page refresh or navigation.
         self.api._cache = dict()
-
         hash_3 = self.api._get_contents_hash(
             config_descriptor,
             self.api._get_software_entities(),
         )
-
         self.assertNotEqual(hash_1, hash_3)
 
         # Setting the descriptor to imply that the config is mutable should
         # also change the hash, as the mtimes of environment yml files will
         # be included in the hash.
         config_descriptor._is_immutable = False
-
         hash_4 = self.api._get_contents_hash(
             config_descriptor,
             self.api._get_software_entities(),
         )
-
         self.assertNotEqual(hash_3, hash_4)
 
         # Running it again should match, because the mtimes of the yml files
@@ -176,7 +166,6 @@ class TestCacheMethods(TestDesktopServerFramework):
             config_descriptor,
             self.api._get_software_entities(),
         )
-
         self.assertEqual(hash_4, hash_5)
 
         # Updating mtimes should cause the hash to change again.
@@ -185,12 +174,10 @@ class TestCacheMethods(TestDesktopServerFramework):
         # We have to clear the entity cache, though, because the wss_key isn't
         # changing the way it would on a page refresh or navigation.
         self.api._cache = dict()
-
         hash_6 = self.api._get_contents_hash(
             config_descriptor,
             self.api._get_software_entities(),
         )
-
         self.assertNotEqual(hash_5, hash_6)
 
 

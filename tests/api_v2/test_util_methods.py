@@ -11,13 +11,12 @@
 import os
 import sys
 
-from tank_test.tank_test_base import *
+from tank_test.tank_test_base import setUpModule
 
 # import the test base class
 test_python_path = os.path.abspath(os.path.join( os.path.dirname(__file__), "..", "python"))
 sys.path.append(test_python_path)
 from base_test import TestDesktopServerFramework, MockConfigDescriptor
-
 
 class TestUtilMethods(TestDesktopServerFramework):
     """

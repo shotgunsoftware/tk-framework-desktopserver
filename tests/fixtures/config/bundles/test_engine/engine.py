@@ -1,4 +1,4 @@
-# Copyright (c) 2013 Shotgun Software Inc.
+# Copyright (c) 2017 Shotgun Software Inc.
 # 
 # CONFIDENTIAL AND PROPRIETARY
 # 
@@ -21,19 +21,3 @@ class TestEngine(Engine):
     
     def init_engine(self):
         pass
-                
-    ##########################################################################################
-    # logging interfaces
-
-    def log_debug(self, msg):
-        if self.get_setting("debug_logging", False):
-            sys.stdout.write("DEBUG: %s\n" % msg)
-    
-    def log_info(self, msg):
-        sys.stdout.write("%s\n" % msg)
-        
-    def log_warning(self, msg):
-        sys.stdout.write("WARNING: %s\n" % msg)
-    
-    def log_error(self, msg):
-        sys.stdout.write("ERROR: %s\n" % msg)

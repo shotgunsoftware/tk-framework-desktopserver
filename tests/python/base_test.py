@@ -11,11 +11,9 @@
 import os
 import sys
 
-from tank_test.tank_test_base import *
+from tank_test.tank_test_base import TankTestBase, setUpModule
 import sgtk
-from mock_host import MockHost
-from mock_descriptor import MockConfigDescriptor
-
+from mock_test_classes import MockHost, MockConfigDescriptor
 
 class TestDesktopServerFramework(TankTestBase):
     def setUp(self):
