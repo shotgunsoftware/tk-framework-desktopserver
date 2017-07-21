@@ -26,7 +26,7 @@ description: "Provides the server used to listen to Shotgun client requests, suc
 
 # Required minimum versions for this item to run
 requires_shotgun_version:
-requires_core_version: "v0.16.0"
+requires_core_version: "v0.18.97"
 
  
         

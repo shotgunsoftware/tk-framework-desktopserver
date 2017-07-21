@@ -24,6 +24,7 @@ import threading
 import hashlib
 
 import sgtk
+from sgtk import TankFileDoesNotExistError
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
 from . import constants
 from .. import command
@@ -235,7 +236,7 @@ class ShotgunAPI(object):
                 data,
             )
 
-        python_exe = all_pc_data[config_entity["id"]]["descriptor"].python_interpreter
+        python_exe = self._get_python_interpreter(all_pc_data[config_entity["id"]]["descriptor"])
         logger.debug("Python executable: %s", python_exe)
 
         args = [python_exe, script, args_file]
@@ -722,7 +723,7 @@ class ShotgunAPI(object):
 
         # We'll need the Python executable when we shell out. We want to make sure
         # we use the Python defined in the config's interpreter config file.
-        python_exe = descriptor.python_interpreter
+        python_exe = self._get_python_interpreter(descriptor)
         logger.debug("Python executable: %s", python_exe)
 
         arg_config_data = dict(
@@ -763,6 +764,22 @@ class ShotgunAPI(object):
             raise TankCachingSubprocessFailed("%s\n\n%s" % (stdout, stderr))
 
         logger.debug("Caching complete.")
+
+    def _get_python_interpreter(self, descriptor):
+        """
+        Retrieves the python interpreter from the configuration. Returns the
+        current python interpreter if no interpreter was specified.
+        """
+        try:
+            path_to_python = descriptor.python_interpreter
+        except TankFileDoesNotExistError:
+            if sys.platform == "darwin":
+                path_to_python = os.path.join(sys.prefix, "bin", "python")
+            elif sys.platform == "win32":
+                path_to_python = os.path.join(sys.prefix, "python.exe")
+            else:
+                path_to_python = os.path.join(sys.prefix, "bin", "python")
+        return path_to_python
 
     def _clone_configuration(self, data):
         """
