@@ -221,13 +221,23 @@ class ShotgunAPI(object):
             "execute_command.py"
         )
 
-        # We'll need the Python executable when we shell out. We can't
-        # rely on sys.executable, because that's going to be the Desktop
-        # exe on Windows. We'll pull from the site config's interpreter
-        # cfg file.
-        python_exe = sgtk.get_python_interpreter_for_config(
-            self._engine.sgtk.pipeline_configuration.get_path(),
-        )
+        # We'll need the Python executable when we shell out. We need to make
+        # sure it's what's in the config's interpreter config file. To do that,
+        # we can get the config's descriptor object from the manager and ask
+        # it for the path. By this point, all of the config data has been cached,
+        # because it will have been looked up as part of the get_actions method
+        # when the menu asked for actions, so getting the manager and all of the
+        # config data will be essentially free.
+        manager = self._get_toolkit_manager()
+        with self._LOCK:
+            manager.bundle_cache_fallback_paths = self._engine.sgtk.bundle_cache_fallback_paths
+            all_pc_data = self._get_pipeline_configuration_data(
+                manager,
+                project_entity,
+                data,
+            )
+
+        python_exe = all_pc_data[config_entity["id"]]["descriptor"].python_interpreter
         logger.debug("Python executable: %s", python_exe)
 
         args = [python_exe, script, args_file]
@@ -382,14 +392,7 @@ class ShotgunAPI(object):
         # off the list.
         project_entity, entities = self._get_entities_from_payload(data)
         entity = entities[0]
-
-        if self.TOOLKIT_MANAGER is None:
-            self.TOOLKIT_MANAGER = sgtk.bootstrap.ToolkitManager()
-            self.TOOLKIT_MANAGER.allow_config_overrides = False
-            self.TOOLKIT_MANAGER.plugin_id = "basic.shotgun"
-            self.TOOLKIT_MANAGER.base_configuration = constants.BASE_CONFIG_URI
-
-        manager = self.TOOLKIT_MANAGER
+        manager = self._get_toolkit_manager()
 
         with self._LOCK:
             manager.bundle_cache_fallback_paths = self._engine.sgtk.bundle_cache_fallback_paths
@@ -717,17 +720,13 @@ class ShotgunAPI(object):
         )
 
         logger.debug("Executing script: %s", script)
+        descriptor = config_data["descriptor"]
 
-        # We'll need the Python executable when we shell out. We can't
-        # rely on sys.executable, because that's going to be the Desktop
-        # exe on Windows. We'll pull from the site config's interpreter
-        # cfg file.
-        python_exe = sgtk.get_python_interpreter_for_config(
-            self._engine.sgtk.pipeline_configuration.get_path(),
-        )
+        # We'll need the Python executable when we shell out. We want to make sure
+        # we use the Python defined in the config's interpreter config file.
+        python_exe = descriptor.python_interpreter
         logger.debug("Python executable: %s", python_exe)
 
-        descriptor = config_data["descriptor"]
         arg_config_data = dict(
             lookup_hash = config_data["lookup_hash"],
             contents_hash=config_data["contents_hash"],
@@ -1357,6 +1356,20 @@ class ShotgunAPI(object):
             cache.setdefault(self.TASK_PARENT_TYPES, dict())[task_id] = entity_type
 
         return cache[self.TASK_PARENT_TYPES][task_id]
+
+    def _get_toolkit_manager(self):
+        """
+        Gets an initialized ToolkitManager object.
+
+        :returns: A ToolkitManager object.
+        """
+        if self.TOOLKIT_MANAGER is None:
+            self.TOOLKIT_MANAGER = sgtk.bootstrap.ToolkitManager()
+            self.TOOLKIT_MANAGER.allow_config_overrides = False
+            self.TOOLKIT_MANAGER.plugin_id = "basic.shotgun"
+            self.TOOLKIT_MANAGER.base_configuration = constants.BASE_CONFIG_URI
+
+        return self.TOOLKIT_MANAGER
 
     @sgtk.LogManager.log_timing
     def _get_yml_file_data(self, config_descriptor):
