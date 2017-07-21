@@ -14,11 +14,8 @@ import re
 import cPickle
 import sqlite3
 import json
-import subprocess
 import tempfile
 import contextlib
-import json
-import fnmatch
 import datetime
 import copy
 import base64
@@ -35,6 +32,7 @@ logger = sgtk.platform.get_logger(__name__)
 
 ###########################################################################
 # Classes
+
 
 class ShotgunAPI(object):
     """
@@ -101,7 +99,7 @@ class ShotgunAPI(object):
 
         # Cache path on disk.
         self._cache_path = os.path.join(
-            self._engine.cache_location, 
+            self._engine.cache_location,
             "shotgun_engine_commands_v%s.sqlite" % self.DATABASE_FORMAT_VERSION,
         )
 
@@ -326,7 +324,7 @@ class ShotgunAPI(object):
                     retcode=constants.CACHING_ERROR,
                     out="",
                 ),
-            )   
+            )
 
     def _get_actions(self, data):
         """
@@ -424,7 +422,7 @@ class ShotgunAPI(object):
                     # path is routed to <root>/config, while the v1 api is just
                     # wanting the root path where the tank command lives.
                     legacy_config_data[config["name"]] = (
-                        os.path.dirname(config["descriptor"].get_path()),
+                        config["descriptor"].get_path(),
                         config
                     )
 
@@ -676,7 +674,7 @@ class ShotgunAPI(object):
         """
         connection = sqlite3.connect(self._cache_path)
 
-        # This is to handle unicode properly - make sure that sqlite returns 
+        # This is to handle unicode properly - make sure that sqlite returns
         # str objects for TEXT fields rather than unicode. Note that any unicode
         # objects that are passed into the database will be automatically
         # converted to UTF-8 strs, so this text_factory guarantees that any character
@@ -891,7 +889,7 @@ class ShotgunAPI(object):
         :returns: hash value
         :rtype: int
         """
-        # We dump the entities out as json, sorting on keys to ensure 
+        # We dump the entities out as json, sorting on keys to ensure
         # consistent ordering of data.
         hashable_data = dict(
             entities=entities,
@@ -906,7 +904,7 @@ class ShotgunAPI(object):
 
         # Dict objects aren't hashable directly by way of hash() or the md5
         # module, so we need to create a stable string representation of the
-        # data structure. The quickest way to do that is to json encode 
+        # data structure. The quickest way to do that is to json encode
         # everything, sorting on keys to stabilize the results.
         json_data = json.dumps(
             hashable_data,
@@ -1660,11 +1658,13 @@ class ShotgunAPI(object):
 ###########################################################################
 # Exceptions
 
+
 class TankTaskNotLinkedError(sgtk.TankError):
     """
     Raised when a Task entity is being processed, but it is not linked to any entity.
     """
     pass
+
 
 class TankCachingSubprocessFailed(sgtk.TankError):
     """
@@ -1672,18 +1672,10 @@ class TankCachingSubprocessFailed(sgtk.TankError):
     """
     pass
 
+
 class TankCachingEngineBootstrapError(sgtk.TankError):
     """
     Raised when the caching subprocess reports that the engine failed to initialize
     during bootstrap.
     """
     pass
-
-
-
-
-
-
-
-
-
