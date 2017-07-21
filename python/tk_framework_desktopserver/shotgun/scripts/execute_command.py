@@ -352,7 +352,7 @@ if __name__ == "__main__":
     with open(arg_data_file, "rb") as fh:
         arg_data = cPickle.load(fh)
 
-    sys.path = arg_data["sys_path"]
+    sys.path.extend(arg_data["sys_path"])
     LOGGING_PREFIX = arg_data["logging_prefix"]
 
     execute(
