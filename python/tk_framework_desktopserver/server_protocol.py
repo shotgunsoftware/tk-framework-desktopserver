@@ -38,6 +38,7 @@ class ServerProtocol(WebSocketServerProtocol):
     SUPPORTED_PROTOCOL_VERSIONS = (1, 2)
 
     def __init__(self):
+        super(WebSocketServerProtocol, self).__init__()
         self._process_manager = ProcessManager.create()
         self._protocol_version = 2
         self._encryption_enabled = False
