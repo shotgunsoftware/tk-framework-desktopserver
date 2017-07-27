@@ -17,7 +17,7 @@ distributions_path = os.path.join(python_path, "dist")
 if sys.platform.startswith("darwin"):
     sys.path.insert(0, os.path.join(distributions_path, "mac"))
 elif os.name == "nt":
-    sys.path.insert(0, os.path.join(distributions_path, "win"))
+    sys.path.insert(0, os.path.join(distributions_path, "windows"))
 elif os.name == "posix":
     sys.path.insert(0, os.path.join(distributions_path, "linux"))
 
