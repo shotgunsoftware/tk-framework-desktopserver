@@ -211,21 +211,19 @@ class ServerProtocol(WebSocketServerProtocol):
             shotgun = shotgun.reauthenticate()
             response = shotgun.retrieve_ws_server_secret(self._ws_secret_id)
 
-            # Get the urlsafe encoded encryption key from the Shotgun server response.
-            ws_server_secret = response["ws_server_secret"]
-
             # Build a response for the web app.
             # FIXME: Stop sending the encryption key and retrieve it via a POST on the webapp side.
             message = Message(message["id"], self._protocol_version)
             message.reply(
                 {
-                    "ws_server_id": self._ws_secret_id,
-                    "encryption_key": ws_server_secret
+                    "ws_server_id": self._ws_secret_id
                 }
             )
 
             # send the response.
             self.json_reply(message.data)
+
+            ws_server_secret = response["ws_server_secret"]
 
             # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
             # doesn't seem to complain however, so I'm not sure whose implementation is broken.
