@@ -114,7 +114,9 @@ class Server(object):
         self.factory.host = self._host
         self.factory.user_id = self._user_id
         self.factory.notifier = self.notifier
+        # Seems hixie76 is not supported anymore.
         # self.factory.setProtocolOptions(allowHixie76=True, echoCloseCodeReason=True)
+        self.factory.setProtocolOptions(echoCloseCodeReason=True)
         try:
             self.listener = listenWS(self.factory, self.context_factory)
         except error.CannotListenError, e:
