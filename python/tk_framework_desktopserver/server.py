@@ -106,6 +106,8 @@ class Server(object):
         self.context_factory = ssl.DefaultOpenSSLContextFactory(cert_key_path,
                                                                 cert_crt_path)
 
+        # FIXME: Seems like the debugging flags are gone from the initializer at the moment.
+        # We should try to restore these.
         self.factory = WebSocketServerFactory(
             "wss://localhost:%d" % self._port # , debug=self._debug, debugCodePaths=self._debug
         )

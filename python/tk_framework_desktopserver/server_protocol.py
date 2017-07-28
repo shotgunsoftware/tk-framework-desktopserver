@@ -41,11 +41,12 @@ class ServerProtocol(WebSocketServerProtocol):
         super(WebSocketServerProtocol, self).__init__()
         self._process_manager = ProcessManager.create()
         self._protocol_version = 2
-        self._encryption_enabled = False
         # urandom is considered cryptographically secure as it calls the OS's CSRNG, so we can use
         # that to generate our own server id.
         self._ws_secret_id = base64.urlsafe_b64encode(os.urandom(16))
-        self._encryption_key = None
+
+        # When set, the message to and from the server will be encrypted.
+        self._fernet = None
 
     @property
     def process_manager(self):
@@ -114,16 +115,18 @@ class ServerProtocol(WebSocketServerProtocol):
         :param payload: String Message payload
         :param isBinary: If the message is in binary format
         """
-        if self._encryption_enabled:
+
+        # We don't currently handle any binary messages
+        if is_binary:
+            self.report_error("Server does not handle binary requests.")
+            return
+
+        if self._fernet:
             try:
-                payload = self._decode_payload(payload)
+                payload = self._fernet.decrypt(payload)
             except Exception as e:
                 self.report_error("There was an error while decrypting the message: %s" % e.message)
                 logger.exception("Unexpected error while decrypting:")
-                return
-        else:
-            # We don't currently handle any binary messages
-            if is_binary:
                 return
 
         decoded_payload = payload.decode("utf8")
@@ -152,7 +155,8 @@ class ServerProtocol(WebSocketServerProtocol):
 
         self._protocol_version = message["protocol_version"]
 
-        if self._handle_encryption_handshake(message):
+        if message["command"]["name"] == "activate_encryption":
+            self._activate_encryption(message)
             return
 
         # origin is formatted such as https://xyz.shotgunstudio.com:port_number
@@ -199,39 +203,36 @@ class ServerProtocol(WebSocketServerProtocol):
             message["protocol_version"],
         )
 
-    def _handle_encryption_handshake(self, message):
+    def _activate_encryption(self, message):
+        """
+        Handles the activate_encryption message.
 
-        if self._protocol_version == 1:
-            return False
+        This method will retrieve the websocket server secret and send back the server id to the
+        webapp.
+        """
 
-        # These messages are meant for the protocol and not the API
-        if message["command"]["name"] == "activate_encryption":
-            # FIXME: Need to regenerate a new session token so we can bind a new secret id to it.
-            shotgun = sgtk.platform.current_engine().shotgun
-            shotgun = shotgun.reauthenticate()
-            response = shotgun.retrieve_ws_server_secret(self._ws_secret_id)
+        # FIXME: Need to regenerate a new session token so we can bind a new secret id to it.
+        shotgun = sgtk.platform.current_engine().shotgun
+        shotgun = shotgun.reauthenticate()
+        response = shotgun.retrieve_ws_server_secret(self._ws_secret_id)
 
-            # Build a response for the web app.
-            message = Message(message["id"], self._protocol_version)
-            message.reply({
-                "ws_server_id": self._ws_secret_id
-            })
+        # Build a response for the web app.
+        message = Message(message["id"], self._protocol_version)
+        message.reply({
+            "ws_server_id": self._ws_secret_id
+        })
 
-            # send the response.
-            self.json_reply(message.data)
+        # send the response.
+        self.json_reply(message.data)
 
-            ws_server_secret = response["ws_server_secret"]
+        ws_server_secret = response["ws_server_secret"]
 
-            # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
-            # doesn't seem to complain however, so I'm not sure whose implementation is broken.
-            if ws_server_secret[-1] != "=":
-                ws_server_secret += "="
-            self._encryption_key = ws_server_secret
+        # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
+        # doesn't seem to complain however, so I'm not sure whose implementation is broken.
+        if ws_server_secret[-1] != "=":
+            ws_server_secret += "="
 
-            self._encryption_enabled = True
-            return True
-
-        return False
+        self._fernet = Fernet(ws_server_secret)
 
     def _process_message(self, message_host, message, protocol_version):
 
@@ -315,12 +316,9 @@ class ServerProtocol(WebSocketServerProtocol):
             default=self._json_date_handler,
         ).encode("utf8")
 
-        if self._encryption_enabled:
-            payload = self._encode_payload(payload)
-            is_binary = False
-        else:
-            is_binary = False
-        self.sendMessage(payload, is_binary)
+        if self._fernet:
+            payload = self._fernet.encrypt(payload)
+        self.sendMessage(payload, False)
 
     def _json_date_handler(self, obj):
         """
@@ -335,9 +333,3 @@ class ServerProtocol(WebSocketServerProtocol):
             return obj.isoformat()
         else:
             return json.JSONEncoder().default(obj)
-
-    def _encode_payload(self, payload):
-        return Fernet(self._encryption_key).encrypt(payload)
-
-    def _decode_payload(self, payload):
-        return Fernet(self._encryption_key).decrypt(payload)
