@@ -17,7 +17,7 @@ import os
 from cryptography.fernet import Fernet
 
 from .shotgun import get_shotgun_api
-from .client_request import ClientRequest
+from .message_host import MessageHost
 from .process_manager import ProcessManager
 from .message import Message
 from .logger import get_logger
@@ -141,11 +141,11 @@ class ServerProtocol(WebSocketServerProtocol):
             self.report_error("Error in decoding the message's json data: %s" % e.message)
             return
 
-        client_request = ClientRequest(self, message)
+        message_host = MessageHost(self, message)
 
         # Check protocol version
         if message["protocol_version"] not in self.SUPPORTED_PROTOCOL_VERSIONS:
-            client_request.report_error(
+            message_host.report_error(
                 "Unsupported protocol version: %s " % message["protocol_version"]
             )
             return
@@ -194,7 +194,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # will ensure the server is as responsive as possible. Twisted will take care of the thread.
         reactor.callInThread(
             self._process_message,
-            client_request,
+            message_host,
             message,
             message["protocol_version"],
         )
@@ -212,13 +212,10 @@ class ServerProtocol(WebSocketServerProtocol):
             response = shotgun.retrieve_ws_server_secret(self._ws_secret_id)
 
             # Build a response for the web app.
-            # FIXME: Stop sending the encryption key and retrieve it via a POST on the webapp side.
             message = Message(message["id"], self._protocol_version)
-            message.reply(
-                {
-                    "ws_server_id": self._ws_secret_id
-                }
-            )
+            message.reply({
+                "ws_server_id": self._ws_secret_id
+            })
 
             # send the response.
             self.json_reply(message.data)
@@ -236,7 +233,7 @@ class ServerProtocol(WebSocketServerProtocol):
 
         return False
 
-    def _process_message(self, client_request, message, protocol_version):
+    def _process_message(self, message_host, message, protocol_version):
 
         # Retrieve command from message
         command = message["command"]
@@ -250,12 +247,12 @@ class ServerProtocol(WebSocketServerProtocol):
             # Do not resolve to simply ShotgunAPI in the imports, this allows tests to mock errors
             api = get_shotgun_api(
                 protocol_version,
-                client_request,
+                message_host,
                 self.process_manager,
                 wss_key=self._wss_key,
             )
         except Exception, e:
-            client_request.report_error("Unable to get a ShotgunAPI object: %s" % e)
+            message_host.report_error("Unable to get a ShotgunAPI object: %s" % e)
             return
 
         # Make sure the command is in the public API
@@ -264,7 +261,7 @@ class ServerProtocol(WebSocketServerProtocol):
             try:
                 func = getattr(api, cmd_name)
             except Exception, e:
-                client_request.report_error(
+                message_host.report_error(
                     "Could not find API method %s: %s" % (cmd_name, e)
                 )
             else:
@@ -280,11 +277,11 @@ class ServerProtocol(WebSocketServerProtocol):
                     func(data)
                 except Exception, e:
                     import traceback
-                    client_request.report_error(
+                    message_host.report_error(
                         "Method call failed for %s: %s" % (cmd_name, traceback.format_exc())
                     )
         else:
-            client_request.report_error("Command %s is not supported." % cmd_name)
+            message_host.report_error("Command %s is not supported." % cmd_name)
 
     def report_error(self, message, data=None):
         """
@@ -344,11 +341,3 @@ class ServerProtocol(WebSocketServerProtocol):
 
     def _decode_payload(self, payload):
         return Fernet(self._encryption_key).decrypt(payload)
-        # # https://stackoverflow.com/questions/12524994/encrypt-decrypt-using-pycrypto-aes-256
-        # # Extract initialization vector and payload from the data.
-        # iv = payload[:AES.block_size]
-        # encrypted = payload[AES.block_size:]
-        # cipher = AES.new(self._encryption_key, AES.MODE_CBC, iv)
-        # decrypted = cipher.decrypt(encrypted)
-        # # The stringified JSON was base64 encoded so undo that
-        # return base64.standard_b64decode(decrypted)
