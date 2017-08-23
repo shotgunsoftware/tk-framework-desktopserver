@@ -254,21 +254,6 @@ class ShotgunAPI(object):
 
         retcode, stdout, stderr = command.Command.call_cmd(args)
 
-        if retcode != 0:
-            logger.error("Command failed: %s", args)
-            logger.error("Failed command stdout: %s", stdout)
-            logger.error("Failed command stderr: %s", stderr)
-            self.host.reply(
-                dict(
-                    retcode=constants.COMMAND_FAILED,
-                    out=stdout,
-                    err=stderr,
-                )
-            )
-            return
-
-        filtered_output = []
-
         # We need to filter stdout before we send it to the client.
         # We look for lines that we know came from the custom log
         # handler that the execute_command script builds, and we
@@ -276,6 +261,7 @@ class ShotgunAPI(object):
         # they're passed up to the client.
         tag = constants.LOGGING_PREFIX
         tag_length = len(tag)
+        filtered_output = []
 
         # We check both stdout and stderr. We identify lines that start with
         # our tag, and if we find one, we remove the tag, and then base64
@@ -289,6 +275,19 @@ class ShotgunAPI(object):
                 filtered_output.append(base64.b64decode(line[tag_length:]))
 
         filtered_output_string = "\n".join(filtered_output)
+
+        if retcode != 0:
+            logger.error("Command failed: %s", args)
+            logger.error("Failed command output: %s", filtered_output_string)
+            self.host.reply(
+                dict(
+                    retcode=constants.COMMAND_FAILED,
+                    out="",
+                    err=filtered_output_string,
+                )
+            )
+            return
+
         logger.debug("Command execution complete.")
 
         self.host.reply(
