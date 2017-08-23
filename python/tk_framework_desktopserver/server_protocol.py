@@ -243,7 +243,10 @@ class ServerProtocol(WebSocketServerProtocol):
             return
 
         shotgun = sgtk.platform.current_engine().shotgun
-        response = shotgun.retrieve_ws_server_secret(self._ws_server_id)
+        # FIXME: Make this method public.
+        response = shotgun._call_rpc(
+            "retrieve_ws_server_secret", {"ws_server_id": self._ws_server_id}
+        )
 
         # Build a response for the web app.
         message = Message(message["id"], self._protocol_version)
