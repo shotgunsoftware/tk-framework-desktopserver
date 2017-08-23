@@ -25,7 +25,6 @@ from . import certificates
 from .logger import get_logger
 
 from sgtk.platform.qt import QtCore
-import sgtk
 
 logger = get_logger(__name__)
 
@@ -60,23 +59,8 @@ class Server(object):
             # urandom is considered cryptographically secure as it calls the OS's CSRNG, so we can
             # use that to generate our own server id.
             self._ws_server_id = base64.urlsafe_b64encode(os.urandom(16))
-            # Ask for the secret for this server id.
-            shotgun = sgtk.platform.current_engine().shotgun
-            # FIXME: Make this method public on the Shotgun API.
-            response = shotgun._call_rpc(
-                "retrieve_ws_server_secret", {"ws_server_id": self._ws_server_id}
-            )
-            ws_server_secret = response["ws_server_secret"]
-            # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
-            # doesn't seem to complain however, so I'm not sure whose implementation is broken.
-            if ws_server_secret[-1] != "=":
-                ws_server_secret += "="
-
-            self._ws_server_secret = ws_server_secret
-
         else:
             self._ws_server_id = None
-            self._ws_server_secret = None
 
         self.notifier = self.Notifier()
 
@@ -148,7 +132,6 @@ class Server(object):
         self.factory.user_id = self._user_id
         self.factory.notifier = self.notifier
         self.factory.ws_server_id = self._ws_server_id
-        self.factory.ws_server_secret = self._ws_server_secret
         self.factory.setProtocolOptions(echoCloseCodeReason=True)
         try:
             self.listener = listenWS(self.factory, self.context_factory)

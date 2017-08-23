@@ -10,17 +10,19 @@
 
 import json
 import datetime
+
 import OpenSSL
 from cryptography.fernet import Fernet
+from autobahn.twisted.websocket import WebSocketServerProtocol
+from twisted.internet import error, reactor
+
+import sgtk
 
 from .shotgun import get_shotgun_api
 from .message_host import MessageHost
 from .process_manager import ProcessManager
 from .message import Message
 from .logger import get_logger
-
-from autobahn.twisted.websocket import WebSocketServerProtocol
-from twisted.internet import error, reactor
 
 logger = get_logger(__name__)
 
@@ -58,6 +60,9 @@ class ServerProtocol(WebSocketServerProtocol):
     # Initial state is v2. This might change if we end up receiving a connection
     # from a client at v1.
     SUPPORTED_PROTOCOL_VERSIONS = (1, 2)
+
+    # Cached result of the server secret retrieval
+    _ws_server_secret = None
 
     def __init__(self):
         super(WebSocketServerProtocol, self).__init__()
@@ -233,7 +238,7 @@ class ServerProtocol(WebSocketServerProtocol):
 
         :returns: True if this connection will require encryption.
         """
-        return True if self.factory.ws_server_secret else False
+        return True if self.factory.ws_server_id else False
 
     def _handle_get_ws_server_id(self, message):
         """
@@ -257,7 +262,42 @@ class ServerProtocol(WebSocketServerProtocol):
         self.json_reply(message.data)
 
         # Create a Fernet instance so we can start encrypting and decrypting messages from now on.
-        self._fernet = Fernet(self.factory.ws_server_secret)
+        self._fernet = Fernet(self._retrieve_server_secret())
+
+    def _retrieve_server_secret(self):
+        """
+        Retrieves the server secret from Shotgun.
+
+        .. note::
+            This method caches the result of the retrieval for any other ServerProtocol instances
+            created after the first one.
+
+            Because
+                - each server instance has a different server id
+                - retrieving a secret with a different id generates a new secret
+                - we can launch two servers at the same time (the second one won't be able to listen
+                  and will fail however.)
+            , it wouldn't be a good idea to retrieve the server id before successfully listening
+            on the port since launching the server a second time by mistake would reset the secret
+            retrieved by the first instance.
+        """
+        # Has the server secret already been retrieved before?
+        if not self._ws_server_secret:
+            # Ask for the secret for this server id.
+            shotgun = sgtk.platform.current_engine().shotgun
+            # FIXME: Make this method public on the Shotgun API.
+            response = shotgun._call_rpc(
+                "retrieve_ws_server_secret", {"ws_server_id": self.factory.ws_server_id}
+            )
+            ws_server_secret = response["ws_server_secret"]
+            # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
+            # doesn't seem to complain however, so I'm not sure whose implementation is broken.
+            if ws_server_secret[-1] != "=":
+                ws_server_secret += "="
+
+            self._ws_server_secret = ws_server_secret
+
+        return self._ws_server_secret
 
     def _process_message(self, message_host, message, protocol_version):
 
