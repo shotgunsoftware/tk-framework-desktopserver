@@ -11,9 +11,7 @@
 import json
 import datetime
 import OpenSSL
-import base64
 import sgtk
-import os
 from cryptography.fernet import Fernet
 
 from .shotgun import get_shotgun_api
@@ -33,6 +31,31 @@ class ServerProtocol(WebSocketServerProtocol):
     Server Protocol
     """
 
+    (
+        USER_INFO_NOT_FOUND,
+        UNAUTHORIZED_USER,
+        ENCRYPTION_HANDSHAKE_NOT_COMPLETED,
+        ENCRYPTION_NOT_SUPPORTED
+    ) = (
+        (
+            3000,
+            u"No user information was found in this request."
+        ),
+        (
+            3001,
+            u"You are not authorized to make browser integration requests. "
+            u"Please re-authenticate in your desktop application."
+        ),
+        (
+            3002,
+            u"Attempted to communicate without encryption enabled."
+        ),
+        (
+            3003,
+            u"Client asked for server id when encryption is not supported."
+        )
+    )
+
     # Initial state is v2. This might change if we end up receiving a connection
     # from a client at v1.
     SUPPORTED_PROTOCOL_VERSIONS = (1, 2)
@@ -43,7 +66,11 @@ class ServerProtocol(WebSocketServerProtocol):
         self._protocol_version = 2
         # urandom is considered cryptographically secure as it calls the OS's CSRNG, so we can use
         # that to generate our own server id.
-        self._ws_secret_id = base64.urlsafe_b64encode(os.urandom(16))
+
+        # FIXME: Hard-coding secret to session id for now since we can't reset the secret for a
+        # given session.
+        # base64.urlsafe_b64encode(os.urandom(16))
+        self._ws_server_id = sgtk.platform.current_bundle().shotgun.get_session_token()
 
         # When set, the message to and from the server will be encrypted.
         self._fernet = None
@@ -61,9 +88,6 @@ class ServerProtocol(WebSocketServerProtocol):
         The protocol handler's currently-supported protocol version.
         """
         return self._protocol_version
-
-    def onClose(self, was_clean, code, reason):
-        pass
 
     def connectionLost(self, reason):
         """
@@ -155,8 +179,15 @@ class ServerProtocol(WebSocketServerProtocol):
 
         self._protocol_version = message["protocol_version"]
 
-        if message["command"]["name"] == "activate_encryption":
-            self._activate_encryption(message)
+        if message["command"]["name"] == "get_ws_server_id":
+            self._handle_get_ws_server_id(message)
+            return
+
+        # Make sure that nothing gets replied to when encryption is required until the server has
+        # asked for out public id
+        if self.factory.encrypt and not self._fernet:
+            message_host.report_error("Attempting to communicate without encryption enabled.")
+            self.sendClose(**self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
             return
 
         # origin is formatted such as https://xyz.shotgunstudio.com:port_number
@@ -174,7 +205,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 user_id = message["command"]["data"]["user"]["entity"]["id"]
             except Exception:
                 logger.exception("Unexpected error while trying to retrieve the user id.")
-                self.sendClose(3000, u"No user information was found in this request.")
+                self.sendClose(**self.USER_INFO_NOT_FOUND)
                 return
         else:
             user_id = None
@@ -187,11 +218,7 @@ class ServerProtocol(WebSocketServerProtocol):
             logger.debug("Origin site: %s", origin_network)
             logger.debug("Origin user: %s", user_id)
             self.factory.notifier.different_user_requested.emit(self._origin, user_id)
-            self.sendClose(
-                3001,
-                u"You are not authorized to make browser integration requests. "
-                u"Please re-authenticate in your desktop application."
-            )
+            self.sendClose(**self.UNAUTHORIZED_USER)
             return
 
         # Run each request from a thread, even though it might be something very simple like opening a file. This
@@ -203,23 +230,25 @@ class ServerProtocol(WebSocketServerProtocol):
             message["protocol_version"],
         )
 
-    def _activate_encryption(self, message):
+    def _handle_get_ws_server_id(self, message):
         """
-        Handles the activate_encryption message.
+        Handles the request for the server id.
 
         This method will retrieve the websocket server secret and send back the server id to the
         webapp.
         """
 
-        # FIXME: Need to regenerate a new session token so we can bind a new secret id to it.
+        if not self.factory.encrypt:
+            self.sendClose(**self.ENCRYPTION_NOT_SUPPORTED)
+            return
+
         shotgun = sgtk.platform.current_engine().shotgun
-        shotgun = shotgun.reauthenticate()
-        response = shotgun.retrieve_ws_server_secret(self._ws_secret_id)
+        response = shotgun.retrieve_ws_server_secret(self._ws_server_id)
 
         # Build a response for the web app.
         message = Message(message["id"], self._protocol_version)
         message.reply({
-            "ws_server_id": self._ws_secret_id
+            "ws_server_id": self._ws_server_id
         })
 
         # send the response.
@@ -232,6 +261,7 @@ class ServerProtocol(WebSocketServerProtocol):
         if ws_server_secret[-1] != "=":
             ws_server_secret += "="
 
+        # Create a Fernet instance so we can start encrypting and decrypting messages
         self._fernet = Fernet(ws_server_secret)
 
     def _process_message(self, message_host, message, protocol_version):

@@ -104,10 +104,17 @@ class DesktopserverFramework(sgtk.platform.Framework):
             return
 
         try:
-            self.__ensure_certificate_ready(regenerate_certs=False, parent=parent)
+            if self._site_supports_encryption():
+                keys_path = os.path.join(self.disk_location, "resources", "keys")
+                encrypt = True
+            else:
+                self.__ensure_certificate_ready(regenerate_certs=False, parent=parent)
+                keys_path = self._settings.certificate_folder
+                encrypt = False
 
             self._server = self._tk_framework_desktopserver.Server(
-                keys_path=self._settings.certificate_folder,
+                keys_path=keys_path,
+                encrypt=encrypt,
                 host=host,
                 user_id=user_id,
                 low_level_debug=self._settings.low_level_debug,
@@ -117,6 +124,12 @@ class DesktopserverFramework(sgtk.platform.Framework):
             self._server.start()
         except Exception:
             self.logger.exception("Could not start the browser integration:")
+
+    def _site_supports_encryption(self):
+        """
+        Checks if the site supports encryption.
+        """
+        return self.shotgun.server_info.get("encrypted_browser_integration", False)
 
     def regenerate_certificates(self, parent=None):
         """

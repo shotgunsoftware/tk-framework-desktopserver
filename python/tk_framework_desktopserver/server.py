@@ -35,12 +35,15 @@ class Server(object):
     class Notifier(QtCore.QObject):
         different_user_requested = QtCore.Signal(str, int)
 
-    def __init__(self, keys_path, host, user_id, port=None, low_level_debug=False):
+    def __init__(self, keys_path, encrypt, host, user_id, port=None, low_level_debug=False):
         """
         Constructor.
 
         :param keys_path: Path to the keys. If the path is relative, it will be relative to the
             current working directory. Mandatory
+        :param encrypt: If True, the communication with clients will be encrypted.
+        :param host: Url of the host we're expecting requests from.
+        :param user_id: Id of the user we're expecting requests from.
         :param port: Port to listen for websocket requests from.
         :param low_level_debug: If True, wss traffic will be written to the console.
         """
@@ -49,6 +52,7 @@ class Server(object):
         self._debug = low_level_debug
         self._host = host
         self._user_id = user_id
+        self._encrypt = encrypt
 
         self.notifier = self.Notifier()
 
@@ -56,6 +60,9 @@ class Server(object):
             raise MissingCertificateError(keys_path)
 
         twisted = get_logger("twisted")
+
+        logger.debug("Browser integration using certificates at %s", self._keys_path)
+        logger.debug("Encryption: %s", self._encrypt)
 
         if self._debug:
             # When running the server in low_level_debug mode, the twisted framework will print out
@@ -116,6 +123,7 @@ class Server(object):
         self.factory.host = self._host
         self.factory.user_id = self._user_id
         self.factory.notifier = self.notifier
+        self.factory.encrypt = self._encrypt
         self.factory.setProtocolOptions(echoCloseCodeReason=True)
         try:
             self.listener = listenWS(self.factory, self.context_factory)
