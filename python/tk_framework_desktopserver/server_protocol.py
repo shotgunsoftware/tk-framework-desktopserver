@@ -11,7 +11,6 @@
 import json
 import datetime
 import OpenSSL
-import sgtk
 from cryptography.fernet import Fernet
 
 from .shotgun import get_shotgun_api
@@ -64,14 +63,6 @@ class ServerProtocol(WebSocketServerProtocol):
         super(WebSocketServerProtocol, self).__init__()
         self._process_manager = ProcessManager.create()
         self._protocol_version = 2
-        # urandom is considered cryptographically secure as it calls the OS's CSRNG, so we can use
-        # that to generate our own server id.
-
-        # FIXME: Hard-coding secret to session id for now since we can't reset the secret for a
-        # given session.
-        # base64.urlsafe_b64encode(os.urandom(16))
-        self._ws_server_id = sgtk.platform.current_bundle().shotgun.get_session_token()
-
         # When set, the message to and from the server will be encrypted.
         self._fernet = None
 
@@ -155,8 +146,9 @@ class ServerProtocol(WebSocketServerProtocol):
 
         decoded_payload = payload.decode("utf8")
 
-        # Special message to get protocol version for this protocol. This message doesn't follow the standard
-        # message format as it doesn't require a protocol version to be retrieved and is not json-encoded.
+        # Special message to get protocol version for this protocol. This message doesn't follow the
+        # standard message format as it doesn't require a protocol version to be retrieved and is
+        # not json-encoded.
         if decoded_payload == "get_protocol_version":
             self.json_reply(dict(protocol_version=self._protocol_version))
             return
@@ -183,9 +175,9 @@ class ServerProtocol(WebSocketServerProtocol):
             self._handle_get_ws_server_id(message)
             return
 
-        # Make sure that nothing gets replied to when encryption is required until the server has
-        # asked for out public id
-        if self.factory.encrypt and not self._fernet:
+        # Make sure that nothing gets replied to when encryption is required until the server knows
+        # the public server id and we've turned on encryption by initializing the Fernet instance.
+        if self._is_using_encryption() and not self._fernet:
             message_host.report_error("Attempting to communicate without encryption enabled.")
             self.sendClose(**self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
             return
@@ -196,7 +188,6 @@ class ServerProtocol(WebSocketServerProtocol):
         host_network = self.factory.host.lower()
 
         if self._protocol_version == 2:
-
             # Version 2 of the protocol can only answer requests from the site and user the server
             # is authenticated into. Validate this.
 
@@ -221,14 +212,28 @@ class ServerProtocol(WebSocketServerProtocol):
             self.sendClose(**self.UNAUTHORIZED_USER)
             return
 
-        # Run each request from a thread, even though it might be something very simple like opening a file. This
-        # will ensure the server is as responsive as possible. Twisted will take care of the thread.
+        # Run each request from a thread, even though it might be something very simple like opening
+        # a file. This will ensure the server is as responsive as possible. Twisted will take care
+        # of the thread.
         reactor.callInThread(
             self._process_message,
             message_host,
             message,
             message["protocol_version"],
         )
+
+    def _is_using_encryption(self):
+        """
+        Checks if this connection requires encryption.
+
+        .. note::
+            While the connection requires encryption, it doesn't necessarily mean that encryption
+            is active on the connection. The initial handshake between the client and the server
+            when requesting for the server id is unencrypted.
+
+        :returns: True if this connection will require encryption.
+        """
+        return True if self.factory.ws_server_secret else False
 
     def _handle_get_ws_server_id(self, message):
         """
@@ -238,34 +243,21 @@ class ServerProtocol(WebSocketServerProtocol):
         webapp.
         """
 
-        if not self.factory.encrypt:
+        if not self._is_using_encryption():
             self.sendClose(**self.ENCRYPTION_NOT_SUPPORTED)
             return
-
-        shotgun = sgtk.platform.current_engine().shotgun
-        # FIXME: Make this method public.
-        response = shotgun._call_rpc(
-            "retrieve_ws_server_secret", {"ws_server_id": self._ws_server_id}
-        )
 
         # Build a response for the web app.
         message = Message(message["id"], self._protocol_version)
         message.reply({
-            "ws_server_id": self._ws_server_id
+            "ws_server_id": self.factory.ws_server_id
         })
 
         # send the response.
         self.json_reply(message.data)
 
-        ws_server_secret = response["ws_server_secret"]
-
-        # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
-        # doesn't seem to complain however, so I'm not sure whose implementation is broken.
-        if ws_server_secret[-1] != "=":
-            ws_server_secret += "="
-
-        # Create a Fernet instance so we can start encrypting and decrypting messages
-        self._fernet = Fernet(ws_server_secret)
+        # Create a Fernet instance so we can start encrypting and decrypting messages from now on.
+        self._fernet = Fernet(self.factory.ws_server_secret)
 
     def _process_message(self, message_host, message, protocol_version):
 

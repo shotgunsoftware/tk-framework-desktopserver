@@ -10,6 +10,7 @@
 
 import os
 import threading
+import base64
 
 from .server_protocol import ServerProtocol
 
@@ -24,6 +25,7 @@ from . import certificates
 from .logger import get_logger
 
 from sgtk.platform.qt import QtCore
+import sgtk
 
 logger = get_logger(__name__)
 
@@ -52,7 +54,29 @@ class Server(object):
         self._debug = low_level_debug
         self._host = host
         self._user_id = user_id
-        self._encrypt = encrypt
+
+        # If encryption is required, compute a server id and retrieve the secret associated to it.
+        if encrypt:
+            # urandom is considered cryptographically secure as it calls the OS's CSRNG, so we can
+            # use that to generate our own server id.
+            self._ws_server_id = base64.urlsafe_b64encode(os.urandom(16))
+            # Ask for the secret for this server id.
+            shotgun = sgtk.platform.current_engine().shotgun
+            # FIXME: Make this method public on the Shotgun API.
+            response = shotgun._call_rpc(
+                "retrieve_ws_server_secret", {"ws_server_id": self._ws_server_id}
+            )
+            ws_server_secret = response["ws_server_secret"]
+            # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
+            # doesn't seem to complain however, so I'm not sure whose implementation is broken.
+            if ws_server_secret[-1] != "=":
+                ws_server_secret += "="
+
+            self._ws_server_secret = ws_server_secret
+
+        else:
+            self._ws_server_id = None
+            self._ws_server_secret = None
 
         self.notifier = self.Notifier()
 
@@ -62,7 +86,7 @@ class Server(object):
         twisted = get_logger("twisted")
 
         logger.debug("Browser integration using certificates at %s", self._keys_path)
-        logger.debug("Encryption: %s", self._encrypt)
+        logger.debug("Encryption: %s", encrypt)
 
         if self._debug:
             # When running the server in low_level_debug mode, the twisted framework will print out
@@ -123,7 +147,8 @@ class Server(object):
         self.factory.host = self._host
         self.factory.user_id = self._user_id
         self.factory.notifier = self.notifier
-        self.factory.encrypt = self._encrypt
+        self.factory.ws_server_id = self._ws_server_id
+        self.factory.ws_server_secret = self._ws_server_secret
         self.factory.setProtocolOptions(echoCloseCodeReason=True)
         try:
             self.listener = listenWS(self.factory, self.context_factory)
