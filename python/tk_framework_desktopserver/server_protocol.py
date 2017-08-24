@@ -18,7 +18,7 @@ from twisted.internet import error, reactor
 
 import sgtk
 
-from .shotgun import get_shotgun_api
+from . import shotgun
 from .message_host import MessageHost
 from .process_manager import ProcessManager
 from .message import Message
@@ -184,7 +184,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # the public server id and we've turned on encryption by initializing the Fernet instance.
         if self._is_using_encryption() and not self._fernet:
             message_host.report_error("Attempting to communicate without encryption enabled.")
-            self.sendClose(**self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
+            self.sendClose(*self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
             return
 
         # origin is formatted such as https://xyz.shotgunstudio.com:port_number
@@ -201,7 +201,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 user_id = message["command"]["data"]["user"]["entity"]["id"]
             except Exception:
                 logger.exception("Unexpected error while trying to retrieve the user id.")
-                self.sendClose(**self.USER_INFO_NOT_FOUND)
+                self.sendClose(*self.USER_INFO_NOT_FOUND)
                 return
         else:
             user_id = None
@@ -214,7 +214,7 @@ class ServerProtocol(WebSocketServerProtocol):
             logger.debug("Origin site: %s", origin_network)
             logger.debug("Origin user: %s", user_id)
             self.factory.notifier.different_user_requested.emit(self._origin, user_id)
-            self.sendClose(**self.UNAUTHORIZED_USER)
+            self.sendClose(*self.UNAUTHORIZED_USER)
             return
 
         # Run each request from a thread, even though it might be something very simple like opening
@@ -249,7 +249,7 @@ class ServerProtocol(WebSocketServerProtocol):
         """
 
         if not self._is_using_encryption():
-            self.sendClose(**self.ENCRYPTION_NOT_SUPPORTED)
+            self.sendClose(*self.ENCRYPTION_NOT_SUPPORTED)
             return
 
         # Build a response for the web app.
@@ -311,7 +311,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # Create API for this message
         try:
             # Do not resolve to simply ShotgunAPI in the imports, this allows tests to mock errors
-            api = get_shotgun_api(
+            api = shotgun.get_shotgun_api(
                 protocol_version,
                 message_host,
                 self.process_manager,
