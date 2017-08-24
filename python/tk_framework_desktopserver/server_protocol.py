@@ -284,7 +284,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # Has the server secret already been retrieved before?
         if not self._ws_server_secret:
             # Ask for the secret for this server id.
-            shotgun = sgtk.platform.current_engine().shotgun
+            shotgun = sgtk.platform.current_bundle().shotgun
             # FIXME: Make this method public on the Shotgun API.
             response = shotgun._call_rpc(
                 "retrieve_ws_server_secret", {"ws_server_id": self.factory.ws_server_id}
