@@ -49,7 +49,7 @@ class ServerProtocol(WebSocketServerProtocol):
         ),
         (
             3002,
-            u"Attempted to communicate without encryption enabled."
+            u"Attempted to communicate without completing encryption handshake."
         ),
         (
             3003,
@@ -135,97 +135,101 @@ class ServerProtocol(WebSocketServerProtocol):
         :param payload: String Message payload
         :param isBinary: If the message is in binary format
         """
-
-        # We don't currently handle any binary messages
-        if is_binary:
-            self.report_error("Server does not handle binary requests.")
-            return
-
-        if self._fernet:
-            try:
-                payload = self._fernet.decrypt(payload)
-            except Exception as e:
-                self.report_error("There was an error while decrypting the message: %s" % e.message)
-                logger.exception("Unexpected error while decrypting:")
-                return
-
-        decoded_payload = payload.decode("utf8")
-
-        # Special message to get protocol version for this protocol. This message doesn't follow the
-        # standard message format as it doesn't require a protocol version to be retrieved and is
-        # not json-encoded.
-        if decoded_payload == "get_protocol_version":
-            self.json_reply(dict(protocol_version=self._protocol_version))
-            return
-
-        # Extract json response (every message is expected to be in json format)
         try:
-            message = json.loads(decoded_payload)
-        except ValueError, e:
-            self.report_error("Error in decoding the message's json data: %s" % e.message)
-            return
-
-        message_host = MessageHost(self, message)
-
-        # Check protocol version
-        if message["protocol_version"] not in self.SUPPORTED_PROTOCOL_VERSIONS:
-            message_host.report_error(
-                "Unsupported protocol version: %s " % message["protocol_version"]
-            )
-            return
-
-        self._protocol_version = message["protocol_version"]
-
-        if message["command"]["name"] == "get_ws_server_id":
-            self._handle_get_ws_server_id(message)
-            return
-
-        # Make sure that nothing gets replied to when encryption is required until the server knows
-        # the public server id and we've turned on encryption by initializing the Fernet instance.
-        if self._is_using_encryption() and not self._fernet:
-            message_host.report_error("Attempting to communicate without encryption enabled.")
-            self.sendClose(*self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
-            return
-
-        # origin is formatted such as https://xyz.shotgunstudio.com:port_number
-        # host is https://xyz.shotgunstudio.com:port_number
-        origin_network = self._origin.lower()
-        host_network = self.factory.host.lower()
-
-        if self._protocol_version == 2:
-            # Version 2 of the protocol can only answer requests from the site and user the server
-            # is authenticated into. Validate this.
-
-            # Try to get the user information. If that fails, we need to report the error.
-            try:
-                user_id = message["command"]["data"]["user"]["entity"]["id"]
-            except Exception:
-                logger.exception("Unexpected error while trying to retrieve the user id.")
-                self.sendClose(*self.USER_INFO_NOT_FOUND)
+            # We don't currently handle any binary messages
+            if is_binary:
+                self.report_error("Server does not handle binary requests.")
                 return
-        else:
-            user_id = None
 
-        # If the hosts are different or the user ids are different, report an error.
-        if host_network != origin_network or (user_id is not None and user_id != self.factory.user_id):
-            logger.debug("Browser integration request received a different user.")
-            logger.debug("Desktop site: %s", host_network)
-            logger.debug("Desktop user: %s", self.factory.user_id)
-            logger.debug("Origin site: %s", origin_network)
-            logger.debug("Origin user: %s", user_id)
-            self.factory.notifier.different_user_requested.emit(self._origin, user_id)
-            self.sendClose(*self.UNAUTHORIZED_USER)
-            return
+            if self._fernet:
+                try:
+                    payload = self._fernet.decrypt(payload)
+                except Exception as e:
+                    self.report_error("There was an error while decrypting the message: %s" % e)
+                    logger.exception("Unexpected error while decrypting:")
+                    return
 
-        # Run each request from a thread, even though it might be something very simple like opening
-        # a file. This will ensure the server is as responsive as possible. Twisted will take care
-        # of the thread.
-        reactor.callInThread(
-            self._process_message,
-            message_host,
-            message,
-            message["protocol_version"],
-        )
+            decoded_payload = payload.decode("utf8")
+
+            # Special message to get protocol version for this protocol. This message doesn't follow the
+            # standard message format as it doesn't require a protocol version to be retrieved and is
+            # not json-encoded.
+            if decoded_payload == "get_protocol_version":
+                self.json_reply(dict(protocol_version=self._protocol_version))
+                return
+
+            # Extract json response (every message is expected to be in json format)
+            try:
+                message = json.loads(decoded_payload)
+            except ValueError, e:
+                self.report_error("Error in decoding the message's json data: %s" % e.message)
+                return
+
+            message_host = MessageHost(self, message)
+
+            # Check protocol version
+            if message["protocol_version"] not in self.SUPPORTED_PROTOCOL_VERSIONS:
+                message_host.report_error(
+                    "Unsupported protocol version: %s." % message["protocol_version"]
+                )
+                return
+
+            self._protocol_version = message["protocol_version"]
+
+            if message["command"]["name"] == "get_ws_server_id":
+                self._handle_get_ws_server_id(message)
+                return
+
+            # Make sure that nothing gets replied to when encryption is required until the server knows
+            # the public server id and we've turned on encryption by initializing the Fernet instance.
+            if self._is_using_encryption() and not self._fernet:
+                message_host.report_error("Attempting to communicate without encryption enabled.")
+                self.sendClose(*self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
+                return
+
+            # origin is formatted such as https://xyz.shotgunstudio.com:port_number
+            # host is https://xyz.shotgunstudio.com:port_number
+            origin_network = self._origin.lower()
+            host_network = self.factory.host.lower()
+
+            if self._protocol_version == 2:
+                # Version 2 of the protocol can only answer requests from the site and user the server
+                # is authenticated into. Validate this.
+
+                # Try to get the user information. If that fails, we need to report the error.
+                try:
+                    user_id = message["command"]["data"]["user"]["entity"]["id"]
+                except Exception:
+                    logger.exception("Unexpected error while trying to retrieve the user id.")
+                    self.sendClose(*self.USER_INFO_NOT_FOUND)
+                    return
+            else:
+                user_id = None
+
+            # If the hosts are different or the user ids are different, report an error.
+            if host_network != origin_network or (user_id is not None and user_id != self.factory.user_id):
+                logger.debug("Browser integration request received a different user.")
+                logger.debug("Desktop site: %s", host_network)
+                logger.debug("Desktop user: %s", self.factory.user_id)
+                logger.debug("Origin site: %s", origin_network)
+                logger.debug("Origin user: %s", user_id)
+                self.factory.notifier.different_user_requested.emit(self._origin, user_id)
+                self.sendClose(*self.UNAUTHORIZED_USER)
+                return
+
+            # Run each request from a thread, even though it might be something very simple like opening
+            # a file. This will ensure the server is as responsive as possible. Twisted will take care
+            # of the thread.
+            reactor.callInThread(
+                self._process_message,
+                message_host,
+                message,
+                message["protocol_version"],
+            )
+        except Exception as e:
+            print e
+            logger.exception("Unexpected error:")
+            self.report_error("Unexpected server error.")
 
     def _is_using_encryption(self):
         """
