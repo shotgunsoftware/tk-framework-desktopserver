@@ -183,7 +183,7 @@ class ServerProtocol(WebSocketServerProtocol):
             # Make sure that nothing gets replied to when encryption is required until the server knows
             # the public server id and we've turned on encryption by initializing the Fernet instance.
             if self._is_using_encryption() and not self._fernet:
-                message_host.report_error("Attempting to communicate without encryption enabled.")
+                logger.error(self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED[1])
                 self.sendClose(*self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
                 return
 
@@ -199,8 +199,8 @@ class ServerProtocol(WebSocketServerProtocol):
                 # Try to get the user information. If that fails, we need to report the error.
                 try:
                     user_id = message["command"]["data"]["user"]["entity"]["id"]
-                except Exception:
-                    logger.exception("Unexpected error while trying to retrieve the user id.")
+                except Exception as e:
+                    logger.exception("Unexpected error while trying to retrieve the user id:")
                     self.sendClose(*self.USER_INFO_NOT_FOUND)
                     return
             else:
@@ -227,7 +227,6 @@ class ServerProtocol(WebSocketServerProtocol):
                 message["protocol_version"],
             )
         except Exception as e:
-            print e
             logger.exception("Unexpected error:")
             self.report_error("Unexpected server error.")
 
@@ -253,6 +252,7 @@ class ServerProtocol(WebSocketServerProtocol):
         """
 
         if not self._is_using_encryption():
+            logger.error(self.ENCRYPTION_NOT_SUPPORTED[1])
             self.sendClose(*self.ENCRYPTION_NOT_SUPPORTED)
             return
 
@@ -332,7 +332,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 func = getattr(api, cmd_name)
             except Exception, e:
                 message_host.report_error(
-                    "Could not find API method %s: %s" % (cmd_name, e)
+                    "Could not find API method %s: %s." % (cmd_name, e)
                 )
             else:
                 # If a method is expecting to be run synchronously we

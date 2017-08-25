@@ -61,7 +61,7 @@ class MockShotgunApi(object):
     """
     Mocks the v2 protocol with a custom method.
     """
-    PUBLIC_API_METHODS = ["repeat_value"]
+    PUBLIC_API_METHODS = ["repeat_value", "missing_attribute"]
 
     def __init__(self, host, process_manager, wss_key):
         self._host = host
@@ -77,6 +77,8 @@ def TestServerBase(class_name, class_parents, class_attr):
 
     @register
     def setUpClientServer(self, use_encryption=False):
+
+        self._use_encryption = use_encryption
         from PySide import QtGui
 
         # Init Qt
@@ -95,7 +97,10 @@ def TestServerBase(class_name, class_parents, class_attr):
         self._mockgun.server_info = {
             "shotgunlocalhost_browser_integration_enabled": True
         }
+
+        # Set up an encryption key.
         self._ws_server_secret = base64.urlsafe_b64encode(os.urandom(32))
+        self._fernet = Fernet(self._ws_server_secret)
 
         # Create the user who will be making all the requests.
         self._user = self._mockgun.create("HumanUser", {"name": "Gilles Pomerleau"})
@@ -193,6 +198,7 @@ def TestServerBase(class_name, class_parents, class_attr):
 
         # When the test ends, we need to stop listening.
         self.addCleanup(lambda: self.client.disconnect())
+        self.addCleanup(lambda: self.server._observer.stop())
         self.addCleanup(lambda: self.server.listener.stopListening())
 
         # Return the deferred that will be called then the setup is completed.
@@ -239,14 +245,17 @@ def TestServerBase(class_name, class_parents, class_attr):
         """
         try:
             # Invoke the next method in the chain.
-            d = calls[0](payload)
-            calls.pop(0)
-            # If we got a defered back
+            method = calls.pop(0)
+            d = method(payload)
+
+            # If we got a Deferred back
             if d and len(calls) == 0:
                 # Make sure there are more calls to make
                 done.errback(RuntimeError("Got a deferred but call chain is empty."))
             elif not d and len(calls) != 0:
-                done.errback(RuntimeError("Call chain is not empty but no deferred was returned."))
+                # If we don't have a deferred as a result, simply class the next method.
+                self._call_next(None, calls, done)
+                return
 
             # If a deferred is returned, we must invoke the remaining calls.
             if d:
@@ -299,7 +308,10 @@ def TestServerBase(class_name, class_parents, class_attr):
         Asserts if a payload is an error message.
         """
         self.assertEqual(payload.get("error", False), True)
-        self.assertTrue(payload["error_message"].startswith(msg))
+        self.assertTrue(
+            payload["error_message"].startswith(msg),
+            "'%s' does not start with '%s'" % (payload["error_message"], msg)
+        )
 
     @register
     def _is_not_error(self, payload):
@@ -357,6 +369,102 @@ def TestServerBase(class_name, class_parents, class_attr):
 
         return self._chain_calls(step1, step2)
 
+    @register
+    def test_missing_user(self):
+
+        def step1(_):
+            return self._send_payload(
+                json.dumps({
+                    "id": 1,
+                    "protocol_version": 2,
+
+                    "command": {
+                        "name": "repeat_value",
+                        "data": {
+                            "value": "hello"
+                        }
+                    }
+                }),
+                encrypt=self._use_encryption
+            )
+
+        def step2(payload):
+            self.assertEqual(
+                payload,
+                (3000, "No user information was found in this request.")
+            )
+
+        return self._chain_calls(self._activate_encryption_if_required, step1, step2)
+
+    @register
+    def _activate_encryption_if_required(self, _):
+        """
+        Activate encryption if this test suite needs it.
+        """
+        if self._use_encryption:
+            return self._activate_encryption(_)
+        else:
+            return None
+
+    @register
+    def _activate_encryption(self, _):
+        """
+        Activates encryption
+        """
+        return self._send_message("get_ws_server_id", None)
+
+    @register
+    def test_incorrect_user(self):
+        """
+        Ensure incorrect user is caught
+        """
+        def step1(_):
+            return self._send_message("repeat_value", {"value": "hello"}, encrypt=self._use_encryption, user_id=666)
+
+        def step2(payload):
+            self.assertEqual(
+                payload,
+                (
+                    3001,
+                    "You are not authorized to make browser integration requests. "
+                    "Please re-authenticate in your desktop application."
+                )
+            )
+
+        return self._chain_calls(self._activate_encryption_if_required, step1, step2)
+
+    @register
+    def test_unknown_command(self):
+        """
+        Ensures that a method that is not in the supported list raises an error.
+        """
+        def step1(_):
+            return self._send_message("unknown_command", None, encrypt=self._use_encryption)
+
+        def step2(payload):
+            if self._use_encryption:
+                payload = self._fernet.decrypt(payload)
+            payload = json.loads(payload)
+            self._is_error(payload, "Command unknown_command is not supported.")
+
+        return self._chain_calls(self._activate_encryption_if_required, step1, step2)
+
+    @register
+    def test_missing_method(self):
+        """
+        Ensures a public method that has a missing matching attribute raises an error.
+        """
+        def step1(_):
+            return self._send_message("missing_attribute", None, encrypt=self._use_encryption)
+
+        def step2(payload):
+            if self._use_encryption:
+                payload = self._fernet.decrypt(payload)
+            payload = json.loads(payload)
+            self._is_error(payload, "Could not find API method missing_attribute: ")
+
+        return self._chain_calls(self._activate_encryption_if_required, step1, step2)
+
     return type(class_name, class_parents, class_attr)
 
 
@@ -376,14 +484,10 @@ class TestEncryptedServer(unittest.TestCase):
         """
         Ensures that calls are encrypted after get_ws_server_is is invoked.
         """
-        def step1(_):
-            return self._send_message("get_ws_server_id", None)
-
-        def step2(payload):
-            self._fernet = Fernet(self._ws_server_secret)
+        def step1(payload):
             return self._send_message("repeat_value", {"value": "hello"}, encrypt=True)
 
-        def step3(payload):
+        def step2(payload):
             payload = self._fernet.decrypt(payload)
             payload = json.loads(payload)
             self._is_not_error(payload)
@@ -392,12 +496,12 @@ class TestEncryptedServer(unittest.TestCase):
             # Same call without encryption should fail.
             return self._send_message("repeat_value", {"value": "hello"})
 
-        def step4(payload):
+        def step3(payload):
             payload = self._fernet.decrypt(payload)
             payload = json.loads(payload)
             self._is_error(payload, "There was an error while decrypting the message:")
 
-        return self._chain_calls(step1, step2, step3, step4)
+        return self._chain_calls(self._activate_encryption, step1, step2, step3)
 
     def test_rpc_before_encrypt(self):
         """
@@ -426,3 +530,18 @@ class TestUnencryptedServer(unittest.TestCase):
     def setUp(self):
         super(TestUnencryptedServer, self).setUp()
         return self.setUpClientServer(use_encryption=False)
+
+    def test_get_ws_server_id_failure(self):
+        """
+        Ensures get_ws_server_id does not work when not in encryption mode.
+        """
+        def step1(_):
+            return self._send_message("get_ws_server_id", None)
+
+        def step2(payload):
+            self.assertEqual(
+                payload,
+                (3003, "Client asked for server id when encryption is not supported.")
+            )
+
+        return self._chain_calls(step1, step2)
