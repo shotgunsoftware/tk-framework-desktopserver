@@ -70,16 +70,13 @@ class MockShotgunApi(object):
         self._host.reply({"value": payload["value"] * 3})
 
 
-# Skip all tests if PySide is missing.
-@skip_if_pyside_missing
-class TestServer(unittest.TestCase):
-    """
-    Tests for various caching-related methods for api_v2.
-    """
+def TestServerBase(class_name, class_parents, class_attr):
 
-    def setUp(self):
-        super(TestServer, self).setUp()
+    def register(func):
+        class_attr[func.__name__] = func
 
+    @register
+    def setUpClientServer(self, use_encryption=False):
         from PySide import QtGui
 
         # Init Qt
@@ -94,10 +91,10 @@ class TestServer(unittest.TestCase):
             os.path.join("/Users/jfboismenu/gitlocal/tk-core/tests/fixtures", "mockgun", "schema_entity.pickle")
         )
         self._mockgun = Shotgun(host)
+        self._mockgun._call_rpc = self._call_rpc
         self._mockgun.server_info = {
             "shotgunlocalhost_browser_integration_enabled": True
         }
-        self._mockgun._call_rpc = self._call_rpc
         self._ws_server_secret = base64.urlsafe_b64encode(os.urandom(32))
 
         # Create the user who will be making all the requests.
@@ -113,7 +110,7 @@ class TestServer(unittest.TestCase):
         # Initialize the websocket server.
         self.server = Server(
             keys_path=os.path.join(fixtures_root, "certificates"),
-            encrypt=True,
+            encrypt=use_encryption,
             host=host,
             user_id=self._user["id"],
             port=9000
@@ -201,6 +198,7 @@ class TestServer(unittest.TestCase):
         # Return the deferred that will be called then the setup is completed.
         return connection_ready_deferred
 
+    @register
     def _call_rpc(self, name, paylad, *args):
         """
         Implements the retrieval of the websocket server secret.
@@ -212,6 +210,7 @@ class TestServer(unittest.TestCase):
         else:
             raise NotImplementedError("The RPC %s is not implemented." % name)
 
+    @register
     def _chain_calls(self, *calls):
         """
         This will chain calls to the websocket server. Each method must follow this pattern:
@@ -232,6 +231,7 @@ class TestServer(unittest.TestCase):
         self._call_next(None, list(calls), done)
         return done
 
+    @register
     def _call_next(self, payload, calls, done):
         """
         Calls the next method in the calls array. Calls ``done`` when there is an error
@@ -257,6 +257,7 @@ class TestServer(unittest.TestCase):
             # There was an error, abort the test right now!
             done.errback(e)
 
+    @register
     def _send_payload(self, payload, encrypt=False, is_binary=False):
         """
         Sends a payload as is to the server.
@@ -265,6 +266,7 @@ class TestServer(unittest.TestCase):
             payload = self._fernet.encrypt(payload)
         return self.client_protocol.sendMessage(payload, is_binary)
 
+    @register
     def _send_message(self, command, data, encrypt=False, is_binary=False, protocol_version=2, user_id=None):
         """
         Sends a message to the websocket server in the expected format.
@@ -291,6 +293,7 @@ class TestServer(unittest.TestCase):
             encrypt=encrypt
         )
 
+    @register
     def _is_error(self, payload, msg):
         """
         Asserts if a payload is an error message.
@@ -298,15 +301,19 @@ class TestServer(unittest.TestCase):
         self.assertEqual(payload.get("error", False), True)
         self.assertTrue(payload["error_message"].startswith(msg))
 
+    @register
     def _is_not_error(self, payload):
         self.assertNotIn("error", payload)
 
+    # These are tests that are common to encryped and unenrypted servers.
+    @register
     def test_connecting(self):
         """
         Makes sure our unit tests framework can connect
         """
         self.assertEqual(self.client.state, "connected")
 
+    @register
     def test_binary_unsupported(self):
         """
         Makes sure any payload is rejected if it is sent in binary form.
@@ -319,6 +326,51 @@ class TestServer(unittest.TestCase):
             self._is_error(payload, "Server does not handle binary requests.")
 
         return self._chain_calls(step1, step2)
+
+    @register
+    def test_invalid_protocol_version(self):
+        """
+        Ensures invalid protocol versions are caught.
+        """
+
+        def step1(_):
+            return self._send_message("repeat_value", {"value": "hello"}, protocol_version=-1)
+
+        def step2(payload):
+            payload = json.loads(payload)
+            self._is_error(payload, "Unsupported protocol version: -1.")
+
+        return self._chain_calls(step1, step2)
+
+    @register
+    def test_incorrectly_formatted_json(self):
+        """
+        Ensures incorrectly formatted json gets caught.
+        """
+
+        def step1(_):
+            return self._send_payload("{'allo':}")
+
+        def step2(payload):
+            payload = json.loads(payload)
+            self._is_error(payload, "Error in decoding the message's json data")
+
+        return self._chain_calls(step1, step2)
+
+    return type(class_name, class_parents, class_attr)
+
+
+@skip_if_pyside_missing
+class TestEncryptedServer(unittest.TestCase):
+    """
+    Tests for various caching-related methods for api_v2.
+    """
+
+    __metaclass__ = TestServerBase
+
+    def setUp(self):
+        super(TestEncryptedServer, self).setUp()
+        return self.setUpClientServer(use_encryption=True)
 
     def test_calls_encrypted(self):
         """
@@ -347,34 +399,6 @@ class TestServer(unittest.TestCase):
 
         return self._chain_calls(step1, step2, step3, step4)
 
-    def test_invalid_protocol_version(self):
-        """
-        Ensures invalid protocol versions are caught.
-        """
-
-        def step1(_):
-            return self._send_message("repeat_value", {"value": "hello"}, protocol_version=-1)
-
-        def step2(payload):
-            payload = json.loads(payload)
-            self._is_error(payload, "Unsupported protocol version: -1.")
-
-        return self._chain_calls(step1, step2)
-
-    def test_incorrectly_formatted_json(self):
-        """
-        Ensures incorrectly formatted json gets caught.
-        """
-
-        def step1(_):
-            return self._send_payload("{'allo':}")
-
-        def step2(payload):
-            payload = json.loads(payload)
-            self._is_error(payload, "Error in decoding the message's json data")
-
-        return self._chain_calls(step1, step2)
-
     def test_rpc_before_encrypt(self):
         """
         Calling an RPC before doing the encryption handshake should not work.
@@ -389,3 +413,16 @@ class TestServer(unittest.TestCase):
             )
 
         return self._chain_calls(step1, step2)
+
+
+@skip_if_pyside_missing
+class TestUnencryptedServer(unittest.TestCase):
+    """
+    Tests for various caching-related methods for api_v2.
+    """
+
+    __metaclass__ = TestServerBase
+
+    def setUp(self):
+        super(TestUnencryptedServer, self).setUp()
+        return self.setUpClientServer(use_encryption=False)
