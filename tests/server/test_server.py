@@ -71,8 +71,8 @@ def TestServerBase(class_name, class_parents, class_attr):
         # the secret.
         host = "https://127.0.0.1"
         Shotgun.set_schema_paths(
-            os.path.join("/Users/jfboismenu/gitlocal/tk-core/tests/fixtures", "mockgun", "schema.pickle"),
-            os.path.join("/Users/jfboismenu/gitlocal/tk-core/tests/fixtures", "mockgun", "schema_entity.pickle")
+            os.path.join(fixtures_root, "mockgun", "schema.pickle"),
+            os.path.join(fixtures_root, "mockgun", "schema_entity.pickle")
         )
         self._mockgun = Shotgun(host)
         self._mockgun._call_rpc = self._call_rpc
@@ -237,16 +237,19 @@ def TestServerBase(class_name, class_parents, class_attr):
             # If we got a Deferred back
             if d and len(calls) == 0:
                 # Make sure there are more calls to make
-                done.errback(RuntimeError("Got a deferred but call chain is empty."))
+                done.errback(RuntimeError("Got a Deferred, but call chain is empty."))
             elif not d and len(calls) != 0:
-                # If we don't have a deferred as a result, simply class the next method.
+                # If we don't have a deferred as a result, simply call the next method.
                 self._call_next(None, calls, done)
                 return
 
-            # If a deferred is returned, we must invoke the remaining calls.
+            # If a deferred is returned, we must invoke the remaining calls when the deferred
+            # is signaled.
             if d:
                 d.addCallback(lambda payload: self._call_next(payload, calls, done))
             else:
+                # We didn't get a Deferred and it was the last method, so invoke the done deferred
+                # to tell the test case we're done.
                 done.callback(None)
         except Exception as e:
             # There was an error, abort the test right now!
@@ -357,7 +360,10 @@ def TestServerBase(class_name, class_parents, class_attr):
 
     @register
     def test_missing_user(self):
-
+        """
+        Ensures that if the user is missing from a command that the command will be rejected
+        accordingly.
+        """
         def step1(_):
             return self._send_payload(
                 json.dumps({
@@ -458,7 +464,6 @@ class TestEncryptedServer(unittest.TestCase):
     """
     Tests for various caching-related methods for api_v2.
     """
-
     __metaclass__ = TestServerBase
 
     def setUp(self):
