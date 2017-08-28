@@ -15,7 +15,6 @@ import threading
 
 from .shotgun import get_shotgun_api
 from .message_host import MessageHost
-from .status_server_protocol import StatusServerProtocol
 from .process_manager import ProcessManager
 from .logger import get_logger
 
@@ -77,13 +76,10 @@ class ServerProtocol(WebSocketServerProtocol):
 
             if certificate_error:
                 logger.info("Certificate error!")
-                StatusServerProtocol.serverStatus = StatusServerProtocol.SSL_CERTIFICATE_INVALID
             else:
                 logger.info("Connection closed.")
-                StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
         except Exception:
             logger.exception("Unexpected error while losing connection.")
-            StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTION_LOST
 
         logger.debug("Reason received for connection loss: %s", reason)
 
@@ -95,7 +91,6 @@ class ServerProtocol(WebSocketServerProtocol):
         :param response: Object Response information.
         """
         # If we reach this point, then it means SSL handshake went well..
-        StatusServerProtocol.serverStatus = StatusServerProtocol.CONNECTED
         self._origin = response.origin.lower()
         logger.info("Connection accepted.")
         self._wss_key = response.headers["sec-websocket-key"]
