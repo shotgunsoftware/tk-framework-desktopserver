@@ -136,7 +136,8 @@ class DesktopserverFramework(sgtk.platform.Framework):
 
     def _write_cert(self, filename, cert):
         """
-        Writes a certificate to disk. Converts any textual \n into actual \n
+        Writes a certificate to disk. Converts any textual \n into actual \n. This is required
+        because certificates returned from Shotgun have their \n encoded as actual \n in the text.
 
         :param filename: Name of the file to save under the keys folder.
         :param cert: Certificate taken from Shotgun.
@@ -150,11 +151,11 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         return self.shotgun.server_info.get("shotgunlocalhost_browser_integration_enabled", False)
 
-    def can_regen_certs(self):
+    def can_regenerate_certificates(self):
         """
         Indicates if we can regenerate certificates.
 
-        Certificates can be regenerated when we're not using shotgunlocalhost.
+        Certificates can only be regenerated when we're not using shotgunlocalhost.
 
         :returns: True if certificates can be regenerated, False otherwise.
         """

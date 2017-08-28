@@ -36,7 +36,7 @@ class Server(object):
     class Notifier(QtCore.QObject):
         different_user_requested = QtCore.Signal(str, int)
 
-    def __init__(self, keys_path, encrypt, host, user_id, port=None, low_level_debug=False):
+    def __init__(self, keys_path, encrypt, host, user_id, port=None):
         """
         Constructor.
 
@@ -50,7 +50,6 @@ class Server(object):
         """
         self._port = port or self._DEFAULT_PORT
         self._keys_path = keys_path or self._DEFAULT_KEYS_PATH
-        self._debug = low_level_debug
         self._host = host
         self._user_id = user_id
 
@@ -71,19 +70,6 @@ class Server(object):
 
         logger.debug("Browser integration using certificates at %s", self._keys_path)
         logger.debug("Encryption: %s", encrypt)
-
-        if self._debug:
-            # When running the server in low_level_debug mode, the twisted framework will print out
-            # data exchanged with the client. Unfortunately, there's no way to filter out that
-            # information from since it is being logged at the INFO level just like regular Twisted
-            # logs.
-            # Warn the user that this is dangerous.
-            twisted.warning("-" * 30)
-            twisted.warning(
-                "YOU ARE LOGGING TWISTED INTERNAL MESSAGES TO THE CONSOLE. MAKE SURE YOU CLOSE THE "
-                "CONSOLE AFTER RUNNING THE APPLICATION AS TWISTED CAN LOG SENSITIVE INFORMATION."
-            )
-            twisted.warning("-" * 30)
 
         # This will take the Twisted logging and forward it to Python's logging.
         self._observer = log.PythonLoggingObserver(twisted.name)
