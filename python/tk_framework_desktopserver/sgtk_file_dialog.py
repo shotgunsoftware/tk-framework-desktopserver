@@ -10,10 +10,7 @@
 
 import sys
 
-try:
-    from PySide import QtCore, QtGui
-except ImportError:
-    from PyQt4 import QtCore, QtGui
+from sgtk.platform.qt import QtCore, QtGui
 
 
 class SgtkFileDialog(QtGui.QFileDialog):

@@ -13,7 +13,7 @@ import os
 import glob
 from .command import Command
 
-from PySide import QtGui, QtCore
+from sgtk.platform.qt import QtGui, QtCore
 from .sgtk_file_dialog import SgtkFileDialog
 
 

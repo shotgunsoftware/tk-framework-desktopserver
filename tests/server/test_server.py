@@ -17,7 +17,6 @@ import json
 from mock import patch, Mock
 
 from tank_test.tank_test_base import setUpModule # noqa
-from tank_test.tank_test_base import skip_if_pyside_missing
 
 import sgtk
 from tank_vendor.shotgun_api3.lib.mockgun import Shotgun
@@ -27,34 +26,22 @@ fixtures_root = os.path.join(repo_root, "tests", "fixtures")
 
 sys.path.insert(0, os.path.join(repo_root, "python"))
 
+# Mock Qt since we don't have it.
+sgtk.platform.qt.QtCore = Mock()
+sgtk.platform.qt.QtGui = Mock()
 
-@skip_if_pyside_missing
-def init_modules():
-    # Make sure Qt is initialized
-    from PySide import QtCore, QtGui
+# Doing this import will add the twisted librairies
+import tk_framework_desktopserver # noqa
 
-    # We're not initializing Toolkit, but some parts of the code are going to expect Toolkit to be
-    # initialized, so initialize that is needed.
-    sgtk.platform.qt.QtCore = QtCore
-    sgtk.platform.qt.QtGui = QtGui
+from twisted.trial import unittest
+from twisted.internet import ssl
+from autobahn.twisted.websocket import connectWS, WebSocketClientFactory, WebSocketClientProtocol
+from twisted.internet.defer import Deferred
+from twisted.internet import reactor
+from cryptography.fernet import Fernet
 
-    # Doing this import will add the twisted librairies
-    import tk_framework_desktopserver # noqa
-
-    return True
-
-# If init_modules returned True, this means we can also import the twisted librairies.
-if init_modules():
-    # Lazy init since the framework adds the twisted libs.
-    from twisted.trial import unittest
-    from twisted.internet import ssl
-    from autobahn.twisted.websocket import connectWS, WebSocketClientFactory, WebSocketClientProtocol
-    from twisted.internet.defer import Deferred
-    from twisted.internet import reactor
-    from cryptography.fernet import Fernet
-
-    from twisted.internet import base
-    base.DelayedCall.debug = True
+from twisted.internet import base
+base.DelayedCall.debug = True
 
 
 class MockShotgunApi(object):
@@ -79,11 +66,6 @@ def TestServerBase(class_name, class_parents, class_attr):
     def setUpClientServer(self, use_encryption=False):
 
         self._use_encryption = use_encryption
-        from PySide import QtGui
-
-        # Init Qt
-        if not QtGui.QApplication.instance():
-            QtGui.QApplication([])
 
         # Create a mockgun instance and add support for the _call_rpc method which is used to get
         # the secret.
@@ -111,6 +93,10 @@ def TestServerBase(class_name, class_parents, class_attr):
         self.addCleanup(patched.stop)
 
         from tk_framework_desktopserver import Server, shotgun
+
+        patched = patch.object(Server, "Notifier", new=Mock())
+        patched.start()
+        self.addCleanup(patched.stop)
 
         # Initialize the websocket server.
         self.server = Server(
@@ -468,7 +454,6 @@ def TestServerBase(class_name, class_parents, class_attr):
     return type(class_name, class_parents, class_attr)
 
 
-@skip_if_pyside_missing
 class TestEncryptedServer(unittest.TestCase):
     """
     Tests for various caching-related methods for api_v2.
@@ -519,7 +504,6 @@ class TestEncryptedServer(unittest.TestCase):
         return self._chain_calls(step1, step2)
 
 
-@skip_if_pyside_missing
 class TestUnencryptedServer(unittest.TestCase):
     """
     Tests for various caching-related methods for api_v2.
