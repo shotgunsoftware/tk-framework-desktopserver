@@ -16,9 +16,9 @@ python_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../re
 distributions_path = os.path.join(python_path, "dist")
 if sys.platform == "darwin":
     sys.path.insert(0, os.path.join(distributions_path, "mac"))
-elif os.platform == "win32":
+elif sys.platform == "win32":
     sys.path.insert(0, os.path.join(distributions_path, "windows"))
-elif os.platform.startswith("linux"):
+elif sys.platform.startswith("linux"):
     sys.path.insert(0, os.path.join(distributions_path, "linux"))
 
 from .server import Server
