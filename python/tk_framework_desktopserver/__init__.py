@@ -22,6 +22,7 @@ elif os.platform.startswith("linux"):
     sys.path.insert(0, os.path.join(distributions_path, "linux"))
 
 from .server import Server
+from .server import ServerProtocol
 from .settings import Settings
 from .process_manager import ProcessManager
 from .certificates import get_certificate_handler

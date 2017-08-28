@@ -155,8 +155,7 @@ class ServerProtocol(WebSocketServerProtocol):
             # standard message format as it doesn't require a protocol version to be retrieved and is
             # not json-encoded.
             if decoded_payload == "get_protocol_version":
-                self.json_reply(dict(protocol_version=self._protocol_version))
-                return
+                return self._handle_get_protocol_version()
 
             # Extract json response (every message is expected to be in json format)
             try:
@@ -206,13 +205,7 @@ class ServerProtocol(WebSocketServerProtocol):
             else:
                 user_id = None
 
-            # If the hosts are different or the user ids are different, report an error.
-            if host_network != origin_network or (user_id is not None and user_id != self.factory.user_id):
-                logger.debug("Browser integration request received a different user.")
-                logger.debug("Desktop site: %s", host_network)
-                logger.debug("Desktop user: %s", self.factory.user_id)
-                logger.debug("Origin site: %s", origin_network)
-                logger.debug("Origin user: %s", user_id)
+            if not self._validate_user(host_network, user_id, origin_network):
                 self.factory.notifier.different_user_requested.emit(self._origin, user_id)
                 self.sendClose(*self.UNAUTHORIZED_USER)
                 return
@@ -229,6 +222,32 @@ class ServerProtocol(WebSocketServerProtocol):
         except Exception as e:
             logger.exception("Unexpected error:")
             self.report_error("Unexpected server error.")
+
+    def _validate_user(self, host_network, user_id, origin_network):
+        """
+        Validates if the user from the browser can connect to this server.
+
+        :returns: True if the user can connect, False otherwise.
+        """
+        # If the hosts are different or the user ids are different, report an error.
+        if host_network != origin_network or (user_id is not None and user_id != self.factory.user_id):
+            logger.debug("Browser integration request received a different user.")
+            logger.debug("Desktop site: %s", host_network)
+            logger.debug("Desktop user: %s", self.factory.user_id)
+            logger.debug("Origin site: %s", origin_network)
+            logger.debug("Origin user: %s", user_id)
+            return False
+        else:
+            return True
+
+    def _handle_get_protocol_version(self):
+        """
+        Handles get_protocol_version
+
+        Note: This is mock by the browser integration crash tool, do not change or you will break
+        the tool.
+        """
+        self.json_reply(dict(protocol_version=self._protocol_version))
 
     def _is_using_encryption(self):
         """
