@@ -28,4 +28,4 @@ test_script:
   # the interpreter you're using - Appveyor does not do anything special
   # to put the Python version you want to use on PATH.
   - cd tests
-  - "%PYTHON%\\python.exe %TEMP%\\tk-core\\tests\\run_tests.sh --test-root . %*"
+  - "%PYTHON%\\python.exe %TEMP%\\tk-core\\tests\\run_tests.py --test-root . %*"
