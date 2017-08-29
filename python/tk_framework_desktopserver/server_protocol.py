@@ -198,11 +198,6 @@ class ServerProtocol(WebSocketServerProtocol):
             self.sendClose(*self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
             return
 
-        # origin is formatted such as https://xyz.shotgunstudio.com:port_number
-        # host is https://xyz.shotgunstudio.com:port_number
-        origin_network = self._origin.lower()
-        host_network = self.factory.host.lower()
-
         if self._protocol_version == 2:
             # Version 2 of the protocol can only answer requests from the site and user the server
             # is authenticated into. Validate this.
@@ -217,7 +212,7 @@ class ServerProtocol(WebSocketServerProtocol):
         else:
             user_id = None
 
-        if not self._validate_user(host_network, user_id, origin_network):
+        if not self._validate_user(user_id):
             self.factory.notifier.different_user_requested.emit(self._origin, user_id)
             self.sendClose(*self.UNAUTHORIZED_USER)
             return
@@ -232,29 +227,54 @@ class ServerProtocol(WebSocketServerProtocol):
             message["protocol_version"],
         )
 
-    def _validate_user(self, host_network, user_id, origin_network):
+    def _validate_user(self, user_id):
         """
         Validates if the user from the browser can connect to this server.
 
+        :param user_id: Id of the user making the request in the web app.
+
+        .. note:: This is mocked by the browser integration crash tool, do not change or you will
+        break the tool.
+
         :returns: True if the user can connect, False otherwise.
         """
-        # If the hosts are different or the user ids are different, report an error.
-        if host_network != origin_network or (user_id is not None and user_id != self.factory.user_id):
-            logger.debug("Browser integration request received a different user.")
-            logger.debug("Desktop site: %s", host_network)
-            logger.debug("Desktop user: %s", self.factory.user_id)
-            logger.debug("Origin site: %s", origin_network)
-            logger.debug("Origin user: %s", user_id)
-            return False
+
+        # origin is formatted such as https://xyz.shotgunstudio.com:port_number
+        # host is https://xyz.shotgunstudio.com:port_number
+        host_network = self.factory.host.lower()
+        origin_network = self._origin.lower()
+
+        # The user id is only going to be present with protocol v2.
+        if user_id:
+            # If we're on the right site and have the correct user, we're fine.
+            if host_network == origin_network and user_id == self.factory.user_id:
+                return True
+            else:
+                # Otherwise report an error and log some stats.
+                logger.debug("Browser integration request received a different user.")
+                logger.debug("Desktop site: %s", host_network)
+                logger.debug("Desktop user: %s", self.factory.user_id)
+                logger.debug("Origin site: %s", origin_network)
+                logger.debug("Origin user: %s", user_id)
+                return False
         else:
-            return True
+            # If we're on the right site when using protocol v1
+            if host_network == origin_network:
+                # we're good to go.
+                return True
+            else:
+                # Otherwise report an error and log some stats.
+                logger.debug("Browser integration request received a different user.")
+                logger.debug("Desktop site: %s", host_network)
+                logger.debug("Origin site: %s", origin_network)
+                return False
 
     def _handle_get_protocol_version(self):
         """
         Handles get_protocol_version
 
-        Note: This is mock by the browser integration crash tool, do not change or you will break
-        the tool.
+        .. note:: This is mocked by the browser integration crash tool, do not change or you will
+        break the tool.
         """
         self.json_reply(dict(protocol_version=self._protocol_version))
 
@@ -304,13 +324,15 @@ class ServerProtocol(WebSocketServerProtocol):
             This method caches the result of the retrieval for any other ServerProtocol instances
             created after the first one.
 
-            Because
-                - each server instance has a different server id
-                - retrieving a secret with a different id generates a new secret
-                - we can launch two servers at the same time (the second one won't be able to listen
-                  and will fail however.)
-            , it wouldn't be a good idea to retrieve the server id before successfully listening
-            on the port since launching the server a second time by mistake would reset the secret
+            Consider the following
+
+            - Each server instance has a different server id
+            - Retrieving a secret with a different id generates a new secret
+            - We can launch two servers at the same time (the second one won't be able to listen
+                and will fail however.)
+
+            It wouldn't be a good idea to retrieve the server id before successfully listening on
+            the port since launching the server a second time by mistake would reset the secret
             retrieved by the first instance.
         """
         # Has the server secret already been retrieved before?
