@@ -118,7 +118,6 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 encrypt=encrypt,
                 host=host,
                 user_id=user_id,
-                low_level_debug=self._settings.low_level_debug,
                 port=self._settings.port
             )
 
