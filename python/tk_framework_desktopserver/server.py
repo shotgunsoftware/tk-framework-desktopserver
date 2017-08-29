@@ -10,6 +10,7 @@
 
 import os
 import threading
+import base64
 
 from .server_protocol import ServerProtocol
 
@@ -35,20 +36,30 @@ class Server(object):
     class Notifier(QtCore.QObject):
         different_user_requested = QtCore.Signal(str, int)
 
-    def __init__(self, keys_path, host, user_id, port=None, low_level_debug=False):
+    def __init__(self, keys_path, encrypt, host, user_id, port=None):
         """
         Constructor.
 
         :param keys_path: Path to the keys. If the path is relative, it will be relative to the
             current working directory. Mandatory
+        :param encrypt: If True, the communication with clients will be encrypted.
+        :param host: Url of the host we're expecting requests from.
+        :param user_id: Id of the user we're expecting requests from.
         :param port: Port to listen for websocket requests from.
         :param low_level_debug: If True, wss traffic will be written to the console.
         """
         self._port = port or self._DEFAULT_PORT
         self._keys_path = keys_path or self._DEFAULT_KEYS_PATH
-        self._debug = low_level_debug
         self._host = host
         self._user_id = user_id
+
+        # If encryption is required, compute a server id and retrieve the secret associated to it.
+        if encrypt:
+            # urandom is considered cryptographically secure as it calls the OS's CSRNG, so we can
+            # use that to generate our own server id.
+            self._ws_server_id = base64.urlsafe_b64encode(os.urandom(16))
+        else:
+            self._ws_server_id = None
 
         self.notifier = self.Notifier()
 
@@ -57,18 +68,8 @@ class Server(object):
 
         twisted = get_logger("twisted")
 
-        if self._debug:
-            # When running the server in low_level_debug mode, the twisted framework will print out
-            # data exchanged with the client. Unfortunately, there's no way to filter out that
-            # information from since it is being logged at the INFO level just like regular Twisted
-            # logs.
-            # Warn the user that this is dangerous.
-            twisted.warning("-" * 30)
-            twisted.warning(
-                "YOU ARE LOGGING TWISTED INTERNAL MESSAGES TO THE CONSOLE. MAKE SURE YOU CLOSE THE "
-                "CONSOLE AFTER RUNNING THE APPLICATION AS TWISTED CAN LOG SENSITIVE INFORMATION."
-            )
-            twisted.warning("-" * 30)
+        logger.debug("Browser integration using certificates at %s", self._keys_path)
+        logger.debug("Encryption: %s", encrypt)
 
         # This will take the Twisted logging and forward it to Python's logging.
         self._observer = log.PythonLoggingObserver(twisted.name)
@@ -106,15 +107,18 @@ class Server(object):
         self.context_factory = ssl.DefaultOpenSSLContextFactory(cert_key_path,
                                                                 cert_crt_path)
 
+        # FIXME: Seems like the debugging flags are gone from the initializer at the moment.
+        # We should try to restore these.
         self.factory = WebSocketServerFactory(
-            "wss://localhost:%d" % self._port, debug=self._debug, debugCodePaths=self._debug
+            "wss://localhost:%d" % self._port
         )
 
         self.factory.protocol = ServerProtocol
         self.factory.host = self._host
         self.factory.user_id = self._user_id
         self.factory.notifier = self.notifier
-        self.factory.setProtocolOptions(allowHixie76=True, echoCloseCodeReason=True)
+        self.factory.ws_server_id = self._ws_server_id
+        self.factory.setProtocolOptions(echoCloseCodeReason=True)
         try:
             self.listener = listenWS(self.factory, self.context_factory)
         except error.CannotListenError, e:
