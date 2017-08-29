@@ -972,6 +972,30 @@ class ShotgunAPI(object):
             that order.
         :rtype: tuple
         """
+        #
+        # NOTE: We have a few things to work out here, and there are some
+        # inconsistencies in the data payload that comes down from Shotgun.
+        #
+        # 1. We might get one entity in a key "entity_id" or we might get
+        #    multiple entities in a key "entity_ids".
+        #
+        # 2. If we get a list of multiple entities via the "entity_ids" key,
+        #    it might contain entity dictionaries, or it might contain id
+        #    numbers only.
+        #
+        # 3a. In every case except one (that I know of) we get a project
+        #     entity id number by way of the "project_id" key. THE ONE
+        #     EXCEPTION to this is the left-hand pane of the My Tasks
+        #     page, which passes down a None for the project id, regardless
+        #     of what task is selected. NOTE: This is likely a bug in the
+        #     toolkit menu code in the web app, but it is MUCH easier to
+        #     handle the situation here than it is to get a fix into Shotgun.
+        #     The next time we're in that code we should likely look into why
+        #     it happens that way, but for now the easiest fix is in Python.
+        #
+        # 3b. Because we might not get a project id, and we ALWAYS need one,
+        #     we fall back on querying it when we need to.
+        #
         if data.get("project_id") is not None:
             project_entity = dict(
                 type="Project",
@@ -1064,10 +1088,9 @@ class ShotgunAPI(object):
         if entity["type"] == "Project":
             return entity
 
-        if self.ENTITY_PARENT_PROJECTS not in self._cache:
-            self._cache[self.ENTITY_PARENT_PROJECTS] = dict()
+        project_cache = self._cache.setdefault(self.ENTITY_PARENT_PROJECTS, dict())
 
-        if entity["id"] not in self._cache[self.ENTITY_PARENT_PROJECTS]:
+        if entity["id"] not in project_cache:
             project = None
             try:
                 sg_entity = self._engine.shotgun.find_one(
@@ -1080,9 +1103,8 @@ class ShotgunAPI(object):
             else:
                 project = sg_entity["project"]
 
-            self._cache[self.ENTITY_PARENT_PROJECTS][entity["id"]] = project
-
-        return self._cache[self.ENTITY_PARENT_PROJECTS][entity["id"]]
+            project_cache[entity["id"]] = project
+        return project_cache[entity["id"]]
 
     @sgtk.LogManager.log_timing
     def _get_entity_type_whitelist(self, project_id, config_descriptor):
