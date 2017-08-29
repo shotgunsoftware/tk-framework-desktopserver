@@ -187,17 +187,6 @@ class ServerProtocol(WebSocketServerProtocol):
 
         self._protocol_version = message["protocol_version"]
 
-        if message["command"]["name"] == "get_ws_server_id":
-            self._handle_get_ws_server_id(message)
-            return
-
-        # Make sure that nothing gets replied to when encryption is required until the server knows
-        # the public server id and we've turned on encryption by initializing the Fernet instance.
-        if self._is_using_encryption() and not self._fernet:
-            logger.error(self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED[1])
-            self.sendClose(*self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
-            return
-
         if self._protocol_version == 2:
             # Version 2 of the protocol can only answer requests from the site and user the server
             # is authenticated into. Validate this.
@@ -215,6 +204,17 @@ class ServerProtocol(WebSocketServerProtocol):
         if not self._validate_user(user_id):
             self.factory.notifier.different_user_requested.emit(self._origin, user_id)
             self.sendClose(*self.UNAUTHORIZED_USER)
+            return
+
+        if message["command"]["name"] == "get_ws_server_id":
+            self._handle_get_ws_server_id(message)
+            return
+
+        # Make sure that nothing gets replied to when encryption is required until the server knows
+        # the public server id and we've turned on encryption by initializing the Fernet instance.
+        if self._is_using_encryption() and not self._fernet:
+            logger.error(self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED[1])
+            self.sendClose(*self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
             return
 
         # Run each request from a thread, even though it might be something very simple like opening
