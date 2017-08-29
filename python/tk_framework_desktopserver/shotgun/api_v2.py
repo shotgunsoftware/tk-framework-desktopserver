@@ -63,6 +63,7 @@ class ShotgunAPI(object):
     ENTITY_TYPE_WHITELIST = "entity_type_whitelist"
     LEGACY_PROJECT_ACTIONS = "legacy_project_actions"
     YML_FILE_DATA = "yml_file_data"
+    ENTITY_PARENT_PROJECTS = "entity_parent_projects"
 
     # We need to protect against concurrent bootstraps happening.
     # This is a reentrant lock because get_actions is recursive
@@ -126,6 +127,32 @@ class ShotgunAPI(object):
 
     @sgtk.LogManager.log_timing
     def execute_action(self, data):
+        """
+        Executes the engine command associated with the action triggered
+        in the client.
+
+        :param dict data: The payload from the client.
+        """
+        # When the v2 protocol is being used, the Shotgun web app makes use of
+        # Javascript Promises to handle the reply from the server, whether there
+        # is success or failure. When getting actions, we want to make sure that
+        # if there was some kind of unhandled exception that there is a proper
+        # reply to the client so that the Promise can be kept or broken, as is
+        # appropriate.
+        try:
+            self._execute_action(data)
+        except Exception:
+            import traceback
+            self.host.reply(
+                dict(
+                    err="Failed to execute action: %s" % traceback.format_exc(),
+                    retcode=constants.COMMAND_FAILED,
+                    out="",
+                ),
+            )
+            logger.exception(format_exc())
+
+    def _execute_action(self, data):
         """
         Executes the engine command associated with the action triggered
         in the client.
@@ -325,6 +352,7 @@ class ShotgunAPI(object):
                     out="",
                 ),
             )
+            logger.exception(format_exc())
 
     def _get_actions(self, data):
         """
@@ -944,39 +972,117 @@ class ShotgunAPI(object):
             that order.
         :rtype: tuple
         """
-        project_entity = dict(
-            type="Project",
-            id=data["project_id"],
-        )
+        if data.get("project_id") is not None:
+            project_entity = dict(
+                type="Project",
+                id=data["project_id"],
+            )
+        else:
+            project_entity = None
 
+        # Single entity passed down from the web app. This is the most common
+        # case.
         if "entity_id" in data:
             entity = dict(
                 type=data["entity_type"],
                 id=data["entity_id"],
-                project=project_entity,
             )
+
+            # If we were passed a usable project entity from the web app, we
+            # can trust that and add it to our entity. If we didn't, then we'll
+            # have to query it.
+            if project_entity is None:
+                project_entity = self._get_entity_parent_project(entity)
+                if project_entity is None:
+                    raise RuntimeError("Unable to determine a project entity from data: %s" % data)
+
+            entity["project"] = project_entity
             return (project_entity, [entity])
         elif "entity_ids" in data:
+            # Multiple entities were passed down from the web app. This is an older
+            # paradigm, but is still supported. We don't know, however, whether we
+            # got a list of entity ids or a list of entity dictionaries. Old, not-as-
+            # old, and new code do different things, unfortunately. We'll handle all
+            # possible cases pretty easily, though, which will cover current and past
+            # versions of the Shotgun web application.
             entities = []
 
             for entity in data["entity_ids"]:
                 # Did we get an entity list, or a list of entity ids?
                 if isinstance(entity, dict):
-                    if "project" not in entity:
-                        entity["project"] = project_entity
+                    # If we were passed a usable project entity from the web app, we
+                    # can trust that and add it to our entity. If we didn't, then we'll
+                    # have to query it.
+                    if entity.get("project") is None:
+                        if project_entity is None:
+                            entity["project"] = self._get_entity_parent_project(entity)
+                        else:
+                            entity["project"] = project_entity
 
                     entities.append(entity)
                 else:
-                    entities.append(
-                        dict(
-                            type=data["entity_type"],
-                            id=entity,
-                            project=project_entity,
-                        )
+                    entity = dict(
+                        type=data["entity_type"],
+                        id=entity,
                     )
+                    # If we were passed a usable project entity from the web app, we
+                    # can trust that and add it to our entity. If we didn't, then we'll
+                    # have to query it.
+                    if project_entity is None:
+                        entity["project"] = project_entity
+                    else:
+                        entity["project"] = self._get_entity_parent_project(entity)
+
+                    entities.append(entity)
+
+            # If we were not given a usable project entity, we can pull it from an
+            # entity we've just extracted. This doesn't cover the case of receiving
+            # multiple entities from the web app from different projects, but this isn't
+            # the only place where we're going to suffer there.
+            if project_entity is None:
+                project_entity = entities[0]["project"]
+                if project_entity is None:
+                    raise RuntimeError("Unable to determine a project entity from data: %s" % data)
+
             return (project_entity, entities)
         else:
             raise RuntimeError("Unable to determine an entity from data: %s" % data)
+
+    @sgtk.LogManager.log_timing
+    def _get_entity_parent_project(self, entity):
+        """
+        Gets the project entity that the given entity is linked to.
+
+        :param dict entity: A standard Shotgun entity dictionary.
+
+        :returns: A standard Shotgun Project entity.
+        :rtype: dict
+        """
+        if entity.get("project") is not None:
+            return entity["project"]
+
+        if entity["type"] == "Project":
+            return entity
+
+        if self.ENTITY_PARENT_PROJECTS not in self._cache:
+            self._cache[self.ENTITY_PARENT_PROJECTS] = dict()
+
+        if entity["id"] not in self._cache[self.ENTITY_PARENT_PROJECTS]:
+            project = None
+            try:
+                sg_entity = self._engine.shotgun.find_one(
+                    entity["type"],
+                    [["id", "is", entity["id"]]],
+                    fields=["project"],
+                )
+            except Exception:
+                pass
+            else:
+                project = sg_entity["project"]
+
+            self._cache[self.ENTITY_PARENT_PROJECTS][entity["id"]] = project
+
+        return self._cache[self.ENTITY_PARENT_PROJECTS][entity["id"]]
 
     @sgtk.LogManager.log_timing
     def _get_entity_type_whitelist(self, project_id, config_descriptor):

@@ -27,6 +27,31 @@ class TestUtilMethods(TestDesktopServerFramework):
         Tests to ensure that payload parsing to extract entities passed down from
         Shotgun works properly.
         """
+        project_entity = dict(
+            type="Project",
+            id=1,
+        )
+
+        shot_entities = [
+            dict(
+                type="Shot",
+                id=2,
+                project=project_entity,
+            ),
+            dict(
+                type="Shot",
+                id=3,
+                project=project_entity,
+            ),
+            dict(
+                type="Shot",
+                id=4,
+                project=project_entity,
+            ),
+        ]
+
+        self.add_to_sg_mock_db([project_entity] + shot_entities)
+
         # If a single entity is passed down.
         test_payload = dict(
             project_id=1,
@@ -34,25 +59,15 @@ class TestUtilMethods(TestDesktopServerFramework):
             entity_id=2,
         )
 
-        project_entity = dict(
-            type="Project",
-            id=1,
-        )
-
-        expected_return = (
-            project_entity,
-            [
-                dict(
-                    type="Shot",
-                    id=2,
-                    project=project_entity,
-                ),
-            ],
-        )
+        actual_return = self.api._get_entities_from_payload(test_payload)
 
         self.assertEqual(
-            expected_return,
-            self.api._get_entities_from_payload(test_payload)
+            project_entity["id"],
+            actual_return[0]["id"],
+        )
+        self.assertEqual(
+            shot_entities[0]["id"],
+            actual_return[1][0]["id"],
         )
 
         # If multiple entities are passed down.
@@ -63,42 +78,50 @@ class TestUtilMethods(TestDesktopServerFramework):
             entity_ids=[2, 3, 4],
         )
 
-        expected_return = (
-            project_entity,
-            [
-                dict(
-                    type="Shot",
-                    id=2,
-                    project=project_entity,
-                ),
-                dict(
-                    type="Shot",
-                    id=3,
-                    project=project_entity,
-                ),
-                dict(
-                    type="Shot",
-                    id=4,
-                    project=project_entity,
-                ),
-            ],
-        )
-
         actual_return = self.api._get_entities_from_payload(test_payload)
 
         # Make sure we got the Project entity.
         self.assertEqual(
-            expected_return[0],
-            actual_return[0]
+            project_entity["id"],
+            actual_return[0]["id"],
         )
 
         # The list of entities is unordered, so we can't just compare it directly.
         # Instead, we'll make sure the length is correct and that all of the expected
         # entities are there.
-        self.assertEqual(len(expected_return[1]), len(actual_return[1]))
+        self.assertEqual(len(shot_entities), len(actual_return[1]))
 
-        for expected_entity in expected_return[1]:
-            self.assertTrue((expected_entity in actual_return[1]))
+        for expected_entity in shot_entities:
+            self.assertEqual(1, len([e for e in actual_return[1] if e["id"] == expected_entity["id"]]))
+
+        # Check to make sure that we get a project entity back even if what's in
+        # the payload is a None value for the project_id.
+        task = dict(
+            type="Task",
+            id=9999,
+            project=project_entity,
+        )
+
+        self.add_to_sg_mock_db([task])
+
+        test_payload = dict(
+            project_id=None,
+            entity_type="Task",
+            entity_id=9999,
+        )
+
+        actual_return = self.api._get_entities_from_payload(test_payload)
+        self.assertEqual(project_entity["id"], actual_return[0]["id"])
+
+        # Also check to see if the project_id is completely omitted from the payload.
+        test_payload = dict(
+            entity_type="Task",
+            entity_id=9999,
+        )
+
+        actual_return = self.api._get_entities_from_payload(test_payload)
+        self.assertTrue(isinstance(actual_return[0], dict))
+        self.assertEqual(project_entity["id"], actual_return[0]["id"])
 
     def test_get_task_entity_parent_type(self):
         """
