@@ -255,7 +255,7 @@ if __name__ == "__main__":
     with open(arg_data_file, "rb") as fh:
         arg_data = cPickle.load(fh)
 
-    sys.path = arg_data["sys_path"] + sys.path
+    sys.path = sys.path + arg_data["sys_path"]
 
     cache(
         arg_data["cache_file"],
