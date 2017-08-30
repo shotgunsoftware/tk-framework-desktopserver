@@ -1,2 +1,4 @@
 cffi==1.10.0
 pycryptodome==3.4.6
+Twisted==17.5.0
+zope.interface==4.4.2
