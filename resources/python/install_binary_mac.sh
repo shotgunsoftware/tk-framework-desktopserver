@@ -6,12 +6,5 @@ touch bin/mac/zope/__init__.py
 # Remove tests to thin out the packages
 rm -rf bin/mac/Crypto/SelfTest
 
-rm -rf bin/mac/autobahn/test
-rm -rf bin/mac/autobahn/*/test
-
-rm -rf bin/mac/twisted/test
-rm -rf bin/mac/twisted/*/test
-rm -rf bin/mac/twisted/*/*/test
-
 rm -rf bin/mac/zope/interface/tests
 rm -rf bin/mac/zope/interface/*/tests
