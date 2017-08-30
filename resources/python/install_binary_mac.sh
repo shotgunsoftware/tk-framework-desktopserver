@@ -1,6 +1,6 @@
 git rm -rf bin/mac
 rm -rf bin/mac
-/Applications/Shotgun.app/Contents/Resources/Python/bin/pip install --target bin/mac --no-deps -r binary_requirements.txt
+/Applications/Shotgun.app/Contents/Resources/Python/bin/python build/pip install --target bin/mac --no-deps -r binary_requirements.txt
 touch bin/mac/zope/__init__.py
 
 # Remove tests to thin out the packages

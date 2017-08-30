@@ -1,6 +1,10 @@
 cffi==1.10.0
-pycryptodome==3.4.6
 zope.interface==4.4.2
-autobahn==17.7.1
+pycryptodome==3.4.6
+cryptography==2.0
+
+# Twisted has a single binary file, so we have to install it in the bin folder.
 Twisted==17.5.0
-# cryptography==2.0
+# Autobhan adds file inside the twisted/plugins folder, so it has to do in bin folder
+# even if its a source only package.
+autobahn==17.7.1
