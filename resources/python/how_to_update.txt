@@ -1,0 +1,16 @@
+3rd party libraries for the browser integration
+-----------------------------------------------
+
+## Updating the list of package to use.
+
+The libraries to install are listed in `binary_requirements.txt` and `source_only_requirements.txt`. The former contains Python modules that have some sort of compiled component, which we need to track one copy of for each platform we support, while the latter contains libraries that are 100% Python code.
+
+Always specify the exact version number you want pip to pull down to make sure we're not pulling anything we don't want.
+
+## Packaging the update list of packages into the repo
+
+Run `install_source_only.sh` to reinstall all the modules in `source_only_requirements.txt`.
+
+Run `install_binary_<platform>.sh` to update the modules for `binary_requirements.txt`
+
+Both scripts take care of deleting the original files from the repo. Your only task when you are done is to git add the relevant folder and commit.
