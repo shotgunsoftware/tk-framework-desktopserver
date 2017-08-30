@@ -1,0 +1,2 @@
+cffi==1.10.0
+pycryptodome==3.4.6
