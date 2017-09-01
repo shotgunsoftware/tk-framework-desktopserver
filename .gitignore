@@ -8,6 +8,3 @@ __pycache__/
 # Twisted Unit Test Artifacts
 _trial_temp*/
 _trial_temp*
-
-# Don't commit keys
-resources/keys/

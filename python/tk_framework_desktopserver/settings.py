@@ -30,11 +30,9 @@ class Settings(object):
     """
 
     _DEFAULT_PORT = 9000
-    _DEFAULT_LOW_LEVEL_DEBUG_VALUE = False
 
     _BROWSER_INTEGRATION = "BrowserIntegration"
     _PORT_SETTING = "port"
-    _LOW_LEVEL_DEBUG_SETTING = "low_level_debug"
     _CERTIFICATE_FOLDER_SETTING = "certificate_folder"
     _ENABLED = "enabled"
 
@@ -59,11 +57,6 @@ class Settings(object):
             port = self._get_value(
                 config, self._PORT_SETTING, int
             )
-            low_level_debug = bool(
-                self._get_value(
-                    config, self._LOW_LEVEL_DEBUG_SETTING, int
-                )
-            )
             certificate_folder = self._get_value(
                 config, self._CERTIFICATE_FOLDER_SETTING
             )
@@ -76,16 +69,12 @@ class Settings(object):
             port = user_settings.get_integer_setting(
                 self._BROWSER_INTEGRATION, self._PORT_SETTING
             )
-            low_level_debug = user_settings.get_boolean_setting(
-                self._BROWSER_INTEGRATION, self._LOW_LEVEL_DEBUG_SETTING
-            )
             certificate_folder = user_settings.get_setting(
                 self._BROWSER_INTEGRATION, self._CERTIFICATE_FOLDER_SETTING
             )
             integration_enabled = UserSettings().get_boolean_setting(self._BROWSER_INTEGRATION, self._ENABLED)
 
         self._port = port or self._DEFAULT_PORT
-        self._low_level_debug = low_level_debug or self._DEFAULT_LOW_LEVEL_DEBUG_VALUE
         self._certificate_folder = certificate_folder or self._default_certificate_folder
         self._integration_enabled = integration_enabled
 
@@ -117,15 +106,6 @@ class Settings(object):
         return self._integration_enabled if self._integration_enabled is not None else True
 
     @property
-    def low_level_debug(self):
-        """
-        :returns: True if the server should run in low level debugging mode. False otherwise.
-        """
-        # Any non empty string is True, so convert it to int, which will accept 0 or 1 and then
-        # we'll cast the return value to a boolean.
-        return self._low_level_debug
-
-    @property
     def certificate_folder(self):
         """
         :returns: Path to the certificate location.
@@ -138,7 +118,6 @@ class Settings(object):
         """
         logger.info("Integration enabled: %s" % self.integration_enabled)
         logger.info("Certificate folder: %s" % self.certificate_folder)
-        logger.info("Low level debug: %s" % self.low_level_debug)
         logger.info("Port: %d" % self.port)
 
     def _get_value(self, config, key, type_cast=str):

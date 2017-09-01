@@ -104,19 +104,61 @@ class DesktopserverFramework(sgtk.platform.Framework):
             return
 
         try:
-            self.__ensure_certificate_ready(regenerate_certs=False, parent=parent)
+            if self._site_supports_shotgunlocalhost():
+                self.__retrieve_certificates_from_shotgun()
+                keys_path = self._get_shotgunlocalhost_keys_folder()
+                encrypt = True
+            else:
+                self.__ensure_certificate_ready(regenerate_certs=False, parent=parent)
+                keys_path = self._settings.certificate_folder
+                encrypt = False
 
             self._server = self._tk_framework_desktopserver.Server(
-                keys_path=self._settings.certificate_folder,
+                keys_path=keys_path,
+                encrypt=encrypt,
                 host=host,
                 user_id=user_id,
-                low_level_debug=self._settings.low_level_debug,
                 port=self._settings.port
             )
 
             self._server.start()
         except Exception:
             self.logger.exception("Could not start the browser integration:")
+
+    def _get_shotgunlocalhost_keys_folder(self):
+        """
+        Retrieves the location where the shotgunlocalhost.com keys will be downloaded to.
+
+        :returns: Path to the folder where server.crt and server.key are.
+        """
+        return os.path.join(self.cache_location, "keys")
+
+    def _write_cert(self, filename, cert):
+        """
+        Writes a certificate to disk. Converts any textual \n into actual \n. This is required
+        because certificates returned from Shotgun have their \n encoded as actual \n in the text.
+
+        :param filename: Name of the file to save under the keys folder.
+        :param cert: Certificate taken from Shotgun.
+        """
+        with open(os.path.join(self._get_shotgunlocalhost_keys_folder(), filename), "w") as fw:
+            fw.write("\n".join(cert.split("\\n")))
+
+    def _site_supports_shotgunlocalhost(self):
+        """
+        Checks if the site supports encryption.
+        """
+        return self.shotgun.server_info.get("shotgunlocalhost_browser_integration_enabled", False)
+
+    def can_regenerate_certificates(self):
+        """
+        Indicates if we can regenerate certificates.
+
+        Certificates can only be regenerated when we're not using shotgunlocalhost.
+
+        :returns: True if certificates can be regenerated, False otherwise.
+        """
+        return self._site_supports_shotgunlocalhost() is False
 
     def regenerate_certificates(self, parent=None):
         """
@@ -135,6 +177,16 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         if self._server and self._server.is_running():
             self._server.tear_down()
+
+    def __retrieve_certificates_from_shotgun(self):
+        """
+        Retrieves certificates from Shotgun.
+        """
+        self.logger.debug("Retrieving certificates from Shotgun")
+        certs = self.shotgun._call_rpc("sg_desktop_certificates", {})
+        sgtk.util.filesystem.ensure_folder_exists(self._get_shotgunlocalhost_keys_folder())
+        self._write_cert("server.crt", certs["sg_desktop_cert"])
+        self._write_cert("server.key", certs["sg_desktop_key"])
 
     def __ensure_certificate_ready(self, regenerate_certs=False, parent=None):
         """
