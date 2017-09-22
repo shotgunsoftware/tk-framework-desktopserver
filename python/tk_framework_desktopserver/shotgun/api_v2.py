@@ -150,7 +150,7 @@ class ShotgunAPI(object):
                     out="",
                 ),
             )
-            logger.exception(format_exc())
+            logger.exception(traceback.format_exc())
 
     def _execute_action(self, data):
         """
@@ -1053,9 +1053,9 @@ class ShotgunAPI(object):
                     # can trust that and add it to our entity. If we didn't, then we'll
                     # have to query it.
                     if project_entity is None:
-                        entity["project"] = project_entity
-                    else:
                         entity["project"] = self._get_entity_parent_project(entity)
+                    else:
+                        entity["project"] = project_entity
 
                     entities.append(entity)
 
@@ -1082,6 +1082,8 @@ class ShotgunAPI(object):
         :returns: A standard Shotgun Project entity.
         :rtype: dict
         """
+        logger.debug("Attempting lookup of project from entity: %s", entity)
+
         if entity.get("project") is not None:
             return entity["project"]
 
