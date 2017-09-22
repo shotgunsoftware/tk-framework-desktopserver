@@ -86,6 +86,16 @@ class TestUtilMethods(TestDesktopServerFramework):
             actual_return[0]["id"],
         )
 
+        # Make sure we can query the entity project if it isn't included.
+        test_payload = dict(
+            project_id=None,
+            entity_type="Shot",
+            entity_ids=[2, 3, 4],
+        )
+
+        # This will raise if it fails; no need to assert.
+        self.api._get_entities_from_payload(test_payload)
+
         # The list of entities is unordered, so we can't just compare it directly.
         # Instead, we'll make sure the length is correct and that all of the expected
         # entities are there.
