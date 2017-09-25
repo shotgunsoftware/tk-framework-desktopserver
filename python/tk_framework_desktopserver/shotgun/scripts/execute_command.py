@@ -20,7 +20,14 @@ CORE_INFO_COMMAND = "__core_info"
 UPGRADE_CHECK_COMMAND = "__upgrade_check"
 LOGGING_PREFIX = None
 
-class _Formatter(logging.Formatter):
+# NOTE: Inheriting from both Formatter and object here because, before
+# Python 2.7, logging.Formatter was an old-style class. This means that
+# super() can't be used with it if you only subclass from it. Mixing in
+# object resolves the issue and causes no side effects in 2.7 to my
+# knowledge.
+#
+# https://stackoverflow.com/questions/1713038/super-fails-with-error-typeerror-argument-1-must-be-type-not-classobj
+class _Formatter(logging.Formatter, object):
     """
     Custom logging formatter that base64 encodes all log messages.
     """

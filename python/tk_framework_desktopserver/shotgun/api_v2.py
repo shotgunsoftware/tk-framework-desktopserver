@@ -87,12 +87,12 @@ class ShotgunAPI(object):
         self._logger = sgtk.platform.get_logger("api-v2")
         self._process_manager = process_manager
 
-        if constants.DISABLE_LEGACY_BROWSER_INTEGRATION_WORKAROUND in os.environ:
-            logger.debug("Legacy tank command pathway disabled.")
-            self._allow_legacy_workaround = False
-        else:
+        if constants.ENABLE_LEGACY_WORKAROUND in os.environ:
             logger.debug("Legacy tank command pathway allowed for classic configs.")
             self._allow_legacy_workaround = True
+        else:
+            logger.debug("Legacy tank command pathway disabled.")
+            self._allow_legacy_workaround = False
 
         if self._wss_key not in self.WSS_KEY_CACHE:
             self.WSS_KEY_CACHE[self._wss_key] = dict()
@@ -1548,15 +1548,32 @@ class ShotgunAPI(object):
             # that this means we are not covering included yml files, but we
             # accept that for the sake of speed.
             yml_files = dict()
-            config_path = os.path.join(root_path, "env")
+            config_path = os.path.join(root_path, "config", "env")
 
             if config_path is not None:
+                # We have a case where the descriptor API has changed during the
+                # development of this v2 RPC API in terms of what the root path
+                # is that's returned from the config descriptor's get_path method.
+                # At one point, we got the full path to the "config" directory, and
+                # later on it was switched to path to one directory above that, at
+                # the root of the config (where the tank command is). We can pretty
+                # easily check both, and we'll go with the more likely case, which
+                # is the newer of the two conventions, before checking the other.
+                #
+                # It's worth noting that it was changed because we considered the
+                # previous behavior to be incorrect, and unintentional. Rooting at
+                # the config root (where the tank command resides) is the more
+                # correct behavior.
+                if not os.path.exists(config_path):
+                    config_path = os.path.join(root_path, "env")
+
                 logger.debug(
                     "Config %s is mutable -- environment file mtimes will be used to determine cache validity.",
                     config_path,
                 )
 
                 for file_path in glob.glob(os.path.join(config_path, "*.yml")):
+                    logger.debug("Checking mtime: %s", file_path)
                     yml_files[file_path] = os.path.getmtime(file_path)
 
             logger.debug(
