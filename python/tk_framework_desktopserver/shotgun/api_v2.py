@@ -22,6 +22,8 @@ import base64
 import glob
 import threading
 import hashlib
+import cgi
+import traceback
 
 import sgtk
 from sgtk import TankFileDoesNotExistError
@@ -86,6 +88,7 @@ class ShotgunAPI(object):
         self._wss_key = wss_key
         self._logger = sgtk.platform.get_logger("api-v2")
         self._process_manager = process_manager
+        self._global_debug = sgtk.LogManager().global_debug
 
         if constants.ENABLE_LEGACY_WORKAROUND in os.environ:
             logger.debug("Legacy tank command pathway allowed for classic configs.")
@@ -141,11 +144,10 @@ class ShotgunAPI(object):
         # appropriate.
         try:
             self._execute_action(data)
-        except Exception:
-            import traceback
+        except Exception, e:
             self.host.reply(
                 dict(
-                    err="Failed to execute action: %s" % traceback.format_exc(),
+                    err=self._get_exception_message(),
                     retcode=constants.COMMAND_FAILED,
                     out="",
                 ),
@@ -161,27 +163,16 @@ class ShotgunAPI(object):
         """
         if data["name"] == "__clone_pc":
             logger.debug("Clone configuration command received.")
-            try:
-                self._clone_configuration(data)
-            except Exception as e:
-                self.host.reply(
-                    dict(
-                        retcode=constants.COMMAND_FAILED,
-                        err=str(e),
-                        out=str(e),
-                    ),
-                )
-                raise
-            else:
-                logger.debug("Clone configuration successful.")
-                self.host.reply(
-                    dict(
-                        retcode=constants.COMMAND_SUCCEEDED,
-                        err="",
-                        out="",
-                    ),
-                )
-                return
+            self._clone_configuration(data)
+            logger.debug("Clone configuration successful.")
+            self.host.reply(
+                dict(
+                    retcode=constants.COMMAND_SUCCEEDED,
+                    err="",
+                    out="",
+                ),
+            )
+            return
 
         project_entity, entities = self._get_entities_from_payload(data)
         config_entity = data["pc"]
@@ -344,15 +335,14 @@ class ShotgunAPI(object):
         try:
             self._get_actions(data)
         except Exception:
-            import traceback
             self.host.reply(
                 dict(
-                    err="Failed to get actions: %s" % traceback.format_exc(),
+                    err=self._get_exception_message(),
                     retcode=constants.CACHING_ERROR,
                     out="",
                 ),
             )
-            logger.exception(format_exc())
+            logger.exception(traceback.format_exc())
 
     def _get_actions(self, data):
         """
@@ -1207,6 +1197,23 @@ class ShotgunAPI(object):
         # after it's returned.
         return copy.deepcopy(self._cache[self.ENTITY_TYPE_WHITELIST][config_root])
 
+    def _get_exception_message(self):
+        """
+        Gets an error message string from the most recently raised
+        exception. If debug logging is on, this will be a format_exc
+        of the exception. If debug logging is off, then a generic
+        error message is returned.
+        """
+        message = (
+            "An unhandled exception has occurred. "
+            "Contact %s for help with this issue." % sgtk.constants.SUPPORT_EMAIL
+        )
+
+        if self._global_debug:
+            message = cgi.escape(traceback.format_exc()).encode("utf8")
+
+        return message
+
     @sgtk.LogManager.log_timing
     def _get_lookup_hash(self, config_uri, project, entity_type, entity_id):
         """
@@ -1764,7 +1771,7 @@ class ShotgunAPI(object):
                 line = re.sub(bold_match, "*", line)
                 sanitized.append(line)
 
-        return "\n".join(sanitized)
+        return cgi.escape("\n".join(sanitized)).encode("utf8")
 
     @sgtk.LogManager.log_timing
     def _process_commands(self, commands, project, entities):
