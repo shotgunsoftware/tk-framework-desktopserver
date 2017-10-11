@@ -1555,9 +1555,10 @@ class ShotgunAPI(object):
             # that this means we are not covering included yml files, but we
             # accept that for the sake of speed.
             yml_files = dict()
-            config_path = os.path.join(root_path, "config", "env")
 
-            if config_path is not None:
+            if root_path is not None:
+                config_path = os.path.join(root_path, "config", "env")
+
                 # We have a case where the descriptor API has changed during the
                 # development of this v2 RPC API in terms of what the root path
                 # is that's returned from the config descriptor's get_path method.
