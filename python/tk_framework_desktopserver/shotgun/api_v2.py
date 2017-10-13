@@ -22,6 +22,8 @@ import base64
 import glob
 import threading
 import hashlib
+import cgi
+import traceback
 
 import sgtk
 from sgtk import TankFileDoesNotExistError
@@ -86,13 +88,14 @@ class ShotgunAPI(object):
         self._wss_key = wss_key
         self._logger = sgtk.platform.get_logger("api-v2")
         self._process_manager = process_manager
+        self._global_debug = sgtk.LogManager().global_debug
 
-        if constants.DISABLE_LEGACY_BROWSER_INTEGRATION_WORKAROUND in os.environ:
-            logger.debug("Legacy tank command pathway disabled.")
-            self._allow_legacy_workaround = False
-        else:
+        if constants.ENABLE_LEGACY_WORKAROUND in os.environ:
             logger.debug("Legacy tank command pathway allowed for classic configs.")
             self._allow_legacy_workaround = True
+        else:
+            logger.debug("Legacy tank command pathway disabled.")
+            self._allow_legacy_workaround = False
 
         if self._wss_key not in self.WSS_KEY_CACHE:
             self.WSS_KEY_CACHE[self._wss_key] = dict()
@@ -141,16 +144,15 @@ class ShotgunAPI(object):
         # appropriate.
         try:
             self._execute_action(data)
-        except Exception:
-            import traceback
+        except Exception, e:
             self.host.reply(
                 dict(
-                    err="Failed to execute action: %s" % traceback.format_exc(),
+                    err=self._get_exception_message(),
                     retcode=constants.COMMAND_FAILED,
                     out="",
                 ),
             )
-            logger.exception(format_exc())
+            logger.exception(traceback.format_exc())
 
     def _execute_action(self, data):
         """
@@ -161,27 +163,16 @@ class ShotgunAPI(object):
         """
         if data["name"] == "__clone_pc":
             logger.debug("Clone configuration command received.")
-            try:
-                self._clone_configuration(data)
-            except Exception as e:
-                self.host.reply(
-                    dict(
-                        retcode=constants.COMMAND_FAILED,
-                        err=str(e),
-                        out=str(e),
-                    ),
-                )
-                raise
-            else:
-                logger.debug("Clone configuration successful.")
-                self.host.reply(
-                    dict(
-                        retcode=constants.COMMAND_SUCCEEDED,
-                        err="",
-                        out="",
-                    ),
-                )
-                return
+            self._clone_configuration(data)
+            logger.debug("Clone configuration successful.")
+            self.host.reply(
+                dict(
+                    retcode=constants.COMMAND_SUCCEEDED,
+                    err="",
+                    out="",
+                ),
+            )
+            return
 
         project_entity, entities = self._get_entities_from_payload(data)
         config_entity = data["pc"]
@@ -344,15 +335,14 @@ class ShotgunAPI(object):
         try:
             self._get_actions(data)
         except Exception:
-            import traceback
             self.host.reply(
                 dict(
-                    err="Failed to get actions: %s" % traceback.format_exc(),
+                    err=self._get_exception_message(),
                     retcode=constants.CACHING_ERROR,
                     out="",
                 ),
             )
-            logger.exception(format_exc())
+            logger.exception(traceback.format_exc())
 
     def _get_actions(self, data):
         """
@@ -1053,9 +1043,9 @@ class ShotgunAPI(object):
                     # can trust that and add it to our entity. If we didn't, then we'll
                     # have to query it.
                     if project_entity is None:
-                        entity["project"] = project_entity
-                    else:
                         entity["project"] = self._get_entity_parent_project(entity)
+                    else:
+                        entity["project"] = project_entity
 
                     entities.append(entity)
 
@@ -1082,6 +1072,8 @@ class ShotgunAPI(object):
         :returns: A standard Shotgun Project entity.
         :rtype: dict
         """
+        logger.debug("Attempting lookup of project from entity: %s", entity)
+
         if entity.get("project") is not None:
             return entity["project"]
 
@@ -1204,6 +1196,23 @@ class ShotgunAPI(object):
         # just to isolate the cache from any changes to the returned data
         # after it's returned.
         return copy.deepcopy(self._cache[self.ENTITY_TYPE_WHITELIST][config_root])
+
+    def _get_exception_message(self):
+        """
+        Gets an error message string from the most recently raised
+        exception. If debug logging is on, this will be a format_exc
+        of the exception. If debug logging is off, then a generic
+        error message is returned.
+        """
+        message = (
+            "An unhandled exception has occurred. "
+            "Contact %s for help with this issue." % sgtk.constants.SUPPORT_EMAIL
+        )
+
+        if self._global_debug:
+            message = cgi.escape(traceback.format_exc()).encode("utf8")
+
+        return message
 
     @sgtk.LogManager.log_timing
     def _get_lookup_hash(self, config_uri, project, entity_type, entity_id):
@@ -1546,15 +1555,33 @@ class ShotgunAPI(object):
             # that this means we are not covering included yml files, but we
             # accept that for the sake of speed.
             yml_files = dict()
-            config_path = os.path.join(root_path, "env")
 
-            if config_path is not None:
+            if root_path is not None:
+                config_path = os.path.join(root_path, "config", "env")
+
+                # We have a case where the descriptor API has changed during the
+                # development of this v2 RPC API in terms of what the root path
+                # is that's returned from the config descriptor's get_path method.
+                # At one point, we got the full path to the "config" directory, and
+                # later on it was switched to path to one directory above that, at
+                # the root of the config (where the tank command is). We can pretty
+                # easily check both, and we'll go with the more likely case, which
+                # is the newer of the two conventions, before checking the other.
+                #
+                # It's worth noting that it was changed because we considered the
+                # previous behavior to be incorrect, and unintentional. Rooting at
+                # the config root (where the tank command resides) is the more
+                # correct behavior.
+                if not os.path.exists(config_path):
+                    config_path = os.path.join(root_path, "env")
+
                 logger.debug(
                     "Config %s is mutable -- environment file mtimes will be used to determine cache validity.",
                     config_path,
                 )
 
                 for file_path in glob.glob(os.path.join(config_path, "*.yml")):
+                    logger.debug("Checking mtime: %s", file_path)
                     yml_files[file_path] = os.path.getmtime(file_path)
 
             logger.debug(
@@ -1745,7 +1772,7 @@ class ShotgunAPI(object):
                 line = re.sub(bold_match, "*", line)
                 sanitized.append(line)
 
-        return "\n".join(sanitized)
+        return cgi.escape("\n".join(sanitized)).encode("utf8")
 
     @sgtk.LogManager.log_timing
     def _process_commands(self, commands, project, entities):
