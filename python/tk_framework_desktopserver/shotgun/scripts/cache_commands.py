@@ -14,6 +14,7 @@ import glob
 import os
 import sqlite3
 import contextlib
+import traceback
 
 CORE_INFO_COMMAND = "__core_info"
 UPGRADE_CHECK_COMMAND = "__upgrade_check"
@@ -106,6 +107,7 @@ def cache(
         # We need to give the server a way to know that this failed due
         # to an engine initialization issue. That will allow it to skip
         # this config gracefully and log appropriately.
+        print traceback.format_exc()
         sys.exit(ENGINE_INIT_ERROR_EXIT_CODE)
 
     # Note that from here on out, we have to use the legacy log_* methods
