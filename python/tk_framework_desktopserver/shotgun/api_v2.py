@@ -24,6 +24,8 @@ import threading
 import hashlib
 import cgi
 import traceback
+import time
+import fnmatch
 
 import sgtk
 from sgtk import TankFileDoesNotExistError
@@ -50,6 +52,11 @@ class ShotgunAPI(object):
         "pick_files_or_directories",
     ]
 
+    # Stores cache keys that have been checked validated and at
+    # what time that occurred.
+    CACHE_VALIDATED = dict()
+    CACHE_VALIDATION_INTERVAL = 2.0 # Seconds
+
     # Stores data persistently per wss connection.
     WSS_KEY_CACHE = dict()
     DATABASE_FORMAT_VERSION = 1
@@ -66,6 +73,7 @@ class ShotgunAPI(object):
     LEGACY_PROJECT_ACTIONS = "legacy_project_actions"
     YML_FILE_DATA = "yml_file_data"
     ENTITY_PARENT_PROJECTS = "entity_parent_projects"
+    SHOTGUN_YML_FILES = "shotgun_yml_files"
 
     # We need to protect against concurrent bootstraps happening.
     # This is a reentrant lock because get_actions is recursive
@@ -545,92 +553,83 @@ class ShotgunAPI(object):
 
                 pc_data["lookup_hash"] = lookup_hash
                 pc_data["descriptor"] = pc_descriptor
-                contents_hash = pc_data["contents_hash"]
                 cached_data = []
+                logger.debug("Querying: %s", lookup_hash)
 
-                # We lock here because we cannot allow concurrent bootstraps to
-                # occur. We do it this early because we also want others to wait
-                # in the event that we end up caching what they need while they
-                # wait for the lock to be released.
-                with self._LOCK:
-                    logger.debug("Querying: %s", lookup_hash)
+                try:
+                    cursor.execute(
+                        "SELECT commands, contents_hash FROM engine_commands WHERE lookup_hash=?",
+                        (lookup_hash,)
+                    )
+                    cached_data = list(cursor.fetchone() or [])
+                except sqlite3.OperationalError:
+                    # This means the sqlite database hasn't been setup at all.
+                    # In that case, we just continue on with cached_data set
+                    # to an empty list, which will cause the caching subprocess
+                    # to be spawned, which will setup the database and populate
+                    # with the data we need. The behavior as a result of this
+                    # is the same as if we ended up with a cache miss or an
+                    # invalidated result due to a contents_hash mismatch.
+                    logger.debug(
+                        "Cache query failed due to missing table. "
+                        "Triggering caching subprocess..."
+                    )
 
-                    try:
-                        cursor.execute(
-                            "SELECT commands, contents_hash FROM engine_commands WHERE lookup_hash=?",
-                            (lookup_hash,)
+                try:
+                    if cached_data:
+                        # Cache hit.
+                        cached_contents_hash = cached_data[1]
+
+                        # We check the validity of the cache asynchronously in this
+                        # situation. We want to go ahead and return the list of actions
+                        # that we have cached, but in the background check to see whether
+                        # the cache should be updated. This gives us the situation where
+                        # this one invokation of get_actions returns old data, but all
+                        # future requests will be correct until the next time the cache
+                        # must be invalidated.
+                        self._cache_actions(data, pc_data, cached_contents_hash, async=True)
+
+                        logger.debug("Cached contents hash is %s", cached_contents_hash)
+                        logger.debug("Cache key was %s", lookup_hash)
+
+                        actions = self._process_commands(
+                            commands=cPickle.loads(str(cached_data[0])),
+                            project=project_entity,
+                            entities=entities,
                         )
-                        cached_data = list(cursor.fetchone() or [])
-                    except sqlite3.OperationalError:
-                        # This means the sqlite database hasn't been setup at all.
-                        # In that case, we just continue on with cached_data set
-                        # to an empty list, which will cause the caching subprocess
-                        # to be spawned, which will setup the database and populate
-                        # with the data we need. The behavior as a result of this
-                        # is the same as if we ended up with a cache miss or an
-                        # invalidated result due to a contents_hash mismatch.
-                        logger.debug(
-                            "Cache query failed due to missing table. "
-                            "Triggering caching subprocess..."
+
+                        logger.debug("Actions found in cache: %s", actions)
+
+                        all_actions[pipeline_config["name"]] = dict(
+                            actions=self._filter_by_project(
+                                actions,
+                                self._get_software_entities(),
+                                project_entity,
+                            ),
+                            config=pipeline_config,
                         )
-
-                    try:
-                        if cached_data:
-                            # Cache hit.
-                            cached_contents_hash = cached_data[1]
-
-                            # Check to see if the current hash we created matches
-                            # that of the cached entry. If it matches then we know
-                            # that the data is up to date and that we can use it.
-                            if str(contents_hash) == str(cached_contents_hash):
-                                logger.debug("Cache is up to date.")
-                                logger.debug("Cache key was %s", lookup_hash)
-                                logger.debug("Contents hash (computed) was %s", contents_hash)
-                                logger.debug("Contents hash (cached) was %s", cached_contents_hash)
-
-                                actions = self._process_commands(
-                                    commands=cPickle.loads(str(cached_data[0])),
-                                    project=project_entity,
-                                    entities=entities,
-                                )
-
-                                logger.debug("Actions found in cache: %s", actions)
-
-                                all_actions[pipeline_config["name"]] = dict(
-                                    actions=self._filter_by_project(
-                                        actions,
-                                        self._get_software_entities(),
-                                        project_entity,
-                                    ),
-                                    config=pipeline_config,
-                                )
-                                logger.debug("Actions after project filtering: %s", actions)
-                            else:
-                                # The hashes didn't match, so we know we need to
-                                # re-cache. Once we do that, we can just call the
-                                # get_actions method again with the same payload.
-                                logger.debug("Cache is out of date, recaching...")
-                                self._cache_actions(data, pc_data)
-                                self._get_actions(data)
-                                return
-                        else:
-                            # Cache miss.
-                            logger.debug("Commands not found in cache, caching now...")
-                            self._cache_actions(data, pc_data)
-                            self._get_actions(data)
-                            return
-                    except TankCachingSubprocessFailed as exc:
-                        logger.error(str(exc))
-                        raise
-                    except TankCachingEngineBootstrapError:
-                        logger.error(
-                            "The Shotgun engine failed to initialize in the caching "
-                            "subprocess. This most likely corresponds to a configuration "
-                            "problem in the config %r as it relates to entity type %s." %
-                            (pc_descriptor, entity["type"])
-                        )
-                        logger.debug(traceback.format_exc())
-                        continue
+                        logger.debug("Actions after project filtering: %s", actions)
+                    else:
+                        # Cache miss.
+                        logger.debug("Commands not found in cache, caching now...")
+                        # Caching is performed synchronously in this situation. We don't
+                        # have anything to give to the client until it's done, so we do
+                        # it in the main thread and wait for it to complete.
+                        self._cache_actions(data, pc_data)
+                        self._get_actions(data)
+                        return
+                except TankCachingSubprocessFailed as exc:
+                    logger.error(str(exc))
+                    raise
+                except TankCachingEngineBootstrapError:
+                    logger.error(
+                        "The Shotgun engine failed to initialize in the caching "
+                        "subprocess. This most likely corresponds to a configuration "
+                        "problem in the config %r as it relates to entity type %s." %
+                        (pc_descriptor, entity["type"])
+                    )
+                    logger.debug(traceback.format_exc())
+                    continue
 
         # Combine the config names processed by the v2 flow with those handled
         # by the legacy pathway.
@@ -711,23 +710,65 @@ class ShotgunAPI(object):
         :returns: Path to the current core.
         """
         # While core swapping, the Python path is not updated with the new core's Python path,
-        # so make sure the current core is at the front of the Python path for out subprocesses.
+        # so make sure the current core is at the front of the Python path for our subprocesses.
         python_folder = sgtk.bootstrap.ToolkitManager.get_core_python_path()
-        logger.debug("Adding %s to sys.path for subprocesses.", python_folder)
+        logger.info("Adding %s to sys.path for subprocesses.", python_folder)
         return [python_folder] + sys.path
 
     ###########################################################################
     # Internal methods
 
     @sgtk.LogManager.log_timing
-    def _cache_actions(self, data, config_data):
+    def _cache_actions(self, data, config_data, cached_contents_hash=None, async=False):
         """
         Triggers the caching or recaching of engine commands.
 
         :param dict data: The data passed down from the wss client.
         :param dict config_data: A dictionary that contains, at a minimum,
             "lookup_hash", "contents_hash", "descriptor", and "entity" keys.
+        :param str cached_contents_hash: If given, represents the currently
+            cached contents hash for the configuration. If this is the same as
+            a newly-generated contents hash built prior to caching, then the
+            caching process will stop and exit without doing any additional
+            work. This represents the situation where we've been asked to
+            re-cache actions, but we then prove that the existing cached data
+            is still valid.
+        :param bool async: Indicates whether the caching routine should be
+            run asynchronously.
         """
+        descriptor = config_data["descriptor"]
+        lookup_hash = config_data["lookup_hash"]
+
+        if async:
+            now = time.time()
+            if lookup_hash in self.CACHE_VALIDATED:
+                time_since = now - self.CACHE_VALIDATED[lookup_hash]
+                if time_since < self.CACHE_VALIDATION_INTERVAL:
+                    logger.debug(
+                        "Recaching of data for %s has already been initiated. "
+                        "This thread will exit without triggering a recache of "
+                        "actions for this entry.", lookup_hash
+                    )
+                    return
+                else:
+                    self.CACHE_VALIDATED[lookup_hash] = now
+            else:
+                self.CACHE_VALIDATED[lookup_hash] = now
+
+            logger.debug("Cache actions executing asynchronously...")
+            thread = threading.Thread(
+                target=self._cache_actions,
+                args=(
+                    data,
+                    config_data,
+                    cached_contents_hash,
+                ),
+                kwargs=dict(async=False),
+            )
+            thread.start()
+            logger.debug("Cache actions thread started.")
+            return
+
         logger.debug("Caching engine commands...")
 
         script = os.path.join(
@@ -736,8 +777,26 @@ class ShotgunAPI(object):
             "cache_commands.py"
         )
 
+        contents_hash = self._get_contents_hash(
+            descriptor,
+            self._get_site_state_data(),
+        )
+        logger.debug("The new contents hash is %s", contents_hash)
+
+        # If we were given a cached contents hash, it means we need to
+        # check to see if it matches the contents hash that we generated
+        # above. If they match, then it means that the data already cached
+        # is valid. In that case, we just log and return.
+        if cached_contents_hash and str(contents_hash) == str(cached_contents_hash):
+            logger.debug(
+                "The data already cached has been validated and is not out of date. "
+                "New data will not be cached as a result."
+            )
+            return
+        else:
+            logger.debug("The cached data is out of date. Recaching...")
+
         logger.debug("Executing script: %s", script)
-        descriptor = config_data["descriptor"]
 
         # We'll need the Python executable when we shell out. We want to make sure
         # we use the Python defined in the config's interpreter config file.
@@ -746,7 +805,7 @@ class ShotgunAPI(object):
 
         arg_config_data = dict(
             lookup_hash = config_data["lookup_hash"],
-            contents_hash=config_data["contents_hash"],
+            contents_hash=contents_hash,
             entity=config_data["entity"],
         )
 
@@ -766,7 +825,12 @@ class ShotgunAPI(object):
         args = [python_exe, script, args_file]
         logger.debug("Command arguments: %s", args)
 
-        retcode, stdout, stderr = command.Command.call_cmd(args)
+        # We lock here because we cannot allow concurrent bootstraps to
+        # occur. We potentially have other threads wanting to cache, so
+        # we protect ourselves from spawning concurrent caching subprocesses
+        # that might end up stepping on each other.
+        with self._LOCK:
+            retcode, stdout, stderr = command.Command.call_cmd(args)
 
         if retcode == 0:
             logger.debug("Command stdout: %s", stdout)
@@ -1170,7 +1234,7 @@ class ShotgunAPI(object):
             # extracts "shot" from the yml file basename.
             match_re = re.compile(r".+shotgun_([^.]+)[.]yml$")
 
-            for yml_file in self._get_yml_file_data(config_descriptor).keys():
+            for yml_file in self._get_shotgun_yml_files(config_descriptor):
                 logger.debug("Checking %s for entity type whitelisting...", yml_file)
                 match = re.match(match_re, yml_file)
                 if match:
@@ -1338,12 +1402,7 @@ class ShotgunAPI(object):
 
                 logger.debug("Resolved config descriptor: %r", pc_descriptor)
                 pc_key = pc_descriptor.get_uri()
-
                 pc_data = dict()
-                pc_data["contents_hash"] = self._get_contents_hash(
-                    pc_descriptor,
-                    self._get_site_state_data(),
-                )
 
                 # Tricky bit here. We don't want to pre-compute the lookup hash
                 # if this is a Task entity. This is because Tasks can be linked
@@ -1369,7 +1428,10 @@ class ShotgunAPI(object):
             # we populate it from scratch.
             cache.setdefault(self.CONFIG_DATA, dict())
             cache[self.CONFIG_DATA].setdefault(entity_type, dict())
-            cache[self.CONFIG_DATA][entity_type].setdefault(project_entity["id"], dict()).update(config_data)
+            cache[self.CONFIG_DATA][entity_type].setdefault(
+                project_entity["id"],
+                dict(),
+            ).update(config_data)
 
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
@@ -1524,6 +1586,42 @@ class ShotgunAPI(object):
         return self.TOOLKIT_MANAGER
 
     @sgtk.LogManager.log_timing
+    def _get_shotgun_yml_files(self, config_descriptor):
+        """
+        Gets a list of shotgun_*.yml file paths from the top-level env
+        directory in the config associated with the given config descriptor.
+        This method is typically run synchronously in the main thread, so
+        needs to be fast. As such, we only glob the specific files we know
+        we're looking for.
+
+        For a more complete list of yml files in the config, the
+        _get_yml_file_data method provides a deep dive into the config.
+
+        :param config_descriptor: The descriptor object for the config to get
+            yml file data for.
+
+        :returns: A list of shotgun_*.yml file paths contained in the given
+            config.
+        :rtype: list
+        """
+        root_path = config_descriptor.get_path()
+        cache_initialized = self.SHOTGUN_YML_FILES in self._cache
+
+        if not cache_initialized or root_path not in self._cache[self.SHOTGUN_YML_FILES]:
+            sg_yml_files = list()
+
+            if root_path is not None:
+                config_path = self._get_config_env_root(root_path)
+
+            sg_yml_files = glob.glob(os.path.join(config_path, "shotgun_*.yml"))
+            logger.debug("Found shotgun_xxx.yml files: %s", sg_yml_files)
+            self._cache.setdefault(self.SHOTGUN_YML_FILES, dict())[root_path] = sg_yml_files
+        else:
+            logger.debug("Cache shotgun yml file data found for %r.", config_descriptor)
+
+        return self._cache[self.SHOTGUN_YML_FILES].get(root_path)
+
+    @sgtk.LogManager.log_timing
     def _get_yml_file_data(self, config_descriptor):
         """
         Gets environment yml file paths and their associated mtimes for the
@@ -1549,54 +1647,63 @@ class ShotgunAPI(object):
         root_path = config_descriptor.get_path()
 
         if self.YML_FILE_DATA not in self._cache or root_path not in self._cache[self.YML_FILE_DATA]:
-            # We do a shallow scan here of the bare minimum of yml files due
-            # to speed concerns when network file servers are in use. We support
-            # tk-shotgun configured in either the shotgun or non-shotgun yml
-            # so we will stat all of the top level env files that we find. Note
-            # that this means we are not covering included yml files, but we
-            # accept that for the sake of speed.
             yml_files = dict()
 
             if root_path is not None:
-                config_path = os.path.join(root_path, "config", "env")
-
-                # We have a case where the descriptor API has changed during the
-                # development of this v2 RPC API in terms of what the root path
-                # is that's returned from the config descriptor's get_path method.
-                # At one point, we got the full path to the "config" directory, and
-                # later on it was switched to path to one directory above that, at
-                # the root of the config (where the tank command is). We can pretty
-                # easily check both, and we'll go with the more likely case, which
-                # is the newer of the two conventions, before checking the other.
-                #
-                # It's worth noting that it was changed because we considered the
-                # previous behavior to be incorrect, and unintentional. Rooting at
-                # the config root (where the tank command resides) is the more
-                # correct behavior.
-                if not os.path.exists(config_path):
-                    config_path = os.path.join(root_path, "env")
+                config_path = self._get_config_env_root(root_path)
 
                 logger.debug(
                     "Config %s is mutable -- environment file mtimes will be used to determine cache validity.",
                     config_path,
                 )
 
-                for file_path in glob.glob(os.path.join(config_path, "*.yml")):
-                    logger.debug("Checking mtime: %s", file_path)
-                    yml_files[file_path] = os.path.getmtime(file_path)
+                # We do a deep scan of from the config's "env" root down to
+                # its bottom.
+                for root, dir_names, file_names in os.walk(config_path):
+                    for file_name in fnmatch.filter(file_names, "*.yml"):
+                        full_path = os.path.join(root, file_name)
+                        yml_files[full_path] = os.path.getmtime(full_path)
 
             logger.debug(
-                "Contents hash computed using %s yml files -- shallow scan, no subdirectories.",
+                "Contents hash computed using %s yml files.",
                 len(yml_files),
             )
 
             logger.debug("Files checked for mtime: %s", sorted(yml_files.keys()))
-
             self._cache.setdefault(self.YML_FILE_DATA, dict())[root_path] = yml_files
         else:
             logger.debug("Cached yml file data found for %r.", config_descriptor)
 
         return self._cache[self.YML_FILE_DATA].get(root_path)
+
+    def _get_config_env_root(self, config_root_path):
+        """
+        Gets the "env" root directory within the config.
+
+        :param config_root_path: Thet top level directory of the config.
+
+        :returns: The environment root directory of the config.
+        :rtype: str
+        """
+        env_path = os.path.join(config_root_path, "config", "env")
+
+        # We have a case where the descriptor API has changed during the
+        # development of this v2 RPC API in terms of what the root path
+        # is that's returned from the config descriptor's get_path method.
+        # At one point, we got the full path to the "config" directory, and
+        # later on it was switched to path to one directory above that, at
+        # the root of the config (where the tank command is). We can pretty
+        # easily check both, and we'll go with the more likely case, which
+        # is the newer of the two conventions, before checking the other.
+        #
+        # It's worth noting that it was changed because we considered the
+        # previous behavior to be incorrect, and unintentional. Rooting at
+        # the config root (where the tank command resides) is the more
+        # correct behavior.
+        if not os.path.exists(env_path):
+            env_path = os.path.join(config_root_path, "env")
+
+        return env_path
 
     def _legacy_get_project_actions(self, config_paths, project_id):
         """
