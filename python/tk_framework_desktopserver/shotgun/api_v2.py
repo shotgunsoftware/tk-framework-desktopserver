@@ -629,6 +629,7 @@ class ShotgunAPI(object):
                             "problem in the config %r as it relates to entity type %s." %
                             (pc_descriptor, entity["type"])
                         )
+                        logger.debug(traceback.format_exc())
                         continue
 
         # Combine the config names processed by the v2 flow with those handled
