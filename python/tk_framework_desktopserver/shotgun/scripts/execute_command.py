@@ -291,12 +291,7 @@ def execute(config, project, name, entities, base_configuration, engine_name, bu
     # command execution spawns. We'll look up the path to the pipeline
     # config's install location and set PYTHONPATH such that core is
     # importable.
-    core_root = os.path.join(
-        engine.sgtk.pipeline_configuration.get_install_location(),
-        "install",
-        "core",
-        "python"
-    )
+    core_root = engine.sgtk.pipeline_configuration.get_core_python_location()
 
     # We need to make sure that we're not introducing unicode into the
     # environment. This cropped up with some studio-team apps that ended
