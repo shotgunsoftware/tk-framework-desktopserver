@@ -52,7 +52,7 @@ class ShotgunAPI(object):
         "pick_files_or_directories",
     ]
 
-    # Stores cache keys that have been checked validated and at
+    # Stores cache keys that have been validated and at
     # what time that occurred.
     CACHE_VALIDATED = dict()
     CACHE_VALIDATION_INTERVAL = 2.0 # Seconds
@@ -712,7 +712,7 @@ class ShotgunAPI(object):
         # While core swapping, the Python path is not updated with the new core's Python path,
         # so make sure the current core is at the front of the Python path for our subprocesses.
         python_folder = sgtk.bootstrap.ToolkitManager.get_core_python_path()
-        logger.info("Adding %s to sys.path for subprocesses.", python_folder)
+        logger.debug("Adding %s to sys.path for subprocesses.", python_folder)
         return [python_folder] + sys.path
 
     ###########################################################################
