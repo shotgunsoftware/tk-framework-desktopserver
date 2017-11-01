@@ -784,40 +784,8 @@ class ShotgunAPI(object):
             re-cache actions, but we then prove that the existing cached data
             is still valid.
         """
-        descriptor = config_data["descriptor"]
-        lookup_hash = config_data["lookup_hash"]
-
-        if async:
-            now = time.time()
-            if lookup_hash in self.CACHE_VALIDATED:
-                time_since = now - self.CACHE_VALIDATED[lookup_hash]
-                if time_since < self.CACHE_VALIDATION_INTERVAL:
-                    logger.debug(
-                        "Recaching of data for %s has already been initiated. "
-                        "This thread will exit without triggering a recache of "
-                        "actions for this entry.", lookup_hash
-                    )
-                    return
-                else:
-                    self.CACHE_VALIDATED[lookup_hash] = now
-            else:
-                self.CACHE_VALIDATED[lookup_hash] = now
-
-            logger.debug("Cache actions executing asynchronously...")
-            thread = threading.Thread(
-                target=self._cache_actions,
-                args=(
-                    data,
-                    config_data,
-                    cached_contents_hash,
-                ),
-                kwargs=dict(async=False),
-            )
-            thread.start()
-            logger.debug("Cache actions thread started.")
-            return
-
         logger.debug("Caching engine commands...")
+        descriptor = config_data["descriptor"]
 
         script = os.path.join(
             os.path.dirname(__file__),
