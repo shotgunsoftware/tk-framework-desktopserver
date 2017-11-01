@@ -587,7 +587,11 @@ class ShotgunAPI(object):
                         # this one invokation of get_actions returns old data, but all
                         # future requests will be correct until the next time the cache
                         # must be invalidated.
-                        self._cache_actions(data, pc_data, cached_contents_hash, async=True)
+                        self._async_check_and_cache_actions(
+                            data,
+                            pc_data,
+                            cached_contents_hash,
+                        )
 
                         logger.debug("Cached contents hash is %s", cached_contents_hash)
                         logger.debug("Cache key was %s", lookup_hash)
@@ -709,17 +713,63 @@ class ShotgunAPI(object):
         """
         :returns: Path to the current core.
         """
-        # While core swapping, the Python path is not updated with the new core's Python path,
-        # so make sure the current core is at the front of the Python path for our subprocesses.
+        # While core swapping, the Python path is not updated with the new core's
+        # Python path, so make sure the current core is at the front of the Python
+        # path for our subprocesses.
         python_folder = sgtk.bootstrap.ToolkitManager.get_core_python_path()
         logger.debug("Adding %s to sys.path for subprocesses.", python_folder)
-        return [python_folder] + sys.path
+        return python_folder
 
     ###########################################################################
     # Internal methods
 
+    def _async_check_and_cache_actions(self, data, config_data, cached_contents_hash=None):
+        """
+        Checks the validity of existing cached data and recaches if necessary.
+
+        ..NOTE: This method runs asynchronously! To run the caching process in
+            a synchronous manner, see the _cache_actions method instead!
+
+        :param dict data: The data passed down from the wss client.
+        :param dict config_data: A dictionary that contains, at a minimum,
+            "lookup_hash", "contents_hash", "descriptor", and "entity" keys.
+        :param str cached_contents_hash: If given, represents the currently
+            cached contents hash for the configuration. If this is the same as
+            a newly-generated contents hash built prior to caching, then the
+            caching process will stop and exit without doing any additional
+            work. This represents the situation where we've been asked to
+            re-cache actions, but we then prove that the existing cached data
+            is still valid.
+        """
+        lookup_hash = config_data["lookup_hash"]
+        now = time.time()
+
+        if lookup_hash in self.CACHE_VALIDATED:
+            time_since = now - self.CACHE_VALIDATED[lookup_hash]
+            if time_since < self.CACHE_VALIDATION_INTERVAL:
+                logger.debug(
+                    "Recaching of data for %s has already been initiated. "
+                    "This thread will exit without triggering a recache of "
+                    "actions for this entry.", lookup_hash
+                )
+                return
+
+        self.CACHE_VALIDATED[lookup_hash] = now
+
+        logger.debug("Cache actions executing asynchronously...")
+        thread = threading.Thread(
+            target=self._cache_actions,
+            args=(
+                data,
+                config_data,
+                cached_contents_hash,
+            ),
+        )
+        thread.start()
+        logger.debug("Cache actions thread started.")
+
     @sgtk.LogManager.log_timing
-    def _cache_actions(self, data, config_data, cached_contents_hash=None, async=False):
+    def _cache_actions(self, data, config_data, cached_contents_hash=None):
         """
         Triggers the caching or recaching of engine commands.
 
@@ -733,8 +783,6 @@ class ShotgunAPI(object):
             work. This represents the situation where we've been asked to
             re-cache actions, but we then prove that the existing cached data
             is still valid.
-        :param bool async: Indicates whether the caching routine should be
-            run asynchronously.
         """
         descriptor = config_data["descriptor"]
         lookup_hash = config_data["lookup_hash"]

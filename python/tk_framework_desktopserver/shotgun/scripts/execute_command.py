@@ -353,25 +353,15 @@ if __name__ == "__main__":
     with open(arg_data_file, "rb") as fh:
         arg_data = cPickle.load(fh)
 
-    # We do this in two steps. The first is to prepend to sys.path
-    # before immediately importing sgtk. After that, we replace the
-    # prepend with an append. This allows us to guarantee that we
-    # have sgtk imported from the right place, followed by setting
-    # up sys.path the way that is safest for other imports.
+    # The RPC api has given us the path to its tk-core to prepend
+    # to our sys.path prior to importing sgtk. We'll prepent the
+    # the path, import sgtk, and then clean up after ourselves.
     original_sys_path = copy.copy(sys.path)
-
     try:
-        # The RPC api that spawned us has ensured that the first path
-        # in the sys.path list that it provided us is the root path that
-        # will get us the tk-core that we want. We can't prepend any more
-        # than that, because we might be running in a different version
-        # of Python in this process than SG Desktop is. We don't want to
-        # force Python 2.7 standard library modules to be imported if
-        # we're in Python 2.6 here, as an example.
-        sys.path = [arg_data["sys_path"][0]] + sys.path
+        sys.path = [arg_data["sys_path"]] + sys.path
         import sgtk
     finally:
-        sys.path = original_sys_path + arg_data["sys_path"]
+        sys.path = original_sys_path
 
     LOGGING_PREFIX = arg_data["logging_prefix"]
 
