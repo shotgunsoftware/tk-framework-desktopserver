@@ -15,6 +15,7 @@ import os
 import sqlite3
 import contextlib
 import traceback
+import copy
 
 CORE_INFO_COMMAND = "__core_info"
 UPGRADE_CHECK_COMMAND = "__upgrade_check"
@@ -37,9 +38,6 @@ def bootstrap(data, base_configuration, engine_name, config_data, bundle_cache_f
 
     :returns: Bootstrapped engine instance.
     """
-    # The local import of sgtk ensures that it occurs after sys.path is set
-    # to what the server sent over.
-    import sgtk
     sgtk.LogManager().initialize_base_file_handler("tk-shotgun")
 
     logger = sgtk.LogManager.get_logger(LOGGER_NAME)
@@ -257,7 +255,15 @@ if __name__ == "__main__":
     with open(arg_data_file, "rb") as fh:
         arg_data = cPickle.load(fh)
 
-    sys.path = sys.path + arg_data["sys_path"]
+    # The RPC api has given us the path to its tk-core to prepend
+    # to our sys.path prior to importing sgtk. We'll prepent the
+    # the path, import sgtk, and then clean up after ourselves.
+    original_sys_path = copy.copy(sys.path)
+    try:
+        sys.path = [arg_data["sys_path"]] + sys.path
+        import sgtk
+    finally:
+        sys.path = original_sys_path
 
     cache(
         arg_data["cache_file"],
