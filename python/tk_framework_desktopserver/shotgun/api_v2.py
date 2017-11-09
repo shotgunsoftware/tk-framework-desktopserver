@@ -1628,6 +1628,14 @@ class ShotgunAPI(object):
 
             if root_path is not None:
                 config_path = self._get_config_env_root(root_path)
+            else:
+                # If we don't know the root, then we can't look for yml
+                # files.
+                logger.debug(
+                    "Config (%r) does not appear to have a root path.",
+                    config_descriptor
+                )
+                return sg_yml_files
 
             sg_yml_files = glob.glob(os.path.join(config_path, "shotgun_*.yml"))
             logger.debug("Found shotgun_xxx.yml files: %s", sg_yml_files)
