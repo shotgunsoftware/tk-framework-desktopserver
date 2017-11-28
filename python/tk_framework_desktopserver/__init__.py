@@ -12,16 +12,15 @@ import os
 import sys
 
 python_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../resources/python"))
+sys.path.append(os.path.join(python_path, "source"))
 
 binaries_path = os.path.join(python_path, "bin")
 if sys.platform == "darwin":
-    sys.path.insert(0, os.path.join(binaries_path, "mac"))
+    sys.path.append(os.path.join(binaries_path, "mac"))
 elif sys.platform == "win32":
-    sys.path.insert(0, os.path.join(binaries_path, "win"))
+    sys.path.append(os.path.join(binaries_path, "win"))
 elif sys.platform.startswith("linux"):
-    sys.path.insert(0, os.path.join(binaries_path, "linux"))
-
-sys.path.insert(0, os.path.join(python_path, "source"))
+    sys.path.append(os.path.join(binaries_path, "linux"))
 
 from .server import Server
 from .server import ServerProtocol
