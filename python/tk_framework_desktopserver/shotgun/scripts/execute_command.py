@@ -14,6 +14,7 @@ import os
 import logging
 import base64
 import functools
+import copy
 
 # Special, non-engine commands that we'll need to handle ourselves.
 CORE_INFO_COMMAND = "__core_info"
@@ -74,8 +75,6 @@ def core_info(engine):
 
     :param engine: The currently-running engine instance.
     """
-    import sgtk
-
     try:
         from sgtk.commands.core_upgrade import TankCoreUpdater
     except ImportError:
@@ -186,9 +185,6 @@ def bootstrap(config, base_configuration, entity, engine_name, bundle_cache_fall
 
     :returns: The bootstrapped engine instance.
     """
-    # The local import of sgtk ensures that it occurs after sys.path is set
-    # to what the server sent over.
-    import sgtk
     sgtk.LogManager().initialize_base_file_handler(engine_name)
 
     # Note that we don't have enough information here to determine the
@@ -272,8 +268,6 @@ def execute(config, project, name, entities, base_configuration, engine_name, bu
         config, base_configuration, entity, engine_name, bundle_cache_fallback_paths
     )
 
-    import sgtk
-
     # Handle the "special" commands that aren't tied to any registered engine
     # commands.
     if name == CORE_INFO_COMMAND:
@@ -354,7 +348,16 @@ if __name__ == "__main__":
     with open(arg_data_file, "rb") as fh:
         arg_data = cPickle.load(fh)
 
-    sys.path = sys.path + arg_data["sys_path"]
+    # The RPC api has given us the path to its tk-core to prepend
+    # to our sys.path prior to importing sgtk. We'll prepent the
+    # the path, import sgtk, and then clean up after ourselves.
+    original_sys_path = copy.copy(sys.path)
+    try:
+        sys.path = [arg_data["sys_path"]] + sys.path
+        import sgtk
+    finally:
+        sys.path = original_sys_path
+
     LOGGING_PREFIX = arg_data["logging_prefix"]
 
     execute(
