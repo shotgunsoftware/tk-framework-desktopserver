@@ -36,7 +36,7 @@ class Server(object):
     class Notifier(QtCore.QObject):
         different_user_requested = QtCore.Signal(str, int)
 
-    def __init__(self, keys_path, encrypt, host, user_id, port=None):
+    def __init__(self, keys_path, encrypt, host, user_id, whitelisted_hosts, port=None):
         """
         Constructor.
 
@@ -52,6 +52,7 @@ class Server(object):
         self._keys_path = keys_path or self._DEFAULT_KEYS_PATH
         self._host = host
         self._user_id = user_id
+        self._whitelisted_hosts = whitelisted_hosts
 
         # If encryption is required, compute a server id and retrieve the secret associated to it.
         if encrypt:
@@ -115,6 +116,7 @@ class Server(object):
 
         self.factory.protocol = ServerProtocol
         self.factory.host = self._host
+        self.factory.whitelisted_hosts = self._whitelisted_hosts
         self.factory.user_id = self._user_id
         self.factory.notifier = self.notifier
         self.factory.ws_server_id = self._ws_server_id
