@@ -54,6 +54,10 @@ class Server(object):
         self._user_id = user_id
         self._whitelisted_hosts = whitelisted_hosts
 
+        lower_host = host.lower()
+        if lower_host not in whitelisted_hosts:
+            whitelisted_hosts.append(lower_host)
+
         # If encryption is required, compute a server id and retrieve the secret associated to it.
         if encrypt:
             # urandom is considered cryptographically secure as it calls the OS's CSRNG, so we can

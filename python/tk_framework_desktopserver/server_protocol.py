@@ -247,7 +247,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # The user id is only going to be present with protocol v2.
         if user_id:
             # If we're on the right site and have the correct user, we're fine.
-            if host_network == origin_network and user_id == self.factory.user_id:
+            if origin_network in self.factory.whitelisted_hosts and user_id == self.factory.user_id:
                 return True
             else:
                 # Otherwise report an error and log some stats.
@@ -259,7 +259,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 return False
         else:
             # If we're on the right site when using protocol v1
-            if host_network == origin_network:
+            if origin_network in self.factory.whitelisted_hosts:
                 # we're good to go.
                 return True
             else:

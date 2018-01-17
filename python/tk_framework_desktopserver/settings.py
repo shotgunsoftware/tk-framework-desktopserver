@@ -35,6 +35,7 @@ class Settings(object):
     _PORT_SETTING = "port"
     _CERTIFICATE_FOLDER_SETTING = "certificate_folder"
     _ENABLED = "enabled"
+    _WHITELISTED_HOSTS = "whitelisted_hosts"
 
     def __init__(self, location, default_certificate_folder):
         """
@@ -63,6 +64,9 @@ class Settings(object):
             integration_enabled = self._get_value(
                 config, self._ENABLED
             )
+            whitelisted_hosts = self._get_value(
+                config, self._WHITELISTED_HOSTS
+            )
         else:
             from sgtk.util import UserSettings
             user_settings = UserSettings()
@@ -73,10 +77,12 @@ class Settings(object):
                 self._BROWSER_INTEGRATION, self._CERTIFICATE_FOLDER_SETTING
             )
             integration_enabled = UserSettings().get_boolean_setting(self._BROWSER_INTEGRATION, self._ENABLED)
+            whitelisted_hosts = UserSettings().get_string(self._BROWSER_INTEGRATION, self._WHITELISTED_HOSTS)
 
         self._port = port or self._DEFAULT_PORT
         self._certificate_folder = certificate_folder or self._default_certificate_folder
         self._integration_enabled = integration_enabled
+        self._whitelisted_hosts = whitelisted_hosts
 
     def _load_config(self, path):
         """
@@ -111,6 +117,10 @@ class Settings(object):
         :returns: Path to the certificate location.
         """
         return self._certificate_folder
+
+    @property
+    def whitelisted_hosts(self):
+        return self._whitelisted_hosts
 
     def dump(self, logger):
         """
