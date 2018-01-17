@@ -558,16 +558,19 @@ class TestInvalidOriginBase:
                     encrypt=self._use_encryption
                 )
 
+            def stepFailure(payload):
+                self.assertEqual(
+                    payload,
+                    (
+                        3001,
+                        "You are not authorized to make browser integration "
+                        "requests. Please re-authenticate in your desktop application."
+                    )
+                )
+
             def step2(payload):
                 if self.should_fail:
-                    self.assertEqual(
-                        payload,
-                        (
-                            3001,
-                            "You are not authorized to make browser integration "
-                            "requests. Please re-authenticate in your desktop application."
-                        )
-                    )
+                    stepFailure(payload)
                 else:
                     self.assertFalse(isinstance(payload, tuple))
 
@@ -580,8 +583,10 @@ class TestInvalidOriginBase:
                         {"value": "hellohellohello"}
                     )
 
+            # When using encryption, we won't even be able to enable it because we'll
+            # be on the wrong side. So move straight away to the failure step.
             if self._use_encryption and self.should_fail:
-                return self._chain_calls(self._activate_encryption_if_required, step2)
+                return self._chain_calls(self._activate_encryption_if_required, stepFailure)
             else:
                 return self._chain_calls(self._activate_encryption_if_required, step1, step2)
 
