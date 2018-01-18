@@ -10,6 +10,7 @@
 
 import json
 import datetime
+import urlparse
 
 import OpenSSL
 from cryptography.fernet import Fernet
@@ -242,30 +243,32 @@ class ServerProtocol(WebSocketServerProtocol):
         # origin is formatted such as https://xyz.shotgunstudio.com:port_number
         # host is https://xyz.shotgunstudio.com:port_number
         host_network = self.factory.host.lower()
-        origin_network = self._origin.lower()
+        origin_network = urlparse.urlparse(self._origin).netloc.lower()
 
         # The user id is only going to be present with protocol v2.
         if user_id:
             # If we're on the right site and have the correct user, we're fine.
-            if origin_network in self.factory.whitelisted_hosts and user_id == self.factory.user_id:
+            if origin_network in self.factory.host_aliases and user_id == self.factory.user_id:
                 return True
             else:
                 # Otherwise report an error and log some stats.
                 logger.debug("Browser integration request received a different user.")
                 logger.debug("Desktop site: %s", host_network)
                 logger.debug("Desktop user: %s", self.factory.user_id)
+                logger.debug("Host aliases: %s", self.factory.host_aliases)
                 logger.debug("Origin site: %s", origin_network)
                 logger.debug("Origin user: %s", user_id)
                 return False
         else:
             # If we're on the right site when using protocol v1
-            if origin_network in self.factory.whitelisted_hosts:
+            if origin_network in self.factory.host_aliases:
                 # we're good to go.
                 return True
             else:
                 # Otherwise report an error and log some stats.
                 logger.debug("Browser integration request received a different user.")
                 logger.debug("Desktop site: %s", host_network)
+                logger.debug("Host aliases: %s", self.factory.host_aliases)
                 logger.debug("Origin site: %s", origin_network)
                 return False
 

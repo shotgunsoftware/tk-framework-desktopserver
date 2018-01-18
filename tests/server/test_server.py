@@ -64,11 +64,11 @@ class TestServerBase:
             self,
             use_encryption=False,
             origin="https://site.shotgunstudio.com",
-            whitelisted_hosts=None
+            host_aliases=None
         ):
 
-            if not whitelisted_hosts:
-                whitelisted_hosts = ["https://site.shotgunstudio.com"]
+            if not host_aliases:
+                host_aliases = ["site.shotgunstudio.com"]
 
             self._use_encryption = use_encryption
 
@@ -110,7 +110,7 @@ class TestServerBase:
                 encrypt=use_encryption,
                 host="https://site.shotgunstudio.com",
                 user_id=self._user["id"],
-                whitelisted_hosts=whitelisted_hosts,
+                host_aliases=host_aliases,
                 port=9000
             )
 
@@ -548,7 +548,7 @@ class TestInvalidOriginBase:
             return self.setUpClientServer(
                 use_encryption=self.use_encryption,
                 origin=self.origin,
-                whitelisted_hosts=self.whitelisted_hosts
+                host_aliases=self.host_aliases
             )
 
         def test_origin(self):
@@ -595,14 +595,14 @@ class TestInvalidOriginEncrypted(TestInvalidOriginBase.Impl):
     should_fail = True
     use_encryption = True
     origin = "https://altsite.shotgunstudio.com"
-    whitelisted_hosts = []
+    host_aliases = []
 
 
 class TestValidOriginEncrypted(TestInvalidOriginBase.Impl):
     should_fail = False
     use_encryption = True
     origin = "https://altsite.shotgunstudio.com"
-    whitelisted_hosts = ["https://altsite.shotgunstudio.com"]
+    host_aliases = ["altsite.shotgunstudio.com"]
 
 
 class TestInvalidOriginUnencrypted(TestInvalidOriginEncrypted):

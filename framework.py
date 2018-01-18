@@ -12,6 +12,7 @@ import sgtk
 import sys
 import os
 import struct
+import urlparse
 from sgtk.util import LocalFileStorageManager
 
 
@@ -81,7 +82,6 @@ class DesktopserverFramework(sgtk.platform.Framework):
         # Read the browser integration settings from disk. By passing in location=None, the Toolkit API will be
         # used to locate the settings instead of looking at a specific file.
         self._settings = self._tk_framework_desktopserver.Settings(
-            location=None,
             default_certificate_folder=os.path.join(
                 LocalFileStorageManager.get_global_root(
                     LocalFileStorageManager.CACHE, LocalFileStorageManager.CORE_V18
@@ -118,7 +118,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 encrypt=encrypt,
                 host=host,
                 user_id=user_id,
-                alternative_hosts=self._settings.alternative_hosts,
+                host_aliases=self._get_host_aliases(host),
                 port=self._settings.port
             )
 
@@ -133,6 +133,24 @@ class DesktopserverFramework(sgtk.platform.Framework):
         :returns: Path to the folder where server.crt and server.key are.
         """
         return os.path.join(self.cache_location, "keys")
+
+    def _get_host_aliases(self, host):
+        self.logger.debug("Looking for an alias for host %s.", host)
+        # parse the host and keep only the network location, no need for the rest.
+        netloc = urlparse.urlparse(host).netloc.lower()
+        aliases = self._settings.host_aliases
+
+        # If we don't have any aliases in the file.
+        if not aliases:
+            self.logger.debug("No host aliases found in settings. %s will be used.", netloc)
+            return [netloc]
+
+        if netloc not in aliases:
+            self.logger.debug("There are no host aliases for this host. %s will be used.", netloc)
+            return [netloc]
+
+        self.logger.debug("Host aliases were found. %s will be used", ",".join(aliases[netloc]))
+        return aliases[netloc]
 
     def _write_cert(self, filename, cert):
         """
