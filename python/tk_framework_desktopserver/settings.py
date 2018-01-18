@@ -35,7 +35,7 @@ class Settings(object):
     _PORT_SETTING = "port"
     _CERTIFICATE_FOLDER_SETTING = "certificate_folder"
     _ENABLED = "enabled"
-    _WHITELISTED_HOSTS = "whitelisted_hosts"
+    _ALTERNATIVE_HOSTS = "alternative_hosts"
 
     def __init__(self, location, default_certificate_folder):
         """
@@ -64,8 +64,8 @@ class Settings(object):
             integration_enabled = self._get_value(
                 config, self._ENABLED
             )
-            whitelisted_hosts = self._get_value(
-                config, self._WHITELISTED_HOSTS
+            alternative_hosts = self._get_value(
+                config, self._ALTERNATIVE_HOSTS
             )
         else:
             from sgtk.util import UserSettings
@@ -77,12 +77,16 @@ class Settings(object):
                 self._BROWSER_INTEGRATION, self._CERTIFICATE_FOLDER_SETTING
             )
             integration_enabled = UserSettings().get_boolean_setting(self._BROWSER_INTEGRATION, self._ENABLED)
-            whitelisted_hosts = UserSettings().get_string(self._BROWSER_INTEGRATION, self._WHITELISTED_HOSTS)
+            alternative_hosts = UserSettings().get_setting(self._BROWSER_INTEGRATION, self._ALTERNATIVE_HOSTS)
 
         self._port = port or self._DEFAULT_PORT
         self._certificate_folder = certificate_folder or self._default_certificate_folder
         self._integration_enabled = integration_enabled
-        self._whitelisted_hosts = whitelisted_hosts
+
+        # Ensure we have a string, and then split the string on commas, make sure we're stripping
+        # out beginning and end of string whitespaces and then lowercase everything.
+        self._alternative_hosts = (alternative_hosts or "").split(",")
+        self._alternative_hosts = [host.lower().strip() for host in self._alternative_hosts]
 
     def _load_config(self, path):
         """
@@ -100,35 +104,42 @@ class Settings(object):
     @property
     def port(self):
         """
-        :returns: The port to listen on for incoming websocket requests.
+        The port to listen on for incoming websocket requests.
         """
         return self._port
 
     @property
     def integration_enabled(self):
         """
-        :returns: True if the browser integration is enabled, False otherwise.
+        Flag indicating if the browser integration is enabled. ``True`` if enabled, ``False`` if not.
         """
         return self._integration_enabled if self._integration_enabled is not None else True
 
     @property
     def certificate_folder(self):
         """
-        :returns: Path to the certificate location.
+        Path to the self-signed certificates folder.
         """
         return self._certificate_folder
 
     @property
-    def whitelisted_hosts(self):
-        return self._whitelisted_hosts
+    def alternative_hosts(self):
+        """
+        Alternative hosts that are allowed to connect to the browser integration.
+
+        This is an expert setting and should only be used when dealing with separate endpoints
+        for API access and webapp access.
+        """
+        return self._alternative_hosts
 
     def dump(self, logger):
         """
         Dumps all the settings into the logger.
         """
-        logger.info("Integration enabled: %s" % self.integration_enabled)
-        logger.info("Certificate folder: %s" % self.certificate_folder)
-        logger.info("Port: %d" % self.port)
+        logger.debug("Integration enabled: %s" % self.integration_enabled)
+        logger.debug("Certificate folder: %s" % self.certificate_folder)
+        logger.debug("Port: %d" % self.port)
+        logger.debug("Alternative hosts: %s" % self.alternative_hosts)
 
     def _get_value(self, config, key, type_cast=str):
         """

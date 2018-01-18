@@ -118,6 +118,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 encrypt=encrypt,
                 host=host,
                 user_id=user_id,
+                alternative_hosts=self._settings.alternative_hosts,
                 port=self._settings.port
             )
 
@@ -185,8 +186,21 @@ class DesktopserverFramework(sgtk.platform.Framework):
         self.logger.debug("Retrieving certificates from Shotgun")
         certs = self.shotgun._call_rpc("sg_desktop_certificates", {})
         sgtk.util.filesystem.ensure_folder_exists(self._get_shotgunlocalhost_keys_folder())
-        self._write_cert("server.crt", certs["sg_desktop_cert"])
-        self._write_cert("server.key", certs["sg_desktop_key"])
+        if not certs["sg_desktop_cert"]:
+            self.logger.error(
+                "shotgunlocalhost.com public key is not set in Shotgun. "
+                "Please contact support@shotgunsoftware.com"
+            )
+        else:
+            self._write_cert("server.crt", certs["sg_desktop_cert"])
+
+        if not certs["sg_desktop_key"]:
+            self.logger.error(
+                "shotgunlocalhost.com private key is not set in Shotgun. "
+                "Please contact support@shotgunsoftware.com"
+            )
+        else:
+            self._write_cert("server.key", certs["sg_desktop_key"])
 
     def __ensure_certificate_ready(self, regenerate_certs=False, parent=None):
         """
