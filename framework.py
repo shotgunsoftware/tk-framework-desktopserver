@@ -137,20 +137,34 @@ class DesktopserverFramework(sgtk.platform.Framework):
     def _get_host_aliases(self, host):
         self.logger.debug("Looking for an alias for host %s.", host)
         # parse the host and keep only the network location, no need for the rest.
-        netloc = urlparse.urlparse(host).netloc.lower()
-        aliases = self._settings.host_aliases
+        parsed_host = urlparse.urlparse(host)
+        # When the network location has a port number, the hostname and port
+        # members are not None, in which case we want just the hostname and don't
+        # care about the port number. If hostname is not set, then we can grab
+        # the network location safely.
+        hostname = parsed_host.hostname or parsed_host.netloc.lower()
+        self.logger.debug("Hostname is %s.", hostname)
+
+        # Return the dictionary into a list of pool of aliases. Each list is
+        # a different site. If one of the pool has the current site, we'll
+        # return that pool.
+        aliases = [
+            [main_host] + alt_hosts
+            for main_host, alt_hosts in self._settings.host_aliases.iteritems()
+        ]
 
         # If we don't have any aliases in the file.
         if not aliases:
-            self.logger.debug("No host aliases found in settings. %s will be used.", netloc)
-            return [netloc]
+            self.logger.debug("No host aliases found in settings. '%s' will be used.", hostname)
+            return [hostname]
 
-        if netloc not in aliases:
-            self.logger.debug("There are no host aliases for this host. %s will be used.", netloc)
-            return [netloc]
+        for aliases_pool in aliases:
+            if hostname in aliases_pool:
+                self.logger.debug("Host aliases were found. '%s' will be used", ",".join(aliases_pool))
+                return aliases_pool
 
-        self.logger.debug("Host aliases were found. %s will be used", ",".join(aliases[netloc]))
-        return aliases[netloc]
+        self.logger.debug("There are no host aliases for this host. '%s' will be used.", hostname)
+        return [hostname]
 
     def _write_cert(self, filename, cert):
         """
