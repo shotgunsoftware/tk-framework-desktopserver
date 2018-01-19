@@ -1,3 +1,13 @@
+# Copyright (c) 2018 Shotgun Software Inc.
+#
+# CONFIDENTIAL AND PROPRIETARY
+#
+# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
+# Source Code License included in this distribution package. See LICENSE.
+# By accessing, using, copying or modifying this work you indicate your
+# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
+# not expressly granted therein are reserved by Shotgun Software Inc.
+
 import os
 import sys
 from mock import Mock
@@ -18,15 +28,37 @@ from tk_framework_desktopserver import Settings
 
 
 class TestFrameworkWithUserSettings(ShotgunTestBase):
+    """
+    Tests that the Settings objects works properly.
+    """
 
-    def test_no_host_aliases_section(self):
+    def test_default_browser_integration_settings(self):
         """
-        Make sure empty settings file is reported an empty.
+        Make sure browser integrations settings have good default values.
         """
         settings = Settings(None)
+        self.assertEqual(settings.port, 9000)
+        self.assertEqual(settings.certificate_folder, None)
+        self.assertEqual(settings.integration_enabled, True)
         self.assertDictEqual(settings.host_aliases, {})
 
-    def test_filtered_aliases(self):
+    def test_browser_integration_settings(self):
+        """
+        Makes sure browser integration settings are read properly from disk.
+        """
+        self.write_toolkit_ini_file(
+            BrowserIntegration={
+                "port": 9001,
+                "certificate_folder": "/a/b/c",
+                "enabled": False
+            })
+
+        settings = Settings(None)
+        self.assertEqual(settings.port, 9001)
+        self.assertEqual(settings.certificate_folder, "/a/b/c")
+        self.assertEqual(settings.integration_enabled, False)
+
+    def test_host_aliases(self):
         """
         Make sure the settings are filtered correctly.
         """
@@ -54,6 +86,9 @@ class TestFrameworkWithUserSettings(ShotgunTestBase):
 
 
 class TestAliasesLookup(TestDesktopServerFramework):
+    """
+    Tests that alias extracting from the host_aliases dict works.
+    """
 
     def test_host_aliases_parsing(self):
 
