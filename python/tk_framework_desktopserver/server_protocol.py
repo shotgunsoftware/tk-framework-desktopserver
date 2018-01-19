@@ -243,7 +243,8 @@ class ServerProtocol(WebSocketServerProtocol):
         # origin is formatted such as https://xyz.shotgunstudio.com:port_number
         # host is https://xyz.shotgunstudio.com:port_number
         host_network = self.factory.host.lower()
-        origin_network = urlparse.urlparse(self._origin).netloc.lower()
+        parsed_host = urlparse.urlparse(self._origin)
+        origin_network = (parsed_host.hostname or parsed_host.netloc).lower()
 
         # The user id is only going to be present with protocol v2.
         if user_id:
