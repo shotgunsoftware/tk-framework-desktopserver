@@ -135,6 +135,12 @@ class DesktopserverFramework(sgtk.platform.Framework):
         return os.path.join(self.cache_location, "keys")
 
     def _get_host_aliases(self, host):
+        """
+        Returns a list of valid hosts that can connect to the browser integration. The returned
+        list only contains the hostname. The port number and protocol are removed.
+
+        :returns: List of hostnames.
+        """
         self.logger.debug("Looking for an alias for host %s.", host)
         # parse the host and keep only the network location, no need for the rest.
         parsed_host = urlparse.urlparse(host)
@@ -142,7 +148,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         # members are not None, in which case we want just the hostname and don't
         # care about the port number. If hostname is not set, then we can grab
         # the network location safely.
-        hostname = parsed_host.hostname or parsed_host.netloc.lower()
+        hostname = (parsed_host.hostname or parsed_host.netloc).lower()
         self.logger.debug("Hostname is %s.", hostname)
 
         # Return the dictionary into a list of pool of aliases. Each list is
