@@ -86,12 +86,10 @@ class TestFrameworkWithUserSettings(ShotgunTestBase):
 
 
 class TestAliasesLookup(TestDesktopServerFramework):
-    """
-    Tests that alias extracting from the host_aliases dict works.
-    """
-
     def test_host_aliases_parsing(self):
-
+        """
+        Tests that the aliases list generated from the alias dict is generated as intended.
+        """
         self.framework._settings = SealedMock(
             host_aliases={
                 "www.site.com": ["alt.site.com"]

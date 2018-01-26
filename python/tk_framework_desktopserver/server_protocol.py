@@ -244,6 +244,10 @@ class ServerProtocol(WebSocketServerProtocol):
         # host is https://xyz.shotgunstudio.com:port_number
         host_network = self.factory.host.lower()
         parsed_host = urlparse.urlparse(self._origin)
+        # When the network location has a port number, the hostname and port
+        # members are not None, in which case we want just the hostname and don't
+        # care about the port number. If hostname is not set, then we can grab
+        # the network location safely.
         origin_network = (parsed_host.hostname or parsed_host.netloc).lower()
 
         # The user id is only going to be present with protocol v2.
