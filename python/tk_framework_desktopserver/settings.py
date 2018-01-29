@@ -8,8 +8,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import os
-import ConfigParser
+import pprint
 
 from . import logger
 
@@ -35,122 +34,97 @@ class Settings(object):
     _PORT_SETTING = "port"
     _CERTIFICATE_FOLDER_SETTING = "certificate_folder"
     _ENABLED = "enabled"
+    _HOST_ALIASES = "HostAliases"
 
-    def __init__(self, location, default_certificate_folder):
+    def __init__(self, default_certificate_folder):
         """
         Constructor.
 
         If the configuration file doesn't not exist, the configuration
         object will return the default values.
 
-        :param location: Path to the configuration file. If ``None``, Toolkit's sgtk.util.UserSettings module
-            will be used instead to retrieve the values.
         :param default_certificate_folder: Default location for the certificate file. This value
             is overridable for each app that can use this settings object.
         """
 
         self._default_certificate_folder = default_certificate_folder
 
-        # Retrieve all the settings from the configuration file or the Tookit UserSettings object.
-        if location is not None:
-            config = self._load_config(location)
-            port = self._get_value(
-                config, self._PORT_SETTING, int
-            )
-            certificate_folder = self._get_value(
-                config, self._CERTIFICATE_FOLDER_SETTING
-            )
-            integration_enabled = self._get_value(
-                config, self._ENABLED
-            )
-        else:
-            from sgtk.util import UserSettings
-            user_settings = UserSettings()
-            port = user_settings.get_integer_setting(
-                self._BROWSER_INTEGRATION, self._PORT_SETTING
-            )
-            certificate_folder = user_settings.get_setting(
-                self._BROWSER_INTEGRATION, self._CERTIFICATE_FOLDER_SETTING
-            )
-            integration_enabled = UserSettings().get_boolean_setting(self._BROWSER_INTEGRATION, self._ENABLED)
+        from sgtk.util import UserSettings
+        user_settings = UserSettings()
+        port = user_settings.get_integer_setting(
+            self._BROWSER_INTEGRATION, self._PORT_SETTING
+        )
+        certificate_folder = user_settings.get_setting(
+            self._BROWSER_INTEGRATION, self._CERTIFICATE_FOLDER_SETTING
+        )
+        integration_enabled = UserSettings().get_boolean_setting(self._BROWSER_INTEGRATION, self._ENABLED)
+
+        raw_host_aliases = {}
+        if UserSettings().get_section_settings(self._HOST_ALIASES):
+            raw_host_aliases = {
+                name: UserSettings().get_setting(
+                    self._HOST_ALIASES, name
+                )
+                for name in UserSettings().get_section_settings(self._HOST_ALIASES)
+            }
 
         self._port = port or self._DEFAULT_PORT
         self._certificate_folder = certificate_folder or self._default_certificate_folder
         self._integration_enabled = integration_enabled
 
-    def _load_config(self, path):
-        """
-        Loads the configuration at a given location and returns it.
+        # Keep the raw aliases for support, but filter the settings for API users.
+        self._raw_host_aliases = raw_host_aliases
+        self._host_aliases = {}
+        # Ensure we have a string, and then split the string on commas, make sure we're stripping
+        # out beginning and end of string whitespaces and then lowercase everything.
+        # Also skip empty tokens.
+        for main_host, secondary_hosts in raw_host_aliases.iteritems():
+            main_host = main_host.strip().lower()
+            # Skip empty hosts.
+            if not main_host:
+                continue
 
-        :param path: Path to the configuration to load.
-
-        :returns: A ConfigParser instance with the contents from the configuration file.
-        """
-        config = ConfigParser.SafeConfigParser()
-        if os.path.exists(path):
-            config.read(path)
-        return config
+            self._host_aliases[main_host] = [
+                secondary_host.lower().strip()
+                for secondary_host in secondary_hosts.split(",")
+            ]
 
     @property
     def port(self):
         """
-        :returns: The port to listen on for incoming websocket requests.
+        The port to listen on for incoming websocket requests.
         """
         return self._port
 
     @property
     def integration_enabled(self):
         """
-        :returns: True if the browser integration is enabled, False otherwise.
+        Flag indicating if the browser integration is enabled. ``True`` if enabled, ``False`` if not.
         """
         return self._integration_enabled if self._integration_enabled is not None else True
 
     @property
     def certificate_folder(self):
         """
-        :returns: Path to the certificate location.
+        Path to the self-signed certificates folder.
         """
         return self._certificate_folder
+
+    @property
+    def host_aliases(self):
+        """
+        Alternative hosts that are allowed to connect to the browser integration.
+
+        This is an expert setting and should only be used when dealing with separate endpoints
+        for API access and webapp access.
+        """
+        return self._host_aliases
 
     def dump(self, logger):
         """
         Dumps all the settings into the logger.
         """
-        logger.info("Integration enabled: %s" % self.integration_enabled)
-        logger.info("Certificate folder: %s" % self.certificate_folder)
-        logger.info("Port: %d" % self.port)
-
-    def _get_value(self, config, key, type_cast=str):
-        """
-        Retrieves a value from the config.ini file. If the value is not set, returns the default.
-        Since all values are strings inside the file, you can optionally cast the data to another type.
-
-        :param config: Configuration parser holding the settings.
-        :param section: Section (name between brackets) of the setting.
-        :param key: Name of the setting within a section.
-        ;param type_cast: Casts the value to the passed in type. Defaults to str.
-        :param default: If the value is not found, returns this default value. Defauts to None.
-
-        :returns: The appropriately type casted value if the value is found, default otherwise.
-        """
-        section = self._BROWSER_INTEGRATION
-        if config.has_section(section) and config.has_option(section, key):
-            return type_cast(self._resolve_value(config, section, key))
-        else:
-            return None
-
-    def _resolve_value(self, config, section, key):
-        """
-        Resolves a value in the file and translates any environment variable or ~ present.
-
-        :param config: Configuration parser holding the settings.
-        :param section: Name of the section of the value.
-        :param key: Key of the value to retrieve for the selection section.
-
-        :returns: Value with ~ and any environment variable resolved.
-        """
-        return os.path.expandvars(
-            os.path.expanduser(
-                config.get(section, key)
-            )
-        )
+        logger.debug("Integration enabled: %s" % self.integration_enabled)
+        logger.debug("Certificate folder: %s" % self.certificate_folder)
+        logger.debug("Port: %d" % self.port)
+        logger.debug("Host aliases: %s" % pprint.pformat(self._raw_host_aliases))
