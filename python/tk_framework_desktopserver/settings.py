@@ -116,9 +116,9 @@ class Settings(object):
         """
         Dumps all the settings into the logger.
         """
-        logger.info("Integration enabled: %s" % self.integration_enabled)
-        logger.info("Certificate folder: %s" % self.certificate_folder)
-        logger.info("Port: %d" % self.port)
+        logger.debug("Integration enabled: %s" % self.integration_enabled)
+        logger.debug("Certificate folder: %s" % self.certificate_folder)
+        logger.debug("Port: %d" % self.port)
 
     def _get_value(self, config, key, type_cast=str):
         """
