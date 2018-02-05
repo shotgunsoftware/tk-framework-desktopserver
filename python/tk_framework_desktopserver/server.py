@@ -36,7 +36,7 @@ class Server(object):
     class Notifier(QtCore.QObject):
         different_user_requested = QtCore.Signal(str, int)
 
-    def __init__(self, keys_path, encrypt, host, user_id, port=None):
+    def __init__(self, keys_path, encrypt, host, user_id, host_aliases, port=None):
         """
         Constructor.
 
@@ -45,6 +45,7 @@ class Server(object):
         :param encrypt: If True, the communication with clients will be encrypted.
         :param host: Url of the host we're expecting requests from.
         :param user_id: Id of the user we're expecting requests from.
+        :param host_aliases: List of aliases available for the current host.
         :param port: Port to listen for websocket requests from.
         :param low_level_debug: If True, wss traffic will be written to the console.
         """
@@ -52,6 +53,8 @@ class Server(object):
         self._keys_path = keys_path or self._DEFAULT_KEYS_PATH
         self._host = host
         self._user_id = user_id
+
+        self._host_aliases = host_aliases
 
         # If encryption is required, compute a server id and retrieve the secret associated to it.
         if encrypt:
@@ -115,6 +118,7 @@ class Server(object):
 
         self.factory.protocol = ServerProtocol
         self.factory.host = self._host
+        self.factory.host_aliases = self._host_aliases
         self.factory.user_id = self._user_id
         self.factory.notifier = self.notifier
         self.factory.ws_server_id = self._ws_server_id

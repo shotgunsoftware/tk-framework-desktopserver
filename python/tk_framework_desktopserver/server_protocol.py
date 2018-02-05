@@ -10,6 +10,7 @@
 
 import json
 import datetime
+import urlparse
 
 import OpenSSL
 from cryptography.fernet import Fernet
@@ -242,30 +243,37 @@ class ServerProtocol(WebSocketServerProtocol):
         # origin is formatted such as https://xyz.shotgunstudio.com:port_number
         # host is https://xyz.shotgunstudio.com:port_number
         host_network = self.factory.host.lower()
-        origin_network = self._origin.lower()
+        parsed_host = urlparse.urlparse(self._origin)
+        # When the network location has a port number, the hostname and port
+        # members are not None, in which case we want just the hostname and don't
+        # care about the port number. If hostname is not set, then we can grab
+        # the network location safely.
+        origin_network = (parsed_host.hostname or parsed_host.netloc).lower()
 
         # The user id is only going to be present with protocol v2.
         if user_id:
             # If we're on the right site and have the correct user, we're fine.
-            if host_network == origin_network and user_id == self.factory.user_id:
+            if origin_network in self.factory.host_aliases and user_id == self.factory.user_id:
                 return True
             else:
                 # Otherwise report an error and log some stats.
                 logger.debug("Browser integration request received a different user.")
                 logger.debug("Desktop site: %s", host_network)
                 logger.debug("Desktop user: %s", self.factory.user_id)
+                logger.debug("Host aliases: %s", self.factory.host_aliases)
                 logger.debug("Origin site: %s", origin_network)
                 logger.debug("Origin user: %s", user_id)
                 return False
         else:
             # If we're on the right site when using protocol v1
-            if host_network == origin_network:
+            if origin_network in self.factory.host_aliases:
                 # we're good to go.
                 return True
             else:
                 # Otherwise report an error and log some stats.
                 logger.debug("Browser integration request received a different user.")
                 logger.debug("Desktop site: %s", host_network)
+                logger.debug("Host aliases: %s", self.factory.host_aliases)
                 logger.debug("Origin site: %s", origin_network)
                 return False
 

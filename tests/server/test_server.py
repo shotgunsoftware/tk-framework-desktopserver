@@ -57,24 +57,28 @@ class MockShotgunApi(object):
         self._host.reply({"value": payload["value"] * 3})
 
 
-def TestServerBase(class_name, class_parents, class_attr):
+class TestServerBase(unittest.TestCase):
 
-    def register(func):
-        class_attr[func.__name__] = func
+    def setUpClientServer(
+        self,
+        use_encryption=False,
+        origin="https://site.shotgunstudio.com",
+        host_aliases=None
+    ):
 
-    @register
-    def setUpClientServer(self, use_encryption=False):
+        if not host_aliases:
+            host_aliases = ["site.shotgunstudio.com"]
 
         self._use_encryption = use_encryption
 
         # Create a mockgun instance and add support for the _call_rpc method which is used to get
         # the secret.
-        host = "https://127.0.0.1"
+        sg_host = "https://127.0.0.1"
         Shotgun.set_schema_paths(
             os.path.join(fixtures_root, "mockgun", "schema.pickle"),
             os.path.join(fixtures_root, "mockgun", "schema_entity.pickle")
         )
-        self._mockgun = Shotgun(host)
+        self._mockgun = Shotgun(sg_host)
         self._mockgun._call_rpc = self._call_rpc
         self._mockgun.server_info = {
             "shotgunlocalhost_browser_integration_enabled": True
@@ -82,6 +86,7 @@ def TestServerBase(class_name, class_parents, class_attr):
 
         # Set up an encryption key.
         self._ws_server_secret = base64.urlsafe_b64encode(os.urandom(32))
+
         self._fernet = Fernet(self._ws_server_secret)
 
         # Create the user who will be making all the requests.
@@ -102,8 +107,9 @@ def TestServerBase(class_name, class_parents, class_attr):
         self.server = Server(
             keys_path=os.path.join(fixtures_root, "certificates"),
             encrypt=use_encryption,
-            host=host,
+            host="https://site.shotgunstudio.com",
             user_id=self._user["id"],
+            host_aliases=host_aliases,
             port=9000
         )
 
@@ -178,7 +184,7 @@ def TestServerBase(class_name, class_parents, class_attr):
 
         # Create the websocket connection to the server.
         client_factory = WebSocketClientFactory("wss://localhost:9000")
-        client_factory.origin = "https://127.0.0.1"
+        client_factory.origin = origin
         client_factory.protocol = ClientProtocol
         self.client = connectWS(client_factory, context_factory, timeout=2)
 
@@ -190,7 +196,6 @@ def TestServerBase(class_name, class_parents, class_attr):
         # Return the deferred that will be called then the setup is completed.
         return connection_ready_deferred
 
-    @register
     def _call_rpc(self, name, paylad, *args):
         """
         Implements the retrieval of the websocket server secret.
@@ -202,7 +207,6 @@ def TestServerBase(class_name, class_parents, class_attr):
         else:
             raise NotImplementedError("The RPC %s is not implemented." % name)
 
-    @register
     def _chain_calls(self, *calls):
         """
         This will chain calls to the websocket server. Each method must follow this pattern:
@@ -223,7 +227,6 @@ def TestServerBase(class_name, class_parents, class_attr):
         self._call_next(None, list(calls), done)
         return done
 
-    @register
     def _call_next(self, payload, calls, done):
         """
         Calls the next method in the calls array. Calls ``done`` when there is an error
@@ -255,7 +258,6 @@ def TestServerBase(class_name, class_parents, class_attr):
             # There was an error, abort the test right now!
             done.errback(e)
 
-    @register
     def _send_payload(self, payload, encrypt=False, is_binary=False):
         """
         Sends a payload as is to the server.
@@ -264,7 +266,6 @@ def TestServerBase(class_name, class_parents, class_attr):
             payload = self._fernet.encrypt(payload)
         return self.client_protocol.sendMessage(payload, is_binary)
 
-    @register
     def _send_message(self, command, data, encrypt=False, is_binary=False, protocol_version=2, user_id=None):
         """
         Sends a message to the websocket server in the expected format.
@@ -291,7 +292,6 @@ def TestServerBase(class_name, class_parents, class_attr):
             encrypt=encrypt
         )
 
-    @register
     def _is_error(self, payload, msg):
         """
         Asserts if a payload is an error message.
@@ -302,9 +302,29 @@ def TestServerBase(class_name, class_parents, class_attr):
             "'%s' does not start with '%s'" % (payload["error_message"], msg)
         )
 
-    @register
     def _is_not_error(self, payload):
         self.assertNotIn("error", payload)
+
+    def _activate_encryption_if_required(self, _):
+        """
+        Activate encryption if this test suite needs it.
+        """
+        if self._use_encryption:
+            return self._activate_encryption(_)
+        else:
+            return None
+
+    def _activate_encryption(self, _):
+        """
+        Activates encryption
+        """
+        return self._send_message("get_ws_server_id", None)
+
+
+def CommonTestsMetaClass(class_name, class_parents, class_attr):
+
+    def register(func):
+        class_attr[func.__name__] = func
 
     # These are tests that are common to encryped and unenrypted servers.
     @register
@@ -389,23 +409,6 @@ def TestServerBase(class_name, class_parents, class_attr):
         return self._chain_calls(self._activate_encryption_if_required, step1, step2)
 
     @register
-    def _activate_encryption_if_required(self, _):
-        """
-        Activate encryption if this test suite needs it.
-        """
-        if self._use_encryption:
-            return self._activate_encryption(_)
-        else:
-            return None
-
-    @register
-    def _activate_encryption(self, _):
-        """
-        Activates encryption
-        """
-        return self._send_message("get_ws_server_id", None)
-
-    @register
     def test_incorrect_user(self):
         """
         Ensure incorrect user is caught
@@ -460,11 +463,11 @@ def TestServerBase(class_name, class_parents, class_attr):
     return type(class_name, class_parents, class_attr)
 
 
-class TestEncryptedServer(unittest.TestCase):
+class TestEncryptedServer(TestServerBase):
     """
     Tests for various caching-related methods for api_v2.
     """
-    __metaclass__ = TestServerBase
+    __metaclass__ = CommonTestsMetaClass
 
     def setUp(self):
         super(TestEncryptedServer, self).setUp()
@@ -509,12 +512,12 @@ class TestEncryptedServer(unittest.TestCase):
         return self._chain_calls(step1, step2)
 
 
-class TestUnencryptedServer(unittest.TestCase):
+class TestUnencryptedServer(TestServerBase):
     """
     Tests for various caching-related methods for api_v2.
     """
 
-    __metaclass__ = TestServerBase
+    __metaclass__ = CommonTestsMetaClass
 
     def setUp(self):
         super(TestUnencryptedServer, self).setUp()
@@ -534,3 +537,95 @@ class TestUnencryptedServer(unittest.TestCase):
             )
 
         return self._chain_calls(step1, step2)
+
+
+class TestDifferentHostBase():
+    """
+    Tests a connection from a different host. The server needs to be launched in different modes,
+    but this can only be done during setUp due to the way twisted unit tests work.
+
+    In order to have the unit test be parameterizable, the base class will expect class level
+    variables to be set that indicate if encryption is required or not, what are the aliases
+    and if the test should fail or not.
+    """
+    class Impl(TestServerBase):
+        def setUp(self):
+            super(TestDifferentHostBase.Impl, self).setUp()
+            return self.setUpClientServer(
+                use_encryption=self.use_encryption,
+                origin=self.origin,
+                host_aliases=self.host_aliases
+            )
+
+        def test_origin(self):
+            def step_send_message(payload):
+                return self._send_message(
+                    "repeat_value", {"value": "hello"},
+                    encrypt=self._use_encryption
+                )
+
+            def step_failure(payload):
+                self.assertEqual(
+                    payload,
+                    (
+                        3001,
+                        "You are not authorized to make browser integration "
+                        "requests. Please re-authenticate in your desktop application."
+                    )
+                )
+
+            def step_validation(payload):
+                if self.should_fail:
+                    step_failure(payload)
+                else:
+                    self.assertFalse(isinstance(payload, tuple))
+
+                    if self.use_encryption:
+                        payload = self._fernet.decrypt(payload)
+
+                    payload = json.loads(payload)
+                    self.assertEqual(
+                        payload["reply"],
+                        {"value": "hellohellohello"}
+                    )
+
+            # When using encryption, we won't even be able to enable it because we'll
+            # be on the wrong side. So move straight away to the failure step.
+            if self._use_encryption and self.should_fail:
+                return self._chain_calls(self._activate_encryption_if_required, step_failure)
+            else:
+                return self._chain_calls(self._activate_encryption_if_required, step_send_message, step_validation)
+
+
+class TestInvalidOriginEncrypted(TestDifferentHostBase.Impl):
+    """
+    Make sure that a different origin will fail when encryption is on.
+    """
+    should_fail = True
+    use_encryption = True
+    origin = "https://altsite.shotgunstudio.com"
+    host_aliases = []
+
+
+class TestInvalidOriginUnencrypted(TestInvalidOriginEncrypted):
+    """
+    Make sure that a different origin will fail when encryption is off
+    """
+    use_encryption = False
+
+
+class TestValidOriginEncrypted(TestDifferentHostBase.Impl):
+    """
+    Make sure that using an alias will succeed when encryption is on.
+    """
+    should_fail = False
+    use_encryption = True
+    origin = "https://altsite.shotgunstudio.com"
+    host_aliases = ["altsite.shotgunstudio.com"]
+
+
+class TestValidOriginUnencrypted(TestValidOriginEncrypted):
+    """
+    Make sure that using an alias will succeed when encryption is off.
+    """
+    use_encryption = False

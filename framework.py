@@ -12,6 +12,7 @@ import sgtk
 import sys
 import os
 import struct
+import urlparse
 from sgtk.util import LocalFileStorageManager
 
 
@@ -81,7 +82,6 @@ class DesktopserverFramework(sgtk.platform.Framework):
         # Read the browser integration settings from disk. By passing in location=None, the Toolkit API will be
         # used to locate the settings instead of looking at a specific file.
         self._settings = self._tk_framework_desktopserver.Settings(
-            location=None,
             default_certificate_folder=os.path.join(
                 LocalFileStorageManager.get_global_root(
                     LocalFileStorageManager.CACHE, LocalFileStorageManager.CORE_V18
@@ -118,6 +118,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 encrypt=encrypt,
                 host=host,
                 user_id=user_id,
+                host_aliases=self._get_host_aliases(host),
                 port=self._settings.port
             )
 
@@ -132,6 +133,44 @@ class DesktopserverFramework(sgtk.platform.Framework):
         :returns: Path to the folder where server.crt and server.key are.
         """
         return os.path.join(self.cache_location, "keys")
+
+    def _get_host_aliases(self, host):
+        """
+        Returns a list of valid hosts that can connect to the browser integration. The returned
+        list only contains the hostname. The port number and protocol are removed.
+
+        :returns: List of hostnames.
+        """
+        self.logger.debug("Looking for an alias for host %s.", host)
+        # parse the host and keep only the network location, no need for the rest.
+        parsed_host = urlparse.urlparse(host)
+        # When the network location has a port number, the hostname and port
+        # members are not None, in which case we want just the hostname and don't
+        # care about the port number. If hostname is not set, then we can grab
+        # the network location safely.
+        hostname = (parsed_host.hostname or parsed_host.netloc).lower()
+        self.logger.debug("Hostname is %s.", hostname)
+
+        # Return the dictionary into a list of pool of aliases. Each list is
+        # a different site. If one of the pool has the current site, we'll
+        # return that pool.
+        aliases = [
+            [main_host] + alt_hosts
+            for main_host, alt_hosts in self._settings.host_aliases.iteritems()
+        ]
+
+        # If we don't have any aliases in the file.
+        if not aliases:
+            self.logger.debug("No host aliases found in settings. '%s' will be used.", hostname)
+            return [hostname]
+
+        for aliases_pool in aliases:
+            if hostname in aliases_pool:
+                self.logger.debug("Host aliases were found. '%s' will be used", ",".join(aliases_pool))
+                return aliases_pool
+
+        self.logger.debug("There are no host aliases for this host. '%s' will be used.", hostname)
+        return [hostname]
 
     def _write_cert(self, filename, cert):
         """
@@ -185,8 +224,21 @@ class DesktopserverFramework(sgtk.platform.Framework):
         self.logger.debug("Retrieving certificates from Shotgun")
         certs = self.shotgun._call_rpc("sg_desktop_certificates", {})
         sgtk.util.filesystem.ensure_folder_exists(self._get_shotgunlocalhost_keys_folder())
-        self._write_cert("server.crt", certs["sg_desktop_cert"])
-        self._write_cert("server.key", certs["sg_desktop_key"])
+        if not certs["sg_desktop_cert"]:
+            self.logger.error(
+                "shotgunlocalhost.com public key is not set in Shotgun. "
+                "Please contact support@shotgunsoftware.com"
+            )
+        else:
+            self._write_cert("server.crt", certs["sg_desktop_cert"])
+
+        if not certs["sg_desktop_key"]:
+            self.logger.error(
+                "shotgunlocalhost.com private key is not set in Shotgun. "
+                "Please contact support@shotgunsoftware.com"
+            )
+        else:
+            self._write_cert("server.key", certs["sg_desktop_key"])
 
     def __ensure_certificate_ready(self, regenerate_certs=False, parent=None):
         """
