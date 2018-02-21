@@ -1286,8 +1286,9 @@ class ShotgunAPI(object):
         error message is returned.
         """
         message = (
-            "An unhandled exception has occurred. "
-            "Contact %s for help with this issue." % sgtk.constants.SUPPORT_EMAIL
+            "An unhandled exception has occurred. To see the full error, "
+            "refer to the console in Shotgun Desktop, or contact %s for "
+            "additional help with this issue." % sgtk.constants.SUPPORT_EMAIL
         )
 
         if self._global_debug:
