@@ -1,6 +1,6 @@
 # ===================================================================
 #
-# Copyright (c) 2014, Legrandin <helderijs@gmail.com>
+# Copyright (c) 2018, Helder Eijs <helderijs@gmail.com>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,4 +28,19 @@
 # POSSIBILITY OF SUCH DAMAGE.
 # ===================================================================
 
-__all__ = ['PEM', 'PKCS8']
+from Crypto.Util._raw_api import load_pycryptodome_raw_lib
+
+
+_raw_cpuid_lib = load_pycryptodome_raw_lib("Crypto.Util._cpuid_c",
+                                           """
+                                           int have_aes_ni(void);
+                                           int have_clmul(void);
+                                           """)
+
+
+def have_aes_ni():
+    return _raw_cpuid_lib.have_aes_ni()
+
+
+def have_clmul():
+    return _raw_cpuid_lib.have_clmul()

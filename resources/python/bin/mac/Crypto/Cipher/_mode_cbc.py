@@ -34,9 +34,10 @@ Ciphertext Block Chaining (CBC) mode.
 
 __all__ = ['CbcMode']
 
+from Crypto.Util.py3compat import _copy_bytes
 from Crypto.Util._raw_api import (load_pycryptodome_raw_lib, VoidPointer,
                                   create_string_buffer, get_raw_buffer,
-                                  SmartPointer, c_size_t, expect_byte_string)
+                                  SmartPointer, c_size_t, c_uint8_ptr)
 
 from Crypto.Random import get_random_bytes
 
@@ -80,7 +81,7 @@ class CbcMode(object):
           block_cipher : C pointer
             A smart pointer to the low-level block cipher instance.
 
-          iv : byte string
+          iv : bytes/bytearray/memoryview
             The initialization vector to use for encryption or decryption.
             It is as long as the cipher block.
 
@@ -90,14 +91,13 @@ class CbcMode(object):
             compromises confidentiality.
         """
 
-        expect_byte_string(iv)
         self._state = VoidPointer()
         result = raw_cbc_lib.CBC_start_operation(block_cipher.get(),
-                                                 iv,
+                                                 c_uint8_ptr(iv),
                                                  c_size_t(len(iv)),
                                                  self._state.address_of())
         if result:
-            raise ValueError("Error %d while instatiating the CBC mode"
+            raise ValueError("Error %d while instantiating the CBC mode"
                              % result)
 
         # Ensure that object disposal of this Python object will (eventually)
@@ -112,11 +112,11 @@ class CbcMode(object):
         self.block_size = len(iv)
         """The block size of the underlying cipher, in bytes."""
 
-        self.iv = iv
+        self.iv = _copy_bytes(None, None, iv)
         """The Initialization Vector originally used to create the object.
         The value does not change."""
 
-        self.IV = iv
+        self.IV = self.iv
         """Alias for `iv`"""
 
         self._next = [ self.encrypt, self.decrypt ]
@@ -145,7 +145,7 @@ class CbcMode(object):
         This function does not add any padding to the plaintext.
 
         :Parameters:
-          plaintext : byte string
+          plaintext : bytes/bytearray/memoryview
             The piece of data to encrypt.
             Its lenght must be multiple of the cipher block size.
         :Return:
@@ -157,13 +157,14 @@ class CbcMode(object):
             raise TypeError("encrypt() cannot be called after decrypt()")
         self._next = [ self.encrypt ]
 
-        expect_byte_string(plaintext)
         ciphertext = create_string_buffer(len(plaintext))
         result = raw_cbc_lib.CBC_encrypt(self._state.get(),
-                                         plaintext,
+                                         c_uint8_ptr(plaintext),
                                          ciphertext,
                                          c_size_t(len(plaintext)))
         if result:
+            if result == 3:
+                raise ValueError("Data must be padded to %d byte boundary in CBC mode" % self.block_size)
             raise ValueError("Error %d while encrypting in CBC mode" % result)
         return get_raw_buffer(ciphertext)
 
@@ -188,7 +189,7 @@ class CbcMode(object):
         This function does not remove any padding from the plaintext.
 
         :Parameters:
-          ciphertext : byte string
+          ciphertext : bytes/bytearray/memoryview
             The piece of data to decrypt.
             Its length must be multiple of the cipher block size.
 
@@ -199,13 +200,14 @@ class CbcMode(object):
             raise TypeError("decrypt() cannot be called after encrypt()")
         self._next = [ self.decrypt ]
 
-        expect_byte_string(ciphertext)
         plaintext = create_string_buffer(len(ciphertext))
         result = raw_cbc_lib.CBC_decrypt(self._state.get(),
-                                         ciphertext,
+                                         c_uint8_ptr(ciphertext),
                                          plaintext,
                                          c_size_t(len(ciphertext)))
         if result:
+            if result == 3:
+                raise ValueError("Data must be padded to %d byte boundary in CBC mode" % self.block_size)
             raise ValueError("Error %d while decrypting in CBC mode" % result)
         return get_raw_buffer(plaintext)
 
@@ -218,10 +220,10 @@ def _create_cbc_cipher(factory, **kwargs):
         The underlying block cipher, a module from ``Crypto.Cipher``.
 
     :Keywords:
-      iv : byte string
+      iv : bytes/bytearray/memoryview
         The IV to use for CBC.
 
-      IV : byte string
+      IV : bytes/bytearray/memoryview
         Alias for ``iv``.
 
     Any other keyword will be passed to the underlying block cipher.
@@ -240,6 +242,10 @@ def _create_cbc_cipher(factory, **kwargs):
             raise TypeError("You must either use 'iv' or 'IV', not both")
     else:
         iv = IV
+
+    if len(iv) != factory.block_size:
+        raise ValueError("Incorrect IV length (it must be %d bytes long)" %
+                factory.block_size)
 
     if kwargs:
         raise TypeError("Unknown parameters for CBC: %s" % str(kwargs))

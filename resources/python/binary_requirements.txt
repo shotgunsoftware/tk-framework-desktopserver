@@ -10,5 +10,5 @@
 
 cffi==1.10.0
 zope.interface==4.4.2
-pycryptodome==3.4.6
+pycryptodome==3.6.6
 cryptography==2.0

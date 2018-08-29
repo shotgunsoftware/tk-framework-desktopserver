@@ -28,6 +28,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 # ===================================================================
 
+import sys
+
 from Crypto.Util.py3compat import tobytes, b, bchr
 
 from Crypto.Util._raw_api import (backend, load_lib,
@@ -35,14 +37,9 @@ from Crypto.Util._raw_api import (backend, load_lib,
                                   null_pointer, create_string_buffer,
                                   c_ulong, c_ulonglong, c_size_t)
 
-# GMP uses unsigned longs in several functions prototypes.
-# On a UNIX 64 bit platform that type takes 64 bits but in Windows 64
-# it is still 32 bits.
-# The intention of the MPIR developers is to maintain binary compatibility
-# so they probably assumed that that GMP would compile on Windows 64
-# by treating it as a UNIX platform.
+from Crypto.Math._Numbers_int import Integer as SlowInteger
 
-gmp_defs_common = """
+gmp_defs = """typedef unsigned long UNIX_ULONG;
         typedef struct { int a; int b; void *c; } MPZ;
         typedef MPZ mpz_t[1];
         typedef UNIX_ULONG mp_bitcnt_t;
@@ -95,28 +92,14 @@ gmp_defs_common = """
         int __gmpz_divisible_ui_p (const mpz_t n, UNIX_ULONG d);
         """
 
-try:
-    gmp_defs = "typedef unsigned long UNIX_ULONG;" + gmp_defs_common
-    lib = load_lib("gmp", gmp_defs)
-    implementation = { "library":"gmp", "api":backend }
-except OSError:
-    import platform
-    bits, linkage = platform.architecture()
-    if bits.startswith("64") and linkage.startswith("Win"):
-        # MPIR uses unsigned long long where GMP uses unsigned long
-        # (LLP64 vs LP64)
-        gmp_defs = "typedef unsigned long long UNIX_ULONG;" + gmp_defs_common
-        c_ulong = c_ulonglong
-    # Try to load private MPIR lib first (wheel)
-    try:
-        from Crypto.Util._file_system import pycryptodome_filename
+lib = load_lib("gmp", gmp_defs)
+implementation = { "library":"gmp", "api":backend }
 
-        mpir_dll = pycryptodome_filename(("Crypto", "Math"), "mpir.dll")
-        lib = load_lib(mpir_dll, gmp_defs)
-    except OSError:
-        lib = load_lib("mpir", gmp_defs)
+if hasattr(lib, "__mpir_version"):
+    raise ImportError("MPIR library detected")
 
-    implementation = { "library":"mpir", "api":backend }
+if sys.platform == "win32":
+    raise ImportError("Not using GMP on Windows")
 
 # In order to create a function that returns a pointer to
 # a new MPZ structure, we need to break the abstraction
@@ -433,15 +416,22 @@ class Integer(object):
         _gmp.mpz_abs(result._mpz_p, self._mpz_p)
         return result
 
-    def sqrt(self):
+    def sqrt(self, modulus=None):
         """Return the largest Integer that does not
         exceed the square root"""
 
-        if self < 0:
-            raise ValueError("Square root of negative value")
-        result = Integer(0)
-        _gmp.mpz_sqrt(result._mpz_p,
-                      self._mpz_p)
+        if modulus is None:
+            if self < 0:
+                raise ValueError("Square root of negative value")
+            result = Integer(0)
+            _gmp.mpz_sqrt(result._mpz_p,
+                          self._mpz_p)
+        else:
+            if modulus <= 0:
+                raise ValueError("Modulus must be positive")
+            modulus = int(modulus)
+            result = Integer(SlowInteger._tonelli_shanks(int(self) % modulus, modulus))
+
         return result
 
     def __iadd__(self, term):
@@ -534,16 +524,26 @@ class Integer(object):
 
     def __rshift__(self, pos):
         result = Integer(0)
-        if not 0 <= pos < 65536:
-            raise ValueError("Incorrect shift count")
+        if pos < 0:
+            raise ValueError("negative shift count")
+        if pos > 65536:
+            if self < 0:
+                return -1
+            else:
+                return 0
         _gmp.mpz_tdiv_q_2exp(result._mpz_p,
                              self._mpz_p,
                              c_ulong(int(pos)))
         return result
 
     def __irshift__(self, pos):
-        if not 0 <= pos < 65536:
-            raise ValueError("Incorrect shift count")
+        if pos < 0:
+            raise ValueError("negative shift count")
+        if pos > 65536:
+            if self < 0:
+                return -1
+            else:
+                return 0
         _gmp.mpz_tdiv_q_2exp(self._mpz_p,
                              self._mpz_p,
                              c_ulong(int(pos)))
@@ -570,8 +570,12 @@ class Integer(object):
         """Return True if the n-th bit is set to 1.
         Bit 0 is the least significant."""
 
-        if not 0 <= n < 65536:
-            raise ValueError("Incorrect bit position")
+        if self < 0:
+            raise ValueError("no bit representation for negative values")
+        if n < 0:
+            raise ValueError("negative bit count")
+        if n > 65536:
+            return 0
         return bool(_gmp.mpz_tstbit(self._mpz_p,
                                     c_ulong(int(n))))
 
