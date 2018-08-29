@@ -1,3 +1,25 @@
+Metadata-Version: 2.1
+Name: pycryptodome
+Version: 3.6.6
+Summary: Cryptographic library for Python
+Home-page: http://www.pycryptodome.org
+Author: Helder Eijs
+Author-email: helderijs@gmail.com
+License: UNKNOWN
+Platform: Posix; MacOS X; Windows
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: BSD License
+Classifier: License :: Public Domain
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: Unix
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Topic :: Security :: Cryptography
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+
 PyCryptodome
 ============
 

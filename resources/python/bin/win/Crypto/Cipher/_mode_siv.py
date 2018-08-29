@@ -36,7 +36,7 @@ __all__ = ['SivMode']
 
 from binascii import hexlify
 
-from Crypto.Util.py3compat import byte_string, bord, unhexlify, b
+from Crypto.Util.py3compat import byte_string, bord, unhexlify, _copy_bytes
 
 from Crypto.Util.number import long_to_bytes, bytes_to_long
 from Crypto.Protocol.KDF import _S2V
@@ -93,20 +93,19 @@ class SivMode(object):
 
         self._factory = factory
 
-        self._nonce = nonce
         self._cipher_params = kwargs
 
         if len(key) not in (32, 48, 64):
             raise ValueError("Incorrect key length (%d bytes)" % len(key))
 
         if nonce is not None:
-            if not byte_string(nonce):
+            if isinstance(nonce, unicode):
                 raise TypeError("When provided, the nonce must be a byte string")
 
             if len(nonce) == 0:
                 raise ValueError("When provided, the nonce must be non-empty")
 
-            self.nonce = nonce
+            self.nonce = _copy_bytes(None, None, nonce)
             """Public attribute is only available in case of non-deterministic
             encryption."""
 
@@ -125,15 +124,16 @@ class SivMode(object):
         self._next = [self.update, self.encrypt, self.decrypt,
                       self.digest, self.verify]
 
-    def _create_ctr_cipher(self, mac_tag):
-        """Create a new CTR cipher from the MAC in SIV mode"""
+    def _create_ctr_cipher(self, v):
+        """Create a new CTR cipher from V in SIV mode"""
 
-        tag_int = bytes_to_long(mac_tag)
+        v_int = bytes_to_long(v)
+        q = v_int & 0xFFFFFFFFFFFFFFFF7FFFFFFF7FFFFFFF
         return self._factory.new(
                     self._subkey_cipher,
                     self._factory.MODE_CTR,
-                    initial_value=tag_int ^ (tag_int & 0x8000000080000000L),
-                    nonce=b(""),
+                    initial_value=q,
+                    nonce=b"",
                     **self._cipher_params)
 
     def update(self, component):
@@ -158,8 +158,8 @@ class SivMode(object):
         If there is no associated data, this method must not be called.
 
         :Parameters:
-          component : byte string
-            The next associated data component. It must not be empty.
+          component : bytes/bytearray/memoryview
+            The next associated data component.
         """
 
         if self.update not in self._next:
@@ -172,46 +172,18 @@ class SivMode(object):
         return self._kdf.update(component)
 
     def encrypt(self, plaintext):
-        """Encrypt data with the key and the parameters set at initialization.
+        """
+        For SIV, encryption and MAC authentication must take place at the same
+        point. This method shall not be used.
 
-        A cipher object is stateful: once you have encrypted a message
-        you cannot encrypt (or decrypt) another message using the same
-        object.
-
-        This method can be called only **once**.
-
-        You cannot reuse an object for encrypting
-        or decrypting other data with the same key.
-
-        This function does not add any padding to the plaintext.
-
-        :Parameters:
-          plaintext : byte string
-            The piece of data to encrypt.
-            It can be of any length, but it cannot be empty.
-        :Return:
-            the encrypted data, as a byte string.
-            It is as long as *plaintext*.
+        Use `encrypt_and_digest` instead.
         """
 
-        if self.encrypt not in self._next:
-            raise TypeError("encrypt() can only be called after"
-                            " initialization or an update()")
-
-        self._next = [self.digest]
-
-        if self._nonce:
-            self._kdf.update(self.nonce)
-        self._kdf.update(plaintext)
-
-        self._mac_tag = self._kdf.derive()
-        cipher = self._create_ctr_cipher(self._mac_tag)
-
-        return cipher.encrypt(plaintext)
+        raise TypeError("encrypt() not allowed for SIV mode."
+                        " Use encrypt_and_digest() instead.")
 
     def decrypt(self, ciphertext):
-        """Decrypt data with the key and the parameters set at initialization.
-
+        """
         For SIV, decryption and verification must take place at the same
         point. This method shall not be used.
 
@@ -259,7 +231,7 @@ class SivMode(object):
         tampered with while in transit.
 
         :Parameters:
-          received_mac_tag : byte string
+          received_mac_tag : bytes/bytearray/memoryview
             This is the *binary* MAC, as received from the sender.
         :Raises ValueError:
             if the MAC does not match. The message has been tampered with
@@ -301,7 +273,7 @@ class SivMode(object):
         """Perform encrypt() and digest() in one step.
 
         :Parameters:
-          plaintext : byte string
+          plaintext : bytes/bytearray/memoryview
             The piece of data to encrypt.
         :Return:
             a tuple with two byte strings:
@@ -309,8 +281,22 @@ class SivMode(object):
             - the encrypted data
             - the MAC
         """
+        
+        if self.encrypt not in self._next:
+            raise TypeError("encrypt() can only be called after"
+                            " initialization or an update()")
 
-        return self.encrypt(plaintext), self.digest()
+        self._next = [ self.digest ]
+
+        # Compute V (MAC)
+        if hasattr(self, 'nonce'):
+            self._kdf.update(self.nonce)
+        self._kdf.update(plaintext)
+        self._mac_tag = self._kdf.derive()
+        
+        cipher = self._create_ctr_cipher(self._mac_tag)
+
+        return cipher.encrypt(plaintext), self._mac_tag
 
     def decrypt_and_verify(self, ciphertext, mac_tag):
         """Perform decryption and verification in one step.
@@ -325,10 +311,10 @@ class SivMode(object):
         This function does not remove any padding from the plaintext.
 
         :Parameters:
-          ciphertext : byte string
+          ciphertext : bytes/bytearray/memoryview
             The piece of data to decrypt.
             It can be of any length.
-          mac_tag : byte string
+          mac_tag : bytes/bytearray/memoryview
             This is the *binary* MAC, as received from the sender.
 
         :Return: the decrypted data (byte string).
@@ -340,19 +326,18 @@ class SivMode(object):
         if self.decrypt not in self._next:
             raise TypeError("decrypt() can only be called"
                             " after initialization or an update()")
-        self._next = [self.verify]
+        self._next = [ self.verify ]
 
         # Take the MAC and start the cipher for decryption
         self._cipher = self._create_ctr_cipher(mac_tag)
 
         plaintext = self._cipher.decrypt(ciphertext)
 
-        if self._nonce:
+        if hasattr(self, 'nonce'):
             self._kdf.update(self.nonce)
-        if plaintext:
-            self._kdf.update(plaintext)
-
+        self._kdf.update(plaintext)
         self.verify(mac_tag)
+        
         return plaintext
 
 
@@ -368,13 +353,13 @@ def _create_siv_cipher(factory, **kwargs):
 
     :Keywords:
 
-      key : byte string
+      key : bytes/bytearray/memoryview
         The secret key to use in the symmetric cipher.
         It must be 32, 48 or 64 bytes long.
         If AES is the chosen cipher, the variants *AES-128*,
         *AES-192* and or *AES-256* will be used internally.
 
-      nonce : byte string
+      nonce : bytes/bytearray/memoryview
         For deterministic encryption, it is not present.
 
         Otherwise, it is a value that must never be reused
@@ -386,7 +371,7 @@ def _create_siv_cipher(factory, **kwargs):
 
     try:
         key = kwargs.pop("key")
-    except KeyError, e:
+    except KeyError as e:
         raise TypeError("Missing parameter: " + str(e))
 
     nonce = kwargs.pop("nonce", None)

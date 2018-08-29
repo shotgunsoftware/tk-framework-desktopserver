@@ -19,62 +19,20 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ===================================================================
-"""AES symmetric cipher
+"""
+Module's constants for the modes of operation supported with AES:
 
-AES `(Advanced Encryption Standard)`__ is a symmetric block cipher standardized
-by NIST_ . It has a fixed data block size of 16 bytes.
-Its keys can be 128, 192, or 256 bits long.
-
-AES is very fast and secure, and it is the de facto standard for symmetric
-encryption.
-
-As an example, encryption can be done as follows:
-
-    >>> from Crypto.Cipher import AES
-    >>>
-    >>> key = b'Sixteen byte key'
-    >>> cipher = AES.new(key, AES.MODE_CFB)
-    >>> msg = cipher.iv + cipher.encrypt(b'Attack at dawn')
-
-A more complicated example is based on CCM, (see `MODE_CCM`) an `AEAD`_ mode
-that provides both confidentiality and authentication for a message.
-
-The CCM mode optionally allows the header of the message to remain in the clear,
-whilst still being authenticated. The encryption is done as follows:
-
-    >>> from Crypto.Cipher import AES
-    >>>
-    >>> hdr = b'To your eyes only'
-    >>> plaintext = b'Attack at dawn'
-    >>> key = b'Sixteen byte key'
-    >>> cipher = AES.new(key, AES.MODE_CCM)
-    >>> cipher.update(hdr)
-    >>> msg = cipher.nonce, hdr, cipher.encrypt(plaintext), cipher.digest()
-
-We assume that the tuple ``msg`` is transmitted to the receiver:
-
-    >>> from Crypto.Cipher import AES
-    >>>
-    >>> nonce, hdr, ciphertext, mac = msg
-    >>> key = b'Sixteen byte key'
-    >>> cipher = AES.new(key, AES.MODE_CCM, nonce)
-    >>> cipher.update(hdr)
-    >>> plaintext = cipher.decrypt(ciphertext)
-    >>> try:
-    >>>     cipher.verify(mac)
-    >>>     print "The message is authentic: hdr=%s, pt=%s" % (hdr, plaintext)
-    >>> except ValueError:
-    >>>     print "Key incorrect or message corrupted"
-
-If no ``nonce`` is supplied initially, a 11 bytes random ``nonce`` is generated,
-which is good for a maximum message size of 4G. See CCM_.
-
-.. __: http://en.wikipedia.org/wiki/Advanced_Encryption_Standard
-.. _NIST: http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
-.. _AEAD: http://blog.cryptographyengineering.com/2012/05/how-to-choose-authenticated-encryption.html
-.. _CCM: Crypto.Cipher._mode_ccm.CcmMode-class.html
-
-:undocumented: __package__
+:var MODE_ECB: :ref:`Electronic Code Book (ECB) <ecb_mode>`
+:var MODE_CBC: :ref:`Cipher-Block Chaining (CBC) <cbc_mode>`
+:var MODE_CFB: :ref:`Cipher FeedBack (CFB) <cfb_mode>`
+:var MODE_OFB: :ref:`Output FeedBack (OFB) <ofb_mode>`
+:var MODE_CTR: :ref:`CounTer Mode (CTR) <ctr_mode>`
+:var MODE_OPENPGP:  :ref:`OpenPGP Mode <openpgp_mode>`
+:var MODE_CCM: :ref:`Counter with CBC-MAC (CCM) Mode <ccm_mode>`
+:var MODE_EAX: :ref:`EAX Mode <eax_mode>`
+:var MODE_GCM: :ref:`Galois Counter Mode (GCM) <gcm_mode>`
+:var MODE_SIV: :ref:`Syntethic Initialization Vector (SIV) <siv_mode>`
+:var MODE_OCB: :ref:`Offset Code Book (OCB) <ocb_mode>`
 """
 
 import sys
@@ -82,11 +40,10 @@ import sys
 from Crypto.Cipher import _create_cipher
 from Crypto.Util._raw_api import (load_pycryptodome_raw_lib,
                                   VoidPointer, SmartPointer,
-                                  c_size_t, expect_byte_string)
+                                  c_size_t, c_uint8_ptr)
 
+from Crypto.Util import _cpu_features
 
-_raw_cpuid_lib = load_pycryptodome_raw_lib("Crypto.Util._cpuid",
-                                           "int have_aes_ni(void);")
 
 _cproto = """
         int AES_start_operation(const uint8_t key[],
@@ -104,15 +61,18 @@ _cproto = """
         """
 
 
+# Load portable AES
 _raw_aes_lib = load_pycryptodome_raw_lib("Crypto.Cipher._raw_aes",
                                          _cproto)
 
-_raw_aesni_lib = None
+# Try to load AES with AES NI instructions
 try:
-    if _raw_cpuid_lib.have_aes_ni() == 1:
+    _raw_aesni_lib = None
+    if _cpu_features.have_aes_ni():
         _raw_aesni_lib = load_pycryptodome_raw_lib("Crypto.Cipher._raw_aesni",
                                                    _cproto.replace("AES",
-                                                                  "AESNI"))
+                                                                   "AESNI"))
+# _raw_aesni may not have been compiled in
 except OSError:
     pass
 
@@ -128,8 +88,6 @@ def _create_base_cipher(dict_parameters):
     except KeyError:
         raise TypeError("Missing 'key' parameter")
 
-    expect_byte_string(key)
-
     if len(key) not in key_size:
         raise ValueError("Incorrect AES key length (%d bytes)" % len(key))
 
@@ -141,7 +99,7 @@ def _create_base_cipher(dict_parameters):
         stop_operation = _raw_aes_lib.AES_stop_operation
 
     cipher = VoidPointer()
-    result = start_operation(key,
+    result = start_operation(c_uint8_ptr(key),
                              c_size_t(len(key)),
                              cipher.address_of())
     if result:
@@ -151,142 +109,116 @@ def _create_base_cipher(dict_parameters):
 
 
 def new(key, mode, *args, **kwargs):
-    """Create a new AES cipher
+    """Create a new AES cipher.
 
-    :Parameters:
-      key : byte string
+    :param key:
         The secret key to use in the symmetric cipher.
-        It must be 16 (*AES-128*), 24 (*AES-192*), or 32 (*AES-256*)
-        bytes long.
 
-        Only in `MODE_SIV`, it needs to be 32, 48, or 64 bytes long.
+        It must be 16, 24 or 32 bytes long (respectively for *AES-128*,
+        *AES-192* or *AES-256*).
 
-      mode : a *MODE_** constant
+        For ``MODE_SIV`` only, it doubles to 32, 48, or 64 bytes.
+    :type key: bytes/bytearray/memoryview
+
+    :param mode:
         The chaining mode to use for encryption or decryption.
-        If in doubt, use `MODE_EAX`.
+        If in doubt, use ``MODE_EAX``.
+    :type mode: One of the supported ``MODE_*`` constants
 
-    :Keywords:
-      iv : byte string
-        (*Only* `MODE_CBC`, `MODE_CFB`, `MODE_OFB`, `MODE_OPENPGP`).
+    :Keyword Arguments:
+        *   **iv** (*bytes*, *bytearray*, *memoryview*) --
+            (Only applicable for ``MODE_CBC``, ``MODE_CFB``, ``MODE_OFB``,
+            and ``MODE_OPENPGP`` modes).
 
-        The initialization vector to use for encryption or decryption.
+            The initialization vector to use for encryption or decryption.
 
-        For `MODE_OPENPGP`, it must be 16 bytes long for encryption
-        and 18 bytes for decryption (in the latter case, it is
-        actually the *encrypted* IV which was prefixed to the ciphertext).
+            For ``MODE_CBC``, ``MODE_CFB``, and ``MODE_OFB`` it must be 16 bytes long.
 
-        For all other modes, it must be 16 bytes long.
+            For ``MODE_OPENPGP`` mode only,
+            it must be 16 bytes long for encryption
+            and 18 bytes for decryption (in the latter case, it is
+            actually the *encrypted* IV which was prefixed to the ciphertext).
 
-        In not provided, a random byte string is used (you must then
-        read its value with the ``iv`` attribute).
+            If not provided, a random byte string is generated (you must then
+            read its value with the :attr:`iv` attribute).
 
-      nonce : byte string
-        (*Only* `MODE_CCM`, `MODE_EAX`, `MODE_GCM`, `MODE_SIV`, `MODE_OCB`,
-        `MODE_CTR`).
+        *   **nonce** (*bytes*, *bytearray*, *memoryview*) --
+            (Only applicable for ``MODE_CCM``, ``MODE_EAX``, ``MODE_GCM``,
+            ``MODE_SIV``, ``MODE_OCB``, and ``MODE_CTR``).
 
-        A value that must never be reused for any other encryption done
-        with this key.
+            A value that must never be reused for any other encryption done
+            with this key (except possibly for ``MODE_SIV``, see below).
 
-        For `MODE_CCM`, its length must be in the range ``[7..13]``.
-        Bear in mind that with CCM there is a trade-off between nonce
-        length and maximum message size.
+            For ``MODE_EAX``, ``MODE_GCM`` and ``MODE_SIV`` there are no
+            restrictions on its length (recommended: **16** bytes).
 
-        For `MODE_OCB`, its length must be in the range ``[1..15]``.
+            For ``MODE_CCM``, its length must be in the range **[7..13]**.
+            Bear in mind that with CCM there is a trade-off between nonce
+            length and maximum message size. Recommendation: **11** bytes.
 
-        For `MODE_CTR`, its length must be in the range ``[0..15]``.
+            For ``MODE_OCB``, its length must be in the range **[1..15]**
+            (recommended: **15**).
 
-        For the other modes, there are no restrictions on its length.
+            For ``MODE_CTR``, its length must be in the range **[0..15]**
+            (recommended: **8**).
+            
+            For ``MODE_SIV``, the nonce is optional, if it is not specified,
+            then no nonce is being used, which renders the encryption
+            deterministic.
 
-        The recommended length depends on the mode: 8 bytes for `MODE_CTR`,
-        11 bytes for `MODE_CCM`, 15 bytes for `MODE_OCB` and 16 bytes
-        for the remaining modes.
+            If not provided, for modes other than ``MODE_SIV```, a random
+            byte string of the recommended length is used (you must then
+            read its value with the :attr:`nonce` attribute).
 
-        In not provided, a random byte string of the recommended
-        length is used (you must then read its value with the ``nonce`` attribute).
+        *   **segment_size** (*integer*) --
+            (Only ``MODE_CFB``).The number of **bits** the plaintext and ciphertext
+            are segmented in. It must be a multiple of 8.
+            If not specified, it will be assumed to be 8.
 
-      segment_size : integer
-        (*Only* `MODE_CFB`).The number of **bits** the plaintext and ciphertext
-        are segmented in. It must be a multiple of 8.
-        If not specified, it will be assumed to be 8.
+        *   **mac_len** : (*integer*) --
+            (Only ``MODE_EAX``, ``MODE_GCM``, ``MODE_OCB``, ``MODE_CCM``)
+            Length of the authentication tag, in bytes.
 
-      mac_len : integer
-        (*Only* `MODE_EAX`, `MODE_GCM`, `MODE_OCB`, `MODE_CCM`)
-        Length of the authentication tag, in bytes.
+            It must be even and in the range **[4..16]**.
+            The recommended value (and the default, if not specified) is **16**.
 
-        It must be even and in the range ``[4..16]``.
-        The recommended value (and the default, if not specified) is 16.
+        *   **msg_len** : (*integer*) --
+            (Only ``MODE_CCM``). Length of the message to (de)cipher.
+            If not specified, ``encrypt`` must be called with the entire message.
+            Similarly, ``decrypt`` can only be called once.
 
-      msg_len : integer
-        (*Only* `MODE_CCM`). Length of the message to (de)cipher.
-        If not specified, ``encrypt`` must be called with the entire message.
-        Similarly, ``decrypt`` can only be called once.
+        *   **assoc_len** : (*integer*) --
+            (Only ``MODE_CCM``). Length of the associated data.
+            If not specified, all associated data is buffered internally,
+            which may represent a problem for very large messages.
 
-      assoc_len : integer
-        (*Only* `MODE_CCM`). Length of the associated data.
-        If not specified, all associated data is buffered internally,
-        which may represent a problem for very large messages.
+        *   **initial_value** : (*integer*) --
+            (Only ``MODE_CTR``). The initial value for the counter within
+            the counter block. By default it is **0**.
 
-      initial_value : integer
-        (*Only* `MODE_CTR`). The initial value for the counter within
-        the counter block. By default it is 0.
+        *   **use_aesni** : (*boolean*) --
+            Use Intel AES-NI hardware extensions (default: use if available).
 
-      use_aesni : boolean
-        Use Intel AES-NI hardware extensions if available.
-
-    :Return: an AES object, of the applicable mode:
-
-        - CBC_ mode
-        - CCM_ mode
-        - CFB_ mode
-        - CTR_ mode
-        - EAX_ mode
-        - ECB_ mode
-        - GCM_ mode
-        - OCB_ mode
-        - OFB_ mode
-        - OpenPgp_ mode
-        - SIV_ mode
-
-    .. _CBC: Crypto.Cipher._mode_cbc.CbcMode-class.html
-    .. _CCM: Crypto.Cipher._mode_ccm.CcmMode-class.html
-    .. _CFB: Crypto.Cipher._mode_cfb.CfbMode-class.html
-    .. _CTR: Crypto.Cipher._mode_ctr.CtrMode-class.html
-    .. _EAX: Crypto.Cipher._mode_eax.EaxMode-class.html
-    .. _ECB: Crypto.Cipher._mode_ecb.EcbMode-class.html
-    .. _GCM: Crypto.Cipher._mode_gcm.GcmMode-class.html
-    .. _OCB: Crypto.Cipher._mode_ocb.OcbMode-class.html
-    .. _OFB: Crypto.Cipher._mode_ofb.OfbMode-class.html
-    .. _OpenPgp: Crypto.Cipher._mode_openpgp.OpenPgpMode-class.html
-    .. _SIV: Crypto.Cipher._mode_siv.SivMode-class.html
+    :Return: an AES object, of the applicable mode.
     """
 
     kwargs["add_aes_modes"] = True
     return _create_cipher(sys.modules[__name__], key, mode, *args, **kwargs)
 
-#: Electronic Code Book (ECB). See `Crypto.Cipher._mode_ecb.EcbMode`.
+
 MODE_ECB = 1
-#: Cipher-Block Chaining (CBC). See `Crypto.Cipher._mode_cbc.CbcMode`.
 MODE_CBC = 2
-#: Cipher FeedBack (CFB). See `Crypto.Cipher._mode_cfb.CfbMode`.
 MODE_CFB = 3
-#: Output FeedBack (OFB). See `Crypto.Cipher._mode_ofb.OfbMode`.
 MODE_OFB = 5
-#: CounTer Mode (CTR). See `Crypto.Cipher._mode_ctr.CtrMode`.
 MODE_CTR = 6
-#: OpenPGP Mode. See `Crypto.Cipher._mode_openpgp.OpenPgpMode`.
 MODE_OPENPGP = 7
-#: Counter with CBC-MAC (CCM) Mode. See `Crypto.Cipher._mode_ccm.CcmMode`.
 MODE_CCM = 8
-#: EAX Mode. See `Crypto.Cipher._mode_eax.EaxMode`.
 MODE_EAX = 9
-#: Syntethic Initialization Vector (SIV). See `Crypto.Cipher._mode_siv.SivMode`.
 MODE_SIV = 10
-#: Galois Counter Mode (GCM). See `Crypto.Cipher._mode_gcm.GcmMode`.
 MODE_GCM = 11
-#: Offset Code Book (OCB). See `Crypto.Cipher._mode_ocb.OcbMode`.
 MODE_OCB = 12
 
-#: Size of a data block (in bytes)
+# Size of a data block (in bytes)
 block_size = 16
-#: Size of a key (in bytes)
+# Size of a key (in bytes)
 key_size = (16, 24, 32)
