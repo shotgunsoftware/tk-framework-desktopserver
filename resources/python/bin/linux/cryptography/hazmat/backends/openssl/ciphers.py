@@ -57,8 +57,12 @@ class _CipherContext(object):
 
         if isinstance(mode, modes.ModeWithInitializationVector):
             iv_nonce = mode.initialization_vector
+        elif isinstance(mode, modes.ModeWithTweak):
+            iv_nonce = mode.tweak
         elif isinstance(mode, modes.ModeWithNonce):
             iv_nonce = mode.nonce
+        elif isinstance(cipher, modes.ModeWithNonce):
+            iv_nonce = cipher.nonce
         else:
             iv_nonce = self._backend._ffi.NULL
         # begin init with cipher and operation type
@@ -163,9 +167,6 @@ class _CipherContext(object):
                 errors[0]._lib_reason_match(
                     self._backend._lib.ERR_LIB_EVP,
                     self._backend._lib.EVP_R_DATA_NOT_MULTIPLE_OF_BLOCK_LENGTH
-                ) or errors[0]._lib_reason_match(
-                    self._backend._lib.ERR_LIB_EVP,
-                    self._backend._lib.EVP_R_DATA_NOT_MULTIPLE_OF_BLOCK_LENGTH
                 )
             )
             raise ValueError(
@@ -197,6 +198,11 @@ class _CipherContext(object):
             raise NotImplementedError(
                 "finalize_with_tag requires OpenSSL >= 1.0.2. To use this "
                 "method please update OpenSSL"
+            )
+        if len(tag) < self._mode._min_tag_length:
+            raise ValueError(
+                "Authentication tag must be {0} bytes or longer.".format(
+                    self._mode._min_tag_length)
             )
         res = self._backend._lib.EVP_CIPHER_CTX_ctrl(
             self._ctx, self._backend._lib.EVP_CTRL_AEAD_SET_TAG,

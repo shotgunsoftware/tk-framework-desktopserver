@@ -4,7 +4,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-from cryptography import utils
 from cryptography.x509 import certificate_transparency
 from cryptography.x509.base import (
     Certificate, CertificateBuilder, CertificateRevocationList,
@@ -19,13 +18,13 @@ from cryptography.x509.extensions import (
     AccessDescription, AuthorityInformationAccess,
     AuthorityKeyIdentifier, BasicConstraints, CRLDistributionPoints,
     CRLNumber, CRLReason, CertificateIssuer, CertificatePolicies,
-    DistributionPoint, DuplicateExtension, ExtendedKeyUsage, Extension,
-    ExtensionNotFound, ExtensionType, Extensions, GeneralNames,
-    InhibitAnyPolicy, InvalidityDate, IssuerAlternativeName, KeyUsage,
-    NameConstraints, NoticeReference, OCSPNoCheck, PolicyConstraints,
+    DeltaCRLIndicator, DistributionPoint, DuplicateExtension, ExtendedKeyUsage,
+    Extension, ExtensionNotFound, ExtensionType, Extensions, FreshestCRL,
+    GeneralNames, InhibitAnyPolicy, InvalidityDate, IssuerAlternativeName,
+    KeyUsage, NameConstraints, NoticeReference, OCSPNoCheck, PolicyConstraints,
     PolicyInformation, PrecertificateSignedCertificateTimestamps, ReasonFlags,
-    SubjectAlternativeName, SubjectKeyIdentifier, UnrecognizedExtension,
-    UnsupportedExtension, UserNotice
+    SubjectAlternativeName, SubjectKeyIdentifier, TLSFeature, TLSFeatureType,
+    UnrecognizedExtension, UserNotice
 )
 from cryptography.x509.general_name import (
     DNSName, DirectoryName, GeneralName, IPAddress, OtherName, RFC822Name,
@@ -75,6 +74,7 @@ OID_RSA_WITH_SHA224 = SignatureAlgorithmOID.RSA_WITH_SHA224
 OID_RSA_WITH_SHA256 = SignatureAlgorithmOID.RSA_WITH_SHA256
 OID_RSA_WITH_SHA384 = SignatureAlgorithmOID.RSA_WITH_SHA384
 OID_RSA_WITH_SHA512 = SignatureAlgorithmOID.RSA_WITH_SHA512
+OID_RSASSA_PSS = SignatureAlgorithmOID.RSASSA_PSS
 
 OID_COMMON_NAME = NameOID.COMMON_NAME
 OID_COUNTRY_NAME = NameOID.COUNTRY_NAME
@@ -110,13 +110,6 @@ OID_INVALIDITY_DATE = CRLEntryExtensionOID.INVALIDITY_DATE
 OID_CA_ISSUERS = AuthorityInformationAccessOID.CA_ISSUERS
 OID_OCSP = AuthorityInformationAccessOID.OCSP
 
-UnsupportedExtension = utils.deprecated(
-    UnsupportedExtension,
-    __name__,
-    "UnsupportedExtension is no longer necessary, it is never raised",
-    utils.DeprecatedIn19
-)
-
 __all__ = [
     "certificate_transparency",
     "load_pem_x509_certificate",
@@ -127,8 +120,8 @@ __all__ = [
     "load_der_x509_crl",
     "random_serial_number",
     "InvalidVersion",
+    "DeltaCRLIndicator",
     "DuplicateExtension",
-    "UnsupportedExtension",
     "ExtensionNotFound",
     "UnsupportedGeneralNameType",
     "NameAttribute",
@@ -139,6 +132,9 @@ __all__ = [
     "Extensions",
     "Extension",
     "ExtendedKeyUsage",
+    "FreshestCRL",
+    "TLSFeature",
+    "TLSFeatureType",
     "OCSPNoCheck",
     "BasicConstraints",
     "CRLNumber",

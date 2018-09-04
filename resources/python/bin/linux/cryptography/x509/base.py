@@ -189,6 +189,13 @@ class CertificateRevocationList(object):
         Returns bytes using digest passed.
         """
 
+    @abc.abstractmethod
+    def get_revoked_certificate_by_serial_number(self, serial_number):
+        """
+        Returns an instance of RevokedCertificate or None if the serial_number
+        is not in the CRL.
+        """
+
     @abc.abstractproperty
     def signature_hash_algorithm(self):
         """
@@ -248,6 +255,12 @@ class CertificateRevocationList(object):
     def __ne__(self, other):
         """
         Checks not equal.
+        """
+
+    @abc.abstractmethod
+    def is_signature_valid(self, public_key):
+        """
+        Verifies signature of revocation list against given public key.
         """
 
 
@@ -463,7 +476,7 @@ class CertificateBuilder(object):
 
         # ASN.1 integers are always signed, so most significant bit must be
         # zero.
-        if utils.bit_length(number) >= 160:  # As defined in RFC 5280
+        if number.bit_length() >= 160:  # As defined in RFC 5280
             raise ValueError('The serial number should not be more than 159 '
                              'bits.')
         return CertificateBuilder(
@@ -680,7 +693,7 @@ class RevokedCertificateBuilder(object):
 
         # ASN.1 integers are always signed, so most significant bit must be
         # zero.
-        if utils.bit_length(number) >= 160:  # As defined in RFC 5280
+        if number.bit_length() >= 160:  # As defined in RFC 5280
             raise ValueError('The serial number should not be more than 159 '
                              'bits.')
         return RevokedCertificateBuilder(
