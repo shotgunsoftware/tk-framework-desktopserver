@@ -19,14 +19,8 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ===================================================================
-""" ASN.1 DER encoding and decoding
 
-This module provides minimal support for encoding and decoding `ASN.1`_ DER
-objects.
-
-.. _`ASN.1`: ftp://ftp.rsasecurity.com/pub/pkcs/ascii/layman.asc
-
-"""
+import struct
 
 from Crypto.Util.py3compat import byte_string, b, bchr, bord
 
@@ -116,6 +110,8 @@ class DerObject(object):
                     return
                 asn1Id = self._convertTag(asn1Id)
 
+                self.payload = payload
+
                 # In a BER/DER identifier octet:
                 # * bits 4-0 contain the tag value
                 # * bit 5 is set if the type is 'constructed'
@@ -129,21 +125,20 @@ class DerObject(object):
                 # context-spec |   1      0 (default for IMPLICIT/EXPLICIT)
                 # private      |   1      1
                 #
-                if explicit is None:
-                    if implicit is None:
-                        self._tag_octet = asn1Id
-                    else:
-                        self._tag_octet = 0x80 | self._convertTag(implicit)
-                    self._tag_octet |= 0x20 * constructed
-                else:
-                    if implicit is None:
-                        self._tag_octet = 0xA0 | self._convertTag(explicit)
-                    else:
-                        raise ValueError("Explicit and implicit tags are"
-                                         " mutually exclusive")
-                    self._inner_tag_octet = asn1Id + 0x20 * constructed
+                if None not in (explicit, implicit):
+                    raise ValueError("Explicit and implicit tags are"
+                                     " mutually exclusive")
 
-                self.payload = payload
+                if implicit is not None:
+                    self._tag_octet = 0x80 | 0x20 * constructed | self._convertTag(implicit)
+                    return
+
+                if explicit is not None:
+                    self._tag_octet = 0xA0 | self._convertTag(explicit)
+                    self._inner_tag_octet = 0x20 * constructed | asn1Id
+                    return
+                
+                self._tag_octet = 0x20 * constructed | asn1Id
 
         def _convertTag(self, tag):
                 """Check if *tag* is a real DER tag.
@@ -199,23 +194,22 @@ class DerObject(object):
                         raise ValueError("Not a DER length tag (but still valid BER).")
                 return payloadLength
 
-        def decode(self, derEle):
+        def decode(self, der_encoded, strict=False):
                 """Decode a complete DER element, and re-initializes this
                 object with it.
 
-                :Parameters:
-                  derEle : byte string
-                    A complete DER element.
+                Args:
+                  der_encoded (byte string): A complete DER element.
 
-                :Raise ValueError:
-                  In case of parsing errors.
+                Raises:
+                  ValueError: in case of parsing errors.
                 """
 
-                if not byte_string(derEle):
+                if not byte_string(der_encoded):
                     raise ValueError("Input is not a byte string")
 
-                s = BytesIO_EOF(derEle)
-                self._decodeFromStream(s)
+                s = BytesIO_EOF(der_encoded)
+                self._decodeFromStream(s, strict)
 
                 # There shouldn't be other bytes left
                 if s.remaining_data() > 0:
@@ -223,7 +217,7 @@ class DerObject(object):
 
                 return self
 
-        def _decodeFromStream(self, s):
+        def _decodeFromStream(self, s, strict):
                 """Decode a complete DER element from a file."""
 
                 idOctet = s.read_byte()
@@ -253,7 +247,7 @@ class DerObject(object):
 class DerInteger(DerObject):
         """Class to model a DER INTEGER.
 
-        An example of encoding is:
+        An example of encoding is::
 
           >>> from Crypto.Util.asn1 import DerInteger
           >>> from binascii import hexlify, unhexlify
@@ -262,7 +256,7 @@ class DerInteger(DerObject):
 
         which will show ``020109``, the DER encoding of 9.
 
-        And for decoding:
+        And for decoding::
 
           >>> s = unhexlify(b'020109')
           >>> try:
@@ -273,6 +267,9 @@ class DerInteger(DerObject):
           >>>   print "Not a valid DER INTEGER"
 
         the output will be ``9``.
+
+        :ivar value: The integer value
+        :vartype value: integer
         """
 
         def __init__(self, value=0, implicit=None, explicit=None):
@@ -289,7 +286,7 @@ class DerInteger(DerObject):
 
                 DerObject.__init__(self, 0x02, b(''), implicit,
                                    False, explicit)
-                self.value = value  #: The integer value
+                self.value = value  # The integer value
 
         def encode(self):
                 """Return the DER INTEGER, fully encoded as a
@@ -306,25 +303,30 @@ class DerInteger(DerObject):
                     number >>= 8
                 return DerObject.encode(self)
 
-        def decode(self, derEle):
+        def decode(self, der_encoded, strict=False):
                 """Decode a complete DER INTEGER DER, and re-initializes this
                 object with it.
 
-                :Parameters:
-                  derEle : byte string
-                    A complete INTEGER DER element.
+                Args:
+                  der_encoded (byte string): A complete INTEGER DER element.
 
-                :Raise ValueError:
-                  In case of parsing errors.
+                Raises:
+                  ValueError: in case of parsing errors.
                 """
 
-                return DerObject.decode(self, derEle)
+                return DerObject.decode(self, der_encoded, strict=strict)
 
-        def _decodeFromStream(self, s):
+        def _decodeFromStream(self, s, strict):
                 """Decode a complete DER INTEGER from a file."""
 
                 # Fill up self.payload
-                DerObject._decodeFromStream(self, s)
+                DerObject._decodeFromStream(self, s, strict)
+
+                if strict:
+                    if len(self.payload) == 0:
+                        raise ValueError("Invalid encoding for DER INTEGER: empty payload")
+                    if len(self.payload) >= 2 and struct.unpack('>H', self.payload[:2])[0] < 0x80:
+                        raise ValueError("Invalid encoding for DER INTEGER: leading zero")
 
                 # Derive self.value from self.payload
                 self.value = 0
@@ -434,34 +436,34 @@ class DerSequence(DerObject):
                 """Return the number of items in this sequence that are
                 integers.
 
-                :Parameters:
-                  only_non_negative : boolean
-                    If True, negative integers are not counted in.
+                Args:
+                  only_non_negative (boolean):
+                    If ``True``, negative integers are not counted in.
                 """
                 def _is_number2(x):
                     return _is_number(x, only_non_negative)
                 return len(filter(_is_number2, self._seq))
 
         def hasOnlyInts(self, only_non_negative=True):
-                """Return True if all items in this sequence are integers
+                """Return ``True`` if all items in this sequence are integers
                 or non-negative integers.
 
                 This function returns False is the sequence is empty,
                 or at least one member is not an integer.
 
-                :Parameters:
-                  only_non_negative : boolean
-                    If True, the presence of negative integers
-                    causes the method to return False."""
+                Args:
+                  only_non_negative (boolean):
+                    If ``True``, the presence of negative integers
+                    causes the method to return ``False``."""
                 return self._seq and self.hasInts(only_non_negative) == len(self._seq)
 
         def encode(self):
                 """Return this DER SEQUENCE, fully encoded as a
                 binary string.
 
-                :Raises ValueError:
-                  If some elements in the sequence are neither integers
-                  nor byte strings.
+                Raises:
+                  ValueError: if some elements in the sequence are neither integers
+                              nor byte strings.
                 """
                 self.payload = b('')
                 for item in self._seq:
@@ -473,40 +475,42 @@ class DerSequence(DerObject):
                         self.payload += item.encode()
                 return DerObject.encode(self)
 
-        def decode(self, derEle, nr_elements=None, only_ints_expected=False):
+        def decode(self, der_encoded, nr_elements=None, only_ints_expected=False, strict=False):
                 """Decode a complete DER SEQUENCE, and re-initializes this
                 object with it.
 
-                :Parameters:
-                  derEle : byte string
+                Args:
+                  der_encoded (byte string):
                     A complete SEQUENCE DER element.
-                  nr_elements : None, integer or list of integers
+                  nr_elements (None or integer or list of integers):
                     The number of members the SEQUENCE can have
-                  only_ints_expected : boolean
+                  only_ints_expected (boolean):
                     Whether the SEQUENCE is expected to contain only integers.
+                  struct (boolean):
+                    Whether decoding must check for strict DER compliancy.
 
-                :Raise ValueError:
-                  In case of parsing errors.
+                Raises:
+                  ValueError: in case of parsing errors.
 
                 DER INTEGERs are decoded into Python integers. Any other DER
                 element is not decoded. Its validity is not checked.
                 """
 
                 self._nr_elements = nr_elements
-                result = DerObject.decode(self, derEle)
+                result = DerObject.decode(self, der_encoded, strict=strict)
 
                 if only_ints_expected and not self.hasOnlyInts():
                     raise ValueError("Some members are not INTEGERs")
 
                 return result
 
-        def _decodeFromStream(self, s):
+        def _decodeFromStream(self, s, strict):
                 """Decode a complete DER SEQUENCE from a file."""
 
                 self._seq = []
 
                 # Fill up self.payload
-                DerObject._decodeFromStream(self, s)
+                DerObject._decodeFromStream(self, s, strict)
 
                 # Add one item at a time to self.seq, by scanning self.payload
                 p = BytesIO_EOF(self.payload)
@@ -514,14 +518,16 @@ class DerSequence(DerObject):
                     p.set_bookmark()
 
                     der = DerObject()
-                    der._decodeFromStream(p)
+                    der._decodeFromStream(p, strict)
 
                     # Parse INTEGERs differently
                     if der._tag_octet != 0x02:
                         self._seq.append(p.data_since_bookmark())
                     else:
                         derInt = DerInteger()
-                        derInt.decode(p.data_since_bookmark())
+                        #import pdb; pdb.set_trace()
+                        data = p.data_since_bookmark()
+                        derInt.decode(data, strict=strict)
                         self._seq.append(derInt.value)
 
                 ok = True
@@ -561,6 +567,9 @@ class DerOctetString(DerObject):
     >>>   print "Not a valid DER OCTET STRING"
 
     the output will be ``aabb``.
+
+    :ivar payload: The content of the string
+    :vartype payload: byte string
     """
 
     def __init__(self, value=b(''), implicit=None):
@@ -612,6 +621,9 @@ class DerObjectId(DerObject):
     >>>   print "Not a valid DER OBJECT ID"
 
     the output will be ``1.2.840.113549.1.1.1``.
+
+    :ivar value: The Object ID (OID), a dot separated list of integers
+    :vartype value: string
     """
 
     def __init__(self, value='', implicit=None, explicit=None):
@@ -627,7 +639,7 @@ class DerObjectId(DerObject):
             The EXPLICIT tag to use for the encoded object.
         """
         DerObject.__init__(self, 0x06, b(''), implicit, False, explicit)
-        self.value = value  #: The Object ID, a dot separated list of integers
+        self.value = value
 
     def encode(self):
         """Return the DER OBJECT ID, fully encoded as a
@@ -646,25 +658,25 @@ class DerObjectId(DerObject):
             self.payload += b('').join(map(bchr, enc))
         return DerObject.encode(self)
 
-    def decode(self, derEle):
+    def decode(self, der_encoded):
         """Decode a complete DER OBJECT ID, and re-initializes this
         object with it.
 
-        :Parameters:
-            derEle : byte string
+        Args:
+            der_encoded (byte string):
                 A complete DER OBJECT ID.
 
-        :Raise ValueError:
-            In case of parsing errors.
+        Raises:
+            ValueError: in case of parsing errors.
         """
 
-        return DerObject.decode(self, derEle)
+        return DerObject.decode(self, der_encoded)
 
-    def _decodeFromStream(self, s):
+    def _decodeFromStream(self, s, strict):
         """Decode a complete DER OBJECT ID from a file."""
 
         # Fill up self.payload
-        DerObject._decodeFromStream(self, s)
+        DerObject._decodeFromStream(self, s, strict)
 
         # Derive self.value from self.payload
         p = BytesIO_EOF(self.payload)
@@ -701,9 +713,12 @@ class DerBitString(DerObject):
     >>>   bs_der.decode(s)
     >>>   print hexlify(bs_der.value)
     >>> except ValueError:
-    >>>   print "Not a valid DER OCTET STRING"
+    >>>   print "Not a valid DER BIT STRING"
 
     the output will be ``aabb``.
+
+    :ivar value: The content of the string
+    :vartype value: byte string
     """
 
     def __init__(self, value=b(''), implicit=None, explicit=None):
@@ -735,25 +750,24 @@ class DerBitString(DerObject):
         self.payload = b('\x00') + self.value
         return DerObject.encode(self)
 
-    def decode(self, derEle):
+    def decode(self, der_encoded):
         """Decode a complete DER BIT STRING, and re-initializes this
         object with it.
 
-        :Parameters:
-            derEle : byte string
-                A complete DER BIT STRING.
+        Args:
+            der_encoded (byte string): a complete DER BIT STRING.
 
-        :Raise ValueError:
-            In case of parsing errors.
+        Raises:
+            ValueError: in case of parsing errors.
         """
 
-        return DerObject.decode(self, derEle)
+        return DerObject.decode(self, der_encoded)
 
-    def _decodeFromStream(self, s):
+    def _decodeFromStream(self, s, strict):
         """Decode a complete DER BIT STRING DER from a file."""
 
         # Fill-up self.payload
-        DerObject._decodeFromStream(self, s)
+        DerObject._decodeFromStream(self, s, strict)
 
         if self.payload and bord(self.payload[0]) != 0:
             raise ValueError("Not a valid BIT STRING")
@@ -825,8 +839,8 @@ class DerSetOf(DerObject):
     def add(self, elem):
         """Add an element to the set.
 
-        :Parameters:
-            elem : byte string or integer
+        Args:
+            elem (byte string or integer):
               An element of the same type of objects already in the set.
               It can be an integer or a DER encoded object.
         """
@@ -846,30 +860,29 @@ class DerSetOf(DerObject):
         if elem not in self._seq:
             self._seq.append(elem)
 
-    def decode(self, derEle):
+    def decode(self, der_encoded):
         """Decode a complete SET OF DER element, and re-initializes this
         object with it.
 
         DER INTEGERs are decoded into Python integers. Any other DER
         element is left undecoded; its validity is not checked.
 
-        :Parameters:
-            derEle : byte string
-                A complete DER BIT SET OF.
+        Args:
+            der_encoded (byte string): a complete DER BIT SET OF.
 
-        :Raise ValueError:
-            In case of parsing errors.
+        Raises:
+            ValueError: in case of parsing errors.
         """
 
-        return DerObject.decode(self, derEle)
+        return DerObject.decode(self, der_encoded)
 
-    def _decodeFromStream(self, s):
+    def _decodeFromStream(self, s, strict):
         """Decode a complete DER SET OF from a file."""
 
         self._seq = []
 
         # Fill up self.payload
-        DerObject._decodeFromStream(self, s)
+        DerObject._decodeFromStream(self, s, strict)
 
         # Add one item at a time to self.seq, by scanning self.payload
         p = BytesIO_EOF(self.payload)
@@ -878,7 +891,7 @@ class DerSetOf(DerObject):
             p.set_bookmark()
 
             der = DerObject()
-            der._decodeFromStream(p)
+            der._decodeFromStream(p, strict)
 
             # Verify that all members are of the same type
             if setIdOctet < 0:
@@ -892,7 +905,7 @@ class DerSetOf(DerObject):
                 self._seq.append(p.data_since_bookmark())
             else:
                 derInt = DerInteger()
-                derInt.decode(p.data_since_bookmark())
+                derInt.decode(p.data_since_bookmark(), strict)
                 self._seq.append(derInt.value)
         # end
 

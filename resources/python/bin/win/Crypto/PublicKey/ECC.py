@@ -28,53 +28,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 # ===================================================================
 
-"""Elliptic Curve Cryptography (ECC) algorithms.
-
-ECC_ is a modern and efficient type of public key cryptography.
-Its security is based on the difficulty to solve discrete logarithms
-on the field defined by specific equations involving points on a curve.
-
-ECC can be used to perform signing/verification and asymmetric
-encryption/decryption.
-
-The main benefit of ECC is that the size of a key is significantly smaller
-than with other, more traditional algorithms like RSA or DSA.
-
-For instance, consider the security level equivalent to AES128: an RSA
-key of similar strength must have a modulus of 3072 bits (therefore the total size
-is 768 bytes, comprising modulus and private exponent).
-An ECC private needs as little as 256 bits (32 bytes).
-
-This module provides mechanisms for generating new ECC keys, exporting them
-using widely supported formats like PEM or DER and importing them back.
-
-**This module currently supports only ECC keys defined over the standard
-NIST P-256 curve** (see `FIPS 186-4`_, Section D.1.2.3). More curves will be
-added in the future.
-
-The following example demonstrates how to generate a new key, export it,
-and subsequentely reload it back into the application:
-
-    >>> from Crypto.PublicKey import ECC
-    >>>
-    >>> key = ECC.generate(curve='P-256')
-    >>> f = open('myprivatekey.pem','wt')
-    >>> f.write(key.export_key('PEM'))
-    >>> f.close()
-    ...
-    >>> f = open('myprivatekey.pem','rt')
-    >>> key = RSA.import_key(f.read())
-
-The ECC key can be used to perform or verify ECDSA signatures, see
-`Crypto.Signature.DSS`.
-
-.. _ECC: http://andrea.corbellini.name/2015/05/17/elliptic-curve-cryptography-a-gentle-introduction/
-.. _`FIPS 186-4`: http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf
-
-:undocumented: __package__
-"""
-
-
 import struct
 import binascii
 
@@ -104,10 +57,18 @@ _curve.names = ("P-256", "prime256v1", "secp256r1")
 _curve.oid = "1.2.840.10045.3.1.7"
 
 
+class UnsupportedEccFeature(ValueError):
+    pass
+
+
 class EccPoint(object):
     """A class to abstract a point over an Elliptic Curve.
 
-    :undocumented: __init__, __eq__, __neg__, __iadd__, __add__, __mul__
+    :ivar x: The X-coordinate of the ECC point
+    :vartype x: integer
+
+    :ivar y: The Y-coordinate of the ECC point
+    :vartype y: integer
     """
 
     def __init__(self, x, y):
@@ -145,20 +106,22 @@ class EccPoint(object):
 
     @property
     def x(self):
-        """The X-coordinate of the ECC point"""
         if self.is_point_at_infinity():
             raise ValueError("Point at infinity")
         return self._x
 
     @property
     def y(self):
-        """The Y-coordinate of the ECC point"""
         if self.is_point_at_infinity():
             raise ValueError("Point at infinity")
         return self._y
 
     def double(self):
-        """Double this point"""
+        """Double this point (in-place operation).
+
+        :Return:
+            :class:`EccPoint` : this same object (to enable chaining)
+        """
 
         if not self._y:
             return self.point_at_infinity()
@@ -284,15 +247,22 @@ _curve.G = EccPoint(_curve.Gx, _curve.Gy)
 
 
 class EccKey(object):
-    """A private or public key over an Elliptic Curve.
+    r"""Class defining an ECC key.
+    Do not instantiate directly.
+    Use :func:`generate`, :func:`construct` or :func:`import_key` instead.
 
-    :undocumented: __eq__, __repr__, __init__
+    :ivar curve: The name of the ECC curve
+    :vartype curve: string
+
+    :ivar pointQ: an ECC point representating the public component
+    :vartype pointQ: :class:`EccPoint`
+
+    :ivar q: A scalar representating the private component
+    :vartype q: integer
     """
 
     def __init__(self, **kwargs):
         """Create a new ECC key
-
-        Do not instantiate this object directly.
 
         Keywords:
           curve : string
@@ -337,7 +307,8 @@ class EccKey(object):
                (self.pointQ.x, self.pointQ.y, extra)
 
     def has_private(self):
-        """True if this key can be used for making signatures or decrypting"""
+        """``True`` if this key can be used for making signatures or decrypting data."""
+
         return self._d is not None
 
     def _sign(self, z, k):
@@ -361,29 +332,45 @@ class EccKey(object):
 
     @property
     def d(self):
-        """An integer (scalar), representating the private component"""
         if not self.has_private():
             raise ValueError("This is not a private ECC key")
         return self._d
 
     @property
     def pointQ(self):
-        """An `EccPoint`, representating the public component"""
         if self._point is None:
             self._point = _curve.G * self._d
         return self._point
 
     def public_key(self):
-        """Create a new `EccKey`, by retaining only the public components"""
+        """A matching ECC public key.
+
+        Returns:
+            a new :class:`EccKey` object
+        """
+
         return EccKey(curve="P-256", point=self.pointQ)
 
-    def _export_subjectPublicKeyInfo(self):
+    def _export_subjectPublicKeyInfo(self, compress):
+    
+        # See 2.2 in RFC5480 and 2.3.3 in SEC1
+        # The first byte is:
+        # - 0x02:   compressed, only X-coordinate, Y-coordinate is even
+        # - 0x03:   compressed, only X-coordinate, Y-coordinate is odd
+        # - 0x04:   uncompressed, X-coordinate is followed by Y-coordinate
+        #
+        # PAI is in theory encoded as 0x00.
 
-        # Uncompressed form
         order_bytes = _curve.order.size_in_bytes()
-        public_key = (bchr(4) +
-                      self.pointQ.x.to_bytes(order_bytes) +
-                      self.pointQ.y.to_bytes(order_bytes))
+
+        if compress:
+            first_byte = 2 + self.pointQ.y.is_odd()
+            public_key = (bchr(first_byte) +
+                          self.pointQ.x.to_bytes(order_bytes))
+        else:
+            public_key = (bchr(4) +
+                          self.pointQ.x.to_bytes(order_bytes) +
+                          self.pointQ.y.to_bytes(order_bytes))
 
         unrestricted_oid = "1.2.840.10045.2.1"
         return _create_subject_public_key_info(unrestricted_oid,
@@ -428,8 +415,8 @@ class EccKey(object):
                             **kwargs)
         return result
 
-    def _export_public_pem(self):
-        encoded_der = self._export_subjectPublicKeyInfo()
+    def _export_public_pem(self, compress):
+        encoded_der = self._export_subjectPublicKeyInfo(compress)
         return PEM.encode(encoded_der, "PUBLIC KEY")
 
     def _export_private_pem(self, passphrase, **kwargs):
@@ -447,16 +434,21 @@ class EccKey(object):
         encoded_der = self._export_pkcs8(passphrase=passphrase, **kwargs)
         return PEM.encode(encoded_der, "ENCRYPTED PRIVATE KEY")
 
-    def _export_openssh(self):
-        assert not self.has_private()
+    def _export_openssh(self, compress):
+        if self.has_private():
+            raise ValueError("Cannot export OpenSSH private keys")
 
         desc = "ecdsa-sha2-nistp256"
-
-        # Uncompressed form
         order_bytes = _curve.order.size_in_bytes()
-        public_key = (bchr(4) +
-                      self.pointQ.x.to_bytes(order_bytes) +
-                      self.pointQ.y.to_bytes(order_bytes))
+        
+        if compress:
+            first_byte = 2 + self.pointQ.y.is_odd()
+            public_key = (bchr(first_byte) +
+                          self.pointQ.x.to_bytes(order_bytes))
+        else:
+            public_key = (bchr(4) +
+                          self.pointQ.x.to_bytes(order_bytes) +
+                          self.pointQ.y.to_bytes(order_bytes))
 
         comps = (tobytes(desc), b("nistp256"), public_key)
         blob = b("").join([ struct.pack(">I", len(x)) + x for x in comps])
@@ -465,53 +457,68 @@ class EccKey(object):
     def export_key(self, **kwargs):
         """Export this ECC key.
 
-        :Keywords:
+        Args:
+          format (string):
+            The format to use for encoding the key:
 
-          format : string
-            The format to use for wrapping the key:
-
-            - *'DER'*. The key will be encoded in an ASN.1 DER_ structure (binary).
+            - *'DER'*. The key will be encoded in ASN.1 DER format (binary).
+              For a public key, the ASN.1 ``subjectPublicKeyInfo`` structure
+              defined in `RFC5480`_ will be used.
+              For a private key, the ASN.1 ``ECPrivateKey`` structure defined
+              in `RFC5915`_ is used instead (possibly within a PKCS#8 envelope,
+              see the ``use_pkcs8`` flag below).
             - *'PEM'*. The key will be encoded in a PEM_ envelope (ASCII).
             - *'OpenSSH'*. The key will be encoded in the OpenSSH_ format
               (ASCII, public keys only).
 
-          passphrase : byte string or string
+          passphrase (byte string or string):
             The passphrase to use for protecting the private key.
-            *If not provided, the private key will remain in clear form!*
 
-          use_pkcs8 : boolean
-            In case of a private key, whether the PKCS#8_ representation
-            should be (internally) used. By default it will.
+          use_pkcs8 (boolean):
+            If ``True`` (default and recommended), the `PKCS#8`_ representation
+            will be used.
 
-            Not using PKCS#8 when exporting a private key in
-            password-protected PEM_ form means that the much weaker and
-            unflexible `PEM encryption`_ mechanism will be used.
-            PKCS#8 is therefore always recommended.
+            If ``False``, the much weaker `PEM encryption`_ mechanism will be used.
 
-          protection : string
-            In case of a private key being exported with password-protection
+          protection (string):
+            When a private key is exported with password-protection
             and PKCS#8 (both ``DER`` and ``PEM`` formats), this parameter MUST be
-            present and be a valid algorithm supported by `Crypto.IO.PKCS8`.
+            present and be a valid algorithm supported by :mod:`Crypto.IO.PKCS8`.
             It is recommended to use ``PBKDF2WithHMAC-SHA1AndAES128-CBC``.
 
-        :Note:
-            In case of a private key being exported with password-protection
-            and PKCS#8_ (both ``DER`` and ``PEM`` formats), all additional parameters
-            will be passed to `Crypto.IO.PKCS8`.
+          compress (boolean):
+            If ``True``, a more compact representation of the public key
+            (X-coordinate only) is used.
 
-        .. _DER:        http://www.ietf.org/rfc/rfc5915.txt
+            If ``False`` (default), the full public key (in both its
+            coordinates) will be exported.
+
+        .. warning::
+            If you don't provide a passphrase, the private key will be
+            exported in the clear!
+
+        .. note::
+            When exporting a private key with password-protection and `PKCS#8`_
+            (both ``DER`` and ``PEM`` formats), any extra parameters
+            is passed to :mod:`Crypto.IO.PKCS8`.
+
         .. _PEM:        http://www.ietf.org/rfc/rfc1421.txt
         .. _`PEM encryption`: http://www.ietf.org/rfc/rfc1423.txt
         .. _`PKCS#8`:   http://www.ietf.org/rfc/rfc5208.txt
         .. _OpenSSH:    http://www.openssh.com/txt/rfc5656.txt
+        .. _RFC5480:    https://tools.ietf.org/html/rfc5480
+        .. _RFC5915:    http://www.ietf.org/rfc/rfc5915.txt
 
-        :Return: A multi-line string (for PEM and OpenSSH) or bytes (for DER) with the encoded key.
+        Returns:
+            A multi-line string (for PEM and OpenSSH) or bytes (for DER) with the encoded key.
         """
 
         args = kwargs.copy()
         ext_format = args.pop("format")
         if ext_format not in ("PEM", "DER", "OpenSSH"):
             raise ValueError("Unknown format '%s'" % ext_format)
+        
+        compress = args.pop("compress", False)
 
         if self.has_private():
             passphrase = args.pop("passphrase", None)
@@ -542,22 +549,24 @@ class EccKey(object):
             if args:
                 raise ValueError("Unexpected parameters: '%s'" % args)
             if ext_format == "PEM":
-                return self._export_public_pem()
+                return self._export_public_pem(compress)
             elif ext_format == "DER":
-                return self._export_subjectPublicKeyInfo()
+                return self._export_subjectPublicKeyInfo(compress)
             else:
-                return self._export_openssh()
+                return self._export_openssh(compress)
 
 
 def generate(**kwargs):
     """Generate a new private key on the given curve.
 
-    :Keywords:
-      curve : string
+    Args:
+
+      curve (string):
         Mandatory. It must be "P-256", "prime256v1" or "secp256r1".
-      randfunc : callable
+
+      randfunc (callable):
         Optional. The RNG to read randomness from.
-        If ``None``, the system source is used.
+        If ``None``, :func:`Crypto.Random.get_random_bytes` is used.
     """
 
     curve = kwargs.pop("curve")
@@ -576,15 +585,22 @@ def construct(**kwargs):
     """Build a new ECC key (private or public) starting
     from some base components.
 
-    :Keywords:
-      curve : string
+    Args:
+
+      curve (string):
         Mandatory. It must be "P-256", "prime256v1" or "secp256r1".
-      d : integer
+
+      d (integer):
         Only for a private key. It must be in the range ``[1..order-1]``.
-      point_x : integer
+
+      point_x (integer):
         Mandatory for a public key. X coordinate (affine) of the ECC point.
-      point_y : integer
+
+      point_y (integer):
         Mandatory for a public key. Y coordinate (affine) of the ECC point.
+
+    Returns:
+      :class:`EccKey` : a new ECC key object
     """
 
     point_x = kwargs.pop("point_x", None)
@@ -618,44 +634,87 @@ def construct(**kwargs):
     return EccKey(**kwargs)
 
 
-def _import_public_der(curve_name, publickey):
+def _import_public_der(curve_oid, ec_point):
+    """Convert an encoded EC point into an EccKey object
+
+    curve_name: string with the OID of the curve
+    ec_point: byte string with the EC point (not DER encoded)
+
+    """
 
     # We only support P-256 named curves for now
-    if curve_name != _curve.oid:
-        raise ValueError("Unsupport curve")
+    if curve_oid != _curve.oid:
+        raise UnsupportedEccFeature("Unsupported ECC curve (OID: %s)" % curve_oid)
 
-    # ECPoint ::= OCTET STRING
+    # See 2.2 in RFC5480 and 2.3.3 in SEC1
+    # The first byte is:
+    # - 0x02:   compressed, only X-coordinate, Y-coordinate is even
+    # - 0x03:   compressed, only X-coordinate, Y-coordinate is odd
+    # - 0x04:   uncompressed, X-coordinate is followed by Y-coordinate
+    #
+    # PAI is in theory encoded as 0x00.
 
-    # We support only uncompressed points
     order_bytes = _curve.order.size_in_bytes()
-    if len(publickey) != (1 + 2 * order_bytes) or bord(publickey[0]) != 4:
-        raise ValueError("Only uncompressed points are supported")
+    point_type = bord(ec_point[0])
+    
+    # Uncompressed point
+    if point_type == 0x04:
+        if len(ec_point) != (1 + 2 * order_bytes):
+            raise ValueError("Incorrect EC point length")
+        x = Integer.from_bytes(ec_point[1:order_bytes+1])
+        y = Integer.from_bytes(ec_point[order_bytes+1:])
+    # Compressed point
+    elif point_type in (0x02, 0x3):
+        if len(ec_point) != (1 + order_bytes):
+            raise ValueError("Incorrect EC point length")
+        x = Integer.from_bytes(ec_point[1:])
+        y = (x**3 - x*3 + _curve.b).sqrt(_curve.p)    #  Short Weierstrass
+        if point_type == 0x02 and y.is_odd():
+            y = _curve.p - y
+        if point_type == 0x03 and y.is_even():
+            y = _curve.p - y
+    else:
+        raise ValueError("Incorrect EC point encoding")
 
-    point_x = Integer.from_bytes(publickey[1:order_bytes+1])
-    point_y = Integer.from_bytes(publickey[order_bytes+1:])
-    return construct(curve="P-256", point_x=point_x, point_y=point_y)
+    return construct(curve="P-256", point_x=x, point_y=y)
 
 
 def _import_subjectPublicKeyInfo(encoded, *kwargs):
-    oid, encoded_key, params = _expand_subject_public_key_info(encoded)
+    """Convert a subjectPublicKeyInfo into an EccKey object"""
+
+    # See RFC5480
+
+    # Parse the generic subjectPublicKeyInfo structure
+    oid, ec_point, params = _expand_subject_public_key_info(encoded)
+
+    # ec_point must be an encoded OCTET STRING
+    # params is encoded ECParameters
 
     # We accept id-ecPublicKey, id-ecDH, id-ecMQV without making any
     # distiction for now.
-    unrestricted_oid = "1.2.840.10045.2.1"
+    unrestricted_oid = "1.2.840.10045.2.1"  # Restrictions can be captured
+                                            # in the key usage certificate
+                                            # extension
     ecdh_oid = "1.3.132.1.12"
     ecmqv_oid = "1.3.132.1.13"
 
-    if oid not in (unrestricted_oid, ecdh_oid, ecmqv_oid) or not params:
-        raise ValueError("Invalid ECC OID")
+    if oid not in (unrestricted_oid, ecdh_oid, ecmqv_oid):
+        raise UnsupportedEccFeature("Unsupported ECC purpose (OID: %s)" % oid)
+
+    # Parameters are mandatory for all three types
+    if not params:
+        raise ValueError("Missing ECC parameters")
 
     # ECParameters ::= CHOICE {
     #   namedCurve         OBJECT IDENTIFIER
     #   -- implicitCurve   NULL
     #   -- specifiedCurve  SpecifiedECDomain
     # }
-    curve_name = DerObjectId().decode(params).value
+    #
+    # implicitCurve and specifiedCurve are not supported (as per RFC)
+    curve_oid = DerObjectId().decode(params).value
 
-    return _import_public_der(curve_name, encoded_key)
+    return _import_public_der(curve_oid, ec_point)
 
 
 def _import_private_der(encoded, passphrase, curve_name=None):
@@ -671,19 +730,19 @@ def _import_private_der(encoded, passphrase, curve_name=None):
     if private_key[0] != 1:
         raise ValueError("Incorrect ECC private key version")
 
-    scalar_bytes = DerOctetString().decode(private_key[1]).payload
-    order_bytes = _curve.order.size_in_bytes()
-    if len(scalar_bytes) != order_bytes:
-        raise ValueError("Private key is too small")
-    d = Integer.from_bytes(scalar_bytes)
-
     try:
         curve_name = DerObjectId(explicit=0).decode(private_key[2]).value
     except ValueError:
         pass
 
     if curve_name != _curve.oid:
-        raise ValueError("Unsupport curve")
+        raise UnsupportedEccFeature("Unsupported ECC curve (OID: %s)" % curve_name)
+
+    scalar_bytes = DerOctetString().decode(private_key[1]).payload
+    order_bytes = _curve.order.size_in_bytes()
+    if len(scalar_bytes) != order_bytes:
+        raise ValueError("Private key is too small")
+    d = Integer.from_bytes(scalar_bytes)
 
     # Decode public key (if any, it must be P-256)
     if len(private_key) == 4:
@@ -715,7 +774,7 @@ def _import_pkcs8(encoded, passphrase):
     ecmqv_oid = "1.3.132.1.13"
 
     if algo_oid not in (unrestricted_oid, ecdh_oid, ecmqv_oid):
-        raise ValueError("No PKCS#8 encoded ECC key")
+        raise UnsupportedEccFeature("Unsupported ECC purpose (OID: %s)" % oid)
 
     curve_name = DerObjectId().decode(params).value
 
@@ -730,18 +789,33 @@ def _import_x509_cert(encoded, *kwargs):
 
 def _import_der(encoded, passphrase):
 
-    decodings = (
-        _import_subjectPublicKeyInfo,
-        _import_x509_cert,
-        _import_private_der,
-        _import_pkcs8,
-        )
-
-    for decoding in decodings:
-        try:
-            return decoding(encoded, passphrase)
-        except (ValueError, TypeError, IndexError):
-            pass
+    try:
+        return _import_subjectPublicKeyInfo(encoded, passphrase)
+    except UnsupportedEccFeature as err:
+        raise err
+    except (ValueError, TypeError, IndexError):
+        pass
+    
+    try:
+        return _import_x509_cert(encoded, passphrase)
+    except UnsupportedEccFeature as err:
+        raise err
+    except (ValueError, TypeError, IndexError):
+        pass
+    
+    try:
+        return _import_private_der(encoded, passphrase)
+    except UnsupportedEccFeature as err:
+        raise err
+    except (ValueError, TypeError, IndexError):
+        pass
+    
+    try:
+        return _import_pkcs8(encoded, passphrase)
+    except UnsupportedEccFeature as err:
+        raise err
+    except (ValueError, TypeError, IndexError):
+        pass
 
     raise ValueError("Not an ECC DER key")
 
@@ -764,17 +838,17 @@ def _import_openssh(encoded):
 def import_key(encoded, passphrase=None):
     """Import an ECC key (public or private).
 
-    :Parameters:
-      encoded : bytes or a (multi-line) string
+    Args:
+      encoded (bytes or multi-line string):
         The ECC key to import.
 
-        An ECC public key can be:
+        An ECC **public** key can be:
 
         - An X.509 certificate, binary (DER) or ASCII (PEM)
         - An X.509 ``subjectPublicKeyInfo``, binary (DER) or ASCII (PEM)
         - An OpenSSH line (e.g. the content of ``~/.ssh/id_ecdsa``, ASCII)
 
-        An ECC private key can be:
+        An ECC **private** key can be:
 
         - In binary format (DER, see section 3 of `RFC5915`_ or `PKCS#8`_)
         - In ASCII format (PEM or OpenSSH)
@@ -783,16 +857,16 @@ def import_key(encoded, passphrase=None):
 
         For details about the PEM encoding, see `RFC1421`_/`RFC1423`_.
 
-    :Keywords:
-      passphrase : byte string
+      passphrase (byte string):
         The passphrase to use for decrypting a private key.
         Encryption may be applied protected at the PEM level or at the PKCS#8 level.
         This parameter is ignored if the key in input is not encrypted.
 
-    :Return: An ECC key object (`EccKey`)
+    Returns:
+      :class:`EccKey` : a new ECC key object
 
-    :Raise ValueError:
-        When the given key cannot be parsed (possibly because
+    Raises:
+      ValueError: when the given key cannot be parsed (possibly because
         the pass phrase is wrong).
 
     .. _RFC1421: http://www.ietf.org/rfc/rfc1421.txt
@@ -810,7 +884,13 @@ def import_key(encoded, passphrase=None):
         der_encoded, marker, enc_flag = PEM.decode(tostr(encoded), passphrase)
         if enc_flag:
             passphrase = None
-        return _import_der(der_encoded, passphrase)
+        try:
+            result = _import_der(der_encoded, passphrase)
+        except UnsupportedEccFeature as uef:
+            raise uef
+        except ValueError:
+            raise ValueError("Invalid DER encoding inside the PEM file")
+        return result
 
     # OpenSSH
     if encoded.startswith(b('ecdsa-sha2-')):

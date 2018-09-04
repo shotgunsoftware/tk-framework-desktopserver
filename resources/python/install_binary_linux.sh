@@ -11,8 +11,10 @@
 git rm -rf bin/linux
 rm -rf bin/linux
 
-# gcc has trouble finding out libpython2.7.so, we we're adding its folder
-# to the link library path before invoking pip.
+# gcc has trouble finding out libpython2.7.so, we're adding its folder
+# to the link library path before invoking pip. Also, we're not using the
+# OS python because CentOS 5/6 do not ship with a version of SSL/TLS supported
+# by pypi.
 LDFLAGS=-L/opt/Shotgun/Python/lib /opt/Shotgun/Python/bin/python build/pip install --target bin/linux --no-deps -r binary_requirements.txt
 
 # For some reason zope is missing a top level init file when installed with

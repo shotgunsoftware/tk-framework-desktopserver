@@ -21,31 +21,13 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ===================================================================
-"""Salsa20 stream cipher
 
-`Salsa20`_ is a stream cipher designed by Daniel J. Bernstein.
-
-Its key is by preference 256 bits long, but it can also work
-with 128 bit keys.
-
-As an example, encryption can be done as follows:
-
-    >>> from Crypto.Cipher import Salsa20
-    >>>
-    >>> key = b'*Thirty-two byte (256 bits) key*'
-    >>> cipher = Salsa20.new(key)
-    >>> msg = cipher.nonce + cipher.encrypt(b'Attack at dawn')
-
-.. _Salsa20: http://cr.yp.to/snuffle/spec.pdf
-
-:undocumented: __package__
-"""
-
+from Crypto.Util.py3compat import _copy_bytes
 from Crypto.Util._raw_api import (load_pycryptodome_raw_lib,
                                   create_string_buffer,
                                   get_raw_buffer, VoidPointer,
                                   SmartPointer, c_size_t,
-                                  expect_byte_string)
+                                  c_uint8_ptr)
 
 from Crypto.Random import get_random_bytes
 
@@ -62,7 +44,12 @@ _raw_salsa20_lib = load_pycryptodome_raw_lib("Crypto.Cipher._Salsa20",
 
 
 class Salsa20Cipher:
-    """Salsa20 cipher object"""
+    """Salsa20 cipher object. Do not create it directly. Use :py:func:`new`
+    instead.
+
+    :var nonce: The nonce with length 8
+    :vartype nonce: byte string
+    """
 
     def __init__(self, key, nonce):
         """Initialize a Salsa20 cipher object
@@ -76,17 +63,13 @@ class Salsa20Cipher:
             raise ValueError("Incorrect nonce length for Salsa20 (%d bytes)" %
                              len(nonce))
 
-        #: Nonce
-        self.nonce = nonce
-
-        expect_byte_string(key)
-        expect_byte_string(nonce)
+        self.nonce = _copy_bytes(None, None, nonce)
 
         self._state = VoidPointer()
         result = _raw_salsa20_lib.Salsa20_stream_init(
-                        key,
+                        c_uint8_ptr(key),
                         c_size_t(len(key)),
-                        nonce,
+                        c_uint8_ptr(nonce),
                         c_size_t(len(nonce)),
                         self._state.address_of())
         if result:
@@ -100,18 +83,16 @@ class Salsa20Cipher:
     def encrypt(self, plaintext):
         """Encrypt a piece of data.
 
-        :Parameters:
-          plaintext : byte string
-            The piece of data to encrypt. It can be of any size.
-        :Return: the encrypted data (byte string, as long as the
-          plaintext).
+        :param plaintext: The data to encrypt, of any size.
+        :type plaintext: bytes/bytearray/memoryview
+        :returns: the encrypted byte string, of equal length as the
+          plaintext.
         """
 
-        expect_byte_string(plaintext)
         ciphertext = create_string_buffer(len(plaintext))
         result = _raw_salsa20_lib.Salsa20_stream_encrypt(
                                          self._state.get(),
-                                         plaintext,
+                                         c_uint8_ptr(plaintext),
                                          ciphertext,
                                          c_size_t(len(plaintext)))
         if result:
@@ -121,34 +102,32 @@ class Salsa20Cipher:
     def decrypt(self, ciphertext):
         """Decrypt a piece of data.
 
-        :Parameters:
-          ciphertext : byte string
-            The piece of data to decrypt. It can be of any size.
-        :Return: the decrypted data (byte string, as long as the
-          ciphertext).
+        :param ciphertext: The data to decrypt, of any size.
+        :type ciphertext: bytes/bytearray/memoryview
+        :returns: the decrypted byte string, of equal length as the
+          ciphertext.
         """
 
         try:
             return self.encrypt(ciphertext)
-        except ValueError, e:
+        except ValueError as e:
             raise ValueError(str(e).replace("enc", "dec"))
 
 def new(key, nonce=None):
     """Create a new Salsa20 cipher
 
-    :Parameters:
-      key : byte string
-        The secret key to use in the symmetric cipher.
-        It must be 16 or 32 bytes long.
+    :keyword key: The secret key to use. It must be 16 or 32 bytes long.
+    :type key: bytes/bytearray/memoryview
 
-      nonce : byte string
-        A value that must never be reused for any other encryption.
-        It must be 8 bytes long.
+    :keyword nonce:
+        A value that must never be reused for any other encryption
+        done with this key. It must be 8 bytes long.
 
-        If not provided, a random byte string will be generated (you can
-        read it back via the ``nonce`` attribute).
+        If not provided, a random byte string will be generated (you can read
+        it back via the ``nonce`` attribute of the returned object).
+    :type nonce: bytes/bytearray/memoryview
 
-    :Return: an `Salsa20Cipher` object
+    :Return: a :class:`Crypto.Cipher.Salsa20.Salsa20Cipher` object
     """
 
     if nonce is None:
@@ -156,9 +135,9 @@ def new(key, nonce=None):
 
     return Salsa20Cipher(key, nonce)
 
-#: Size of a data block (in bytes)
+# Size of a data block (in bytes)
 block_size = 1
 
-#: Size of a key (in bytes)
+# Size of a key (in bytes)
 key_size = (16, 32)
 
