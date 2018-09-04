@@ -85,7 +85,9 @@ class ExtensionOID(object):
     AUTHORITY_INFORMATION_ACCESS = ObjectIdentifier("1.3.6.1.5.5.7.1.1")
     SUBJECT_INFORMATION_ACCESS = ObjectIdentifier("1.3.6.1.5.5.7.1.11")
     OCSP_NO_CHECK = ObjectIdentifier("1.3.6.1.5.5.7.48.1.5")
+    TLS_FEATURE = ObjectIdentifier("1.3.6.1.5.5.7.1.24")
     CRL_NUMBER = ObjectIdentifier("2.5.29.20")
+    DELTA_CRL_INDICATOR = ObjectIdentifier("2.5.29.27")
     PRECERT_SIGNED_CERTIFICATE_TIMESTAMPS = (
         ObjectIdentifier("1.3.6.1.4.1.11129.2.4.2")
     )
@@ -135,6 +137,7 @@ class SignatureAlgorithmOID(object):
     RSA_WITH_SHA256 = ObjectIdentifier("1.2.840.113549.1.1.11")
     RSA_WITH_SHA384 = ObjectIdentifier("1.2.840.113549.1.1.12")
     RSA_WITH_SHA512 = ObjectIdentifier("1.2.840.113549.1.1.13")
+    RSASSA_PSS = ObjectIdentifier("1.2.840.113549.1.1.10")
     ECDSA_WITH_SHA1 = ObjectIdentifier("1.2.840.10045.4.1")
     ECDSA_WITH_SHA224 = ObjectIdentifier("1.2.840.10045.4.3.1")
     ECDSA_WITH_SHA256 = ObjectIdentifier("1.2.840.10045.4.3.2")
@@ -219,6 +222,7 @@ _OID_NAMES = {
     SignatureAlgorithmOID.RSA_WITH_SHA256: "sha256WithRSAEncryption",
     SignatureAlgorithmOID.RSA_WITH_SHA384: "sha384WithRSAEncryption",
     SignatureAlgorithmOID.RSA_WITH_SHA512: "sha512WithRSAEncryption",
+    SignatureAlgorithmOID.RSASSA_PSS: "RSASSA-PSS",
     SignatureAlgorithmOID.ECDSA_WITH_SHA1: "ecdsa-with-SHA1",
     SignatureAlgorithmOID.ECDSA_WITH_SHA224: "ecdsa-with-SHA224",
     SignatureAlgorithmOID.ECDSA_WITH_SHA256: "ecdsa-with-SHA256",
@@ -239,6 +243,9 @@ _OID_NAMES = {
     ExtensionOID.SUBJECT_ALTERNATIVE_NAME: "subjectAltName",
     ExtensionOID.ISSUER_ALTERNATIVE_NAME: "issuerAltName",
     ExtensionOID.BASIC_CONSTRAINTS: "basicConstraints",
+    ExtensionOID.PRECERT_SIGNED_CERTIFICATE_TIMESTAMPS: (
+        "signedCertificateTimestampList"
+    ),
     CRLEntryExtensionOID.CRL_REASON: "cRLReason",
     CRLEntryExtensionOID.INVALIDITY_DATE: "invalidityDate",
     CRLEntryExtensionOID.CERTIFICATE_ISSUER: "certificateIssuer",
@@ -255,6 +262,8 @@ _OID_NAMES = {
     ExtensionOID.SUBJECT_INFORMATION_ACCESS: "subjectInfoAccess",
     ExtensionOID.OCSP_NO_CHECK: "OCSPNoCheck",
     ExtensionOID.CRL_NUMBER: "cRLNumber",
+    ExtensionOID.DELTA_CRL_INDICATOR: "deltaCRLIndicator",
+    ExtensionOID.TLS_FEATURE: "TLSFeature",
     AuthorityInformationAccessOID.OCSP: "OCSP",
     AuthorityInformationAccessOID.CA_ISSUERS: "caIssuers",
     CertificatePoliciesOID.CPS_QUALIFIER: "id-qt-cps",

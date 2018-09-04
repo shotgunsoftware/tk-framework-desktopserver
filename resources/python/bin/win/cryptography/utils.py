@@ -11,11 +11,18 @@ import sys
 import warnings
 
 
+# We use a UserWarning subclass, instead of DeprecationWarning, because CPython
+# decided deprecation warnings should be invisble by default.
+class CryptographyDeprecationWarning(UserWarning):
+    pass
+
+
 # Several APIs were deprecated with no specific end-of-life date because of the
 # ubiquity of their use. They should not be removed until we agree on when that
 # cycle ends.
-PersistentlyDeprecated = DeprecationWarning
-DeprecatedIn19 = DeprecationWarning
+PersistentlyDeprecated = CryptographyDeprecationWarning
+DeprecatedIn21 = CryptographyDeprecationWarning
+DeprecatedIn23 = CryptographyDeprecationWarning
 
 
 def _check_bytes(name, value):
@@ -51,8 +58,7 @@ else:
         assert byteorder == 'big'
         assert not signed
 
-        # call bytes() on data to allow the use of bytearrays
-        return int(bytes(data).encode('hex'), 16)
+        return int(binascii.hexlify(data), 16)
 
 
 if hasattr(int, "to_bytes"):
@@ -100,12 +106,10 @@ def verify_interface(iface, klass):
             )
 
 
-if sys.version_info >= (2, 7):
-    def bit_length(x):
-        return x.bit_length()
-else:
-    def bit_length(x):
-        return len(bin(x)) - (2 + (x <= 0))
+# No longer needed as of 2.2, but retained because we have external consumers
+# who use it.
+def bit_length(x):
+    return x.bit_length()
 
 
 class _DeprecatedValue(object):
