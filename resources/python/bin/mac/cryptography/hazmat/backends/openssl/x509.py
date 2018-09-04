@@ -16,7 +16,11 @@ from cryptography.hazmat.backends.openssl.decode_asn1 import (
     _REVOKED_CERTIFICATE_EXTENSION_PARSER, _asn1_integer_to_int,
     _asn1_string_to_bytes, _decode_x509_name, _obj2txt, _parse_asn1_time
 )
+from cryptography.hazmat.backends.openssl.encode_asn1 import (
+    _encode_asn1_int_gc
+)
 from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import dsa, ec, rsa
 
 
 @utils.register_interface(x509.Certificate)
@@ -234,6 +238,22 @@ class _CertificateRevocationList(object):
         h.update(der)
         return h.finalize()
 
+    def get_revoked_certificate_by_serial_number(self, serial_number):
+        revoked = self._backend._ffi.new("X509_REVOKED **")
+        asn1_int = _encode_asn1_int_gc(self._backend, serial_number)
+        res = self._backend._lib.X509_CRL_get0_by_serial(
+            self._x509_crl, revoked, asn1_int
+        )
+        if res == 0:
+            return None
+        else:
+            self._backend.openssl_assert(
+                revoked[0] != self._backend._ffi.NULL
+            )
+            return _RevokedCertificate(
+                self._backend, self._x509_crl, revoked[0]
+            )
+
     @property
     def signature_hash_algorithm(self):
         oid = self.signature_algorithm_oid
@@ -337,6 +357,21 @@ class _CertificateRevocationList(object):
     @utils.cached_property
     def extensions(self):
         return _CRL_EXTENSION_PARSER.parse(self._backend, self._x509_crl)
+
+    def is_signature_valid(self, public_key):
+        if not isinstance(public_key, (dsa.DSAPublicKey, rsa.RSAPublicKey,
+                                       ec.EllipticCurvePublicKey)):
+            raise TypeError('Expecting one of DSAPublicKey, RSAPublicKey,'
+                            ' or EllipticCurvePublicKey.')
+        res = self._backend._lib.X509_CRL_verify(
+            self._x509_crl, public_key._evp_pkey
+        )
+
+        if res != 1:
+            self._backend._consume_errors()
+            return False
+
+        return True
 
 
 @utils.register_interface(x509.CertificateSigningRequest)
