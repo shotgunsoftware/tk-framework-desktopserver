@@ -655,8 +655,11 @@ class ShotgunAPI(object):
         :param dict data: Message payload.
         """
         try:
-            # Retrieve filepath.
-            filepath = data.get("filepath")
+            # Retrieve filepath. We should always get something in the payload, but if
+            # we didn't for some reason, passing on an empty string will ensure that
+            # a sane exception is raised later on when the existence of the path is
+            # checked.
+            filepath = data.get("filepath", "")
             result = self.process_manager.open(filepath)
 
             # Send back information regarding the success of the operation.
@@ -665,6 +668,7 @@ class ShotgunAPI(object):
 
             self.host.reply(reply)
         except Exception, e:
+            logger.exception(e)
             self.host.report_error(e.message)
 
     def pick_file_or_directory(self, data):
