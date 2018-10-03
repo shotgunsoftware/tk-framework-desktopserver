@@ -660,6 +660,26 @@ class ShotgunAPI(object):
             # a sane exception is raised later on when the existence of the path is
             # checked.
             filepath = data.get("filepath", "")
+            local_storages = data.get("local_storages")
+
+            # Logging here is for debugging purposes. We have a situation where some
+            # clients are reporting errors when opening files from Shotgun, and the
+            # error implies that we're getting a null value for the file path passed
+            # down from the web app. There are reasonable situations where this might
+            # happen, but in the cases we're attempting to debug it shouldn't be the 
+            # case.
+            if filepath is None:
+                logger.warning("Shotgun requested a file open via local file linking, "
+                    "but the provided file path is None."
+                )
+
+            if local_storages is None:
+                logger.debug(
+                    "Local storages were not provided by Shotgun for the current file open request."
+                )
+            else:
+                logger.debug("Local storages were reported by Shotgun: %s", local_storages)
+
             result = self.process_manager.open(filepath)
 
             # Send back information regarding the success of the operation.
