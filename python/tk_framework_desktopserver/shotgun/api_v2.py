@@ -669,8 +669,14 @@ class ShotgunAPI(object):
             # happen, but in the cases we're attempting to debug it shouldn't be the 
             # case.
             if filepath is None:
-                logger.warning("Shotgun requested a file open via local file linking, "
+                logger.warning(
+                    "Shotgun requested a file open via local file linking, "
                     "but the provided file path is None."
+                )
+            else:
+                logger.debug(
+                    "Shotgun requested a file open via local file linking. "
+                    "The file path is: %s", filepath
                 )
 
             if local_storages is None:
