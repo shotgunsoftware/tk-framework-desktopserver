@@ -1,22 +1,23 @@
 # Copyright (c) 2017 Shotgun Software Inc.
-# 
+#
 # CONFIDENTIAL AND PROPRIETARY
-# 
-# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit 
+#
+# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
 # Source Code License included in this distribution package. See LICENSE.
-# By accessing, using, copying or modifying this work you indicate your 
-# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights 
+# By accessing, using, copying or modifying this work you indicate your
+# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import os
 import sys
 
-from tank_test.tank_test_base import setUpModule
+from tank_test.tank_test_base import setUpModule # noqa
 
 # import the test base class
-test_python_path = os.path.abspath(os.path.join( os.path.dirname(__file__), "..", "python"))
+test_python_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "python"))
 sys.path.append(test_python_path)
 from base_test import TestDesktopServerFramework, MockConfigDescriptor
+
 
 class TestUtilMethods(TestDesktopServerFramework):
     """
@@ -221,7 +222,7 @@ class TestUtilMethods(TestDesktopServerFramework):
             engine="tk_engine_tester",
             id=7,
             type="Software",
-            projects=[dict(type="Project", id=999)],
+            projects=[dict(type="Project", id=999), dict(type="Project", id=1000)],
         )
         self.add_to_sg_mock_db([sw])
 
@@ -248,16 +249,60 @@ class TestUtilMethods(TestDesktopServerFramework):
         self.assertEqual(len(filtered_actions), 1)
         self.assertEqual(filtered_actions[0], actions[0])
 
+    def test_multiple_projects_per_software(self):
+        """
+        Tests to ensure that a software can be assigned to multiple projects.
+        """
+        sw_1 = dict(
+            code="Tester",
+            engine="tk_engine_tester",
+            id=7,
+            type="Software",
+            projects=[dict(type="Project", id=999), dict(type="Project", id=1000)],
+        )
+        sw_2 = dict(
+            code="Tester",
+            engine="tk_engine_tester_2",
+            id=8,
+            type="Software",
+            projects=[dict(type="Project", id=1000)],
+        )
+        self.add_to_sg_mock_db([sw_1, sw_2])
 
+        actions = [
+            dict(
+                title="This should get returned for project 999 and 1000.",
+                engine_name="tk_engine_tester",
+            ),
+            dict(
+                title="This should get returned for project 1000.",
+                engine_name="tk_engine_tester_2",
+            )
+        ]
 
+        # filtered_actions = self.api._filter_by_project(
+        #     actions,
+        #     self.api._get_software_entities(),
+        #     dict(type="Project", id=1),
+        # )
 
+        # Project 1 shouldn't match anything.
+        # self.assertEqual(filtered_actions, [])
 
+        filtered_actions = self.api._filter_by_project(
+            actions,
+            self.api._get_software_entities(),
+            dict(type="Project", id=999),
+        )
 
+        # Project 999 can only use the action from tk_engine_tester.
+        self.assertEqual(filtered_actions, [actions[0]])
 
+        filtered_actions = self.api._filter_by_project(
+            actions,
+            self.api._get_software_entities(),
+            dict(type="Project", id=1000),
+        )
 
-
-
-
-
-
-
+        # Project 1000 can only use the action from tk_engine_tester.
+        self.assertEqual(filtered_actions, actions)

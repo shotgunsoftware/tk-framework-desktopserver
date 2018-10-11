@@ -959,13 +959,15 @@ class ShotgunAPI(object):
             # entities. If a Software entity's projects list is empty, then there
             # is no filtering to be done, as it's accepted by all projects.
             for sw in associated_sw:
-                for sw_project in sw.get("projects", []):
-                    if sw_project["id"] != project["id"]:
-                        logger.debug("Action %s filtered out due to SW entity projects.", action)
-                        filtered.append(action)
-                        break
-                if action in filtered:
-                    break
+                # Create a list of ids for the project restriction of this software.
+                sw_project_ids = [sw_project["id"] for sw_project in sw.get("projects", [])]
+
+                # If a software has no project restriction it will not filter out an action.
+                # If it does and the current project is not part of the restricted
+                # list of projects then it will be filtered out.
+                if sw_project_ids and project["id"] not in sw_project_ids:
+                    logger.debug("Action %s filtered out due to SW entity: %s", action, sw_project)
+                    filtered.append(action)
 
         return [a for a in actions if a not in filtered]
 

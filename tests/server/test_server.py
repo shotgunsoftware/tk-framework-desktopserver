@@ -110,7 +110,7 @@ class TestServerBase(unittest.TestCase):
             host="https://site.shotgunstudio.com",
             user_id=self._user["id"],
             host_aliases=host_aliases,
-            port=9000
+            port=12345
         )
 
         patched = patch.object(
@@ -183,7 +183,7 @@ class TestServerBase(unittest.TestCase):
                     self._get_deferred().callback((code, reason))
 
         # Create the websocket connection to the server.
-        client_factory = WebSocketClientFactory("wss://localhost:9000")
+        client_factory = WebSocketClientFactory("wss://localhost:12345")
         client_factory.origin = origin
         client_factory.protocol = ClientProtocol
         self.client = connectWS(client_factory, context_factory, timeout=2)
