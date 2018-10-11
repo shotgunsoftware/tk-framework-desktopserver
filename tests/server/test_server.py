@@ -13,6 +13,8 @@ import os
 import sys
 import base64
 import json
+import contextlib
+import socket
 
 from mock import patch, Mock
 
@@ -42,6 +44,17 @@ from cryptography.fernet import Fernet
 
 from twisted.internet import base
 base.DelayedCall.debug = True
+
+
+# Source: https://stackoverflow.com/a/45690594/10429444
+def find_free_port():
+    """
+    Finds a free port on the current computer.
+    """
+    with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(('localhost', 0))
+        return s.getsockname()[1]
 
 
 class MockShotgunApi(object):
@@ -103,6 +116,8 @@ class TestServerBase(unittest.TestCase):
         patched.start()
         self.addCleanup(patched.stop)
 
+        port = find_free_port()
+
         # Initialize the websocket server.
         self.server = Server(
             keys_path=os.path.join(fixtures_root, "certificates"),
@@ -110,7 +125,7 @@ class TestServerBase(unittest.TestCase):
             host="https://site.shotgunstudio.com",
             user_id=self._user["id"],
             host_aliases=host_aliases,
-            port=12345
+            port=port
         )
 
         patched = patch.object(
@@ -183,7 +198,7 @@ class TestServerBase(unittest.TestCase):
                     self._get_deferred().callback((code, reason))
 
         # Create the websocket connection to the server.
-        client_factory = WebSocketClientFactory("wss://localhost:12345")
+        client_factory = WebSocketClientFactory("wss://localhost:%s" % port)
         client_factory.origin = origin
         client_factory.protocol = ClientProtocol
         self.client = connectWS(client_factory, context_factory, timeout=2)
