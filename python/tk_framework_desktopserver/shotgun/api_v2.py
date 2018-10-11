@@ -655,8 +655,37 @@ class ShotgunAPI(object):
         :param dict data: Message payload.
         """
         try:
-            # Retrieve filepath.
-            filepath = data.get("filepath")
+            # Retrieve filepath. We should always get something in the payload, but if
+            # we didn't for some reason, passing on an empty string will ensure that
+            # a sane exception is raised later on when the existence of the path is
+            # checked.
+            filepath = data.get("filepath", "")
+            local_storages = data.get("local_storages")
+
+            # Logging here is for debugging purposes. We have a situation where some
+            # clients are reporting errors when opening files from Shotgun, and the
+            # error implies that we're getting a null value for the file path passed
+            # down from the web app. There are reasonable situations where this might
+            # happen, but in the cases we're attempting to debug it shouldn't be the 
+            # case.
+            if filepath is None:
+                logger.warning(
+                    "Shotgun requested a file open via local file linking, "
+                    "but the provided file path is None."
+                )
+            else:
+                logger.debug(
+                    "Shotgun requested a file open via local file linking. "
+                    "The file path is: %s", filepath
+                )
+
+            if local_storages is None:
+                logger.debug(
+                    "Local storages were not provided by Shotgun for the current file open request."
+                )
+            else:
+                logger.debug("Local storages were reported by Shotgun: %s", local_storages)
+
             result = self.process_manager.open(filepath)
 
             # Send back information regarding the success of the operation.
@@ -665,6 +694,7 @@ class ShotgunAPI(object):
 
             self.host.reply(reply)
         except Exception, e:
+            logger.exception(e)
             self.host.report_error(e.message)
 
     def pick_file_or_directory(self, data):
