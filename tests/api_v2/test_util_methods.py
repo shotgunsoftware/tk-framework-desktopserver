@@ -13,9 +13,6 @@ import sys
 
 from tank_test.tank_test_base import setUpModule # noqa
 
-# import the test base class
-test_python_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "python"))
-sys.path.append(test_python_path)
 from base_test import TestDesktopServerFramework, MockConfigDescriptor
 
 
