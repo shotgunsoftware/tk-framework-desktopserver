@@ -8,9 +8,6 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import os
-import sys
-
 from tank_test.tank_test_base import setUpModule # noqa
 
 from base_test import TestDesktopServerFramework, MockConfigDescriptor
@@ -219,7 +216,7 @@ class TestUtilMethods(TestDesktopServerFramework):
             engine="tk_engine_tester",
             id=7,
             type="Software",
-            projects=[dict(type="Project", id=999), dict(type="Project", id=1000)],
+            projects=[dict(type="Project", id=999)],
         )
         self.add_to_sg_mock_db([sw])
 
@@ -277,14 +274,14 @@ class TestUtilMethods(TestDesktopServerFramework):
             )
         ]
 
-        # filtered_actions = self.api._filter_by_project(
-        #     actions,
-        #     self.api._get_software_entities(),
-        #     dict(type="Project", id=1),
-        # )
+        filtered_actions = self.api._filter_by_project(
+            actions,
+            self.api._get_software_entities(),
+            dict(type="Project", id=1),
+        )
 
         # Project 1 shouldn't match anything.
-        # self.assertEqual(filtered_actions, [])
+        self.assertEqual(filtered_actions, [])
 
         filtered_actions = self.api._filter_by_project(
             actions,
