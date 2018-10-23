@@ -60,6 +60,9 @@ class ShotgunAPI(object):
     # Stores data persistently per wss connection.
     WSS_KEY_CACHE = dict()
     DATABASE_FORMAT_VERSION = 1
+    # When the layout of the cache in a cache entry changes, bump this version
+    # so we invalid all cached entries.
+    CACHE_ENTRY_SCHEMA_VERSION = 1
     SOFTWARE_FIELDS = ["id", "code", "updated_at", "type", "engine", "projects"]
     TOOLKIT_MANAGER = None
 
@@ -152,7 +155,7 @@ class ShotgunAPI(object):
         # appropriate.
         try:
             self._execute_action(data)
-        except Exception, e:
+        except Exception:
             self.host.reply(
                 dict(
                     err=self._get_exception_message(),
@@ -436,7 +439,6 @@ class ShotgunAPI(object):
         legacy_config_ids = []
 
         if self._allow_legacy_workaround:
-            config_entities = []
             legacy_config_data = dict()
 
             for config_id, config_data in all_pc_data.iteritems():
@@ -666,7 +668,7 @@ class ShotgunAPI(object):
             # clients are reporting errors when opening files from Shotgun, and the
             # error implies that we're getting a null value for the file path passed
             # down from the web app. There are reasonable situations where this might
-            # happen, but in the cases we're attempting to debug it shouldn't be the 
+            # happen, but in the cases we're attempting to debug it shouldn't be the
             # case.
             if filepath is None:
                 logger.warning(
@@ -850,7 +852,7 @@ class ShotgunAPI(object):
         logger.debug("Python executable: %s", python_exe)
 
         arg_config_data = dict(
-            lookup_hash = config_data["lookup_hash"],
+            lookup_hash=config_data["lookup_hash"],
             contents_hash=contents_hash,
             entity=config_data["entity"],
         )
@@ -863,7 +865,7 @@ class ShotgunAPI(object):
                 base_configuration=constants.BASE_CONFIG_URI,
                 engine_name=constants.ENGINE_NAME,
                 config_data=arg_config_data,
-                config_is_mutable=(descriptor.is_immutable() == False),
+                config_is_mutable=(descriptor.is_immutable() is False),
                 bundle_cache_fallback_paths=self._engine.sgtk.bundle_cache_fallback_paths
             )
         )
@@ -946,6 +948,21 @@ class ShotgunAPI(object):
         # that contains the PipelineConfiguration entities queried from SG.
         del self._cache[self.PIPELINE_CONFIGS]
 
+    def _filter_software_entities_by_project(self, sw_entities, project):
+        project_software = []
+
+        for sw in sw_entities:
+            # Create a list of ids for the project restriction of this software.
+            sw_project_ids = [sw_project["id"] for sw_project in sw.get("projects", [])]
+
+            # If a software has no project restriction it will not filter out an action.
+            # If it does and the current project is not part of the restricted
+            # list of projects then it will be filtered out.
+            if not sw_project_ids or project["id"] in sw_project_ids:
+                project_software.append(sw)
+
+        return project_software
+
     @sgtk.LogManager.log_timing
     def _filter_by_project(self, actions, sw_entities, project):
         """
@@ -968,7 +985,11 @@ class ShotgunAPI(object):
             in the requesting project will have been removed.
         :rtype: list
         """
-        filtered = []
+        project_actions = []
+
+        sw_entities = self._filter_software_entities_by_project(sw_entities, project)
+
+        logger.debug("Software available for project %s: %s, ", project["id"], sw_entities)
 
         for action in actions:
             # The engine_name property of an engine command is defined by
@@ -976,30 +997,35 @@ class ShotgunAPI(object):
             # the information necessary to register the launcher. If the action
             # doesn't include that key, then it means the underlying engine
             # command did not provide that property, and as such is not a
-            # launcher. Similarly, if it's set to None then the same applies
-            # and we don't need to test this action for filtering purposes.
-            if action.get("engine_name") is None:
-                continue
+            # launcher.
+            if "engine_name" not in action:
+                project_actions.append(action)
+            # Great, we now know we have a launcher action.
+            # If the software entity id attribute is set, we have a more recent version of the
+            # launch app being used which allows to accurately filter out actions
+            elif "software_entity_id" in action:
+                # If the action comes from one of the available software, we're good to go!
+                if any(action["software_entity_id"] == s["id"] for s in sw_entities):
+                    project_actions.append(action)
+                else:
+                    logger.debug("Action %s filtered out due to no SW entity with matching id.", action)
+            else:
+                # This is the legacy, bug prone version of the code. It works when all software
+                # entities are accessible from one project, but as soon as two certain software
+                # entities are assigned to projects other than the one passed in, it will
+                # incorrectly reject certain actions.
+                #
+                # This is kept in case the user is using an older version of the launch app
+                # without the software_entity_id attribute in the action.
+                #
+                # We're only interested in entities that are referring to the
+                # same engine as is recorded in the action dict.
+                if any(s["engine"] == action["engine_name"] for s in sw_entities):
+                    project_actions.append(action)
+                else:
+                    logger.debug("Action %s filtered out due to no SW with matching engine name.", action)
 
-            # We're only interested in entities that are referring to the
-            # same engine as is recorded in the action dict.
-            associated_sw = [s for s in sw_entities if s["engine"] == action["engine_name"]]
-
-            # Check the project against the projects list for matching Software
-            # entities. If a Software entity's projects list is empty, then there
-            # is no filtering to be done, as it's accepted by all projects.
-            for sw in associated_sw:
-                # Create a list of ids for the project restriction of this software.
-                sw_project_ids = [sw_project["id"] for sw_project in sw.get("projects", [])]
-
-                # If a software has no project restriction it will not filter out an action.
-                # If it does and the current project is not part of the restricted
-                # list of projects then it will be filtered out.
-                if sw_project_ids and project["id"] not in sw_project_ids:
-                    logger.debug("Action %s filtered out due to SW entity: %s", action, sw_project)
-                    filtered.append(action)
-
-        return [a for a in actions if a not in filtered]
+        return project_actions
 
     def _get_arguments_file(self, args_data):
         """
@@ -1043,7 +1069,7 @@ class ShotgunAPI(object):
             modtimes="",
         )
 
-        if config_descriptor and config_descriptor.is_immutable() == False:
+        if config_descriptor and config_descriptor.is_immutable() is False:
             yml_files = self._get_yml_file_data(config_descriptor)
 
             if yml_files is not None:
@@ -1366,6 +1392,8 @@ class ShotgunAPI(object):
             logger.debug("Task entity's parent entity type: %s", entity_type)
             cache_key += parent_entity_type
             logger.debug("Task entity's cache key is: %s", cache_key)
+
+        cache_key = "%s:v%s" % (cache_key, self.CACHE_ENTRY_SCHEMA_VERSION)
 
         return cache_key
 
@@ -1904,7 +1932,8 @@ class ShotgunAPI(object):
                             app_name=None, # Not used here.
                             group=None, # Not used here.
                             group_default=None, # Not used here.
-                            engine_name=None, # Not used here.
+                            # engine_name is skipped because we don't know if this
+                            # is a legacy launch app.
                         )
                     )
             except Exception:
@@ -1958,13 +1987,13 @@ class ShotgunAPI(object):
         # filter out things like the "Reload and Restart" command.
         filtered = list()
 
-        for command in commands:
-            if command["app_name"] is not None:
-                logger.debug("Keeping command %s -- it has an associated app.", command)
-                filtered.append(command)
+        for cmd in commands:
+            if cmd["app_name"] is not None:
+                logger.debug("Keeping command %s -- it has an associated app.", cmd)
+                filtered.append(cmd)
             else:
                 logger.debug(
-                    "Command %s filtered out for browser integration.", command
+                    "Command %s filtered out for browser integration.", cmd
                 )
 
         return self._bundle.execute_hook_method(

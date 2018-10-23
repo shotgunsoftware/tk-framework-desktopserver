@@ -167,20 +167,26 @@ def cache(
         else:
             app_name = None
 
-        commands.append(
-            dict(
-                name=cmd_name,
-                title=props.get("title", cmd_name),
-                deny_permissions=props.get("deny_permissions", []),
-                supports_multiple_selection=props.get(
-                    "supports_multiple_selection",
-                    False
-                ),
-                app_name=app_name,
-                group=props.get("group"),
-                group_default=props.get("group_default"),
-                engine_name=props.get("engine_name"),
+        command_data = dict(
+            name=cmd_name,
+            title=props.get("title", cmd_name),
+            deny_permissions=props.get("deny_permissions", []),
+            supports_multiple_selection=props.get(
+                "supports_multiple_selection",
+                False
             ),
+            app_name=app_name,
+            group=props.get("group"),
+            group_default=props.get("group_default")
+        )
+        if "engine_name" in props:
+            command_data["engine_name"] = props["engine_name"]
+
+        if "software_entity_id" in props:
+            command_data["software_entity_id"] = props["software_entity_id"]
+
+        commands.append(
+            command_data
         )
 
     engine.log_debug("Engine commands processed.")
