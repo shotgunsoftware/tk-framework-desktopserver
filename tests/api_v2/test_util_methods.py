@@ -220,6 +220,15 @@ class TestUtilMethods(TestDesktopServerFramework):
         )
         self.add_to_sg_mock_db([sw])
 
+        sw = dict(
+            code="Maya",
+            engine="tk-maya",
+            id=7,
+            type="Software",
+            projects=[],
+        )
+        self.add_to_sg_mock_db([sw])
+
         actions = [
             dict(
                 title="This one passes",

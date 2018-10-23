@@ -949,6 +949,15 @@ class ShotgunAPI(object):
         del self._cache[self.PIPELINE_CONFIGS]
 
     def _filter_software_entities_by_project(self, sw_entities, project):
+        """
+        Filter software entities such that only the ones accessible
+        from the given project will be returned.
+
+        :param list sw_entities: List of entity software dictionaries
+        :param dict project: Entity dictionary of the project to select for.
+
+        :returns: List of entity software available for the given project.
+        """
         project_software = []
 
         for sw in sw_entities:

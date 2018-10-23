@@ -554,7 +554,7 @@ class TestUnencryptedServer(TestServerBase):
         return self._chain_calls(step1, step2)
 
 
-class TestDifferentHostBase():
+class DifferentHostBase(object):
     """
     Tests a connection from a different host. The server needs to be launched in different modes,
     but this can only be done during setUp due to the way twisted unit tests work.
@@ -565,7 +565,8 @@ class TestDifferentHostBase():
     """
     class Impl(TestServerBase):
         def setUp(self):
-            super(TestDifferentHostBase.Impl, self).setUp()
+            super(DifferentHostBase.Impl, self).setUp()
+            print(self.__class__)
             return self.setUpClientServer(
                 use_encryption=self.use_encryption,
                 origin=self.origin,
@@ -612,7 +613,7 @@ class TestDifferentHostBase():
                 return self._chain_calls(self._activate_encryption_if_required, step_send_message, step_validation)
 
 
-class TestInvalidOriginEncrypted(TestDifferentHostBase.Impl):
+class TestInvalidOriginEncrypted(DifferentHostBase.Impl):
     """
     Make sure that a different origin will fail when encryption is on.
     """
@@ -629,7 +630,7 @@ class TestInvalidOriginUnencrypted(TestInvalidOriginEncrypted):
     use_encryption = False
 
 
-class TestValidOriginEncrypted(TestDifferentHostBase.Impl):
+class TestValidOriginEncrypted(DifferentHostBase.Impl):
     """
     Make sure that using an alias will succeed when encryption is on.
     """
