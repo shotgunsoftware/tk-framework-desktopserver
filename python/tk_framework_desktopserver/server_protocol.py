@@ -344,7 +344,7 @@ class ServerProtocol(WebSocketServerProtocol):
             retrieved by the first instance.
         """
         # Has the server secret already been retrieved before?
-        if not self._ws_server_secret:
+        if not ServerProtocol._ws_server_secret:
             # Ask for the secret for this server id.
             shotgun = sgtk.platform.current_bundle().shotgun
             # FIXME: Make this method public on the Shotgun API.
@@ -357,9 +357,9 @@ class ServerProtocol(WebSocketServerProtocol):
             if ws_server_secret[-1] != "=":
                 ws_server_secret += "="
 
-            self._ws_server_secret = ws_server_secret
+            ServerProtocol._ws_server_secret = ws_server_secret
 
-        return self._ws_server_secret
+        return ServerProtocol._ws_server_secret
 
     def _process_message(self, message_host, message, protocol_version):
 
