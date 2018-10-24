@@ -212,7 +212,7 @@ class TestUtilMethods(TestDesktopServerFramework):
         Software entity settings.
         """
         sw = dict(
-            code="Tester",
+            code="Maya",
             engine="tk-maya",
             id=7,
             type="Software",
@@ -221,7 +221,7 @@ class TestUtilMethods(TestDesktopServerFramework):
         self.add_to_sg_mock_db([sw])
 
         sw = dict(
-            code="Maya",
+            code="Nuke",
             engine="tk-nuke",
             id=7,
             type="Software",

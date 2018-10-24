@@ -61,7 +61,7 @@ class ShotgunAPI(object):
     WSS_KEY_CACHE = dict()
     DATABASE_FORMAT_VERSION = 1
     # When the layout of the cache in a cache entry changes, bump this version
-    # so we invalid all cached entries.
+    # so we invalidate all cached entries.
     CACHE_ENTRY_SCHEMA_VERSION = 1
     SOFTWARE_FIELDS = ["id", "code", "updated_at", "type", "engine", "projects"]
     TOOLKIT_MANAGER = None
@@ -1947,8 +1947,9 @@ class ShotgunAPI(object):
                             app_name=None, # Not used here.
                             group=None, # Not used here.
                             group_default=None, # Not used here.
-                            # engine_name is skipped because we don't know if this
-                            # is a legacy launch app.
+                            # this is an old fashioned cache, which means it doesn't have
+                            # software entity information, so we won't cache the engine
+                            # name either
                         )
                     )
             except Exception:
