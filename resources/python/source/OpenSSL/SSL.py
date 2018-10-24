@@ -27,6 +27,95 @@ from OpenSSL._util import (
 from OpenSSL.crypto import (
     FILETYPE_PEM, _PassphraseHelper, PKey, X509Name, X509, X509Store)
 
+__all__ = [
+    'OPENSSL_VERSION_NUMBER',
+    'SSLEAY_VERSION',
+    'SSLEAY_CFLAGS',
+    'SSLEAY_PLATFORM',
+    'SSLEAY_DIR',
+    'SSLEAY_BUILT_ON',
+    'SENT_SHUTDOWN',
+    'RECEIVED_SHUTDOWN',
+    'SSLv2_METHOD',
+    'SSLv3_METHOD',
+    'SSLv23_METHOD',
+    'TLSv1_METHOD',
+    'TLSv1_1_METHOD',
+    'TLSv1_2_METHOD',
+    'OP_NO_SSLv2',
+    'OP_NO_SSLv3',
+    'OP_NO_TLSv1',
+    'OP_NO_TLSv1_1',
+    'OP_NO_TLSv1_2',
+    'MODE_RELEASE_BUFFERS',
+    'OP_SINGLE_DH_USE',
+    'OP_SINGLE_ECDH_USE',
+    'OP_EPHEMERAL_RSA',
+    'OP_MICROSOFT_SESS_ID_BUG',
+    'OP_NETSCAPE_CHALLENGE_BUG',
+    'OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG',
+    'OP_SSLREF2_REUSE_CERT_TYPE_BUG',
+    'OP_MICROSOFT_BIG_SSLV3_BUFFER',
+    'OP_MSIE_SSLV2_RSA_PADDING',
+    'OP_SSLEAY_080_CLIENT_DH_BUG',
+    'OP_TLS_D5_BUG',
+    'OP_TLS_BLOCK_PADDING_BUG',
+    'OP_DONT_INSERT_EMPTY_FRAGMENTS',
+    'OP_CIPHER_SERVER_PREFERENCE',
+    'OP_TLS_ROLLBACK_BUG',
+    'OP_PKCS1_CHECK_1',
+    'OP_PKCS1_CHECK_2',
+    'OP_NETSCAPE_CA_DN_BUG',
+    'OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG',
+    'OP_NO_COMPRESSION',
+    'OP_NO_QUERY_MTU',
+    'OP_COOKIE_EXCHANGE',
+    'OP_NO_TICKET',
+    'OP_ALL',
+    'VERIFY_PEER',
+    'VERIFY_FAIL_IF_NO_PEER_CERT',
+    'VERIFY_CLIENT_ONCE',
+    'VERIFY_NONE',
+    'SESS_CACHE_OFF',
+    'SESS_CACHE_CLIENT',
+    'SESS_CACHE_SERVER',
+    'SESS_CACHE_BOTH',
+    'SESS_CACHE_NO_AUTO_CLEAR',
+    'SESS_CACHE_NO_INTERNAL_LOOKUP',
+    'SESS_CACHE_NO_INTERNAL_STORE',
+    'SESS_CACHE_NO_INTERNAL',
+    'SSL_ST_CONNECT',
+    'SSL_ST_ACCEPT',
+    'SSL_ST_MASK',
+    'SSL_ST_INIT',
+    'SSL_ST_BEFORE',
+    'SSL_ST_OK',
+    'SSL_ST_RENEGOTIATE',
+    'SSL_CB_LOOP',
+    'SSL_CB_EXIT',
+    'SSL_CB_READ',
+    'SSL_CB_WRITE',
+    'SSL_CB_ALERT',
+    'SSL_CB_READ_ALERT',
+    'SSL_CB_WRITE_ALERT',
+    'SSL_CB_ACCEPT_LOOP',
+    'SSL_CB_ACCEPT_EXIT',
+    'SSL_CB_CONNECT_LOOP',
+    'SSL_CB_CONNECT_EXIT',
+    'SSL_CB_HANDSHAKE_START',
+    'SSL_CB_HANDSHAKE_DONE',
+    'Error',
+    'WantReadError',
+    'WantWriteError',
+    'WantX509LookupError',
+    'ZeroReturnError',
+    'SysCallError',
+    'SSLeay_version',
+    'Session',
+    'Context',
+    'Connection'
+]
+
 try:
     _memoryview = memoryview
 except NameError:
@@ -220,8 +309,9 @@ class _VerifyHelper(_CallbackExceptionHelper):
 
         @wraps(callback)
         def wrapper(ok, store_ctx):
-            cert = X509.__new__(X509)
-            cert._x509 = _lib.X509_STORE_CTX_get_current_cert(store_ctx)
+            x509 = _lib.X509_STORE_CTX_get_current_cert(store_ctx)
+            _lib.X509_up_ref(x509)
+            cert = X509._from_raw_x509_ptr(x509)
             error_number = _lib.X509_STORE_CTX_get_error(store_ctx)
             error_depth = _lib.X509_STORE_CTX_get_error_depth(store_ctx)
 
@@ -307,10 +397,10 @@ class _NpnSelectHelper(_CallbackExceptionHelper):
                 instr = _ffi.buffer(in_, inlen)[:]
                 protolist = []
                 while instr:
-                    l = indexbytes(instr, 0)
-                    proto = instr[1:l + 1]
+                    length = indexbytes(instr, 0)
+                    proto = instr[1:length + 1]
                     protolist.append(proto)
-                    instr = instr[l + 1:]
+                    instr = instr[length + 1:]
 
                 # Call the callback
                 outstr = callback(conn, protolist)
@@ -695,7 +785,7 @@ class Context(object):
         """
         Set the passphrase callback
 
-        :param callback: The Python callback to use
+        :param callback: The Python callback to use; must return a byte string
         :param userdata: (optional) A Python object which will be given as
                          argument to the callback
         :return: None
@@ -1080,7 +1170,7 @@ class Context(object):
                 if not push_result:
                     _lib.X509_NAME_free(copy)
                     _raise_current_error()
-        except:
+        except Exception:
             _lib.sk_X509_NAME_free(name_stack)
             raise
 
@@ -1941,6 +2031,30 @@ class Connection(object):
         _lib.SSL_SESSION_get_master_key(session, outp, length)
         return _ffi.buffer(outp, length)[:]
 
+    def export_keying_material(self, label, olen, context=None):
+        """
+        Obtain keying material for application use.
+
+        :param label - a disambiguating label string as described in RFC 5705
+        :param olen - the length of the exported key material in bytes
+        :param context - a per-association context value
+        :return the exported key material bytes or None
+        """
+        outp = _no_zero_allocator("unsigned char[]", olen)
+        context_buf = _ffi.NULL
+        context_len = 0
+        use_context = 0
+        if context is not None:
+            context_buf = context
+            context_len = len(context)
+            use_context = 1
+        success = _lib.SSL_export_keying_material(self._ssl, outp, olen,
+                                                  label, len(label),
+                                                  context_buf, context_len,
+                                                  use_context)
+        _openssl_assert(success == 1)
+        return _ffi.buffer(outp, olen)[:]
+
     def sock_shutdown(self, *args, **kwargs):
         """
         See shutdown(2)
@@ -1957,9 +2071,7 @@ class Connection(object):
         """
         cert = _lib.SSL_get_peer_certificate(self._ssl)
         if cert != _ffi.NULL:
-            pycert = X509.__new__(X509)
-            pycert._x509 = _ffi.gc(cert, _lib.X509_free)
-            return pycert
+            return X509._from_raw_x509_ptr(cert)
         return None
 
     def get_peer_cert_chain(self):
@@ -1977,8 +2089,7 @@ class Connection(object):
         for i in range(_lib.sk_X509_num(cert_stack)):
             # TODO could incref instead of dup here
             cert = _lib.X509_dup(_lib.sk_X509_value(cert_stack, i))
-            pycert = X509.__new__(X509)
-            pycert._x509 = _ffi.gc(cert, _lib.X509_free)
+            pycert = X509._from_raw_x509_ptr(cert)
             result.append(pycert)
         return result
 
