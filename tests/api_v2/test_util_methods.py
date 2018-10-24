@@ -213,7 +213,7 @@ class TestUtilMethods(TestDesktopServerFramework):
         """
         sw = dict(
             code="Tester",
-            engine="tk_engine_tester",
+            engine="tk-maya",
             id=7,
             type="Software",
             projects=[dict(type="Project", id=999)],
@@ -222,7 +222,7 @@ class TestUtilMethods(TestDesktopServerFramework):
 
         sw = dict(
             code="Maya",
-            engine="tk-maya",
+            engine="tk-nuke",
             id=7,
             type="Software",
             projects=[],
@@ -232,11 +232,11 @@ class TestUtilMethods(TestDesktopServerFramework):
         actions = [
             dict(
                 title="This one passes",
-                engine_name="tk-maya",
+                engine_name="tk-nuke",
             ),
             dict(
                 title="This one gets filtered out",
-                engine_name="tk_engine_tester",
+                engine_name="tk-maya",
             ),
         ]
 
@@ -257,15 +257,15 @@ class TestUtilMethods(TestDesktopServerFramework):
         Tests to ensure that a software can be assigned to multiple projects.
         """
         sw_1 = dict(
-            code="Tester",
-            engine="tk_engine_tester",
+            code="Maya",
+            engine="tk-maya",
             id=7,
             type="Software",
             projects=[dict(type="Project", id=999), dict(type="Project", id=1000)],
         )
         sw_2 = dict(
-            code="Tester",
-            engine="tk_engine_tester_2",
+            code="Nuke",
+            engine="tk-nuke",
             id=8,
             type="Software",
             projects=[dict(type="Project", id=1000)],
@@ -274,12 +274,12 @@ class TestUtilMethods(TestDesktopServerFramework):
 
         actions = [
             dict(
-                title="This should get returned for project 999 and 1000.",
-                engine_name="tk_engine_tester",
+                title="Project 999 and 1000 action.",
+                engine_name="tk-maya",
             ),
             dict(
-                title="This should get returned for project 1000.",
-                engine_name="tk_engine_tester_2",
+                title="Project 1000 action.",
+                engine_name="tk-nuke",
             )
         ]
 
@@ -298,7 +298,7 @@ class TestUtilMethods(TestDesktopServerFramework):
             dict(type="Project", id=999),
         )
 
-        # Project 999 can only use the action from tk_engine_tester.
+        # Project 999 can only use the action from tk-maya.
         self.assertEqual(filtered_actions, [actions[0]])
 
         filtered_actions = self.api._filter_by_project(
@@ -307,5 +307,132 @@ class TestUtilMethods(TestDesktopServerFramework):
             dict(type="Project", id=1000),
         )
 
-        # Project 1000 can only use the action from tk_engine_tester.
+        # Project 1000 can use actions from both engines.
         self.assertEqual(filtered_actions, actions)
+
+    def test_software_without_engine(self):
+
+        sw_1 = dict(
+            code="Substance Painter",
+            engine=None,
+            id=7,
+            type="Software",
+            projects=[dict(type="Project", id=999)],
+        )
+        sw_2 = dict(
+            code="After Effects",
+            engine=None,
+            id=8,
+            type="Software",
+            projects=[dict(type="Project", id=1000)],
+        )
+        self.add_to_sg_mock_db([sw_1, sw_2])
+
+        actions = [
+            dict(
+                title="Project 999 action.",
+                engine_name=None,
+                software_entity_id=7
+            ),
+            dict(
+                title="Project 1000 action.",
+                engine_name=None,
+                software_entity_id=8
+            )
+        ]
+
+        filtered_actions = self.api._filter_by_project(
+            actions,
+            self.api._get_software_entities(),
+            dict(type="Project", id=1),
+        )
+
+        # Project 1 shouldn't match anything.
+        self.assertEqual(filtered_actions, [])
+
+        filtered_actions = self.api._filter_by_project(
+            actions,
+            self.api._get_software_entities(),
+            dict(type="Project", id=999),
+        )
+
+        # Project 999 can only use the Substance Painter action.
+        self.assertEqual(filtered_actions, [actions[0]])
+
+        filtered_actions = self.api._filter_by_project(
+            actions,
+            self.api._get_software_entities(),
+            dict(type="Project", id=1000),
+        )
+
+        # Project 1000 can only use the After Effects action.
+        self.assertEqual(filtered_actions, [actions[1]])
+
+    def test_software_per_project(self):
+        """
+        Tests to ensure that a software can be assigned to multiple projects.
+        """
+        sw_1 = dict(
+            code="Maya 2018",
+            engine="tk-maya",
+            id=7,
+            type="Software",
+            projects=[dict(type="Project", id=999)],
+        )
+        sw_2 = dict(
+            code="Maya 2017",
+            engine="tk-maya",
+            id=8,
+            type="Software",
+            projects=[dict(type="Project", id=1000)],
+        )
+        self.add_to_sg_mock_db([sw_1, sw_2])
+
+        actions = [
+            dict(
+                title="Project 999 action.",
+                engine_name="tk-maya",
+                software_entity_id=7
+            ),
+            dict(
+                title="Project 1000 action.",
+                engine_name="tk-maya",
+                software_entity_id=8
+            ),
+            # This last action is a legacy launch app that was registered
+            # manually. These have a software_entity_id that is None.
+            dict(
+                title="All projects action.",
+                engine_name="tk-maya",
+                software_entity_id=None
+            )
+        ]
+
+        filtered_actions = self.api._filter_by_project(
+            actions,
+            self.api._get_software_entities(),
+            dict(type="Project", id=1),
+        )
+
+        # Project 1 shouldn only match the manually registered app.
+        self.assertEqual(filtered_actions, [actions[2]])
+
+        filtered_actions = self.api._filter_by_project(
+            actions,
+            self.api._get_software_entities(),
+            dict(type="Project", id=999),
+        )
+
+        # Project 999 can only use the action from tk-maya and the manually
+        # registered one.
+        self.assertEqual(filtered_actions, [actions[0], actions[2]])
+
+        filtered_actions = self.api._filter_by_project(
+            actions,
+            self.api._get_software_entities(),
+            dict(type="Project", id=1000),
+        )
+
+        # Project 1000 can only use the action from tk-nuke and the manually
+        # registered one.
+        self.assertEqual(filtered_actions, actions[1:])

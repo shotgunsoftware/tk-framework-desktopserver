@@ -1006,7 +1006,8 @@ class ShotgunAPI(object):
             # the information necessary to register the launcher. If the action
             # doesn't include that key, then it means the underlying engine
             # command did not provide that property, and as such is not a
-            # launcher.
+            # launcher. Similarly, if it's set to None then the same applies
+            # and we don't need to test this action for filtering purposes.
             if "engine_name" not in action:
                 project_actions.append(action)
             # Great, we now know we have a launcher action.
@@ -1014,7 +1015,12 @@ class ShotgunAPI(object):
             # launch app being used which allows to accurately filter out actions
             elif "software_entity_id" in action:
                 # If the action comes from one of the available software, we're good to go!
-                if any(action["software_entity_id"] == s["id"] for s in sw_entities):
+                # Also, if the software entity id is missing, this means this a legacy instance
+                # of the launch app.
+                if (
+                    action["software_entity_id"] is None or
+                    any(action["software_entity_id"] == sw["id"] for sw in sw_entities)
+                ):
                     project_actions.append(action)
                 else:
                     logger.debug("Action %s filtered out due to no SW entity with matching id.", action)
