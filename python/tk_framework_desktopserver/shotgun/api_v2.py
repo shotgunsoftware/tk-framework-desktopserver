@@ -1632,7 +1632,7 @@ class ShotgunAPI(object):
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
         # cache.
-        return cache[self.SOFTWARE_ENTITIES]
+        return copy.deepcopy(cache[self.SOFTWARE_ENTITIES])
 
     @sgtk.LogManager.log_timing
     def _get_task_parent_entity_type(self, task_id):
