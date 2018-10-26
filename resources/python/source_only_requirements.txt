@@ -25,8 +25,8 @@ enum34==1.1.6
 six==1.10.0
 constantly==15.1.0
 incremental==17.5.0
-pyOpenSSL==17.2.0
+pyOpenSSL==17.5.0
 # Twisted has a single binary file, which is used when you want to pass file desriptors directly
-# to the API to stream data, which we won't need, so we will remove the binary when 
+# to the API to stream data, which we won't need, so we will remove the binary when running the install_source_only.txt
 Twisted==17.5.0
 autobahn==17.7.1

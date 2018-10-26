@@ -1,10 +1,11 @@
-Metadata-Version: 2.0
+Metadata-Version: 2.1
 Name: pycparser
 Version: 2.18
 Summary: C parser in Python
 Home-page: https://github.com/eliben/pycparser
 Author: Eli Bendersky
 Author-email: eliben@gmail.com
+Maintainer: Eli Bendersky
 License: BSD
 Platform: Cross Platform
 Classifier: Programming Language :: Python :: 2

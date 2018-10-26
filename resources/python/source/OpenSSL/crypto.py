@@ -24,6 +24,45 @@ from OpenSSL._util import (
     make_assert as _make_assert,
 )
 
+__all__ = [
+    'FILETYPE_PEM',
+    'FILETYPE_ASN1',
+    'FILETYPE_TEXT',
+    'TYPE_RSA',
+    'TYPE_DSA',
+    'Error',
+    'PKey',
+    'get_elliptic_curves',
+    'get_elliptic_curve',
+    'X509Name',
+    'X509Extension',
+    'X509Req',
+    'X509',
+    'X509StoreFlags',
+    'X509Store',
+    'X509StoreContextError',
+    'X509StoreContext',
+    'load_certificate',
+    'dump_certificate',
+    'dump_publickey',
+    'dump_privatekey',
+    'Revoked',
+    'CRL',
+    'PKCS7',
+    'PKCS12',
+    'NetscapeSPKI',
+    'load_publickey',
+    'load_privatekey',
+    'dump_certificate_request',
+    'load_certificate_request',
+    'sign',
+    'verify',
+    'dump_crl',
+    'load_crl',
+    'load_pkcs7_data',
+    'load_pkcs12'
+]
+
 FILETYPE_PEM = _lib.SSL_FILETYPE_PEM
 FILETYPE_ASN1 = _lib.SSL_FILETYPE_ASN1
 
@@ -160,6 +199,19 @@ def _get_asn1_time(timestamp):
             string_result = _ffi.string(string_data)
             _lib.ASN1_GENERALIZEDTIME_free(generalized_timestamp[0])
             return string_result
+
+
+class _X509NameInvalidator(object):
+    def __init__(self):
+        self._names = []
+
+    def add(self, name):
+        self._names.append(name)
+
+    def clear(self):
+        for name in self._names:
+            # Breaks the object, but also prevents UAF!
+            del name._name
 
 
 class PKey(object):
@@ -1032,6 +1084,17 @@ class X509(object):
         _openssl_assert(x509 != _ffi.NULL)
         self._x509 = _ffi.gc(x509, _lib.X509_free)
 
+        self._issuer_invalidator = _X509NameInvalidator()
+        self._subject_invalidator = _X509NameInvalidator()
+
+    @classmethod
+    def _from_raw_x509_ptr(cls, x509):
+        cert = cls.__new__(cls)
+        cert._x509 = _ffi.gc(x509, _lib.X509_free)
+        cert._issuer_invalidator = _X509NameInvalidator()
+        cert._subject_invalidator = _X509NameInvalidator()
+        return cert
+
     def to_cryptography(self):
         """
         Export as a ``cryptography`` certificate.
@@ -1382,7 +1445,9 @@ class X509(object):
         :return: The issuer of this certificate.
         :rtype: :class:`X509Name`
         """
-        return self._get_name(_lib.X509_get_issuer_name)
+        name = self._get_name(_lib.X509_get_issuer_name)
+        self._issuer_invalidator.add(name)
+        return name
 
     def set_issuer(self, issuer):
         """
@@ -1393,7 +1458,8 @@ class X509(object):
 
         :return: ``None``
         """
-        return self._set_name(_lib.X509_set_issuer_name, issuer)
+        self._set_name(_lib.X509_set_issuer_name, issuer)
+        self._issuer_invalidator.clear()
 
     def get_subject(self):
         """
@@ -1407,7 +1473,9 @@ class X509(object):
         :return: The subject of this certificate.
         :rtype: :class:`X509Name`
         """
-        return self._get_name(_lib.X509_get_subject_name)
+        name = self._get_name(_lib.X509_get_subject_name)
+        self._subject_invalidator.add(name)
+        return name
 
     def set_subject(self, subject):
         """
@@ -1418,7 +1486,8 @@ class X509(object):
 
         :return: ``None``
         """
-        return self._set_name(_lib.X509_set_subject_name, subject)
+        self._set_name(_lib.X509_set_subject_name, subject)
+        self._subject_invalidator.clear()
 
     def get_extension_count(self):
         """
@@ -1655,6 +1724,9 @@ class X509StoreContext(object):
     def _init(self):
         """
         Set up the store context for a subsequent verification operation.
+
+        Calling this method more than once without first calling
+        :meth:`_cleanup` will leak memory.
         """
         ret = _lib.X509_STORE_CTX_init(
             self._store_ctx, self._store._store, self._cert._x509, _ffi.NULL
@@ -1688,8 +1760,7 @@ class X509StoreContext(object):
         # expect this call to never return :class:`None`.
         _x509 = _lib.X509_STORE_CTX_get_current_cert(self._store_ctx)
         _cert = _lib.X509_dup(_x509)
-        pycert = X509.__new__(X509)
-        pycert._x509 = _ffi.gc(_cert, _lib.X509_free)
+        pycert = X509._from_raw_x509_ptr(_cert)
         return X509StoreContextError(errors, pycert)
 
     def set_store(self, store):
@@ -1715,6 +1786,10 @@ class X509StoreContext(object):
         """
         # Always re-initialize the store context in case
         # :meth:`verify_certificate` is called multiple times.
+        #
+        # :meth:`_init` is called in :meth:`__init__` so _cleanup is called
+        # before _init to ensure memory is not leaked.
+        self._cleanup()
         self._init()
         ret = _lib.X509_verify_cert(self._store_ctx)
         self._cleanup()
@@ -1748,9 +1823,7 @@ def load_certificate(type, buffer):
     if x509 == _ffi.NULL:
         _raise_current_error()
 
-    cert = X509.__new__(X509)
-    cert._x509 = _ffi.gc(x509, _lib.X509_free)
-    return cert
+    return X509._from_raw_x509_ptr(x509)
 
 
 def dump_certificate(type, cert):
@@ -2898,7 +2971,7 @@ def load_crl(type, buffer):
         _raise_current_error()
 
     result = CRL.__new__(CRL)
-    result._crl = crl
+    result._crl = _ffi.gc(crl, _lib.X509_CRL_free)
     return result
 
 
@@ -2985,8 +3058,7 @@ def load_pkcs12(buffer, passphrase=None):
         pycert = None
         friendlyname = None
     else:
-        pycert = X509.__new__(X509)
-        pycert._x509 = _ffi.gc(cert[0], _lib.X509_free)
+        pycert = X509._from_raw_x509_ptr(cert[0])
 
         friendlyname_length = _ffi.new("int*")
         friendlyname_buffer = _lib.X509_alias_get0(
@@ -3000,8 +3072,8 @@ def load_pkcs12(buffer, passphrase=None):
 
     pycacerts = []
     for i in range(_lib.sk_X509_num(cacerts)):
-        pycacert = X509.__new__(X509)
-        pycacert._x509 = _lib.sk_X509_value(cacerts, i)
+        x509 = _lib.sk_X509_value(cacerts, i)
+        pycacert = X509._from_raw_x509_ptr(x509)
         pycacerts.append(pycacert)
     if not pycacerts:
         pycacerts = None
