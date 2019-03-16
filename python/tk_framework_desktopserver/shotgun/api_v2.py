@@ -26,6 +26,7 @@ import cgi
 import traceback
 import time
 import fnmatch
+import functools
 
 import sgtk
 from sgtk import TankFileDoesNotExistError
@@ -55,14 +56,14 @@ class ShotgunAPI(object):
     # Stores cache keys that have been validated and at
     # what time that occurred.
     CACHE_VALIDATED = dict()
-    CACHE_VALIDATION_INTERVAL = 2.0 # Seconds
+    CACHE_VALIDATION_INTERVAL = 120.0 # Seconds
 
     # Stores data persistently per wss connection.
     WSS_KEY_CACHE = dict()
-    DATABASE_FORMAT_VERSION = 1
+    DATABASE_FORMAT_VERSION = 2
     # When the layout of the cache in a cache entry changes, bump this version
     # so we invalidate all cached entries.
-    CACHE_ENTRY_SCHEMA_VERSION = 1
+    CACHE_ENTRY_SCHEMA_VERSION = 2
     SOFTWARE_FIELDS = ["id", "code", "updated_at", "type", "engine", "projects"]
     TOOLKIT_MANAGER = None
 
@@ -73,10 +74,12 @@ class ShotgunAPI(object):
     CONFIG_DATA = "config_data"
     SOFTWARE_ENTITIES = "software_entities"
     ENTITY_TYPE_WHITELIST = "entity_type_whitelist"
-    LEGACY_PROJECT_ACTIONS = "legacy_project_actions"
     YML_FILE_DATA = "yml_file_data"
     ENTITY_PARENT_PROJECTS = "entity_parent_projects"
     SHOTGUN_YML_FILES = "shotgun_yml_files"
+
+    REQUEST_CACHE = dict()
+    REQUEST_CACHE_INTERVAL = 30.0 # Seconds
 
     # We need to protect against concurrent bootstraps happening.
     # This is a reentrant lock because get_actions is recursive
@@ -100,13 +103,6 @@ class ShotgunAPI(object):
         self._logger = sgtk.platform.get_logger("api-v2")
         self._process_manager = process_manager
         self._global_debug = sgtk.LogManager().global_debug
-
-        if constants.ENABLE_LEGACY_WORKAROUND in os.environ:
-            logger.debug("Legacy tank command pathway allowed for classic configs.")
-            self._allow_legacy_workaround = True
-        else:
-            logger.debug("Legacy tank command pathway disabled.")
-            self._allow_legacy_workaround = False
 
         if self._wss_key not in self.WSS_KEY_CACHE:
             self.WSS_KEY_CACHE[self._wss_key] = dict()
@@ -188,46 +184,6 @@ class ShotgunAPI(object):
         project_entity, entities = self._get_entities_from_payload(data)
         config_entity = data["pc"]
         command_name = data["name"]
-
-        # We have to do a couple of things here. The first is that we ALWAYS
-        # stick to the non-legacy code path for the __core_info and __upgrade_check
-        # commands. Neither of these require a bootstrap to occur, and are therefore
-        # fast when run through the modern code path. In addition, the implementation
-        # of these "special" project-level commands already outputs markdown syntax,
-        # which is preferable to the HTML we would get from the tank command.
-        #
-        # The second bit is that we can identify commands that need to be run in
-        # legacy mode by whether the config entity dictionary we got from the client
-        # contains a "_legacy_config_root" key that was shoved into it when the
-        # get_actions method ran through its own legacy code path. In that case, we
-        # shell out to the tank command by way of our process_manager object instead
-        # of using the modern code path.
-        if command_name not in constants.LEGACY_EXEMPT_ACTIONS and self._allow_legacy_workaround:
-            if constants.LEGACY_CONFIG_ROOT in config_entity:
-                # The arguments list is the name of the command, then the entity
-                # type, and then a comma-separated list of entity ids.
-                entity_ids = [str(e["id"]) for e in entities]
-                (out, err, retcode) = self.process_manager.execute_toolkit_command(
-                    config_entity[constants.LEGACY_CONFIG_ROOT],
-                    "shotgun_run_action",
-                    [data["name"], entities[0]["type"], ",".join(entity_ids)],
-                )
-
-                # Sanitize the output. By going the legacy route here, we're going
-                # to end up with HTML in the output from the tank command. We need
-                # to filter that and sanitize anything we keep, because the client
-                # is going to believe that we're sending v2-style output, which is
-                # taken and displayed as is, and is assumed to be markdown and not
-                # HTML.
-                self.host.reply(
-                    dict(
-                        retcode=retcode,
-                        err=self._legacy_sanitize_output(err),
-                        out=self._legacy_sanitize_output(out),
-                    )
-                )
-
-                return
 
         args_file = self._get_arguments_file(
             dict(
@@ -344,6 +300,18 @@ class ShotgunAPI(object):
         # reply to the client so that the Promise can be kept or broken, as is
         # appropriate.
         try:
+            data_hash = hash(str(data))
+            if data_hash in self.REQUEST_CACHE:
+                if time.time() - self.REQUEST_CACHE[data_hash]["time"] < self.REQUEST_CACHE_INTERVAL:
+                    logger.info("Request found in in-memory request cache.")
+                    self.host.reply(
+                        self.REQUEST_CACHE[data_hash]["response"]
+                    )
+                    return
+                else:
+                    logger.info("Request found in in-memory request cache, but is too old.")
+            else:
+                logger.info("Request not found in in-memory request cache.")
             self._get_actions(data)
         except Exception:
             self.host.reply(
@@ -429,53 +397,8 @@ class ShotgunAPI(object):
                 data,
             )
 
-        # The first thing we do is check to see if we're dealing with a
-        # classic SGTK setup. In that case, we're going to short-circuit
-        # the get_actions call and go into a legacy setup that makes use
-        # of the "tank" command by way of this api's process_manager.
-        did_legacy_lookup = False
         all_actions = dict()
-        config_names = []
-        legacy_config_ids = []
-
-        if self._allow_legacy_workaround:
-            legacy_config_data = dict()
-
-            for config_id, config_data in all_pc_data.iteritems():
-                config = config_data["entity"]
-
-                if config["descriptor"].required_storages:
-                    # We're using os.path.dirname to chop the last directory off
-                    # the end of the config descriptor path. This is because that
-                    # path is routed to <root>/config, while the v1 api is just
-                    # wanting the root path where the tank command lives.
-                    legacy_config_data[config["name"]] = (
-                        config["descriptor"].get_path(),
-                        config
-                    )
-
-                    legacy_config_ids.append(config_id)
-
-            # We're going to remove this config from the data structure
-            # housing all of the project's pipeline configuration information.
-            # With this, we can allow the legacy pathway to handle the classic
-            # configs, while allowing descriptor-driven configs to run through
-            # the v2 flow.
-            for config_id in legacy_config_ids:
-                del all_pc_data[config_id]
-
-            # If there are any classic configs, then we use the legacy code
-            # path.
-            if legacy_config_data:
-                logger.debug("Classic SGTK config(s) found, proceeding with legacy code path.")
-                self._legacy_process_configs(
-                    legacy_config_data,
-                    entity["type"],
-                    project_entity["id"],
-                    all_actions,
-                    config_names,
-                )
-                did_legacy_lookup = True
+        cache_callables = list()
 
         with self._db_connect() as (connection, cursor):
             for pc_id, pc_data in all_pc_data.iteritems():
@@ -518,7 +441,7 @@ class ShotgunAPI(object):
                     pc_descriptor,
                 )
 
-                if not supported_entity_type and not did_legacy_lookup:
+                if not supported_entity_type:
                     logger.debug(
                         "Entity type %s is not supported by %r, no actions will be returned.",
                         data["entity_type"],
@@ -560,7 +483,7 @@ class ShotgunAPI(object):
 
                 try:
                     cursor.execute(
-                        "SELECT commands, contents_hash FROM engine_commands WHERE lookup_hash=?",
+                        "SELECT commands FROM engine_commands WHERE lookup_hash=?",
                         (lookup_hash,)
                     )
                     cached_data = list(cursor.fetchone() or [])
@@ -569,9 +492,7 @@ class ShotgunAPI(object):
                     # In that case, we just continue on with cached_data set
                     # to an empty list, which will cause the caching subprocess
                     # to be spawned, which will setup the database and populate
-                    # with the data we need. The behavior as a result of this
-                    # is the same as if we ended up with a cache miss or an
-                    # invalidated result due to a contents_hash mismatch.
+                    # with the data we need.
                     logger.debug(
                         "Cache query failed due to missing table. "
                         "Triggering caching subprocess..."
@@ -579,23 +500,18 @@ class ShotgunAPI(object):
 
                 try:
                     if cached_data:
-                        # Cache hit.
-                        cached_contents_hash = cached_data[1]
-
                         # We check the validity of the cache asynchronously in this
-                        # situation. We want to go ahead and return the list of actions
-                        # that we have cached, but in the background check to see whether
-                        # the cache should be updated. This gives us the situation where
-                        # this one invokation of get_actions returns old data, but all
-                        # future requests will be correct until the next time the cache
-                        # must be invalidated.
-                        self._async_check_and_cache_actions(
-                            data,
-                            pc_data,
-                            cached_contents_hash,
+                        # situation. We're going to collect these into a list and then
+                        # execute them after we've replied to the request so that we
+                        # get menu actions back to the user ASAP.
+                        cache_callables.append(
+                            functools.partial(
+                                self._async_check_and_cache_actions,
+                                data,
+                                pc_data,
+                            )
                         )
 
-                        logger.debug("Cached contents hash is %s", cached_contents_hash)
                         logger.debug("Cache key was %s", lookup_hash)
 
                         actions = self._process_commands(
@@ -637,9 +553,7 @@ class ShotgunAPI(object):
                     logger.debug(traceback.format_exc())
                     continue
 
-        # Combine the config names processed by the v2 flow with those handled
-        # by the legacy pathway.
-        config_names = config_names + [p["entity"]["name"] for p in all_pc_data.values()]
+        config_names = [p["entity"]["name"] for p in all_pc_data.values()]
 
         self.host.reply(
             dict(
@@ -649,6 +563,21 @@ class ShotgunAPI(object):
                 pcs=config_names,
             ),
         )
+
+        self.REQUEST_CACHE[hash(str(data))] = dict(
+            response=dict(
+                err="",
+                retcode=constants.SUCCESSFUL_LOOKUP,
+                actions=all_actions,
+                pcs=config_names,
+            ),
+            time=time.time(),
+        )
+
+        # Now trigger cache refresh for everything. We're doing this last so that we
+        # reply to the request ASAP.
+        for cache_callable in cache_callables:
+            cache_callable()
 
     def open(self, data):
         """
@@ -755,7 +684,7 @@ class ShotgunAPI(object):
     ###########################################################################
     # Internal methods
 
-    def _async_check_and_cache_actions(self, data, config_data, cached_contents_hash=None):
+    def _async_check_and_cache_actions(self, data, config_data):
         """
         Checks the validity of existing cached data and recaches if necessary.
 
@@ -764,14 +693,7 @@ class ShotgunAPI(object):
 
         :param dict data: The data passed down from the wss client.
         :param dict config_data: A dictionary that contains, at a minimum,
-            "lookup_hash", "contents_hash", "descriptor", and "entity" keys.
-        :param str cached_contents_hash: If given, represents the currently
-            cached contents hash for the configuration. If this is the same as
-            a newly-generated contents hash built prior to caching, then the
-            caching process will stop and exit without doing any additional
-            work. This represents the situation where we've been asked to
-            re-cache actions, but we then prove that the existing cached data
-            is still valid.
+            "lookup_hash", "descriptor", and "entity" keys.
         """
         lookup_hash = config_data["lookup_hash"]
         now = time.time()
@@ -794,27 +716,19 @@ class ShotgunAPI(object):
             args=(
                 data,
                 config_data,
-                cached_contents_hash,
             ),
         )
         thread.start()
         logger.debug("Cache actions thread started.")
 
     @sgtk.LogManager.log_timing
-    def _cache_actions(self, data, config_data, cached_contents_hash=None):
+    def _cache_actions(self, data, config_data):
         """
         Triggers the caching or recaching of engine commands.
 
         :param dict data: The data passed down from the wss client.
         :param dict config_data: A dictionary that contains, at a minimum,
-            "lookup_hash", "contents_hash", "descriptor", and "entity" keys.
-        :param str cached_contents_hash: If given, represents the currently
-            cached contents hash for the configuration. If this is the same as
-            a newly-generated contents hash built prior to caching, then the
-            caching process will stop and exit without doing any additional
-            work. This represents the situation where we've been asked to
-            re-cache actions, but we then prove that the existing cached data
-            is still valid.
+            "lookup_hash", "descriptor", and "entity" keys.
         """
         logger.debug("Caching engine commands...")
         descriptor = config_data["descriptor"]
@@ -825,25 +739,6 @@ class ShotgunAPI(object):
             "cache_commands.py"
         )
 
-        contents_hash = self._get_contents_hash(
-            descriptor,
-            self._get_site_state_data(),
-        )
-        logger.debug("The new contents hash is %s", contents_hash)
-
-        # If we were given a cached contents hash, it means we need to
-        # check to see if it matches the contents hash that we generated
-        # above. If they match, then it means that the data already cached
-        # is valid. In that case, we just log and return.
-        if cached_contents_hash and str(contents_hash) == str(cached_contents_hash):
-            logger.debug(
-                "The data already cached has been validated and is not out of date. "
-                "New data will not be cached as a result."
-            )
-            return
-        else:
-            logger.debug("The cached data is out of date. Recaching...")
-
         logger.debug("Executing script: %s", script)
 
         # We'll need the Python executable when we shell out. We want to make sure
@@ -853,7 +748,6 @@ class ShotgunAPI(object):
 
         arg_config_data = dict(
             lookup_hash=config_data["lookup_hash"],
-            contents_hash=contents_hash,
             entity=config_data["entity"],
         )
 
@@ -1061,50 +955,6 @@ class ShotgunAPI(object):
             )
 
         return args_file
-
-    @sgtk.LogManager.log_timing
-    def _get_contents_hash(self, config_descriptor, entities):
-        """
-        Computes an md5 hashsum for the given pipeline configuration. This
-        hash includes the state of all fields for all Software entities in
-        the current Shotgun site, and if the given pipeline configuration
-        is mutable, the modtimes of all yml files in the config.
-
-        :param config_descriptor: The descriptor object for the pipeline config.
-        :param list entities: A list of entity dictionaries to be included in the
-            hash computation.
-
-        :returns: hash value
-        :rtype: int
-        """
-        # We dump the entities out as json, sorting on keys to ensure
-        # consistent ordering of data.
-        hashable_data = dict(
-            entities=entities,
-            modtimes="",
-        )
-
-        if config_descriptor and config_descriptor.is_immutable() is False:
-            yml_files = self._get_yml_file_data(config_descriptor)
-
-            if yml_files is not None:
-                hashable_data["modtimes"] = yml_files
-
-        # Dict objects aren't hashable directly by way of hash() or the md5
-        # module, so we need to create a stable string representation of the
-        # data structure. The quickest way to do that is to json encode
-        # everything, sorting on keys to stabilize the results.
-        json_data = json.dumps(
-            hashable_data,
-            sort_keys=True,
-            default=self.__json_default,
-        )
-
-        logger.debug("Contents data to be used in hash generation: %s", json_data)
-
-        hash_data = hashlib.md5()
-        hash_data.update(json_data)
-        return hash_data.digest()
 
     def _get_entities_from_payload(self, data):
         """
@@ -1424,7 +1274,7 @@ class ShotgunAPI(object):
         :param dict data: The payload from the client.
 
         :returns: A dictionary, keyed by PipelineConfiguration entity id, that
-            contains dictionaries with "contents_hash", "lookup_hash",
+            contains dictionaries with "lookup_hash",
             "descriptor", and "entity" keys.
         :rtype: dict
         """
@@ -1570,39 +1420,6 @@ class ShotgunAPI(object):
         return copy.deepcopy(pc_data[project["id"]])
 
     @sgtk.LogManager.log_timing
-    def _get_site_state_data(self):
-        """
-        Gets state-related data for the site. Exactly what data this is depends
-        on the "browser_integration" hook's "get_site_state_data" method,
-        which returns a list of dicts passed to the Shotgun Python API's find
-        method as kwargs. The data returned by this method is cached based on
-        the WSS connection key provided to the API's constructor at instantiation
-        time. This means that this data is queried from Shotgun only once per
-        unique WSS connection.
-
-        :returns: A list of Shotgun entity dictionaries.
-        :rtype: list
-        """
-        if self.SITE_STATE_DATA not in self._cache:
-            self._cache[self.SITE_STATE_DATA] = self._get_software_entities()
-
-            requested_data_specs = self._bundle.execute_hook_method(
-                "browser_integration_hook",
-                "get_site_state_data",
-            )
-
-            for spec in requested_data_specs:
-                entities = self._engine.shotgun.find(**spec)
-                self._cache[self.SITE_STATE_DATA].extend(entities)
-        else:
-            logger.debug("Cached site state data found for %s", self._wss_key)
-
-        # We'll deepcopy the data before returning it. That will ensure that
-        # any destructive operations on the contents won't bubble up to the
-        # cache.
-        return copy.deepcopy(self._cache[self.SITE_STATE_DATA])
-
-    @sgtk.LogManager.log_timing
     def _get_software_entities(self):
         """
         Gets all Software entities from the Shotgun client site. Included are
@@ -1686,9 +1503,6 @@ class ShotgunAPI(object):
         needs to be fast. As such, we only glob the specific files we know
         we're looking for.
 
-        For a more complete list of yml files in the config, the
-        _get_yml_file_data method provides a deep dive into the config.
-
         :param config_descriptor: The descriptor object for the config to get
             yml file data for.
 
@@ -1721,61 +1535,6 @@ class ShotgunAPI(object):
 
         return self._cache[self.SHOTGUN_YML_FILES].get(root_path)
 
-    @sgtk.LogManager.log_timing
-    def _get_yml_file_data(self, config_descriptor):
-        """
-        Gets environment yml file paths and their associated mtimes for the
-        given pipeline configuration descriptor object. The data will be looked
-        up once per unique wss connection and cached.
-
-        ..Example:
-            {
-                "/shotgun/my_project/config": {
-                    "/shotgun/my_project/config/env/project.yml": 1234567,
-                    ...
-                },
-                ...
-            }
-
-        :param config_descriptor: The descriptor object for the config to get
-            yml file data for.
-
-        :returns: A dictionary keyed by yml file path, set to the file's mtime
-            at the time the data was cached.
-        :rtype: dict
-        """
-        root_path = config_descriptor.get_path()
-
-        if self.YML_FILE_DATA not in self._cache or root_path not in self._cache[self.YML_FILE_DATA]:
-            yml_files = dict()
-
-            if root_path is not None:
-                config_path = self._get_config_env_root(root_path)
-
-                logger.debug(
-                    "Config %s is mutable -- environment file mtimes will be used to determine cache validity.",
-                    config_path,
-                )
-
-                # We do a deep scan of from the config's "env" root down to
-                # its bottom.
-                for root, dir_names, file_names in os.walk(config_path):
-                    for file_name in fnmatch.filter(file_names, "*.yml"):
-                        full_path = os.path.join(root, file_name)
-                        yml_files[full_path] = os.path.getmtime(full_path)
-
-            logger.debug(
-                "Contents hash computed using %s yml files.",
-                len(yml_files),
-            )
-
-            logger.debug("Files checked for mtime: %s", sorted(yml_files.keys()))
-            self._cache.setdefault(self.YML_FILE_DATA, dict())[root_path] = yml_files
-        else:
-            logger.debug("Cached yml file data found for %r.", config_descriptor)
-
-        return self._cache[self.YML_FILE_DATA].get(root_path)
-
     def _get_config_env_root(self, config_root_path):
         """
         Gets the "env" root directory within the config.
@@ -1804,185 +1563,6 @@ class ShotgunAPI(object):
             env_path = os.path.join(config_root_path, "env")
 
         return env_path
-
-    def _legacy_get_project_actions(self, config_paths, project_id):
-        """
-        Gets all actions for all shotgun_xxx environments for the project and
-        caches them in memory, keyed by the unique session key provided by
-        the websocket server.
-
-        :param list config_paths: A list of string file paths to the root
-            directory of each pipeline configuration to get actions for.
-
-        :returns: All commands for all shotgun_xxx environments for all
-            requested pipeline configs.
-        :rtype: dict
-        """
-        # The in-memory cache is keyed by the wss_key that is unique to each
-        # wss connection.
-        cache_not_initialized = self.LEGACY_PROJECT_ACTIONS not in self._cache
-
-        if cache_not_initialized:
-            self._cache[self.LEGACY_PROJECT_ACTIONS] = dict()
-
-        project_not_cached = project_id not in self._cache[self.LEGACY_PROJECT_ACTIONS]
-
-        if project_not_cached:
-            self._cache[self.LEGACY_PROJECT_ACTIONS][project_id] = self.process_manager.get_project_actions(
-                config_paths,
-            )
-
-        # We'll deepcopy the data before returning it. That will ensure that
-        # any destructive operations on the contents won't bubble up to the
-        # cache.
-        return copy.deepcopy(self._cache[self.LEGACY_PROJECT_ACTIONS][project_id])
-
-    def _legacy_process_configs(self, config_data, entity_type, project_id, all_actions, config_names):
-        """
-        Processes the raw engine command data coming from the tank command
-        and organizes it into the data structure expected from the v2 wss
-        server by the client. This method acts as the adapter between the
-        legacy v1 API method of getting toolkit actions and the v2 menu
-        logic in the Shotgun web app versions 7.2.0+.
-
-        :param dict config_data: A dictionary, keyed by PipelineConfiguration
-            entity name, containing a tuple of config root path and config
-            entity dict, in that order.
-        :param str entity_type: The entity type that we're getting actions
-            for.
-        :param int project_id: The Project entity's id. This is used to key the
-            in-memory cache of project actions.
-        :param dict all_actions: The dict object to add the discovered actions
-            to.
-        :param list config_names: The list object to add processed config names
-            to.
-        """
-        # The config_data is structured as dict(name=(path, entity)), so
-        # to extract just the paths, we get index 0 of each tuple stored
-        # in the dict.
-        config_paths = [p[0] for n, p in config_data.iteritems()]
-        project_actions = self._legacy_get_project_actions(config_paths, project_id)
-
-        for config_name, config_data in config_data.iteritems():
-            config_path, config_entity = config_data
-            commands = []
-
-            # We don't need or want the descriptor object to be sent to the client.
-            # Since we're done with this config for this invokation, we can just
-            # delete it from the entity dict.
-            del config_entity["descriptor"]
-
-            # And since we know this set of actions came from this legacy path, we
-            # can go ahead and include some extra data in the config dict that we
-            # can key off of when this action is called from the client.
-            config_entity[constants.LEGACY_CONFIG_ROOT] = config_path
-
-            try:
-                get_actions_data = project_actions[config_path]["shotgun_get_actions"]
-            except KeyError:
-                logger.debug(
-                    "The tank command didn't return any actions for this config: %s",
-                    config_path
-                )
-                continue
-
-            env_file_name = "shotgun_%s.yml" % entity_type.lower()
-            raw_actions_data = get_actions_data.get(env_file_name)
-
-            # In the case where the specific shotgun_*.yml environment
-            # file we're looking for doesn't exit in the data returned by
-            # the tank command, we just skip the config. The reason for this
-            # will be that there is not shotgun_<entity_type>.yml file for the
-            # entity type requesting actions. In that case, silence is the
-            # correct approach, because this isn't considered an error case by
-            # the client.
-            if raw_actions_data is None:
-                logger.debug(
-                    "No actions were found for %s in config %s",
-                    entity_type,
-                    config_path
-                )
-
-                all_actions[config_name] = dict(
-                    actions=[],
-                    config=config_entity,
-                )
-
-                continue
-
-            if raw_actions_data["retcode"] != 0:
-                logger.error(
-                    "A shotgun_get_actions call did not succeed: %s",
-                    raw_actions_data
-                )
-
-                all_actions[config_name] = dict(
-                    actions=[],
-                    config=config_entity,
-                )
-
-                continue
-
-            config_names.append(config_name)
-
-            # The data returned by the tank command is a newline delimited string
-            # that defines rows of ordered data delimited by $ characters.
-            try:
-                for line in raw_actions_data["out"].split("\n"):
-                    action = line.split("$")
-
-                    if action[2] == "":
-                        deny_permissions = []
-                    else:
-                        deny_permissions = action[2].split(",")
-
-                    multi_select = action[3] == "True"
-
-                    commands.append(
-                        dict(
-                            name=action[0],
-                            title=action[1],
-                            deny_permissions=deny_permissions,
-                            supports_multiple_selection=multi_select,
-                            app_name=None, # Not used here.
-                            group=None, # Not used here.
-                            group_default=None, # Not used here.
-                            # this is an old fashioned cache, which means it doesn't have
-                            # software entity information, so we won't cache the engine
-                            # name either
-                        )
-                    )
-            except Exception:
-                logger.error("Unable to parse legacy cache file: %s", env_file_name)
-
-            all_actions[config_name] = dict(
-                actions=commands,
-                config=config_entity,
-            )
-
-    def _legacy_sanitize_output(self, out):
-        """
-        Sanitizes HTML output coming from the Shotgun engine by way of the
-        tank command. This method filters out any lines of output not wrapped
-        in span tags, and replaces HTML bold tags with Slack-style markdown
-        bold syntax.
-
-        :param str out: The raw output string to sanitize.
-
-        :returns: The sanitized output.
-        :rtype: str
-        """
-        sanitized = []
-        bold_match = re.compile(r"</*b>")
-        span_match = re.compile(r"</*span>")
-
-        for line in out.split("\n"):
-            if line.startswith("<span>"):
-                line = re.sub(span_match, "", line)
-                line = re.sub(bold_match, "*", line)
-                sanitized.append(line)
-
-        return cgi.escape("\n".join(sanitized)).encode("utf8")
 
     @sgtk.LogManager.log_timing
     def _process_commands(self, commands, project, entities):

@@ -56,10 +56,3 @@ BASE_ENTITY_TYPE_WHITELIST = set([
 # tag that we can then use after the command completes to identify
 # output that we want to send back to the client.
 LOGGING_PREFIX = "SGTK:"
-
-# This is part of a workaround that causes "classic" SGTK configs to
-# be processed by way of the "tank" command rather than going through
-# the more modern code path that utilizes the bootstrap API.
-LEGACY_CONFIG_ROOT = "_legacy_config_root"
-LEGACY_EXEMPT_ACTIONS = ["__core_info", "__upgrade_check"]
-ENABLE_LEGACY_WORKAROUND = "SHOTGUN_ENABLE_LEGACY_BROWSER_INTEGRATION_WORKAROUND"

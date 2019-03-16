@@ -33,8 +33,7 @@ def bootstrap(data, base_configuration, engine_name, config_data, bundle_cache_f
         is most likely going to be "tk-shotgun"
     :param dict config_data: All relevant pipeline configuration data. This
         dict is keyed by pipeline config entity id, each containing a dict
-        that contains, at a minimum, "entity", "lookup_hash", and
-        "contents_hash" keys.
+        that contains, at a minimum, "entity", and "lookup_hash" keys.
 
     :returns: Bootstrapped engine instance.
     """
@@ -88,8 +87,7 @@ def cache(
         is most likely going to be "tk-shotgun"
     :param dict config_data: All relevant pipeline configuration data. This
         dict is keyed by pipeline config entity id, each containing a dict
-        that contains, at a minimum, "entity", "lookup_hash", and
-        "contents_hash" keys.
+        that contains, at a minimum, "entity", "lookup_hash" keys.
     :param bool config_is_mutable: Whether the pipeline config is mutable. If
         it is, then we include the __core_info and __upgrade_check commands.
     """
@@ -115,7 +113,6 @@ def cache(
     engine.log_debug("Raw payload from client: %s" % data)
 
     lookup_hash = config_data["lookup_hash"]
-    contents_hash = config_data["contents_hash"]
 
     engine.log_debug("Processing engine commands...")
     commands = []
@@ -223,7 +220,7 @@ def cache(
 
                 # We have a brand new database. Create all tables and indices.
                 cursor.executescript("""
-                    CREATE TABLE engine_commands (lookup_hash text, contents_hash text, commands blob);
+                    CREATE TABLE engine_commands (lookup_hash text, commands blob);
                 """)
 
                 connection.commit()
@@ -237,8 +234,8 @@ def cache(
         # we'll try an update first. If no rows were affected by the update,
         # we move on to an insert.
         cursor.execute(
-            "UPDATE engine_commands SET contents_hash=?, commands=? WHERE lookup_hash=?",
-            (contents_hash, commands_blob, lookup_hash)
+            "UPDATE engine_commands SET commands=? WHERE lookup_hash=?",
+            (commands_blob, lookup_hash)
         )
 
         if cursor.rowcount == 0:
@@ -246,9 +243,8 @@ def cache(
                 "Update did not result in any rows altered, inserting..."
             )
             cursor.execute(
-                "INSERT INTO engine_commands VALUES (?, ?, ?)", (
+                "INSERT INTO engine_commands VALUES (?, ?)", (
                     lookup_hash,
-                    contents_hash,
                     commands_blob,
                 )
             )
