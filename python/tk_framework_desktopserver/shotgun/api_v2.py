@@ -56,7 +56,7 @@ class ShotgunAPI(object):
     # Stores cache keys that have been validated and at
     # what time that occurred.
     CACHE_VALIDATED = dict()
-    CACHE_VALIDATION_INTERVAL = 120.0 # Seconds
+    CACHE_VALIDATION_INTERVAL = 600.0 # Seconds
 
     # Stores data persistently per wss connection.
     WSS_KEY_CACHE = dict()
@@ -79,7 +79,7 @@ class ShotgunAPI(object):
     SHOTGUN_YML_FILES = "shotgun_yml_files"
 
     REQUEST_CACHE = dict()
-    REQUEST_CACHE_INTERVAL = 30.0 # Seconds
+    REQUEST_CACHE_INTERVAL = 60.0 # Seconds
 
     # We need to protect against concurrent bootstraps happening.
     # This is a reentrant lock because get_actions is recursive
@@ -300,7 +300,14 @@ class ShotgunAPI(object):
         # reply to the client so that the Promise can be kept or broken, as is
         # appropriate.
         try:
-            data_hash = hash(str(data))
+            cache_data = copy.deepcopy(data)
+            if "entity_id" in cache_data:
+                if cache_data.get("entity_type") == "Task":
+                    pass
+                else:
+                    del cache_data["entity_id"]
+
+            data_hash = hash(str(cache_data))
             if data_hash in self.REQUEST_CACHE:
                 if time.time() - self.REQUEST_CACHE[data_hash]["time"] < self.REQUEST_CACHE_INTERVAL:
                     logger.info("Request found in in-memory request cache.")
@@ -564,7 +571,14 @@ class ShotgunAPI(object):
             ),
         )
 
-        self.REQUEST_CACHE[hash(str(data))] = dict(
+        cache_data = copy.deepcopy(data)
+        if "entity_id" in cache_data:
+            if cache_data.get("entity_type") == "Task":
+                pass
+            else:
+                del cache_data["entity_id"]
+
+        self.REQUEST_CACHE[hash(str(cache_data))] = dict(
             response=dict(
                 err="",
                 retcode=constants.SUCCESSFUL_LOOKUP,
