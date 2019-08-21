@@ -31,5 +31,5 @@ test_script:
   # the interpreter you're using - Appveyor does not do anything special
   # to put the Python version you want to use on PATH.
   - cmd: cd tests
-  - cmd: "%PYTHON%\\python.exe -m pip win32api"
+  - cmd: "%PYTHON%\\python.exe -m pip install win32api"
   - cmd: "%PYTHON%\\python.exe %TEMP%\\tk-core\\tests\\run_tests.py --test-root . %*"
