@@ -27,12 +27,13 @@
 
 from __future__ import absolute_import, print_function
 
-import itertools
+from functools import wraps
 
-from twisted.internet.defer import inlineCallbacks  # XXX FIXME?
 from twisted.internet.interfaces import IStreamClientEndpoint
 from twisted.internet.endpoints import UNIXClientEndpoint
 from twisted.internet.endpoints import TCP4ClientEndpoint
+from twisted.python.failure import Failure
+from twisted.internet.error import ReactorNotRunning
 
 try:
     _TLS = True
@@ -40,10 +41,10 @@ try:
     from twisted.internet.ssl import optionsForClientTLS, CertificateOptions, Certificate
     from twisted.internet.interfaces import IOpenSSLClientConnectionCreator
     from OpenSSL import SSL
-except ImportError as e:
+except ImportError:
     _TLS = False
-    if 'OpenSSL' not in str(e):
-        raise
+    # there's no optionsForClientTLS in older Twisteds or we might be
+    # missing OpenSSL entirely.
 
 import six
 import txaio
@@ -53,25 +54,10 @@ from autobahn.twisted.rawsocket import WampRawSocketClientFactory
 
 from autobahn.wamp import component
 
-from autobahn.twisted.util import sleep
 from autobahn.twisted.wamp import Session
-from autobahn.wamp.exception import ApplicationError
+from autobahn.wamp.serializer import create_transport_serializers, create_transport_serializer
 
-
-__all__ = ('Component',)
-
-
-def _is_ssl_error(e):
-    """
-    Internal helper.
-
-    This is so we can just return False if we didn't import any
-    TLS/SSL libraries. Otherwise, returns True if this is an
-    OpenSSL.SSL.Error
-    """
-    if _TLS:
-        return isinstance(e, SSL.Error)
-    return False
+__all__ = ('Component', 'run')
 
 
 def _unique_list(seq):
@@ -80,68 +66,6 @@ def _unique_list(seq):
     """
     seen = set()
     return [x for x in seq if x not in seen and not seen.add(x)]
-
-
-def _create_transport_serializer(serializer_id):
-    if serializer_id in [u'msgpack', u'mgspack.batched']:
-        # try MsgPack WAMP serializer
-        try:
-            from autobahn.wamp.serializer import MsgPackSerializer
-        except ImportError:
-            pass
-        else:
-            if serializer_id == u'mgspack.batched':
-                return MsgPackSerializer(batched=True)
-            else:
-                return MsgPackSerializer()
-
-    if serializer_id in [u'json', u'json.batched']:
-        # try JSON WAMP serializer
-        try:
-            from autobahn.wamp.serializer import JsonSerializer
-        except ImportError:
-            pass
-        else:
-            if serializer_id == u'json.batched':
-                return JsonSerializer(batched=True)
-            else:
-                return JsonSerializer()
-
-    raise RuntimeError('could not create serializer for "{}"'.format(serializer_id))
-
-
-def _create_transport_serializers(transport):
-    """
-    Create a list of serializers to use with a WAMP protocol factory.
-    """
-    serializers = []
-    for serializer_id in transport.serializers:
-        if serializer_id == u'msgpack':
-            # try MsgPack WAMP serializer
-            try:
-                from autobahn.wamp.serializer import MsgPackSerializer
-            except ImportError:
-                pass
-            else:
-                serializers.append(MsgPackSerializer(batched=True))
-                serializers.append(MsgPackSerializer())
-
-        elif serializer_id == u'json':
-            # try JSON WAMP serializer
-            try:
-                from autobahn.wamp.serializer import JsonSerializer
-            except ImportError:
-                pass
-            else:
-                serializers.append(JsonSerializer(batched=True))
-                serializers.append(JsonSerializer())
-
-        else:
-            raise RuntimeError(
-                "Unknown serializer '{}'".format(serializer_id)
-            )
-
-    return serializers
 
 
 def _camel_case_from_snake_case(snake):
@@ -154,11 +78,16 @@ def _create_transport_factory(reactor, transport, session_factory):
     Create a WAMP-over-XXX transport factory.
     """
     if transport.type == u'websocket':
-        serializers = _create_transport_serializers(transport)
-        factory = WampWebSocketClientFactory(session_factory, url=transport.url, serializers=serializers)
+        serializers = create_transport_serializers(transport)
+        factory = WampWebSocketClientFactory(
+            session_factory,
+            url=transport.url,
+            serializers=serializers,
+            proxy=transport.proxy,  # either None or a dict with host, port
+        )
 
     elif transport.type == u'rawsocket':
-        serializer = _create_transport_serializer(transport.serializers[0])
+        serializer = create_transport_serializer(transport.serializers[0])
         factory = WampRawSocketClientFactory(session_factory, serializer=serializer)
 
     else:
@@ -253,7 +182,19 @@ def _create_transport_endpoint(reactor, endpoint_config):
 
             # create a non-TLS connecting TCP socket
             else:
-                if version == 4:
+                if host.endswith(".onion"):
+                    # hmm, can't log here?
+                    # self.log.info("{host} appears to be a Tor endpoint", host=host)
+                    try:
+                        import txtorcon
+                        endpoint = txtorcon.TorClientEndpoint(host, port)
+                    except ImportError:
+                        raise RuntimeError(
+                            "{} appears to be a Tor Onion service, but txtorcon is not installed".format(
+                                host,
+                            )
+                        )
+                elif version == 4:
                     endpoint = TCP4ClientEndpoint(reactor, host, port, timeout=timeout)
                 elif version == 6:
                     try:
@@ -292,6 +233,18 @@ class Component(component.Component):
     The factory of the session we will instantiate.
     """
 
+    def _is_ssl_error(self, e):
+        """
+        Internal helper.
+
+        This is so we can just return False if we didn't import any
+        TLS/SSL libraries. Otherwise, returns True if this is an
+        OpenSSL.SSL.Error
+        """
+        if _TLS:
+            return isinstance(e, SSL.Error)
+        return False
+
     def _check_native_endpoint(self, endpoint):
         if IStreamClientEndpoint.providedBy(endpoint):
             pass
@@ -315,28 +268,64 @@ class Component(component.Component):
                 " provider"
             )
 
-    def _connect_transport(self, reactor, transport, session_factory):
+    def _connect_transport(self, reactor, transport, session_factory, done):
         """
         Create and connect a WAMP-over-XXX transport.
+
+        :param done: is a Deferred/Future from the parent which we
+            should signal upon error if it is not done yet (XXX maybe an
+            "on_error" callable instead?)
         """
         transport_factory = _create_transport_factory(reactor, transport, session_factory)
-        transport_endpoint = _create_transport_endpoint(reactor, transport.endpoint)
-        return transport_endpoint.connect(transport_factory)
+        if transport.proxy:
+            transport_endpoint = _create_transport_endpoint(
+                reactor,
+                {
+                    "type": "tcp",
+                    "host": transport.proxy["host"],
+                    "port": transport.proxy["port"],
+                }
+            )
+        else:
+            transport_endpoint = _create_transport_endpoint(reactor, transport.endpoint)
+        d = transport_endpoint.connect(transport_factory)
 
-    # XXX think: is it okay to use inlineCallbacks (in this
-    # twisted-only file) even though we're using txaio?
-    @inlineCallbacks
+        def on_connect_success(proto):
+
+            # if e.g. an SSL handshake fails, we will have
+            # successfully connected (i.e. get here) but need to
+            # 'listen' for the "connectionLost" from the underlying
+            # protocol in case of handshake failure .. so we wrap
+            # it. Also, we don't increment transport.success_count
+            # here on purpose (because we might not succeed).
+            orig = proto.connectionLost
+
+            @wraps(orig)
+            def lost(fail):
+                rtn = orig(fail)
+                if not txaio.is_called(done):
+                    txaio.reject(done, fail)
+                return rtn
+            proto.connectionLost = lost
+
+        def on_connect_failure(err):
+            transport.connect_failures += 1
+            # failed to establish a connection in the first place
+            txaio.reject(done, err)
+
+        txaio.add_callbacks(d, on_connect_success, None)
+        txaio.add_callbacks(d, None, on_connect_failure)
+        return d
+
     def start(self, reactor=None):
         """
         This starts the Component, which means it will start connecting
         (and re-connecting) to its configured transports. A Component
         runs until it is "done", which means one of:
-
         - There was a "main" function defined, and it completed successfully;
         - Something called ``.leave()`` on our session, and we left successfully;
         - ``.stop()`` was called, and completed successfully;
         - none of our transports were able to connect successfully (failure);
-
         :returns: a Deferred that fires (with ``None``) when we are
             "done" or with a Failure if something went wrong.
         """
@@ -344,83 +333,7 @@ class Component(component.Component):
             self.log.warn("Using default reactor")
             from twisted.internet import reactor
 
-        yield self.fire('start', reactor, self)
-
-        # transports to try again and again ..
-        transport_gen = itertools.cycle(self._transports)
-
-        reconnect = True
-
-        self.log.debug('Entering re-connect loop')
-
-        while reconnect:
-            # cycle through all transports forever ..
-            transport = next(transport_gen)
-
-            # only actually try to connect using the transport,
-            # if the transport hasn't reached max. connect count
-            if transport.can_reconnect():
-                delay = transport.next_delay()
-                self.log.debug(
-                    'trying transport {transport_idx} using connect delay {transport_delay}',
-                    transport_idx=transport.idx,
-                    transport_delay=delay,
-                )
-                yield sleep(delay)
-                try:
-                    yield self._connect_once(reactor, transport)
-                except Exception as e:
-                    f = txaio.create_failure()
-                    self.log.error(u'component failed: {error}', error=txaio.failure_message(f))
-                    self.log.debug(u'{tb}', tb=txaio.failure_format_traceback(f))
-                    # If this is a "fatal error" that will never work,
-                    # we bail out now
-                    if isinstance(e, ApplicationError):
-                        if e.error in [u'wamp.error.no_such_realm']:
-                            reconnect = False
-                            self.log.error(u"Fatal error, not reconnecting")
-                            # The thinking here is that we really do
-                            # want to 'raise' (and thereby fail the
-                            # entire "start" / reconnect loop) because
-                            # if the realm isn't valid, we're "never"
-                            # going to succeed...
-                            raise
-                        self.log.error(u"{msg}", msg=e.error_message())
-                    elif _is_ssl_error(e):
-                        # Quoting pyOpenSSL docs: "Whenever
-                        # [SSL.Error] is raised directly, it has a
-                        # list of error messages from the OpenSSL
-                        # error queue, where each item is a tuple
-                        # (lib, function, reason). Here lib, function
-                        # and reason are all strings, describing where
-                        # and what the problem is. See err(3) for more
-                        # information."
-                        for (lib, fn, reason) in e.args[0]:
-                            self.log.error(u"TLS failure: {reason}", reason=reason)
-                        self.log.error(u"Marking this transport as failed")
-                        transport.failed()
-                    else:
-                        f = txaio.create_failure()
-                        self.log.error(
-                            u'Connection failed: {error}',
-                            error=txaio.failure_message(f),
-                        )
-                        # some types of errors should probably have
-                        # stacktraces logged immediately at error
-                        # level, e.g. SyntaxError?
-                        self.log.debug(u'{tb}', tb=txaio.failure_format_traceback(f))
-                else:
-                    self.log.debug(u"Not reconnecting")
-                    reconnect = False
-            else:
-                # check if there is any transport left we can use
-                # to connect
-                if not self._can_reconnect():
-                    self.log.info("No remaining transports to try")
-                    reconnect = False
-
-    def stop(self):
-        return self._session.leave()
+        return self._start(loop=reactor)
 
 
 def run(components, log_level='info'):
@@ -452,4 +365,15 @@ def run(components, log_level='info'):
     # txaio.start_logging() what happens if we call it again?)
     if log_level is not None:
         txaio.start_logging(level=log_level)
-    react(component._run, (components, ))
+
+    log = txaio.make_logger()
+
+    def done_callback(reactor, arg):
+        if isinstance(arg, Failure):
+            log.error("Something went wrong: {log_failure}", failure=arg)
+        try:
+            reactor.stop()
+        except ReactorNotRunning:
+            pass
+
+    react(component._run, (components, done_callback))

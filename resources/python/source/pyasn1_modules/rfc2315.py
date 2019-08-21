@@ -1,13 +1,13 @@
 #
 # This file is part of pyasn1-modules software.
 #
-# Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
+# License: http://snmplabs.com/pyasn1/license.html
 #
 # PKCS#7 message syntax
 #
 # ASN.1 source from:
-# http://www.trl.ibm.com/projects/xml/xss4j/data/asn1/grammars/pkcs7.asn
+# https://opensource.apple.com/source/Security/Security-55179.1/libsecurity_asn1/asn1/pkcs7.asn.auto.html
 #
 # Sample captures from:
 # openssl crl2pkcs7 -nocrl -certfile cert1.cer -out outfile.p7b
@@ -25,7 +25,8 @@ class Attribute(univ.Sequence):
 class AttributeValueAssertion(univ.Sequence):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('attributeType', AttributeType()),
-        namedtype.NamedType('attributeValue', AttributeValue())
+        namedtype.NamedType('attributeValue', AttributeValue(),
+                            openType=opentype.OpenType('type', certificateAttributesMap))
     )
 
 
@@ -50,12 +51,19 @@ class EncryptedContent(univ.OctetString):
     pass
 
 
+contentTypeMap = {}
+
+
 class EncryptedContentInfo(univ.Sequence):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('contentType', ContentType()),
         namedtype.NamedType('contentEncryptionAlgorithm', ContentEncryptionAlgorithmIdentifier()),
-        namedtype.OptionalNamedType('encryptedContent', EncryptedContent().subtype(
-            implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0)))
+        namedtype.OptionalNamedType(
+            'encryptedContent', EncryptedContent().subtype(
+                implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0)
+            ),
+            openType=opentype.OpenType('contentType', contentTypeMap)
+        )
     )
 
 
@@ -85,8 +93,11 @@ class Digest(univ.OctetString):
 class ContentInfo(univ.Sequence):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('contentType', ContentType()),
-        namedtype.OptionalNamedType('content', univ.Any().subtype(
-            explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0)))
+        namedtype.OptionalNamedType(
+            'content',
+            univ.Any().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0)),
+            openType=opentype.OpenType('contentType', contentTypeMap)
+        )
     )
 
 
@@ -95,7 +106,7 @@ class DigestedData(univ.Sequence):
         namedtype.NamedType('version', Version()),
         namedtype.NamedType('digestAlgorithm', DigestAlgorithmIdentifier()),
         namedtype.NamedType('contentInfo', ContentInfo()),
-        namedtype.NamedType('digest', Digest)
+        namedtype.NamedType('digest', Digest())
     )
 
 
@@ -258,15 +269,26 @@ class DigestInfo(univ.Sequence):
 class SignedData(univ.Sequence):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('version', Version()),
-        namedtype.NamedType('digestAlgorithms', DigestAlgorithmIdentifiers()),
+        namedtype.OptionalNamedType('digestAlgorithms', DigestAlgorithmIdentifiers()),
         namedtype.NamedType('contentInfo', ContentInfo()),
         namedtype.OptionalNamedType('certificates', ExtendedCertificatesAndCertificates().subtype(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0))),
         namedtype.OptionalNamedType('crls', CertificateRevocationLists().subtype(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1))),
-        namedtype.NamedType('signerInfos', SignerInfos())
+        namedtype.OptionalNamedType('signerInfos', SignerInfos())
     )
 
 
 class Data(univ.OctetString):
     pass
+
+_contentTypeMapUpdate = {
+    data: Data(),
+    signedData: SignedData(),
+    envelopedData: EnvelopedData(),
+    signedAndEnvelopedData: SignedAndEnvelopedData(),
+    digestedData: DigestedData(),
+    encryptedData: EncryptedData()
+}
+
+contentTypeMap.update(_contentTypeMapUpdate)

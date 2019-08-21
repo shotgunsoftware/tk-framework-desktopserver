@@ -1,8 +1,8 @@
 #
 # This file is part of pyasn1-modules software.
 #
-# Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
+# License: http://snmplabs.com/pyasn1/license.html
 #
 import base64
 import sys
@@ -54,10 +54,12 @@ def readPemFromFile(fileObj,
     return substrate
 
 
-def readBase64FromFile(fileObj):
+def readBase64fromText(text):
     if sys.version_info[0] <= 2:
-        return ''.join([base64.b64decode(x) for x in fileObj.readlines()])
+        return base64.b64decode(text)
     else:
-        return ''.encode().join(
-            [base64.b64decode(x.encode()) for x in fileObj.readlines()]
-        )
+        return base64.b64decode(text.encode())
+
+
+def readBase64FromFile(fileObj):
+    return readBase64fromText(fileObj.read())

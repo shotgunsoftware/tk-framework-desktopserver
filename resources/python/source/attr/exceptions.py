@@ -10,6 +10,7 @@ class FrozenInstanceError(AttributeError):
 
     .. versionadded:: 16.1.0
     """
+
     msg = "can't set attribute"
     args = [msg]
 
@@ -36,4 +37,21 @@ class DefaultAlreadySetError(RuntimeError):
     using the decorator.
 
     .. versionadded:: 17.1.0
+    """
+
+
+class UnannotatedAttributeError(RuntimeError):
+    """
+    A class with ``auto_attribs=True`` has an ``attr.ib()`` without a type
+    annotation.
+
+    .. versionadded:: 17.3.0
+    """
+
+
+class PythonTooOldError(RuntimeError):
+    """
+    An ``attrs`` feature requiring a more recent python version has been used.
+
+    .. versionadded:: 18.2.0
     """

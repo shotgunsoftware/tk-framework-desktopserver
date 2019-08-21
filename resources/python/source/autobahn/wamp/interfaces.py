@@ -406,6 +406,22 @@ class ISession(object):
 
     @public
     @abc.abstractmethod
+    def onWelcome(self, welcome_msg):
+        """
+        Callback fired after the peer has successfully authenticated. If
+        this returns anything other than None/False, the session is
+        aborted and the return value is used as an error message.
+
+        May return a Deferred/Future.
+
+        :param welcome_msg: The WELCOME message received from the server
+        :type challenge: Instance of :class:`autobahn.wamp.message.Welcome`.
+
+        :return: None, or an error message
+        """
+
+    @public
+    @abc.abstractmethod
     def onJoin(self, details):
         """
         Callback fired when WAMP session has been established.
@@ -552,7 +568,7 @@ class ISession(object):
 
     @public
     @abc.abstractmethod
-    def register(self, endpoint, procedure=None, options=None):
+    def register(self, endpoint, procedure=None, options=None, prefix=None):
         """
         Register a procedure for remote calling.
 
@@ -581,6 +597,14 @@ class ISession(object):
 
         :param options: Options for registering.
         :type options: instance of :class:`autobahn.wamp.types.RegisterOptions`.
+
+
+        :param prefix: if not None, this specifies a prefix to prepend
+            to all URIs registered for this class. So if there was an
+            @wamp.register('method_foo') on a method and
+            prefix='com.something.' then a method
+            'com.something.method_foo' would ultimately be registered.
+        :type prefix: str
 
         :returns: A registration or a list of registrations (or errors)
         :rtype: instance(s) of :tx:`twisted.internet.defer.Deferred` / :py:class:`asyncio.Future`
@@ -667,6 +691,20 @@ class IAuthenticator(object):
     @abc.abstractmethod
     def on_challenge(self, session, challenge):
         """
+        Formulate a challenge response for the given session and Challenge
+        instance. This is sent to the server in the AUTHENTICATE
+        message.
+        """
+
+    @abc.abstractmethod
+    def on_welcome(self, authextra):
+        """
+        This hook is called when the onWelcome/on_welcome hook is invoked
+        in the protocol, with the 'authextra' dict extracted from the
+        Welcome message. Usually this is used to verify the final
+        message from the server (e.g. for mutual authentication).
+
+        :return: None if the session is successful or an error-message
         """
 
 

@@ -41,6 +41,7 @@ __all__ = (
     'Challenge',
     'HelloDetails',
     'SessionDetails',
+    'SessionIdent',
     'CloseDetails',
     'SubscribeOptions',
     'EventDetails',
@@ -65,10 +66,11 @@ class ComponentConfig(object):
         'extra',
         'keyring',
         'controller',
-        'shared'
+        'shared',
+        'runner',
     )
 
-    def __init__(self, realm=None, extra=None, keyring=None, controller=None, shared=None):
+    def __init__(self, realm=None, extra=None, keyring=None, controller=None, shared=None, runner=None):
         """
 
         :param realm: The realm the session would like to join or ``None`` to let the router
@@ -100,6 +102,9 @@ class ComponentConfig(object):
             this feature can introduce coupling between components. A valid use case would be
             to hold a shared database connection pool.
         :type shared: dict or None
+
+        :param runner: Instance of ApplicationRunner when run under this.
+        :type runner: :class:`autobahn.twisted.wamp.ApplicationRunner`
         """
         assert(realm is None or type(realm) == six.text_type)
         # assert(keyring is None or ...) # FIXME
@@ -109,9 +114,10 @@ class ComponentConfig(object):
         self.keyring = keyring
         self.controller = controller
         self.shared = shared
+        self.runner = runner
 
     def __str__(self):
-        return u"ComponentConfig(realm=<{}>, extra={}, keyring={}, controller={}, shared={})".format(self.realm, self.extra, self.keyring, self.controller, self.shared)
+        return u"ComponentConfig(realm=<{}>, extra={}, keyring={}, controller={}, shared={}, runner={})".format(self.realm, self.extra, self.keyring, self.controller, self.shared, self.runner)
 
 
 @public
@@ -375,8 +381,127 @@ class SessionDetails(object):
         self.resumable = resumable
         self.resume_token = resume_token
 
+    def marshal(self):
+        obj = {
+            u'realm': self.realm,
+            u'session': self.session,
+            u'authid': self.authid,
+            u'authrole': self.authrole,
+            u'authmethod': self.authmethod,
+            u'authprovider': self.authprovider,
+            u'authextra': self.authextra,
+            u'resumed': self.resumed,
+            u'resumable': self.resumable,
+            u'resume_token': self.resume_token
+        }
+        return obj
+
     def __str__(self):
         return u"SessionDetails(realm=<{}>, session={}, authid=<{}>, authrole=<{}>, authmethod={}, authprovider={}, authextra={}, resumed={}, resumable={}, resume_token={})".format(self.realm, self.session, self.authid, self.authrole, self.authmethod, self.authprovider, self.authextra, self.resumed, self.resumable, self.resume_token)
+
+
+@public
+class SessionIdent(object):
+    """
+    WAMP session identification information.
+
+    A WAMP session joined on a realm on a WAMP router is identified technically
+    by its session ID (``session``) already.
+
+    The permissions the session has are tied to the WAMP authentication role (``authrole``).
+
+    The subject behind the session, eg the user or the application component is identified
+    by the WAMP authentication ID (``authid``). One session is always authenticated under/as
+    one specific ``authid``, but a given ``authid`` might have zero, one or many sessions
+    joined on a router at the same time.
+    """
+
+    __slots__ = (
+        'session',
+        'authid',
+        'authrole',
+    )
+
+    def __init__(self, session=None, authid=None, authrole=None):
+        """
+
+        :param session: WAMP session ID of the session.
+        :type session: int
+
+        :param authid: The WAMP authid of the session.
+        :type authid: str
+
+        :param authrole: The WAMP authrole of the session.
+        :type authrole: str
+        """
+        assert(session is None or type(session) in six.integer_types)
+        assert(authid is None or type(authid) == six.text_type)
+        assert(type(authrole) == six.text_type)
+
+        self.session = session
+        self.authid = authid
+        self.authrole = authrole
+
+    def __str__(self):
+        return u"SessionIdent(session={}, authid={}, authrole={})".format(self.session, self.authid, self.authrole)
+
+    def marshal(self):
+        obj = {
+            u'session': self.session,
+            u'authid': self.authid,
+            u'authrole': self.authrole,
+        }
+        return obj
+
+    @staticmethod
+    def from_calldetails(call_details):
+        """
+        Create a new session identification object from the caller information
+        in the call details provided.
+
+        :param call_details: Details of a WAMP call.
+        :type call_details: :class:`autobahn.wamp.types.CallDetails`
+
+        :returns: New session identification object.
+        :rtype: :class:`autobahn.wamp.types.SessionIdent`
+        """
+        assert isinstance(call_details, CallDetails)
+
+        if call_details.forward_for:
+            caller = call_details.forward_for[0]
+            session_ident = SessionIdent(caller['session'],
+                                         caller['authid'],
+                                         caller['authrole'])
+        else:
+            session_ident = SessionIdent(call_details.caller,
+                                         call_details.caller_authid,
+                                         call_details.caller_authrole)
+        return session_ident
+
+    @staticmethod
+    def from_eventdetails(event_details):
+        """
+        Create a new session identification object from the publisher information
+        in the event details provided.
+
+        :param event_details: Details of a WAMP event.
+        :type event_details: :class:`autobahn.wamp.types.EventDetails`
+
+        :returns: New session identification object.
+        :rtype: :class:`autobahn.wamp.types.SessionIdent`
+        """
+        assert isinstance(event_details, EventDetails)
+
+        if event_details.forward_for:
+            publisher = event_details.forward_for[0]
+            session_ident = SessionIdent(publisher['session'],
+                                         publisher['authid'],
+                                         publisher['authrole'])
+        else:
+            session_ident = SessionIdent(event_details.publisher,
+                                         event_details.publisher_authid,
+                                         event_details.publisher_authrole)
+        return session_ident
 
 
 @public
@@ -409,6 +534,13 @@ class CloseDetails(object):
         self.reason = reason
         self.message = message
 
+    def marshal(self):
+        obj = {
+            u'reason': self.reason,
+            u'message': self.message
+        }
+        return obj
+
     def __str__(self):
         return u"CloseDetails(reason=<{}>, message='{}')".format(self.reason, self.message)
 
@@ -425,9 +557,16 @@ class SubscribeOptions(object):
         'details',
         'details_arg',
         'get_retained',
+        'forward_for',
+        'correlation_id',
+        'correlation_uri',
+        'correlation_is_anchor',
+        'correlation_is_last',
     )
 
-    def __init__(self, match=None, details=None, details_arg=None, get_retained=None):
+    def __init__(self, match=None, details=None, details_arg=None, forward_for=None, get_retained=None,
+                 correlation_id=None, correlation_uri=None, correlation_is_anchor=None,
+                 correlation_is_last=None):
         """
 
         :param match: The topic matching method to be used for the subscription.
@@ -449,16 +588,30 @@ class SubscribeOptions(object):
         assert(details_arg is None or type(details_arg) == str)  # yes, "str" is correct here, since this is about Python identifiers!
         assert(get_retained is None or type(get_retained) is bool)
 
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+
         self.match = match
-        self.details = details
 
         # FIXME: this is for backwards compat, but we'll deprecate it in the future
+        self.details = details
         if details:
             self.details_arg = 'details'
         else:
             self.details_arg = details_arg
 
         self.get_retained = get_retained
+        self.forward_for = forward_for
+
+        self.correlation_id = correlation_id
+        self.correlation_uri = correlation_uri
+        self.correlation_is_anchor = correlation_is_anchor
+        self.correlation_is_last = correlation_is_last
 
     def message_attr(self):
         """
@@ -472,10 +625,13 @@ class SubscribeOptions(object):
         if self.get_retained is not None:
             options[u'get_retained'] = self.get_retained
 
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
+
         return options
 
     def __str__(self):
-        return u"SubscribeOptions(match={}, details={}, details_arg={}, get_retained={})".format(self.match, self.details, self.details_arg, self.get_retained)
+        return u"SubscribeOptions(match={}, details={}, details_arg={}, get_retained={}, forward_for={})".format(self.match, self.details, self.details_arg, self.get_retained, self.forward_for)
 
 
 @public
@@ -494,9 +650,11 @@ class EventDetails(object):
         'topic',
         'retained',
         'enc_algo',
+        'forward_for',
     )
 
-    def __init__(self, subscription, publication, publisher=None, publisher_authid=None, publisher_authrole=None, topic=None, retained=None, enc_algo=None):
+    def __init__(self, subscription, publication, publisher=None, publisher_authid=None, publisher_authrole=None,
+                 topic=None, retained=None, enc_algo=None, forward_for=None):
         """
 
         :param subscription: The (client side) subscription object on which this event is delivered.
@@ -527,6 +685,9 @@ class EventDetails(object):
         :param enc_algo: Payload encryption algorithm that
             was in use (currently, either ``None`` or ``u'cryptobox'``).
         :type enc_algo: str or None
+
+        :param forward_for: When this Event is forwarded for a client (or from an intermediary router).
+        :type forward_for: list[dict]
         """
         assert(isinstance(subscription, Subscription))
         assert(type(publication) in six.integer_types)
@@ -536,6 +697,13 @@ class EventDetails(object):
         assert(topic is None or type(topic) == six.text_type)
         assert(retained is None or type(retained) is bool)
         assert(enc_algo is None or type(enc_algo) == six.text_type)
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
 
         self.subscription = subscription
         self.publication = publication
@@ -545,9 +713,10 @@ class EventDetails(object):
         self.topic = topic
         self.retained = retained
         self.enc_algo = enc_algo
+        self.forward_for = forward_for
 
     def __str__(self):
-        return u"EventDetails(subscription={}, publication={}, publisher={}, publisher_authid={}, publisher_authrole={}, topic=<{}>, retained={}, enc_algo={})".format(self.subscription, self.publication, self.publisher, self.publisher_authid, self.publisher_authrole, self.topic, self.retained, self.enc_algo)
+        return u"EventDetails(subscription={}, publication={}, publisher={}, publisher_authid={}, publisher_authrole={}, topic=<{}>, retained={}, enc_algo={}, forward_for={})".format(self.subscription, self.publication, self.publisher, self.publisher_authid, self.publisher_authrole, self.topic, self.retained, self.enc_algo, self.forward_for)
 
 
 @public
@@ -567,6 +736,11 @@ class PublishOptions(object):
         'eligible_authid',
         'eligible_authrole',
         'retain',
+        'forward_for',
+        'correlation_id',
+        'correlation_uri',
+        'correlation_is_anchor',
+        'correlation_is_last',
     )
 
     def __init__(self,
@@ -578,7 +752,12 @@ class PublishOptions(object):
                  eligible=None,
                  eligible_authid=None,
                  eligible_authrole=None,
-                 retain=None):
+                 retain=None,
+                 forward_for=None,
+                 correlation_id=None,
+                 correlation_uri=None,
+                 correlation_is_anchor=None,
+                 correlation_is_last=None):
         """
 
         :param acknowledge: If ``True``, acknowledge the publication with a success or
@@ -609,6 +788,9 @@ class PublishOptions(object):
 
         :param retain: If ``True``, request the broker retain this event.
         :type retain: bool or None
+
+        :param forward_for: When this Event is forwarded for a client (or from an intermediary router).
+        :type forward_for: list[dict]
         """
         assert(acknowledge is None or type(acknowledge) == bool)
         assert(exclude_me is None or type(exclude_me) == bool)
@@ -620,6 +802,17 @@ class PublishOptions(object):
         assert(eligible_authrole is None or type(eligible_authrole) == six.text_type or (type(eligible_authrole) == list and all(type(x) == six.text_type for x in eligible_authrole)))
         assert(retain is None or type(retain) == bool)
 
+        assert(forward_for is None or type(forward_for) == list), 'forward_for, when present, must have list type - was {}'.format(type(forward_for))
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict, 'forward_for must be type dict - was {}'.format(type(ff))
+                assert 'session' in ff, 'forward_for must have session attribute'
+                assert type(ff['session']) in six.integer_types, 'forward_for.session must have integer type - was {}'.format(type(ff['session']))
+                assert 'authid' in ff, 'forward_for must have authid attributed'
+                assert type(ff['authid']) == six.text_type, 'forward_for.authid must have str type - was {}'.format(type(ff['authid']))
+                assert 'authrole' in ff, 'forward_for must have authrole attribute'
+                assert type(ff['authrole']) == six.text_type, 'forward_for.authrole must have str type - was {}'.format(type(ff['authrole']))
+
         self.acknowledge = acknowledge
         self.exclude_me = exclude_me
         self.exclude = exclude
@@ -629,6 +822,12 @@ class PublishOptions(object):
         self.eligible_authid = eligible_authid
         self.eligible_authrole = eligible_authrole
         self.retain = retain
+        self.forward_for = forward_for
+
+        self.correlation_id = correlation_id
+        self.correlation_uri = correlation_uri
+        self.correlation_is_anchor = correlation_is_anchor
+        self.correlation_is_last = correlation_is_last
 
     def message_attr(self):
         """
@@ -663,10 +862,13 @@ class PublishOptions(object):
         if self.retain is not None:
             options[u'retain'] = self.retain
 
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
+
         return options
 
     def __str__(self):
-        return u"PublishOptions(acknowledge={}, exclude_me={}, exclude={}, exclude_authid={}, exclude_authrole={}, eligible={}, eligible_authid={}, eligible_authrole={}, retain={})".format(self.acknowledge, self.exclude_me, self.exclude, self.exclude_authid, self.exclude_authrole, self.eligible, self.eligible_authid, self.eligible_authrole, self.retain)
+        return u"PublishOptions(acknowledge={}, exclude_me={}, exclude={}, exclude_authid={}, exclude_authrole={}, eligible={}, eligible_authid={}, eligible_authrole={}, retain={}, forward_for={})".format(self.acknowledge, self.exclude_me, self.exclude, self.exclude_authid, self.exclude_authrole, self.eligible, self.eligible_authid, self.eligible_authrole, self.retain, self.forward_for)
 
 
 @public
@@ -681,28 +883,82 @@ class RegisterOptions(object):
         'invoke',
         'concurrency',
         'force_reregister',
+        'forward_for',
+        'details',
         'details_arg',
+        'correlation_id',
+        'correlation_uri',
+        'correlation_is_anchor',
+        'correlation_is_last',
     )
 
-    def __init__(self, match=None, invoke=None, concurrency=None, details_arg=None,
-                 force_reregister=None):
+    def __init__(self, match=None, invoke=None, concurrency=None, force_reregister=None, forward_for=None,
+                 details=None, details_arg=None, correlation_id=None, correlation_uri=None,
+                 correlation_is_anchor=None, correlation_is_last=None):
         """
+        :param match: Type of matching to use on the URI (`exact`, `prefix` or `wildcard`)
+
+        :param invoke: Type of invoke mechanism to use (`single`, `first`, `last`, `roundrobin`, `random`)
+
+        :param concurrency: if used, the number of times a particular
+            endpoint may be called concurrently (e.g. if this is 3, and
+            there are already 3 calls in-progress a 4th call will receive
+            an error)
 
         :param details_arg: When invoking the endpoint, provide call details
-           in this keyword argument to the callable.
+            in this keyword argument to the callable.
         :type details_arg: str
+
+        :param details: When invoking the endpoint, provide call details in a keyword
+            parameter ``details``.
+        :type details: bool
+
+        :param details_arg: DEPCREATED (use "details" flag). When invoking the endpoint,
+            provide call details in this keyword argument to the callable.
+        :type details_arg: str
+
+        :param force_reregister: if True, any other session that has
+            already registered this URI will be 'kicked out' and this
+            session will become the one that's registered (the previous
+            session must have used `force_reregister=True` as well)
+        :type force_reregister: bool
+
+        :param forward_for: When this Register is forwarded over a router-to-router link,
+            or via an intermediary router.
+        :type forward_for: list[dict]
         """
         assert(match is None or (type(match) == six.text_type and match in [u'exact', u'prefix', u'wildcard']))
         assert(invoke is None or (type(invoke) == six.text_type and invoke in [u'single', u'first', u'last', u'roundrobin', u'random']))
         assert(concurrency is None or (type(concurrency) in six.integer_types and concurrency > 0))
+        assert(details is None or (type(details) == bool and details_arg is None))
         assert(details_arg is None or type(details_arg) == str)  # yes, "str" is correct here, since this is about Python identifiers!
         assert force_reregister in [None, True, False]
+
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
 
         self.match = match
         self.invoke = invoke
         self.concurrency = concurrency
-        self.details_arg = details_arg
         self.force_reregister = force_reregister
+        self.forward_for = forward_for
+
+        # FIXME: this is for backwards compat, but we'll deprecate it in the future
+        self.details = details
+        if details:
+            self.details_arg = 'details'
+        else:
+            self.details_arg = details_arg
+
+        self.correlation_id = correlation_id
+        self.correlation_uri = correlation_uri
+        self.correlation_is_anchor = correlation_is_anchor
+        self.correlation_is_last = correlation_is_last
 
     def message_attr(self):
         """
@@ -722,10 +978,13 @@ class RegisterOptions(object):
         if self.force_reregister is not None:
             options[u'force_reregister'] = self.force_reregister
 
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
+
         return options
 
     def __str__(self):
-        return u"RegisterOptions(match={}, invoke={}, concurrency={}, details_arg={}, force_reregister={})".format(self.match, self.invoke, self.concurrency, self.details_arg, self.force_reregister)
+        return u"RegisterOptions(match={}, invoke={}, concurrency={}, details={}, details_arg={}, force_reregister={}, forward_for={})".format(self.match, self.invoke, self.concurrency, self.details, self.details_arg, self.force_reregister, self.forward_for)
 
 
 @public
@@ -743,9 +1002,11 @@ class CallDetails(object):
         'caller_authrole',
         'procedure',
         'enc_algo',
+        'forward_for',
     )
 
-    def __init__(self, registration, progress=None, caller=None, caller_authid=None, caller_authrole=None, procedure=None, enc_algo=None):
+    def __init__(self, registration, progress=None, caller=None, caller_authid=None,
+                 caller_authrole=None, procedure=None, enc_algo=None, forward_for=None):
         """
 
         :param registration: The (client side) registration object this invocation is delivered on.
@@ -772,6 +1033,9 @@ class CallDetails(object):
         :param enc_algo: Payload encryption algorithm that
             was in use (currently, either `None` or `"cryptobox"`).
         :type enc_algo: str or None
+
+        :param forward_for: When this Call is forwarded for a client (or from an intermediary router).
+        :type forward_for: list[dict]
         """
         assert(isinstance(registration, Registration))
         assert(progress is None or callable(progress))
@@ -781,6 +1045,14 @@ class CallDetails(object):
         assert(procedure is None or type(procedure) == six.text_type)
         assert(enc_algo is None or type(enc_algo) == six.text_type)
 
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+
         self.registration = registration
         self.progress = progress
         self.caller = caller
@@ -788,9 +1060,10 @@ class CallDetails(object):
         self.caller_authrole = caller_authrole
         self.procedure = procedure
         self.enc_algo = enc_algo
+        self.forward_for = forward_for
 
     def __str__(self):
-        return u"CallDetails(registration={}, progress={}, caller={}, caller_authid={}, caller_authrole={}, procedure=<{}>, enc_algo={})".format(self.registration, self.progress, self.caller, self.caller_authid, self.caller_authrole, self.procedure, self.enc_algo)
+        return u"CallDetails(registration={}, progress={}, caller={}, caller_authid={}, caller_authrole={}, procedure=<{}>, enc_algo={}, forward_for={})".format(self.registration, self.progress, self.caller, self.caller_authid, self.caller_authrole, self.procedure, self.enc_algo, self.forward_for)
 
 
 @public
@@ -802,11 +1075,29 @@ class CallOptions(object):
     __slots__ = (
         'on_progress',
         'timeout',
+        'caller',
+        'caller_authid',
+        'caller_authrole',
+        'forward_for',
+        'correlation_id',
+        'correlation_uri',
+        'correlation_is_anchor',
+        'correlation_is_last',
+        'details',
     )
 
     def __init__(self,
                  on_progress=None,
-                 timeout=None):
+                 timeout=None,
+                 caller=None,
+                 caller_authid=None,
+                 caller_authrole=None,
+                 forward_for=None,
+                 correlation_id=None,
+                 correlation_uri=None,
+                 correlation_is_anchor=None,
+                 correlation_is_last=None,
+                 details=None):
         """
 
         :param on_progress: A callback that will be called when the remote endpoint
@@ -815,12 +1106,37 @@ class CallOptions(object):
 
         :param timeout: Time in seconds after which the call should be automatically canceled.
         :type timeout: float
+
+        :param forward_for: When this Call is forwarded for a client (or from an intermediary router).
+        :type forward_for: list[dict]
         """
         assert(on_progress is None or callable(on_progress))
         assert(timeout is None or (type(timeout) in list(six.integer_types) + [float] and timeout > 0))
+        assert(details is None or type(details) == bool)
+        assert(caller is None or type(caller) in six.integer_types)
+        assert(caller_authid is None or type(caller_authid) == six.text_type)
+        assert(caller_authrole is None or type(caller_authrole) == six.text_type)
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
 
         self.on_progress = on_progress
         self.timeout = timeout
+
+        self.caller = caller
+        self.caller_authid = caller_authid
+        self.caller_authrole = caller_authrole
+        self.forward_for = forward_for
+
+        self.details = details
+        self.correlation_id = correlation_id
+        self.correlation_uri = correlation_uri
+        self.correlation_is_anchor = correlation_is_anchor
+        self.correlation_is_last = correlation_is_last
 
     def message_attr(self):
         """
@@ -828,16 +1144,31 @@ class CallOptions(object):
         """
         options = {}
 
+        # note: only some attributes are actually forwarded to the WAMP CALL message, while
+        # other attributes are for client-side/client-internal use only
+
         if self.timeout is not None:
             options[u'timeout'] = self.timeout
 
         if self.on_progress is not None:
             options[u'receive_progress'] = True
 
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
+
+        if self.caller is not None:
+            options[u'caller'] = self.caller
+
+        if self.caller_authid is not None:
+            options[u'caller_authid'] = self.caller_authid
+
+        if self.caller_authrole is not None:
+            options[u'caller_authrole'] = self.caller_authrole
+
         return options
 
     def __str__(self):
-        return u"CallOptions(on_progress={}, timeout={})".format(self.on_progress, self.timeout)
+        return u"CallOptions(on_progress={}, timeout={}, caller={}, caller_authid={}, caller_authrole={}, forward_for={}, details={})".format(self.on_progress, self.timeout, self.caller, self.caller_authid, self.caller_authrole, self.forward_for, self.details)
 
 
 @public
@@ -851,6 +1182,10 @@ class CallResult(object):
         'results',
         'kwresults',
         'enc_algo',
+        'callee',
+        'callee_authid',
+        'callee_authrole',
+        'forward_for',
     )
 
     def __init__(self, *results, **kwresults):
@@ -865,12 +1200,33 @@ class CallResult(object):
         enc_algo = kwresults.pop('enc_algo', None)
         assert(enc_algo is None or type(enc_algo) == six.text_type)
 
+        callee = kwresults.pop('callee', None)
+        callee_authid = kwresults.pop('callee_authid', None)
+        callee_authrole = kwresults.pop('callee_authrole', None)
+
+        assert callee is None or type(callee) in six.integer_types
+        assert callee_authid is None or type(callee_authid) == six.text_type
+        assert callee_authrole is None or type(callee_authrole) == six.text_type
+
+        forward_for = kwresults.pop('forward_for', None)
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+
         self.enc_algo = enc_algo
+        self.callee = callee
+        self.callee_authid = callee_authid
+        self.callee_authrole = callee_authrole
+        self.forward_for = forward_for
         self.results = results
         self.kwresults = kwresults
 
     def __str__(self):
-        return u"CallResult(results={}, kwresults={}, enc_algo={})".format(self.results, self.kwresults, self.enc_algo)
+        return u"CallResult(results={}, kwresults={}, enc_algo={}, callee={}, callee_authid={}, callee_authrole={}, forward_for={})".format(self.results, self.kwresults, self.enc_algo, self.callee, self.callee_authid, self.callee_authrole, self.forward_for)
 
 
 @public

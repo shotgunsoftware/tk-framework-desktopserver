@@ -32,8 +32,10 @@ import txaio
 txaio.use_asyncio()
 
 from autobahn.util import public
+from autobahn.asyncio.util import transport_channel_id, peer2str
 from autobahn.wamp import websocket
 from autobahn.websocket import protocol
+from autobahn.websocket.types import TransportDetails
 
 try:
     import asyncio
@@ -49,7 +51,7 @@ except ImportError:
 if hasattr(asyncio, 'ensure_future'):
     ensure_future = asyncio.ensure_future
 else:  # Deprecated since Python 3.4.4
-    ensure_future = asyncio.async
+    ensure_future = getattr(asyncio, 'async')
 
 __all__ = (
     'WebSocketServerProtocol',
@@ -84,13 +86,7 @@ class WebSocketAdapterProtocol(asyncio.Protocol):
         self._consume()
 
         try:
-            peer = transport.get_extra_info('peername')
-            try:
-                # FIXME: tcp4 vs tcp6
-                self.peer = u"tcp:%s:%d" % (peer[0], peer[1])
-            except:
-                # e.g. Unix Domain sockets don't have host/port
-                self.peer = u"unix:{0}".format(peer)
+            self.peer = peer2str(transport.get_extra_info('peername'))
         except:
             self.peer = u"?"
 
@@ -121,9 +117,11 @@ class WebSocketAdapterProtocol(asyncio.Protocol):
         if not self.waiter.done():
             self.waiter.set_result(None)
 
-    # noinspection PyUnusedLocal
     def _closeConnection(self, abort=False):
-        self.transport.close()
+        if abort and hasattr(self.transport, 'abort'):
+            self.transport.abort()
+        else:
+            self.transport.close()
 
     def _onOpen(self):
         res = self.onOpen()
@@ -180,15 +178,16 @@ class WebSocketAdapterProtocol(asyncio.Protocol):
         if yields(res):
             ensure_future(res)
 
-    def get_channel_id(self):
-        """
-        Implements :func:`autobahn.wamp.interfaces.ITransport.get_channel_id`
-        """
-        self.log.debug('FIXME: transport channel binding not implemented for asyncio (autobahn-python issue #729)')
-        return None
-
     def registerProducer(self, producer, streaming):
         raise Exception("not implemented")
+
+    def unregisterProducer(self):
+        # note that generic websocket/protocol.py code calls
+        # .unregisterProducer whenever we dropConnection -- that's
+        # correct behavior on Twisted so either we'd have to
+        # try/except there, or special-case Twisted, ..or just make
+        # this "not an error"
+        pass
 
 
 @public
@@ -202,6 +201,12 @@ class WebSocketServerProtocol(WebSocketAdapterProtocol, protocol.WebSocketServer
     """
 
     log = txaio.make_logger()
+
+    def get_channel_id(self, channel_id_type=u'tls-unique'):
+        """
+        Implements :func:`autobahn.wamp.interfaces.ITransport.get_channel_id`
+        """
+        return transport_channel_id(self.transport, True, channel_id_type)
 
 
 @public
@@ -223,6 +228,26 @@ class WebSocketClientProtocol(WebSocketAdapterProtocol, protocol.WebSocketClient
 
     def startTLS(self):
         raise Exception("WSS over explicit proxies not implemented")
+
+    def get_channel_id(self, channel_id_type=u'tls-unique'):
+        """
+        Implements :func:`autobahn.wamp.interfaces.ITransport.get_channel_id`
+        """
+        return transport_channel_id(self.transport, False, channel_id_type)
+
+    def _create_transport_details(self):
+        """
+        Internal helper.
+        Base class calls this to create a TransportDetails
+        """
+        is_secure = self.transport.get_extra_info('peercert', None) is not None
+        if is_secure:
+            secure_channel_id = {
+                u'tls-unique': transport_channel_id(self.transport, False, 'tls-unique'),
+            }
+        else:
+            secure_channel_id = {}
+        return TransportDetails(peer=self.peer, is_secure=is_secure, secure_channel_id=secure_channel_id)
 
 
 class WebSocketAdapterFactory(object):

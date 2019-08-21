@@ -1,8 +1,8 @@
 #
 # This file is part of pyasn1 software.
 #
-# Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
+# License: http://snmplabs.com/pyasn1/license.html
 #
 try:
     from collections import OrderedDict
@@ -10,79 +10,77 @@ try:
 except ImportError:
     OrderedDict = dict
 
-from pyasn1.type import base, univ, char, useful
-from pyasn1 import debug, error
+from pyasn1 import debug
+from pyasn1 import error
+from pyasn1.type import base
+from pyasn1.type import char
+from pyasn1.type import tag
+from pyasn1.type import univ
+from pyasn1.type import useful
 
 __all__ = ['encode']
 
+LOG = debug.registerLoggee(__name__, flags=debug.DEBUG_ENCODER)
+
 
 class AbstractItemEncoder(object):
-    def encode(self, encodeFun, value):
+    def encode(self, value, encodeFun, **options):
         raise error.PyAsn1Error('Not implemented')
 
 
-class ExplicitlyTaggedItemEncoder(AbstractItemEncoder):
-    def encode(self, encodeFun, value):
-        if isinstance(value, base.AbstractConstructedAsn1Item):
-            value = value.clone(tagSet=value.tagSet[:-1],
-                                cloneValueFlag=1)
-        else:
-            value = value.clone(tagSet=value.tagSet[:-1])
-        return encodeFun(value)
-
-explicitlyTaggedItemEncoder = ExplicitlyTaggedItemEncoder()
-
-
 class BooleanEncoder(AbstractItemEncoder):
-    def encode(self, encodeFun, value):
+    def encode(self, value, encodeFun, **options):
         return bool(value)
 
 
 class IntegerEncoder(AbstractItemEncoder):
-    def encode(self, encodeFun, value):
+    def encode(self, value, encodeFun, **options):
         return int(value)
 
 
 class BitStringEncoder(AbstractItemEncoder):
-    def encode(self, encodeFun, value):
+    def encode(self, value, encodeFun, **options):
         return str(value)
 
 
 class OctetStringEncoder(AbstractItemEncoder):
-    def encode(self, encodeFun, value):
+    def encode(self, value, encodeFun, **options):
         return value.asOctets()
 
 
 class TextStringEncoder(AbstractItemEncoder):
-    def encode(self, encodeFun, value):
-        return value.prettyPrint()
+    def encode(self, value, encodeFun, **options):
+        return str(value)
 
 
 class NullEncoder(AbstractItemEncoder):
-    def encode(self, encodeFun, value):
+    def encode(self, value, encodeFun, **options):
         return None
 
 
 class ObjectIdentifierEncoder(AbstractItemEncoder):
-    def encode(self, encodeFun, value):
+    def encode(self, value, encodeFun, **options):
         return str(value)
 
 
 class RealEncoder(AbstractItemEncoder):
-    def encode(self, encodeFun, value):
+    def encode(self, value, encodeFun, **options):
         return float(value)
 
 
 class SetEncoder(AbstractItemEncoder):
     protoDict = dict
-    def encode(self, encodeFun, value):
+
+    def encode(self, value, encodeFun, **options):
         value.verifySizeSpec()
+
         namedTypes = value.componentType
         substrate = self.protoDict()
+
         for idx, (key, subValue) in enumerate(value.items()):
-            if namedTypes[idx].isOptional and not value[idx].isValue:
+            if namedTypes and namedTypes[idx].isOptional and not value[idx].isValue:
                 continue
-            substrate[key] = encodeFun(subValue)
+            substrate[key] = encodeFun(subValue, **options)
         return substrate
 
 
@@ -91,9 +89,9 @@ class SequenceEncoder(SetEncoder):
 
 
 class SequenceOfEncoder(AbstractItemEncoder):
-    def encode(self, encodeFun, value):
+    def encode(self, value, encodeFun, **options):
         value.verifySizeSpec()
-        return [encodeFun(x) for x in value]
+        return [encodeFun(x, **options) for x in value]
 
 
 class ChoiceEncoder(SequenceEncoder):
@@ -101,7 +99,7 @@ class ChoiceEncoder(SequenceEncoder):
 
 
 class AnyEncoder(AbstractItemEncoder):
-    def encode(self, encodeFun, value):
+    def encode(self, value, encodeFun, **options):
         return value.asOctets()
 
 
@@ -136,14 +134,40 @@ tagMap = {
     useful.UTCTime.tagSet: OctetStringEncoder()
 }
 
-# Type-to-codec map for ambiguous ASN.1 types
+
+# Put in ambiguous & non-ambiguous types for faster codec lookup
 typeMap = {
+    univ.Boolean.typeId: BooleanEncoder(),
+    univ.Integer.typeId: IntegerEncoder(),
+    univ.BitString.typeId: BitStringEncoder(),
+    univ.OctetString.typeId: OctetStringEncoder(),
+    univ.Null.typeId: NullEncoder(),
+    univ.ObjectIdentifier.typeId: ObjectIdentifierEncoder(),
+    univ.Enumerated.typeId: IntegerEncoder(),
+    univ.Real.typeId: RealEncoder(),
+    # Sequence & Set have same tags as SequenceOf & SetOf
     univ.Set.typeId: SetEncoder(),
     univ.SetOf.typeId: SequenceOfEncoder(),
     univ.Sequence.typeId: SequenceEncoder(),
     univ.SequenceOf.typeId: SequenceOfEncoder(),
     univ.Choice.typeId: ChoiceEncoder(),
-    univ.Any.typeId: AnyEncoder()
+    univ.Any.typeId: AnyEncoder(),
+    # character string types
+    char.UTF8String.typeId: OctetStringEncoder(),
+    char.NumericString.typeId: OctetStringEncoder(),
+    char.PrintableString.typeId: OctetStringEncoder(),
+    char.TeletexString.typeId: OctetStringEncoder(),
+    char.VideotexString.typeId: OctetStringEncoder(),
+    char.IA5String.typeId: OctetStringEncoder(),
+    char.GraphicString.typeId: OctetStringEncoder(),
+    char.VisibleString.typeId: OctetStringEncoder(),
+    char.GeneralString.typeId: OctetStringEncoder(),
+    char.UniversalString.typeId: OctetStringEncoder(),
+    char.BMPString.typeId: OctetStringEncoder(),
+    # useful types
+    useful.ObjectDescriptor.typeId: OctetStringEncoder(),
+    useful.GeneralizedTime.typeId: OctetStringEncoder(),
+    useful.UTCTime.typeId: OctetStringEncoder()
 }
 
 
@@ -154,40 +178,36 @@ class Encoder(object):
         self.__tagMap = tagMap
         self.__typeMap = typeMap
 
-    def __call__(self, asn1Value):
-        if not isinstance(asn1Value, base.Asn1Item):
+    def __call__(self, value, **options):
+        if not isinstance(value, base.Asn1Item):
             raise error.PyAsn1Error('value is not valid (should be an instance of an ASN.1 Item)')
 
-        if debug.logger & debug.flagEncoder:
-            logger = debug.logger
-        else:
-            logger = None
-        if logger:
-            debug.scope.push(type(asn1Value).__name__)
-            logger('encoder called for type %s <%s>' % (type(asn1Value).__name__, asn1Value.prettyPrint()))
+        if LOG:
+            debug.scope.push(type(value).__name__)
+            LOG('encoder called for type %s <%s>' % (type(value).__name__, value.prettyPrint()))
 
-        tagSet = asn1Value.tagSet
-        if len(tagSet) > 1:
-            concreteEncoder = explicitlyTaggedItemEncoder
-        else:
-            if asn1Value.typeId is not None and asn1Value.typeId in self.__typeMap:
-                concreteEncoder = self.__typeMap[asn1Value.typeId]
-            elif tagSet in self.__tagMap:
-                concreteEncoder = self.__tagMap[tagSet]
-            else:
-                tagSet = asn1Value.baseTagSet
-                if tagSet in self.__tagMap:
-                    concreteEncoder = self.__tagMap[tagSet]
-                else:
-                    raise error.PyAsn1Error('No encoder for %s' % (asn1Value,))
+        tagSet = value.tagSet
 
-        if logger:
-            logger('using value codec %s chosen by %s' % (type(concreteEncoder).__name__, tagSet))
+        try:
+            concreteEncoder = self.__typeMap[value.typeId]
 
-        pyObject = concreteEncoder.encode(self, asn1Value)
+        except KeyError:
+            # use base type for codec lookup to recover untagged types
+            baseTagSet = tag.TagSet(value.tagSet.baseTag, value.tagSet.baseTag)
 
-        if logger:
-            logger('encoder %s produced: %s' % (type(concreteEncoder).__name__, repr(pyObject)))
+            try:
+                concreteEncoder = self.__tagMap[baseTagSet]
+
+            except KeyError:
+                raise error.PyAsn1Error('No encoder for %s' % (value,))
+
+        if LOG:
+            LOG('using value codec %s chosen by %s' % (concreteEncoder.__class__.__name__, tagSet))
+
+        pyObject = concreteEncoder.encode(value, self, **options)
+
+        if LOG:
+            LOG('encoder %s produced: %s' % (type(concreteEncoder).__name__, repr(pyObject)))
             debug.scope.pop()
 
         return pyObject
@@ -215,6 +235,18 @@ class Encoder(object):
 #:
 #: Raises
 #: ------
-#: : :py:class:`pyasn1.error.PyAsn1Error`
+#: ~pyasn1.error.PyAsn1Error
 #:     On encoding errors
+#:
+#: Examples
+#: --------
+#: Encode ASN.1 value object into native Python types
+#:
+#: .. code-block:: pycon
+#:
+#:    >>> seq = SequenceOf(componentType=Integer())
+#:    >>> seq.extend([1, 2, 3])
+#:    >>> encode(seq)
+#:    [1, 2, 3]
+#:
 encode = Encoder(tagMap, typeMap)
