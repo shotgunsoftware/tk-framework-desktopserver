@@ -29,3 +29,5 @@ rm -rf source/incremental/tests
 # In twisted.internet.unix, there is a mixin which we don't use that allows to copy file descriptors
 # into other processes, which we don't require. That module is compiled, so we'll delete it.
 rm source/twisted/python/_sendmsg.so
+
+git add source

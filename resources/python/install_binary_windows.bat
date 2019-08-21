@@ -23,3 +23,5 @@ rmdir /s /q bin\win\zope\interface\common\tests
 :: For some reason zope is missing a top level init file when installed with
 :: pip, so we're adding it.
 copy nul bin\win\zope\__init__.py
+
+git add bin\win
