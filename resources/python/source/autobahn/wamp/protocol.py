@@ -41,6 +41,7 @@ from autobahn.wamp import exception
 from autobahn.wamp.exception import ApplicationError, ProtocolError, SessionNotReady, SerializationError
 from autobahn.wamp.interfaces import ISession, IPayloadCodec, IAuthenticator  # noqa
 from autobahn.wamp.types import SessionDetails, CloseDetails, EncodedPayload
+from autobahn.exception import PayloadExceededError
 from autobahn.wamp.request import \
     Publication, \
     Subscription, \
@@ -67,6 +68,8 @@ class BaseSession(ObservableMixin):
     This class implements :class:`autobahn.wamp.interfaces.ISession`.
     """
 
+    log = txaio.make_logger()
+
     def __init__(self):
         """
 
@@ -91,10 +94,13 @@ class BaseSession(ObservableMixin):
 
         # mapping of WAMP error URIs to exception classes
         self._uri_to_ecls = {
-            ApplicationError.INVALID_PAYLOAD: SerializationError
+            ApplicationError.INVALID_PAYLOAD: SerializationError,
+            ApplicationError.PAYLOAD_SIZE_EXCEEDED: PayloadExceededError,
         }
 
         # session authentication information
+        self._realm = None
+        self._session_id = None
         self._authid = None
         self._authrole = None
         self._authmethod = None
@@ -105,6 +111,30 @@ class BaseSession(ObservableMixin):
 
         # generator for WAMP request IDs
         self._request_id_gen = IdGenerator()
+
+    @property
+    def realm(self):
+        return self._realm
+
+    @property
+    def session_id(self):
+        return self._session_id
+
+    @property
+    def authid(self):
+        return self._authid
+
+    @property
+    def authrole(self):
+        return self._authrole
+
+    @property
+    def authmethod(self):
+        return self._authmethod
+
+    @property
+    def authprovider(self):
+        return self._authprovider
 
     def define(self, exception, error=None):
         """
@@ -143,11 +173,17 @@ class BaseSession(ObservableMixin):
         if hasattr(exc, 'kwargs'):
             kwargs = exc.kwargs
 
+        if kwargs and six.PY2:
+            kwargs = {
+                k.decode('utf8'): v
+                for k, v in kwargs.iteritems()
+            }
+
         if tb:
             if kwargs:
-                kwargs['traceback'] = tb
+                kwargs[u'traceback'] = tb
             else:
-                kwargs = {'traceback': tb}
+                kwargs = {u'traceback': tb}
 
         if isinstance(exc, exception.ApplicationError):
             error = exc.error if type(exc.error) == six.text_type else six.u(exc.error)
@@ -264,8 +300,17 @@ class BaseSession(ObservableMixin):
                 else:
                     exc = exception.ApplicationError(msg.error)
 
+        # FIXME: cleanup and integate into ctors above
         if hasattr(exc, 'enc_algo'):
             exc.enc_algo = msg.enc_algo
+        if hasattr(exc, 'callee'):
+            exc.callee = msg.callee
+        if hasattr(exc, 'callee_authid'):
+            exc.callee_authid = msg.callee_authid
+        if hasattr(exc, 'callee_authrole'):
+            exc.callee_authrole = msg.callee_authrole
+        if hasattr(exc, 'forward_for'):
+            exc.forward_for = msg.forward_for
 
         return exc
 
@@ -281,7 +326,10 @@ class ApplicationSession(BaseSession):
         Implements :func:`autobahn.wamp.interfaces.ISession`
         """
         BaseSession.__init__(self)
-        self.config = config or types.ComponentConfig(realm=u"default")
+        self.config = config or types.ComponentConfig(realm=u"realm1")
+
+        # set client role features supported and announced
+        self._session_roles = role.DEFAULT_CLIENT_ROLES
 
         self._transport = None
         self._session_id = None
@@ -336,7 +384,7 @@ class ApplicationSession(BaseSession):
         txaio.add_callbacks(
             d,
             lambda _: txaio.as_future(self.onConnect),
-            None,
+            lambda fail: self._swallow_error(fail, "While calling 'onConnect'")
         )
 
     @public
@@ -380,7 +428,7 @@ class ApplicationSession(BaseSession):
 
         # send HELLO message to router
         msg = message.Hello(realm=realm,
-                            roles=role.DEFAULT_CLIENT_ROLES,
+                            roles=self._session_roles,
                             authmethods=authmethods,
                             authid=authid,
                             authrole=authrole,
@@ -417,11 +465,14 @@ class ApplicationSession(BaseSession):
         """
         Implements :func:`autobahn.wamp.interfaces.ISession.onUserError`
         """
-        if False and isinstance(fail.value, exception.ApplicationError):
-            self.log.error(fail.value.error_message())
+        if isinstance(fail.value, exception.ApplicationError):
+            self.log.warn('{klass}.onUserError(): "{msg}"',
+                          klass=self.__class__.__name__,
+                          msg=fail.value.error_message())
         else:
             self.log.error(
-                u'{msg}: {traceback}',
+                '{klass}.onUserError(): "{msg}"\n{traceback}',
+                klass=self.__class__.__name__,
                 msg=msg,
                 traceback=txaio.failure_format_traceback(fail),
             )
@@ -457,59 +508,88 @@ class ApplicationSession(BaseSession):
             # the first message must be WELCOME, ABORT or CHALLENGE ..
             if isinstance(msg, message.Welcome):
 
-                if msg.realm:
-                    self._realm = msg.realm
+                # before we let user code see the session -- that is,
+                # before we fire "join" -- we give authentication
+                # instances a chance to abort the session. Usually
+                # this would be for "mutual authentication"
+                # scenarios. For example, WAMP-SCRAM uses this to
+                # confirm the server-signature
+                d = txaio.as_future(self.onWelcome, msg)
 
-                self._session_id = msg.session
-                self._router_roles = msg.roles
+                def success(res):
+                    if res is not None:
+                        self.log.info("Session denied by onWelcome")
+                        reply = message.Abort(
+                            u"wamp.error.cannot_authenticate", u"{0}".format(res)
+                        )
+                        self._transport.send(reply)
+                        return
 
-                details = SessionDetails(realm=self._realm,
-                                         session=self._session_id,
-                                         authid=msg.authid,
-                                         authrole=msg.authrole,
-                                         authmethod=msg.authmethod,
-                                         authprovider=msg.authprovider,
-                                         authextra=msg.authextra,
-                                         resumed=msg.resumed,
-                                         resumable=msg.resumable,
-                                         resume_token=msg.resume_token)
-                # firing 'join' *before* running onJoin, so that the
-                # idiom where you "do stuff" in onJoin -- possibly
-                # including self.leave() -- works properly. Besides,
-                # there's "ready" that fires after 'join' and onJoin
-                # have all completed...
-                d = self.fire('join', self, details)
-                # add a logging errback first, which will ignore any
-                # errors from fire()
-                txaio.add_callbacks(
-                    d, None,
-                    lambda e: self._swallow_error(e, "While notifying 'join'")
-                )
-                # this should run regardless
-                txaio.add_callbacks(
-                    d,
-                    lambda _: txaio.as_future(self.onJoin, details),
-                    None
-                )
-                # ignore any errors from onJoin (XXX or, should that be fatal?)
-                txaio.add_callbacks(
-                    d, None,
-                    lambda e: self._swallow_error(e, "While firing onJoin")
-                )
-                # this instance is now "ready"...
-                txaio.add_callbacks(
-                    d,
-                    lambda _: self.fire('ready', self),
-                    None
-                )
-                # ignore any errors from 'ready'
-                txaio.add_callbacks(
-                    d, None,
-                    lambda e: self._swallow_error(e, "While notifying 'ready'")
-                )
+                    if msg.realm:
+                        self._realm = msg.realm
+                    self._session_id = msg.session
+                    self._authid = msg.authid
+                    self._authrole = msg.authrole
+                    self._authmethod = msg.authmethod
+                    self._authprovider = msg.authprovider
+                    self._router_roles = msg.roles
+
+                    details = SessionDetails(
+                        realm=self._realm,
+                        session=self._session_id,
+                        authid=self._authid,
+                        authrole=self._authrole,
+                        authmethod=self._authmethod,
+                        authprovider=self._authprovider,
+                        authextra=msg.authextra,
+                        resumed=msg.resumed,
+                        resumable=msg.resumable,
+                        resume_token=msg.resume_token,
+                    )
+                    # firing 'join' *before* running onJoin, so that
+                    # the idiom where you "do stuff" in onJoin --
+                    # possibly including self.leave() -- works
+                    # properly. Besides, there's "ready" that fires
+                    # after 'join' and onJoin have all completed...
+                    d = self.fire('join', self, details)
+                    # add a logging errback first, which will ignore any
+                    # errors from fire()
+                    txaio.add_callbacks(
+                        d, None,
+                        lambda e: self._swallow_error(e, "While notifying 'join'")
+                    )
+                    # this should run regardless
+                    txaio.add_callbacks(
+                        d,
+                        lambda _: txaio.as_future(self.onJoin, details),
+                        None
+                    )
+                    # ignore any errors from onJoin (XXX or, should that be fatal?)
+                    txaio.add_callbacks(
+                        d, None,
+                        lambda e: self._swallow_error(e, "While firing onJoin")
+                    )
+                    # this instance is now "ready"...
+                    txaio.add_callbacks(
+                        d,
+                        lambda _: self.fire('ready', self),
+                        None
+                    )
+                    # ignore any errors from 'ready'
+                    txaio.add_callbacks(
+                        d, None,
+                        lambda e: self._swallow_error(e, "While notifying 'ready'")
+                    )
+
+                def error(e):
+                    reply = message.Abort(
+                        u"wamp.error.cannot_authenticate", u"Error calling onWelcome handler"
+                    )
+                    self._transport.send(reply)
+                    return self._swallow_error(e, "While firing onWelcome")
+                txaio.add_callbacks(d, success, error)
 
             elif isinstance(msg, message.Abort):
-
                 # fire callback and close the transport
                 details = types.CloseDetails(msg.reason, msg.message)
                 d = txaio.as_future(self.onLeave, details)
@@ -627,7 +707,7 @@ class ApplicationSession(BaseSession):
                         invoke_kwargs = msg.kwargs if msg.kwargs else dict()
 
                         if handler.details_arg:
-                            invoke_kwargs[handler.details_arg] = types.EventDetails(subscription, msg.publication, publisher=msg.publisher, publisher_authid=msg.publisher_authid, publisher_authrole=msg.publisher_authrole, topic=topic, retained=msg.retained, enc_algo=msg.enc_algo)
+                            invoke_kwargs[handler.details_arg] = types.EventDetails(subscription, msg.publication, publisher=msg.publisher, publisher_authid=msg.publisher_authid, publisher_authrole=msg.publisher_authrole, topic=topic, retained=msg.retained, enc_algo=msg.enc_algo, forward_for=msg.forward_for)
 
                         # FIXME: https://github.com/crossbario/autobahn-python/issues/764
                         def _success(_):
@@ -753,14 +833,24 @@ class ApplicationSession(BaseSession):
                             else:
                                 kw = msg.kwargs or dict()
                                 args = msg.args or tuple()
-                                try:
-                                    # XXX what if on_progress returns a Deferred/Future?
-                                    call_request.options.on_progress(*args, **kw)
-                                except Exception:
-                                    try:
-                                        self.onUserError(txaio.create_failure(), "While firing on_progress")
-                                    except:
-                                        pass
+
+                                def _error(fail):
+                                    self.onUserError(fail, "While firing on_progress")
+
+                                if call_request.options and call_request.options.details:
+                                    prog_d = txaio.as_future(call_request.options.on_progress,
+                                                             types.CallResult(*msg.args,
+                                                                              callee=msg.callee,
+                                                                              callee_authid=msg.callee_authid,
+                                                                              callee_authrole=msg.callee_authrole,
+                                                                              forward_for=msg.forward_for,
+                                                                              **msg.kwargs))
+                                else:
+                                    prog_d = txaio.as_future(call_request.options.on_progress,
+                                                             *args,
+                                                             **kw)
+
+                                txaio.add_callbacks(prog_d, None, _error)
 
                     else:
                         # process final call result
@@ -775,11 +865,21 @@ class ApplicationSession(BaseSession):
                         if enc_err:
                             txaio.reject(on_reply, enc_err)
                         else:
-                            if msg.kwargs:
+                            if msg.kwargs or (call_request.options and call_request.options.details):
+                                kwargs = msg.kwargs or {}
                                 if msg.args:
-                                    res = types.CallResult(*msg.args, **msg.kwargs)
+                                    res = types.CallResult(*msg.args,
+                                                           callee=msg.callee,
+                                                           callee_authid=msg.callee_authid,
+                                                           callee_authrole=msg.callee_authrole,
+                                                           forward_for=msg.forward_for,
+                                                           **kwargs)
                                 else:
-                                    res = types.CallResult(**msg.kwargs)
+                                    res = types.CallResult(callee=msg.callee,
+                                                           callee_authid=msg.callee_authid,
+                                                           callee_authrole=msg.callee_authrole,
+                                                           forward_for=msg.forward_for,
+                                                           **kwargs)
                                 txaio.resolve(on_reply, res)
                             else:
                                 if msg.args:
@@ -865,6 +965,15 @@ class ApplicationSession(BaseSession):
                                 if msg.receive_progress:
 
                                     def progress(*args, **kwargs):
+                                        assert(args is None or type(args) in (list, tuple))
+                                        assert(kwargs is None or type(kwargs) == dict)
+
+                                        if kwargs and six.PY2:
+                                            kwargs = {
+                                                k.decode('utf8'): v
+                                                for k, v in kwargs.iteritems()
+                                            }
+
                                         encoded_payload = None
                                         if msg.enc_algo:
                                             if not self._payload_codec:
@@ -888,7 +997,13 @@ class ApplicationSession(BaseSession):
                                 else:
                                     progress = None
 
-                                invoke_kwargs[endpoint.details_arg] = types.CallDetails(registration, progress=progress, caller=msg.caller, caller_authid=msg.caller_authid, caller_authrole=msg.caller_authrole, procedure=proc, enc_algo=msg.enc_algo)
+                                invoke_kwargs[endpoint.details_arg] = types.CallDetails(registration,
+                                                                                        progress=progress,
+                                                                                        caller=msg.caller,
+                                                                                        caller_authid=msg.caller_authid,
+                                                                                        caller_authrole=msg.caller_authrole,
+                                                                                        procedure=proc,
+                                                                                        enc_algo=msg.enc_algo)
 
                             on_reply = txaio.as_future(endpoint.fn, *invoke_args, **invoke_kwargs)
 
@@ -913,19 +1028,38 @@ class ApplicationSession(BaseSession):
                                             )
 
                                 if encoded_payload:
-                                    reply = message.Yield(msg.request,
-                                                          payload=encoded_payload.payload,
-                                                          enc_algo=encoded_payload.enc_algo,
-                                                          enc_key=encoded_payload.enc_key,
-                                                          enc_serializer=encoded_payload.enc_serializer)
+                                    if isinstance(res, types.CallResult):
+                                        reply = message.Yield(msg.request,
+                                                              payload=encoded_payload.payload,
+                                                              enc_algo=encoded_payload.enc_algo,
+                                                              enc_key=encoded_payload.enc_key,
+                                                              enc_serializer=encoded_payload.enc_serializer,
+                                                              callee=res.callee,
+                                                              callee_authid=res.callee_authid,
+                                                              callee_authrole=res.callee_authrole,
+                                                              forward_for=res.forward_for)
+                                    else:
+                                        reply = message.Yield(msg.request,
+                                                              payload=encoded_payload.payload,
+                                                              enc_algo=encoded_payload.enc_algo,
+                                                              enc_key=encoded_payload.enc_key,
+                                                              enc_serializer=encoded_payload.enc_serializer)
                                 else:
                                     if isinstance(res, types.CallResult):
                                         reply = message.Yield(msg.request,
                                                               args=res.results,
-                                                              kwargs=res.kwresults)
+                                                              kwargs=res.kwresults,
+                                                              callee=res.callee,
+                                                              callee_authid=res.callee_authid,
+                                                              callee_authrole=res.callee_authrole,
+                                                              forward_for=res.forward_for)
                                     else:
                                         reply = message.Yield(msg.request,
                                                               args=[res])
+
+                                if self._transport is None:
+                                    self.log.debug('Skipping result of "{}", request {} because transport disconnected.'.format(registration.procedure, msg.request))
+                                    return
 
                                 try:
                                     self._transport.send(reply)
@@ -933,6 +1067,12 @@ class ApplicationSession(BaseSession):
                                     # the application-level payload returned from the invoked procedure can't be serialized
                                     reply = message.Error(message.Invocation.MESSAGE_TYPE, msg.request, ApplicationError.INVALID_PAYLOAD,
                                                           args=[u'success return value from invoked procedure "{0}" could not be serialized: {1}'.format(registration.procedure, e)])
+                                    self._transport.send(reply)
+                                except PayloadExceededError as e:
+                                    # the application-level payload returned from the invoked procedure, when serialized and framed
+                                    # for the transport, exceeds the transport message/frame size limit
+                                    reply = message.Error(message.Invocation.MESSAGE_TYPE, msg.request, ApplicationError.PAYLOAD_SIZE_EXCEEDED,
+                                                          args=[u'success return value from invoked procedure "{0}" exceeds transport size limit: {1}'.format(registration.procedure, e)])
                                     self._transport.send(reply)
 
                             def error(err):
@@ -964,6 +1104,13 @@ class ApplicationSession(BaseSession):
                                     reply = message.Error(message.Invocation.MESSAGE_TYPE, msg.request, ApplicationError.INVALID_PAYLOAD,
                                                           args=[u'error return value from invoked procedure "{0}" could not be serialized: {1}'.format(registration.procedure, e)])
                                     self._transport.send(reply)
+                                except PayloadExceededError as e:
+                                    # the application-level payload returned from the invoked procedure, when serialized and framed
+                                    # for the transport, exceeds the transport message/frame size limit
+                                    reply = message.Error(message.Invocation.MESSAGE_TYPE, msg.request, ApplicationError.PAYLOAD_SIZE_EXCEEDED,
+                                                          args=[u'success return value from invoked procedure "{0}" exceeds transport size limit: {1}'.format(registration.procedure, e)])
+                                    self._transport.send(reply)
+
                                 # we have handled the error, so we eat it
                                 return None
 
@@ -974,22 +1121,14 @@ class ApplicationSession(BaseSession):
             elif isinstance(msg, message.Interrupt):
 
                 if msg.request not in self._invocations:
-                    raise ProtocolError("INTERRUPT received for non-pending invocation {0}".format(msg.request))
+                    # raise ProtocolError("INTERRUPT received for non-pending invocation {0}".format(msg.request))
+                    self.log.debug('INTERRUPT received for non-pending invocation {request}', request=msg.request)
                 else:
-                    # noinspection PyBroadException
-                    try:
-                        self._invocations[msg.request].cancel()
-                    except Exception:
-                        # XXX can .cancel() return a Deferred/Future?
-                        try:
-                            self.onUserError(
-                                txaio.create_failure(),
-                                "While cancelling call.",
-                            )
-                        except:
-                            pass
-                    finally:
-                        del self._invocations[msg.request]
+                    invoked = self._invocations[msg.request]
+                    # this will result in a CancelledError which will
+                    # be captured by the error handler around line 979
+                    # to delete the invocation..
+                    txaio.cancel(invoked.on_reply)
 
             elif isinstance(msg, message.Registered):
 
@@ -1072,7 +1211,8 @@ class ApplicationSession(BaseSession):
                     on_reply = self._unregister_reqs.pop(msg.request).on_reply
 
                 if on_reply:
-                    txaio.reject(on_reply, self._exception_from_message(msg))
+                    if not txaio.is_called(on_reply):
+                        txaio.reject(on_reply, self._exception_from_message(msg))
                 else:
                     raise ProtocolError("WampAppSession.onMessage(): ERROR received for non-pending request_type {0} and request ID {1}".format(msg.request_type, msg.request))
 
@@ -1091,8 +1231,7 @@ class ApplicationSession(BaseSession):
             # fire callback and close the transport
             details = types.CloseDetails(
                 reason=types.CloseDetails.REASON_TRANSPORT_LOST,
-                message=(u"WAMP transport was lost without closing the"
-                         u" session before"),
+                message=u'WAMP transport was lost without closing the session {} before'.format(self._session_id),
             )
             d = txaio.as_future(self.onLeave, details)
 
@@ -1130,6 +1269,12 @@ class ApplicationSession(BaseSession):
         Implements :func:`autobahn.wamp.interfaces.ISession.onJoin`
         """
 
+    @public
+    def onWelcome(self, msg):
+        """
+        Implements :func:`autobahn.wamp.interfaces.ISession.onWelcome`
+        """
+
     def _errback_outstanding_requests(self, exc):
         """
         Errback any still outstanding requests with exc.
@@ -1161,7 +1306,9 @@ class ApplicationSession(BaseSession):
                 request_id=request.request_id,
                 request_type=request.__class__.__name__,
             )
-            txaio.reject(request.on_reply, exc)
+            if not txaio.is_called(request.on_reply):
+                txaio.reject(request.on_reply, exc)
+
             # wait for any async-ness in the error handlers for on_reply
             txaio.add_callbacks(d, lambda _: request.on_reply, lambda _: request.on_reply)
         return d
@@ -1198,11 +1345,12 @@ class ApplicationSession(BaseSession):
             msg = wamp.message.Goodbye(reason=reason, message=message)
             self._transport.send(msg)
             self._goodbye_sent = True
-            # deferred that fires when transport actually hits CLOSED
-            is_closed = self._transport is None or self._transport.is_closed
-            return is_closed
         else:
-            raise SessionNotReady(u"session was alread requested to leave")
+            self.log.warn('session was already requested to leave - not sending GOODBYE again')
+
+        is_closed = self._transport is None or self._transport.is_closed
+
+        return is_closed
 
     @public
     def onDisconnect(self):
@@ -1221,13 +1369,27 @@ class ApplicationSession(BaseSession):
         Implements :func:`autobahn.wamp.interfaces.IPublisher.publish`
         """
         assert(type(topic) == six.text_type)
+        assert(args is None or type(args) in (list, tuple))
+        assert(kwargs is None or type(kwargs) == dict)
 
-        if not self._transport:
-            raise exception.TransportLost()
+        message.check_or_raise_uri(topic,
+                                   message='{}.publish()'.format(self.__class__.__name__),
+                                   strict=False,
+                                   allow_empty_components=False,
+                                   allow_none=False)
 
         options = kwargs.pop('options', None)
         if options and not isinstance(options, types.PublishOptions):
             raise Exception("options must be of type a.w.t.PublishOptions")
+
+        if kwargs and six.PY2:
+            kwargs = {
+                k.decode('utf8'): v
+                for k, v in kwargs.iteritems()
+            }
+
+        if not self._transport:
+            raise exception.TransportLost()
 
         request_id = self._request_id_gen.next()
 
@@ -1263,6 +1425,16 @@ class ApplicationSession(BaseSession):
                                       topic,
                                       args=args,
                                       kwargs=kwargs)
+
+        if options:
+            if options.correlation_id is not None:
+                msg.correlation_id = options.correlation_id
+            if options.correlation_uri is not None:
+                msg.correlation_uri = options.correlation_uri
+            if options.correlation_is_anchor is not None:
+                msg.correlation_is_anchor = options.correlation_is_anchor
+            if options.correlation_is_last is not None:
+                msg.correlation_is_last = options.correlation_is_last
 
         if options and options.acknowledge:
             # only acknowledged publications expect a reply ..
@@ -1301,6 +1473,12 @@ class ApplicationSession(BaseSession):
             raise exception.TransportLost()
 
         def _subscribe(obj, fn, topic, options):
+            message.check_or_raise_uri(topic,
+                                       message='{}.subscribe()'.format(self.__class__.__name__),
+                                       strict=False,
+                                       allow_empty_components=True,
+                                       allow_none=False)
+
             request_id = self._request_id_gen.next()
             on_reply = txaio.create_future()
             handler_obj = Handler(fn, obj, options.details_arg if options else None)
@@ -1310,6 +1488,16 @@ class ApplicationSession(BaseSession):
                 msg = message.Subscribe(request_id, topic, **options.message_attr())
             else:
                 msg = message.Subscribe(request_id, topic)
+
+            if options:
+                if options.correlation_id is not None:
+                    msg.correlation_id = options.correlation_id
+                if options.correlation_uri is not None:
+                    msg.correlation_uri = options.correlation_uri
+                if options.correlation_is_anchor is not None:
+                    msg.correlation_is_anchor = options.correlation_is_anchor
+                if options.correlation_is_last is not None:
+                    msg.correlation_is_last = options.correlation_is_last
 
             self._transport.send(msg)
             return on_reply
@@ -1379,13 +1567,27 @@ class ApplicationSession(BaseSession):
         Implements :func:`autobahn.wamp.interfaces.ICaller.call`
         """
         assert(type(procedure) == six.text_type)
+        assert(args is None or type(args) in (list, tuple))
+        assert(kwargs is None or type(kwargs) == dict)
 
-        if not self._transport:
-            raise exception.TransportLost()
+        message.check_or_raise_uri(procedure,
+                                   message='{}.call()'.format(self.__class__.__name__),
+                                   strict=False,
+                                   allow_empty_components=False,
+                                   allow_none=False)
 
         options = kwargs.pop('options', None)
         if options and not isinstance(options, types.CallOptions):
             raise Exception("options must be of type a.w.t.CallOptions")
+
+        if kwargs and six.PY2:
+            kwargs = {
+                k.decode('utf8'): v
+                for k, v in kwargs.iteritems()
+            }
+
+        if not self._transport:
+            raise exception.TransportLost()
 
         request_id = self._request_id_gen.next()
 
@@ -1426,13 +1628,24 @@ class ApplicationSession(BaseSession):
                                    args=args,
                                    kwargs=kwargs)
 
-        # FIXME: implement call canceling
-        # def canceller(_d):
-        #   cancel_msg = message.Cancel(request)
-        #   self._transport.send(cancel_msg)
-        # d = Deferred(canceller)
+        if options:
+            if options.correlation_id is not None:
+                msg.correlation_id = options.correlation_id
+            if options.correlation_uri is not None:
+                msg.correlation_uri = options.correlation_uri
+            if options.correlation_is_anchor is not None:
+                msg.correlation_is_anchor = options.correlation_is_anchor
+            if options.correlation_is_last is not None:
+                msg.correlation_is_last = options.correlation_is_last
 
-        on_reply = txaio.create_future()
+        def canceller(d):
+            cancel_msg = message.Cancel(request_id)
+            self._transport.send(cancel_msg)
+            # since we announced support for cancelling, we should
+            # definitely get an Error back for our Cancel which will
+            # clean up this invocation
+
+        on_reply = txaio.create_future(canceller=canceller)
         self._call_reqs[request_id] = CallRequest(request_id, procedure, on_reply, options)
 
         try:
@@ -1453,27 +1666,46 @@ class ApplicationSession(BaseSession):
         return on_reply
 
     @public
-    def register(self, endpoint, procedure=None, options=None):
+    def register(self, endpoint, procedure=None, options=None, prefix=None):
         """
         Implements :func:`autobahn.wamp.interfaces.ICallee.register`
         """
         assert((callable(endpoint) and procedure is not None) or hasattr(endpoint, '__class__'))
         assert(procedure is None or type(procedure) == six.text_type)
         assert(options is None or isinstance(options, types.RegisterOptions))
+        assert prefix is None or isinstance(prefix, six.text_type)
 
         if not self._transport:
             raise exception.TransportLost()
 
         def _register(obj, fn, procedure, options):
+            message.check_or_raise_uri(procedure,
+                                       message='{}.register()'.format(self.__class__.__name__),
+                                       strict=False,
+                                       allow_empty_components=True,
+                                       allow_none=False)
+
             request_id = self._request_id_gen.next()
             on_reply = txaio.create_future()
             endpoint_obj = Endpoint(fn, obj, options.details_arg if options else None)
+            if prefix is not None:
+                procedure = u"{}{}".format(prefix, procedure)
             self._register_reqs[request_id] = RegisterRequest(request_id, on_reply, procedure, endpoint_obj)
 
             if options:
                 msg = message.Register(request_id, procedure, **options.message_attr())
             else:
                 msg = message.Register(request_id, procedure)
+
+            if options:
+                if options.correlation_id is not None:
+                    msg.correlation_id = options.correlation_id
+                if options.correlation_uri is not None:
+                    msg.correlation_uri = options.correlation_uri
+                if options.correlation_is_anchor is not None:
+                    msg.correlation_is_anchor = options.correlation_is_anchor
+                if options.correlation_is_last is not None:
+                    msg.correlation_is_last = options.correlation_is_last
 
             self._transport.send(msg)
             return on_reply
@@ -1496,7 +1728,7 @@ class ApplicationSession(BaseSession):
                             regopts = pat.options or options
                             on_replies.append(_register(endpoint, proc, _uri, regopts))
 
-            # XXX neds coverage
+            # XXX needs coverage
             return txaio.gather(on_replies, consume_exceptions=True)
 
     def _unregister(self, registration):
@@ -1521,13 +1753,16 @@ class ApplicationSession(BaseSession):
         return on_reply
 
 
-# this is NOT public; import from either autobahn.asyncio.wamp or
-# autobahn.twisted.wamp
 class _SessionShim(ApplicationSession):
     """
     shim that lets us present pep8 API for user-classes to override,
     but also backwards-compatible for existing code using
     ApplicationSession "directly".
+
+    **NOTE:** this is not public or intended for use; you should import
+    either :class:`autobahn.asyncio.wamp.Session` or
+    :class:`autobahn.twisted.wamp.Session` depending on which async
+    framework you're using.
     """
 
     #: name -> IAuthenticator
@@ -1543,6 +1778,9 @@ class _SessionShim(ApplicationSession):
             # [None] or [None, 'some_authid']
             authid = [x._args.get('authid', None) for x in self._authenticators.values()][-1]
             authrole = [x._args.get('authrole', None) for x in self._authenticators.values()][-1]
+            # we need a "merged" authextra here because we can send a
+            # list of acceptable authmethods, but only a single
+            # authextra dict
             authextra = self._merged_authextra()
             self.join(
                 self.config.realm,
@@ -1564,6 +1802,20 @@ class _SessionShim(ApplicationSession):
                 )
             )
         return authenticator.on_challenge(self, challenge)
+
+    def onWelcome(self, msg):
+        if msg.authmethod is None or self._authenticators is None:
+            # no authentication
+            return
+        try:
+            authenticator = self._authenticators[msg.authmethod]
+        except KeyError:
+            raise RuntimeError(
+                "Received onWelcome for unknown authmethod '{}'".format(
+                    msg.authmethod
+                )
+            )
+        return authenticator.on_welcome(self, msg.authextra)
 
     def onLeave(self, details):
         return self.on_leave(details)
@@ -1607,7 +1859,7 @@ class _SessionShim(ApplicationSession):
         # here we check that any duplicate keys have the same values
         authextra = authenticator.authextra
         merged = self._merged_authextra()
-        for k, v in merged:
+        for k, v in merged.items():
             if k in authextra and authextra[k] != v:
                 raise ValueError(
                     "Inconsistent authextra values for '{}': '{}' vs '{}'".format(
@@ -1619,15 +1871,40 @@ class _SessionShim(ApplicationSession):
         self._authenticators[authenticator.name] = authenticator
 
     def _merged_authextra(self):
-        authextras = [a._args.get('authextra', {}) for a in self._authenticators.values()]
-        # for all existing _authenticators, we've already checked that
-        # if they contain a key it has the same value as all others.
-        return {
-            k: v
-            for k, v in zip(
-                reduce(lambda x, y: x | set(y.keys()), authextras, set()),
-                reduce(lambda x, y: x | set(y.values()), authextras, set())
+        """
+        internal helper
+
+        :returns: a single 'authextra' dict, consisting of all keys
+            from any authenticator's authextra.
+
+        Note that when the authenticator was added, we already checked
+        that any keys it does contain has the same value as any
+        existing authextra.
+        """
+        authextras = [a.authextra for a in self._authenticators.values()]
+
+        def extract_keys(x, y):
+            return x | set(y.keys())
+
+        unique_keys = reduce(extract_keys, authextras, set())
+
+        def first_value_for(k):
+            """
+            for anything already in self._authenticators, we checked
+            that it has the same value for any keys in its authextra --
+            so here we just extract the first one
+            """
+            for authextra in authextras:
+                if k in authextra:
+                    return authextra[k]
+            # "can't" happen
+            raise ValueError(
+                "No values for '{}'".format(k)
             )
+
+        return {
+            k: first_value_for(k)
+            for k in unique_keys
         }
 
     # these are the actual "new API" methods (i.e. snake_case)
@@ -1666,7 +1943,7 @@ class ApplicationSessionFactory(object):
         :param config: The default component configuration.
         :type config: instance of :class:`autobahn.wamp.types.ComponentConfig`
         """
-        self.config = config or types.ComponentConfig(realm=u"default")
+        self.config = config or types.ComponentConfig(realm=u"realm1")
 
     def __call__(self):
         """

@@ -208,7 +208,7 @@ class Pattern(object):
 
             if component == '':
                 group_count += 1
-                pl.append("([a-z0-9][a-z0-9_\-]*)")
+                pl.append(r"([a-z0-9][a-z0-9_\-]*)")
                 nc[group_count] = str
                 continue
 
@@ -217,7 +217,7 @@ class Pattern(object):
         if nc:
             # URI pattern
             self._type = Pattern.URI_TYPE_WILDCARD
-            p = "^" + "\.".join(pl) + "$"
+            p = "^" + r"\.".join(pl) + "$"
             self._pattern = re.compile(p)
             self._names = nc
         else:
@@ -331,9 +331,16 @@ def register(uri, options=None):
     """
     def decorate(f):
         assert(callable(f))
+        if uri is None:
+            if six.PY2:
+                real_uri = u'{}'.format(f.func_name)
+            else:
+                real_uri = u'{}'.format(f.__name__)
+        else:
+            real_uri = uri
         if not hasattr(f, '_wampuris'):
             f._wampuris = []
-        f._wampuris.append(Pattern(uri, Pattern.URI_TARGET_ENDPOINT, options))
+        f._wampuris.append(Pattern(real_uri, Pattern.URI_TARGET_ENDPOINT, options))
         return f
     return decorate
 

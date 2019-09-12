@@ -47,6 +47,15 @@ from txaio._common import _BatchedTimer
 
 import six
 
+PY3_CORO = False
+if six.PY3:
+    try:
+        from twisted.internet.defer import ensureDeferred
+        from asyncio import iscoroutinefunction
+        PY3_CORO = True
+    except ImportError:
+        pass
+
 using_twisted = True
 using_asyncio = False
 
@@ -396,11 +405,11 @@ class _TxApi(object):
         except Exception:
             return u"Failed to format failure traceback for '{0}'".format(fail)
 
-    def create_future(self, result=_unspecified, error=_unspecified):
+    def create_future(self, result=_unspecified, error=_unspecified, canceller=None):
         if result is not _unspecified and error is not _unspecified:
             raise ValueError("Cannot have both result and error.")
 
-        f = Deferred()
+        f = Deferred(canceller=canceller)
         if result is not _unspecified:
             resolve(f, result)
         elif error is not _unspecified:
@@ -414,6 +423,9 @@ class _TxApi(object):
         return fail(create_failure(error))
 
     def as_future(self, fun, *args, **kwargs):
+        # Twisted doesn't automagically deal with coroutines on Py3
+        if PY3_CORO and iscoroutinefunction(fun):
+            return ensureDeferred(fun(*args, **kwargs))
         return maybeDeferred(fun, *args, **kwargs)
 
     def is_future(self, obj):
@@ -464,6 +476,9 @@ class _TxApi(object):
             if not isinstance(error, Failure):
                 raise RuntimeError("reject requires a Failure or Exception")
         future.errback(error)
+
+    def cancel(self, future):
+        future.cancel()
 
     def create_failure(self, exception=None):
         """
@@ -567,6 +582,7 @@ make_batched_timer = _default_api.make_batched_timer
 is_called = _default_api.is_called
 resolve = _default_api.resolve
 reject = _default_api.reject
+cancel = _default_api.cancel
 create_failure = _default_api.create_failure
 add_callbacks = _default_api.add_callbacks
 gather = _default_api.gather

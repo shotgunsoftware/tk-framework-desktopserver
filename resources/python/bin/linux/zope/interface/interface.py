@@ -48,6 +48,9 @@ def taggedValue(key, value):
 
 
 class Element(object):
+    """
+    Default implementation of `zope.interface.interfaces.IElement`.
+    """
 
     # We can't say this yet because we don't have enough
     # infrastructure in place.
@@ -55,8 +58,6 @@ class Element(object):
     #implements(IElement)
 
     def __init__(self, __name__, __doc__=''):
-        """Create an 'attribute' description
-        """
         if not __doc__ and __name__.find(' ') >= 0:
             __doc__ = __name__
             __name__ = None
@@ -352,9 +353,10 @@ class InterfaceClass(Element, InterfaceBase, Specification):
         # Make sure that all recorded attributes (and methods) are of type
         # `Attribute` and `Method`
         for name, attr in list(attrs.items()):
-            if name in ('__locals__', '__qualname__'):
+            if name in ('__locals__', '__qualname__', '__annotations__'):
                 # __locals__: Python 3 sometimes adds this.
                 # __qualname__: PEP 3155 (Python 3.3+)
+                # __annotations__: PEP 3107 (Python 3.0+)
                 del attrs[name]
                 continue
             if isinstance(attr, Attribute):

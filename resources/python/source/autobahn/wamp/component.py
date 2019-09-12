@@ -27,23 +27,26 @@
 
 from __future__ import absolute_import
 
+import itertools
 import six
 import random
-from functools import wraps, partial
-
-from twisted.python.failure import Failure
-from twisted.internet.error import ReactorNotRunning
+from functools import partial
 
 import txaio
 
 from autobahn.util import ObservableMixin
-from autobahn.websocket.util import parse_url
+from autobahn.websocket.util import parse_url as parse_ws_url
+from autobahn.rawsocket.util import parse_url as parse_rs_url
+
 from autobahn.wamp.types import ComponentConfig, SubscribeOptions, RegisterOptions
-from autobahn.wamp.exception import SessionNotReady
-from autobahn.wamp.auth import create_authenticator
+from autobahn.wamp.exception import SessionNotReady, ApplicationError
+from autobahn.wamp.auth import create_authenticator, IAuthenticator
+from autobahn.wamp.serializer import SERID_TO_SER
 
 
-__all__ = ('Connection')
+__all__ = (
+    'Component'
+)
 
 
 def _validate_endpoint(endpoint, check_native_endpoint=None):
@@ -92,12 +95,12 @@ def _validate_endpoint(endpoint, check_native_endpoint=None):
             for k in ['path']:
                 if k not in endpoint:
                     raise ValueError(
-                        "'{}' required for 'tcp' endpoint config".format(k)
+                        "'{}' required for 'unix' endpoint config".format(k)
                     )
             for k in ['host', 'port', 'tls']:
                 if k in endpoint:
                     raise ValueError(
-                        "'{}' not valid for in 'tcp' endpoint config".format(k)
+                        "'{}' not valid in 'unix' endpoint config".format(k)
                     )
         else:
             assert False, 'should not arrive here'
@@ -117,7 +120,11 @@ def _create_transport(index, transport, check_native_endpoint=None):
     if type(transport) != dict:
         raise ValueError('invalid type {} for transport configuration - must be a dict'.format(type(transport)))
 
-    valid_transport_keys = ['type', 'url', 'endpoint', 'serializer', 'serializers', 'options']
+    valid_transport_keys = [
+        'type', 'url', 'endpoint', 'serializer', 'serializers', 'options',
+        'max_retries', 'max_retry_delay', 'initial_retry_delay',
+        'retry_delay_growth', 'retry_delay_jitter', 'proxy',
+    ]
     for k in transport.keys():
         if k not in valid_transport_keys:
             raise ValueError(
@@ -131,6 +138,23 @@ def _create_transport(index, transport, check_native_endpoint=None):
         kind = transport['type']
     else:
         transport['type'] = 'websocket'
+
+    if 'proxy' in transport and kind != 'websocket':
+        raise ValueError(
+            "proxy= only supported for type=websocket transports"
+        )
+    proxy = transport.get("proxy", None)
+    if proxy is not None:
+        for k in proxy.keys():
+            if k not in ['host', 'port']:
+                raise ValueError(
+                    "Unknown key '{}' in proxy config".format(k)
+                )
+        for k in ['host', 'port']:
+            if k not in proxy:
+                raise ValueError(
+                    "Proxy config requires '{}'".formaT(k)
+                )
 
     options = dict()
     if 'options' in transport:
@@ -147,7 +171,7 @@ def _create_transport(index, transport, check_native_endpoint=None):
         # endpoint not required; we will deduce from URL if it's not provided
         # XXX not in the branch I rebased; can this go away? (is it redundant??)
         if 'endpoint' not in transport:
-            is_secure, host, port, resource, path, params = parse_url(transport['url'])
+            is_secure, host, port, resource, path, params = parse_ws_url(transport['url'])
             endpoint_config = {
                 'type': 'tcp',
                 'host': host,
@@ -169,7 +193,7 @@ def _create_transport(index, transport, check_native_endpoint=None):
                     isinstance(s, (six.text_type, str))
                     for s in transport['serializers']]):
                 raise ValueError("'serializers' must be a list of strings")
-            valid_serializers = ('msgpack', 'json')
+            valid_serializers = SERID_TO_SER.keys()
             for serial in transport['serializers']:
                 if serial not in valid_serializers:
                     raise ValueError(
@@ -178,12 +202,32 @@ def _create_transport(index, transport, check_native_endpoint=None):
                             ', '.join([repr(s) for s in valid_serializers]),
                         )
                     )
-        serializer_config = transport.get('serializers', [u'msgpack', u'json'])
+        serializer_config = transport.get('serializers', [u'cbor', u'json'])
 
     elif kind == 'rawsocket':
         if 'endpoint' not in transport:
-            raise ValueError("Missing 'endpoint' in transport")
-        endpoint_config = transport['endpoint']
+            if transport['url'].startswith('rs'):
+                # # try to parse RawSocket URL ..
+                isSecure, host, port = parse_rs_url(transport['url'])
+            elif transport['url'].startswith('ws'):
+                # try to parse WebSocket URL ..
+                isSecure, host, port, resource, path, params = parse_ws_url(transport['url'])
+            else:
+                raise RuntimeError()
+            if host == 'unix':
+                # here, "port" is actually holding the path on the host, eg "/tmp/file.sock"
+                endpoint_config = {
+                    'type': 'unix',
+                    'path': port,
+                }
+            else:
+                endpoint_config = {
+                    'type': 'tcp',
+                    'host': host,
+                    'port': port,
+                }
+        else:
+            endpoint_config = transport['endpoint']
         if 'serializers' in transport:
             raise ValueError("'serializers' is only for websocket; use 'serializer'")
         # always a list; len == 1 for rawsocket
@@ -192,7 +236,7 @@ def _create_transport(index, transport, check_native_endpoint=None):
                 raise ValueError("'serializer' must be a string")
             serializer_config = [transport['serializer']]
         else:
-            serializer_config = [u'msgpack']
+            serializer_config = [u'cbor']
 
     else:
         assert False, 'should not arrive here'
@@ -206,9 +250,10 @@ def _create_transport(index, transport, check_native_endpoint=None):
     return _Transport(
         index,
         kind=kind,
-        url=transport['url'],
+        url=transport.get('url', None),
         endpoint=endpoint_config,
         serializers=serializer_config,
+        proxy=proxy,
         options=options,
         **kw
     )
@@ -220,11 +265,12 @@ class _Transport(object):
     """
 
     def __init__(self, idx, kind, url, endpoint, serializers,
-                 max_retries=15,
+                 max_retries=-1,
                  max_retry_delay=300,
                  initial_retry_delay=1.5,
                  retry_delay_growth=1.5,
                  retry_delay_jitter=0.1,
+                 proxy=None,
                  options=dict()):
         """
         """
@@ -246,6 +292,7 @@ class _Transport(object):
         self.initial_retry_delay = initial_retry_delay
         self.retry_delay_growth = retry_delay_growth
         self.retry_delay_jitter = retry_delay_jitter
+        self.proxy = proxy  # this is a dict of proxy config
 
         # used via can_reconnect() and failed() to record this
         # transport is never going to work
@@ -273,13 +320,15 @@ class _Transport(object):
     def can_reconnect(self):
         if self._permanent_failure:
             return False
-        return self.connect_attempts < self.max_retries
+        if self.max_retries == -1:
+            return True
+        return self.connect_attempts < self.max_retries + 1
 
     def next_delay(self):
         if self.connect_attempts == 0:
             # if we never tried before, try immediately
             return 0
-        elif self.connect_attempts >= self.max_retries:
+        elif self.max_retries != -1 and self.connect_attempts >= self.max_retries + 1:
             raise RuntimeError('max reconnects reached')
         else:
             self.retry_delay = self.retry_delay * self.retry_delay_growth
@@ -332,6 +381,7 @@ class Component(ObservableMixin):
             def do_subscription(session, details):
                 return session.subscribe(fn, topic=topic, options=options)
             self.on('join', do_subscription)
+            return fn
         return decorator
 
     def register(self, uri, options=None):
@@ -354,9 +404,11 @@ class Component(ObservableMixin):
             def do_registration(session, details):
                 return session.register(fn, procedure=uri, options=options)
             self.on('join', do_registration)
+            return fn
         return decorator
 
-    def __init__(self, main=None, transports=None, config=None, realm=u'default', extra=None, authentication=None):
+    def __init__(self, main=None, transports=None, config=None, realm=u'realm1', extra=None,
+                 authentication=None, session_factory=None, is_fatal=None):
         """
         :param main: After a transport has been connected and a session
             has been established and joined to a realm, this (async)
@@ -373,7 +425,7 @@ class Component(ObservableMixin):
             containing the following configuration keys:
 
                 - ``type`` (optional): ``websocket`` (default) or ``rawsocket``
-                - ``url``: the WAMP URL
+                - ``url``: the router URL
                 - ``endpoint`` (optional, derived from URL if not provided):
                     - ``type``: "tcp" or "unix"
                     - ``host``, ``port``: only for TCP
@@ -387,14 +439,23 @@ class Component(ObservableMixin):
 
         :type transports: None or unicode or list of dicts
 
-        :param config: Session configuration (currently unused?)
-        :type config: None or dict
-
         :param realm: the realm to join
         :type realm: unicode
 
         :param authentication: configuration of authenticators
         :type authentication: dict mapping auth_type to dict
+
+        :param session_factory: if None, ``ApplicationSession`` is
+            used, otherwise a callable taking a single ``config`` argument
+            that is used to create a new `ApplicationSession` instance.
+        :type session_factory: callable
+
+        :param is_fatal: a callable taking a single argument, an
+            ``Exception`` instance. The callable should return ``True`` if
+            this error is "fatal", meaning we should not try connecting to
+            the current transport again. The default behavior (on None) is
+            to always return ``False``
+        :type is_fatal: callable taking one arg, or None
         """
         self.set_valid_events(
             [
@@ -404,12 +465,16 @@ class Component(ObservableMixin):
                 'ready',        # fired by ApplicationSession
                 'leave',        # fired by ApplicationSession
                 'disconnect',   # fired by ApplicationSession
+                'connectfailure',   # fired by base class
             ]
         )
 
-        if main is not None and not callable(main):
-            raise RuntimeError('"main" must be a callable if given')
+        if is_fatal is not None and not callable(is_fatal):
+            raise ValueError('"is_fatal" must be a callable or None')
+        self._is_fatal = is_fatal
 
+        if main is not None and not callable(main):
+            raise ValueError('"main" must be a callable if given')
         self._entry = main
 
         # use WAMP-over-WebSocket to localhost when no transport is specified at all
@@ -444,8 +509,15 @@ class Component(ObservableMixin):
         # XXX should have some checkconfig support
         self._authentication = authentication or {}
 
+        if session_factory:
+            self.session_factory = session_factory
         self._realm = realm
         self._extra = extra
+
+        self._delay_f = None
+        self._done_f = None
+        self._session = None
+        self._stopping = False
 
     def _can_reconnect(self):
         # check if any of our transport has any reconnect attempt left
@@ -454,11 +526,194 @@ class Component(ObservableMixin):
                 return True
         return False
 
-    def start(self, reactor_or_loop):
-        raise RuntimeError('not implemented')
+    def _start(self, loop=None):
+        """
+        This starts the Component, which means it will start connecting
+        (and re-connecting) to its configured transports. A Component
+        runs until it is "done", which means one of:
+
+        - There was a "main" function defined, and it completed successfully;
+        - Something called ``.leave()`` on our session, and we left successfully;
+        - ``.stop()`` was called, and completed successfully;
+        - none of our transports were able to connect successfully (failure);
+
+        :returns: a Future/Deferred which will resolve (to ``None``) when we are
+            "done" or with an error if something went wrong.
+        """
+
+        # we can only be "start()ed" once before we stop .. but that
+        # doesn't have to be an error we can give back another future
+        # that fires when our "real" _done_f is completed.
+        if self._done_f is not None:
+            d = txaio.create_future()
+
+            def _cb(arg):
+                txaio.resolve(d, arg)
+
+            txaio.add_callbacks(self._done_f, _cb, _cb)
+            return d
+
+        # this future will be returned, and thus has the semantics
+        # specified in the docstring.
+        self._done_f = txaio.create_future()
+
+        def _reset(arg):
+            """
+            if the _done_f future is resolved (good or bad), we want to set it
+            to None in our class
+            """
+            self._done_f = None
+            return arg
+        txaio.add_callbacks(self._done_f, _reset, _reset)
+
+        # Create a generator of transports that .can_reconnect()
+        transport_gen = itertools.cycle(self._transports)
+
+        # this is a 1-element list so we can set it from closures in
+        # this function
+        transport_candidate = [0]
+
+        def error(fail):
+            self._delay_f = None
+            if self._stopping:
+                # might be better to add framework-specific checks in
+                # subclasses to see if this is CancelledError (for
+                # Twisted) and whatever asyncio does .. but tracking
+                # if we're in the shutdown path is fine too
+                txaio.resolve(self._done_f, None)
+            else:
+                self.log.info("Internal error {msg}", msg=txaio.failure_message(fail))
+                self.log.debug("{tb}", tb=txaio.failure_format_traceback(fail))
+                txaio.reject(self._done_f, fail)
+
+        def attempt_connect(_):
+            self._delay_f = None
+
+            def handle_connect_error(fail):
+                # FIXME - make txaio friendly
+                # Can connect_f ever be in a cancelled state?
+                # if txaio.using_asyncio and isinstance(fail.value, asyncio.CancelledError):
+                #     unrecoverable_error = True
+
+                self.log.debug(u'component failed: {error}', error=txaio.failure_message(fail))
+                self.log.debug(u'{tb}', tb=txaio.failure_format_traceback(fail))
+                # If this is a "fatal error" that will never work,
+                # we bail out now
+                if isinstance(fail.value, ApplicationError):
+                    self.log.error(u"{msg}", msg=fail.value.error_message())
+
+                elif isinstance(fail.value, OSError):
+                    # failed to connect entirely, like nobody
+                    # listening etc.
+                    self.log.info(u"Connection failed: {msg}", msg=txaio.failure_message(fail))
+
+                elif self._is_ssl_error(fail.value):
+                    # Quoting pyOpenSSL docs: "Whenever
+                    # [SSL.Error] is raised directly, it has a
+                    # list of error messages from the OpenSSL
+                    # error queue, where each item is a tuple
+                    # (lib, function, reason). Here lib, function
+                    # and reason are all strings, describing where
+                    # and what the problem is. See err(3) for more
+                    # information."
+                    # (and 'args' is a 1-tuple containing the above
+                    # 3-tuple...)
+                    ssl_lib, ssl_func, ssl_reason = fail.value.args[0][0]
+                    self.log.error(u"TLS failure: {reason}", reason=ssl_reason)
+                else:
+                    self.log.error(
+                        u'Connection failed: {error}',
+                        error=txaio.failure_message(fail),
+                    )
+
+                if self._is_fatal is None:
+                    is_fatal = False
+                else:
+                    is_fatal = self._is_fatal(fail.value)
+                if is_fatal:
+                    self.log.info("Error was fatal; failing transport")
+                    transport_candidate[0].failed()
+
+                txaio.call_later(0, transport_check, None)
+                return
+
+            def notify_connect_error(fail):
+                chain_f = txaio.create_future()
+                # hmm, if connectfailure took a _Transport instead of
+                # (or in addition to?) self it could .failed() the
+                # transport and we could do away with the is_fatal
+                # listener?
+                handler_f = self.fire('connectfailure', self, fail.value)
+                txaio.add_callbacks(
+                    handler_f,
+                    lambda _: txaio.reject(chain_f, fail),
+                    lambda _: txaio.reject(chain_f, fail)
+                )
+                return chain_f
+
+            def connect_error(fail):
+                notify_f = notify_connect_error(fail)
+                txaio.add_callbacks(notify_f, None, handle_connect_error)
+
+            def session_done(x):
+                txaio.resolve(self._done_f, None)
+
+            connect_f = txaio.as_future(
+                self._connect_once,
+                loop, transport_candidate[0],
+            )
+            txaio.add_callbacks(connect_f, session_done, connect_error)
+
+        def transport_check(_):
+            self.log.debug('Entering re-connect loop')
+
+            if not self._can_reconnect():
+                err_msg = u"Component failed: Exhausted all transport connect attempts"
+                self.log.info(err_msg)
+                try:
+                    raise RuntimeError(err_msg)
+                except RuntimeError as e:
+                    txaio.reject(self._done_f, e)
+                    return
+
+            while True:
+
+                transport = next(transport_gen)
+
+                if transport.can_reconnect():
+                    transport_candidate[0] = transport
+                    break
+
+            delay = transport.next_delay()
+            self.log.debug(
+                'trying transport {transport_idx} using connect delay {transport_delay}',
+                transport_idx=transport.idx,
+                transport_delay=delay,
+            )
+
+            self._delay_f = txaio.sleep(delay)
+            txaio.add_callbacks(self._delay_f, attempt_connect, error)
+
+        # issue our first event, then start the reconnect loop
+        start_f = self.fire('start', loop, self)
+        txaio.add_callbacks(start_f, transport_check, error)
+        return self._done_f
 
     def stop(self):
-        raise RuntimeError('not implemented')
+        self._stopping = True
+        if self._session and self._session.is_attached():
+            return self._session.leave()
+        elif self._delay_f:
+            # This cancel request will actually call the "error" callback of
+            # the _delay_f future. Nothing to worry about.
+            return txaio.as_future(txaio.cancel, self._delay_f)
+        # if (for some reason -- should we log warning here to figure
+        # out if this can evern happen?) we've not fired _done_f, we
+        # do that now (causing our "main" to exit, and thus react() to
+        # quit)
+        if not txaio.is_called(self._done_f):
+            txaio.resolve(self._done_f, None)
+        return txaio.create_future_success(None)
 
     def _connect_once(self, reactor, transport):
 
@@ -475,10 +730,13 @@ class Component(ObservableMixin):
         def create_session():
             cfg = ComponentConfig(self._realm, self._extra)
             try:
-                session = self.session_factory(cfg)
+                self._session = session = self.session_factory(cfg)
                 for auth_name, auth_config in self._authentication.items():
-                    authenticator = create_authenticator(auth_name, **auth_config)
-                    session.add_authenticator(authenticator)
+                    if isinstance(auth_config, IAuthenticator):
+                        session.add_authenticator(auth_config)
+                    else:
+                        authenticator = create_authenticator(auth_name, **auth_config)
+                        session.add_authenticator(authenticator)
 
             except Exception as e:
                 # couldn't instantiate session calls, which is fatal.
@@ -502,8 +760,14 @@ class Component(ObservableMixin):
                         "session leaving '{details.reason}'",
                         details=details,
                     )
-                    if self._entry and not txaio.is_called(done):
-                        txaio.resolve(done, None)
+                    if not txaio.is_called(done):
+                        if details.reason in [u"wamp.close.normal"]:
+                            txaio.resolve(done, None)
+                        else:
+                            f = txaio.create_failure(
+                                ApplicationError(details.reason)
+                            )
+                            txaio.reject(done, f)
                 session.on('leave', on_leave)
 
                 # if we were given a "main" procedure, we run through
@@ -543,44 +807,39 @@ class Component(ObservableMixin):
                         was_clean=was_clean,
                     )
                     if not txaio.is_called(done):
-                        if was_clean:
+                        if not was_clean:
+                            self.log.warn(
+                                u"Session disconnected uncleanly"
+                            )
+                        else:
                             # eg the session has left the realm, and the transport was properly
                             # shut down. successfully finish the connection
                             txaio.resolve(done, None)
-                        else:
-                            txaio.reject(done, RuntimeError('transport closed uncleanly'))
                 session.on('disconnect', on_disconnect)
 
                 # return the fresh session object
                 return session
 
         transport.connect_attempts += 1
-        d = self._connect_transport(reactor, transport, create_session)
 
-        def on_connect_sucess(proto):
-            # if e.g. an SSL handshake fails, we will have
-            # successfully connected (i.e. get here) but need to
-            # 'listen' for the "connectionLost" from the underlying
-            # protocol in case of handshake failure .. so we wrap
-            # it. Also, we don't increment transport.success_count
-            # here on purpose (because we might not succeed).
-            orig = proto.connectionLost
+        d = txaio.as_future(
+            self._connect_transport,
+            reactor, transport, create_session, done,
+        )
 
-            @wraps(orig)
-            def lost(fail):
-                rtn = orig(fail)
-                if not txaio.is_called(done):
-                    txaio.reject(done, fail)
-                return rtn
-            proto.connectionLost = lost
-
-        def on_connect_failure(err):
+        def on_error(err):
+            """
+            this may seem redundant after looking at _connect_transport, but
+            it will handle a case where something goes wrong in
+            _connect_transport itself -- as the only connect our
+            caller has is the 'done' future
+            """
             transport.connect_failures += 1
-            # failed to establish a connection in the first place
-            txaio.reject(done, err)
-
-        txaio.add_callbacks(d, on_connect_sucess, None)
-        txaio.add_callbacks(d, None, on_connect_failure)
+            # something bad has happened, and maybe didn't get caught
+            # upstream yet
+            if not txaio.is_called(done):
+                txaio.reject(done, err)
+        txaio.add_callbacks(d, None, on_error)
 
         return done
 
@@ -620,8 +879,14 @@ class Component(ObservableMixin):
         """
         self.on('ready', fn)
 
+    def on_connectfailure(self, fn):
+        """
+        A decorator as a shortcut for listening for 'connectfailure' events.
+        """
+        self.on('connectfailure', fn)
 
-def _run(reactor, components):
+
+def _run(reactor, components, done_callback):
     """
     Internal helper. Use "run" method from autobahn.twisted.wamp or
     autobahn.asyncio.wamp
@@ -688,11 +953,7 @@ def _run(reactor, components):
 
     def all_done(arg):
         log.debug("All components ended; stopping reactor")
-        if isinstance(arg, Failure):
-            log.error("Something went wrong: {log_failure}", failure=arg)
-        try:
-            reactor.stop()
-        except ReactorNotRunning:
-            pass
+        done_callback(reactor, arg)
+
     txaio.add_callbacks(done_d, all_done, all_done)
     return done_d

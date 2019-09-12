@@ -36,6 +36,32 @@ __all__ = ('IWebSocketServerChannelFactory',
            'IWebSocketChannelStreamingApi')
 
 
+@six.add_metaclass(abc.ABCMeta)
+class IWebSocketClientAgent(object):
+    """
+    Instances implementing this interface create WebSocket
+    connections.
+    """
+
+    def open(self, transport_config, options, protocol_class=None):
+        """
+        Open a new WebSocket connection.
+
+        :returns: a future which fires with a new
+            WebSocketClientProtocol instance which has just completed the
+            handshake, or an error.
+
+        :param transport_config: the endpoint to connect to. A string
+            containing a ws:// or wss:// URI (or a dict containing
+            transport configuration?)
+
+        :param options: any relevant options for this connection
+            attempt. Can include:
+                - headers: a dict() of headers to send
+                - anything currently in Factory / setProtocolOptions?
+        """
+
+
 @public
 @six.add_metaclass(abc.ABCMeta)
 class IWebSocketServerChannelFactory(object):
@@ -415,6 +441,22 @@ class IWebSocketChannel(object):
            When the callback is fired on a WebSocket client, this method must return ``None``.
            To deny a connection, raise an Exception.
            You can also return a Deferred/Future that resolves/rejects to the above.
+        """
+
+    @public
+    @abc.abstractmethod
+    def onConnecting(self, transport_details):
+        """
+        This method is called when we've connected, but before the handshake is done.
+
+        :param transport_details: information about the transport.
+        :type transport_details: :class:`autobahn.websocket.types.TransportDetails`
+
+        :returns: A
+            :class:`autobahn.websocket.types.ConnectingRequest`
+            instance is returned to indicate which options should be
+            used for this connection. If you wish to use the default
+            behavior, `None` may be returned (this is the default).
         """
 
     @public

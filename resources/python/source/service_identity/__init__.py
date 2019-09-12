@@ -12,10 +12,10 @@ from .exceptions import (
 )
 
 
-__version__ = "17.0.0"
+__version__ = "18.1.0"
 
 __title__ = "service_identity"
-__description__ = "Service identity verification for pyOpenSSL."
+__description__ = "Service identity verification for pyOpenSSL & cryptography."
 __uri__ = "https://service-identity.readthedocs.io/"
 
 __author__ = "Hynek Schlawack"

@@ -1,8 +1,8 @@
 #
 # This file is part of pyasn1-modules software.
 #
-# Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
+# License: http://snmplabs.com/pyasn1/license.html
 #
 # X.509 certificate Request Message Format (CRMF) syntax
 #
@@ -11,10 +11,10 @@
 #
 # Sample captures could be obtained with OpenSSL
 #
-from pyasn1_modules.rfc2459 import *
 from pyasn1_modules import rfc2315
+from pyasn1_modules.rfc2459 import *
 
-MAX = 16
+MAX = float('inf')
 
 id_pkix = univ.ObjectIdentifier('1.3.6.1.5.5.7')
 id_pkip = univ.ObjectIdentifier('1.3.6.1.5.5.7.5')
@@ -109,7 +109,7 @@ class PKIPublicationInfo(univ.Sequence):
         namedtype.NamedType('action',
                             univ.Integer(namedValues=namedval.NamedValues(('dontPublish', 0), ('pleasePublish', 1)))),
         namedtype.OptionalNamedType('pubInfos', univ.SequenceOf(componentType=SinglePubInfo()).subtype(
-            subtypeSpec=constraint.ValueSizeConstraint(1, MAX)))
+            sizeSpec=constraint.ValueSizeConstraint(1, MAX)))
     )
 
 
@@ -195,7 +195,7 @@ class ProofOfPossession(univ.Choice):
 
 class Controls(univ.SequenceOf):
     componentType = AttributeTypeAndValue()
-    subtypeSpec = univ.SequenceOf.subtypeSpec + constraint.ValueSizeConstraint(1, MAX)
+    sizeSpec = univ.SequenceOf.sizeSpec + constraint.ValueSizeConstraint(1, MAX)
 
 
 class OptionalValidity(univ.Sequence):
@@ -249,10 +249,10 @@ class CertReqMsg(univ.Sequence):
         namedtype.NamedType('certReq', CertRequest()),
         namedtype.OptionalNamedType('pop', ProofOfPossession()),
         namedtype.OptionalNamedType('regInfo', univ.SequenceOf(componentType=AttributeTypeAndValue()).subtype(
-            subtypeSpec=constraint.ValueSizeConstraint(1, MAX)))
+            sizeSpec=constraint.ValueSizeConstraint(1, MAX)))
     )
 
 
 class CertReqMessages(univ.SequenceOf):
     componentType = CertReqMsg()
-    subtypeSpec = univ.SequenceOf.subtypeSpec + constraint.ValueSizeConstraint(1, MAX)
+    sizeSpec = univ.SequenceOf.sizeSpec + constraint.ValueSizeConstraint(1, MAX)

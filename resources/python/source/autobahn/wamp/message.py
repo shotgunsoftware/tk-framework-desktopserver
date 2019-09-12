@@ -32,8 +32,17 @@ import binascii
 import six
 
 import autobahn
-from autobahn.wamp.exception import ProtocolError
+from autobahn.wamp.exception import ProtocolError, InvalidUriError
 from autobahn.wamp.role import ROLE_NAME_TO_CLASS
+
+try:
+    import cbor
+    import flatbuffers
+    from autobahn.wamp import message_fbs
+except ImportError:
+    _HAS_WAMP_FLATBUFFERS = False
+else:
+    _HAS_WAMP_FLATBUFFERS = True
 
 __all__ = ('Message',
            'Hello',
@@ -98,11 +107,48 @@ PAYLOAD_ENC_CRYPTO_BOX = u'cryptobox'
 # Payload transparency identifier for MQTT payloads (which are arbitrary binary).
 PAYLOAD_ENC_MQTT = u'mqtt'
 
+# Payload transparency identifier for XBR payloads
+PAYLOAD_ENC_XBR = u'xbr'
+
 # Payload transparency algorithm identifiers from the WAMP spec.
-PAYLOAD_ENC_STANDARD_IDENTIFIERS = [PAYLOAD_ENC_CRYPTO_BOX, PAYLOAD_ENC_MQTT]
+PAYLOAD_ENC_STANDARD_IDENTIFIERS = [PAYLOAD_ENC_CRYPTO_BOX, PAYLOAD_ENC_MQTT, PAYLOAD_ENC_XBR]
 
 # Payload transparency serializer identifiers from the WAMP spec.
-PAYLOAD_ENC_STANDARD_SERIALIZERS = [u'json', u'msgpack', u'cbor', u'ubjson']
+PAYLOAD_ENC_STANDARD_SERIALIZERS = [u'json', u'msgpack', u'cbor', u'ubjson', u'flatbuffers']
+
+ENC_ALGO_NONE = 0
+ENC_ALGO_CRYPTOBOX = 1
+ENC_ALGO_MQTT = 2
+ENC_ALGO_XBR = 3
+
+ENC_ALGOS = {
+    ENC_ALGO_NONE: u'null',
+    ENC_ALGO_CRYPTOBOX: u'cryptobox',
+    ENC_ALGO_MQTT: u'mqtt',
+    ENC_ALGO_XBR: u'xbr',
+}
+
+ENC_ALGOS_FROMSTR = {key: value for value, key in ENC_ALGOS.items()}
+
+ENC_SER_NONE = 0
+ENC_SER_JSON = 1
+ENC_SER_MSGPACK = 2
+ENC_SER_CBOR = 3
+ENC_SER_UBJSON = 4
+ENC_SER_OPAQUE = 5
+ENC_SER_FLATBUFFERS = 6
+
+ENC_SERS = {
+    ENC_SER_NONE: u'null',
+    ENC_SER_JSON: u'json',
+    ENC_SER_MSGPACK: u'msgpack',
+    ENC_SER_CBOR: u'cbor',
+    ENC_SER_UBJSON: u'ubjson',
+    ENC_SER_OPAQUE: u'opaque',
+    ENC_SER_FLATBUFFERS: u'flatbuffers',
+}
+
+ENC_SERS_FROMSTR = {key: value for value, key in ENC_SERS.items()}
 
 
 def is_valid_enc_algo(enc_algo):
@@ -110,10 +156,11 @@ def is_valid_enc_algo(enc_algo):
     For WAMP payload transparency mode, check if the provided ``enc_algo``
     identifier in the WAMP message is a valid one.
 
-    Currently, the only standard defined identifier are
+    Currently defined standard identifiers are:
 
-    * ``u"cryptobox"``
-    * ``u"mqtt"``
+    * ``"cryptobox"``
+    * ``"mqtt"``
+    * ``"xbr"``
 
     Users can select arbitrary identifiers too, but these MUST start with ``u"x_"``.
 
@@ -134,10 +181,11 @@ def is_valid_enc_serializer(enc_serializer):
 
     Currently, the only standard defined identifier are
 
-    * ``u"json"``
-    * ``u"msgpack"``
-    * ``u"cbor"``
-    * ``u"ubjson"``
+    * ``"json"``
+    * ``"msgpack"``
+    * ``"cbor"``
+    * ``"ubjson"``
+    * ``"flatbuffers"``
 
     Users can select arbitrary identifiers too, but these MUST start with ``u"x_"``.
 
@@ -198,11 +246,11 @@ def check_or_raise_uri(value, message=u"WAMP message invalid", strict=False, all
         if allow_none:
             return
         else:
-            raise ProtocolError(u"{0}: URI cannot be null".format(message))
+            raise InvalidUriError(u"{0}: URI cannot be null".format(message))
 
     if type(value) != six.text_type:
         if not (value is None and allow_none):
-            raise ProtocolError(u"{0}: invalid type {1} for URI".format(message, type(value)))
+            raise InvalidUriError(u"{0}: invalid type {1} for URI".format(message, type(value)))
 
     if strict:
         if allow_last_empty:
@@ -220,7 +268,7 @@ def check_or_raise_uri(value, message=u"WAMP message invalid", strict=False, all
             pat = _URI_PAT_LOOSE_NON_EMPTY
 
     if not pat.match(value):
-        raise ProtocolError(u"{0}: invalid value '{1}' for URI (did not match pattern {2}, strict={3}, allow_empty_components={4}, allow_last_empty={5}, allow_none={6})".format(message, value, pat.pattern, strict, allow_empty_components, allow_last_empty, allow_none))
+        raise InvalidUriError(u'{0}: invalid value "{1}" for URI (did not match pattern "{2}" with options strict={3}, allow_empty_components={4}, allow_last_empty={5}, allow_none={6})'.format(message, value, pat.pattern, strict, allow_empty_components, allow_last_empty, allow_none))
     else:
         return value
 
@@ -271,11 +319,47 @@ def check_or_raise_extra(value, message=u"WAMP message invalid"):
     :raises: instance of :class:`autobahn.wamp.exception.ProtocolError`
     """
     if type(value) != dict:
-        raise ProtocolError(u"{0}: invalid type {1}".format(message, type(value)))
+        raise ProtocolError(u"{0}: invalid type {1} for WAMP extra".format(message, type(value)))
     for k in value.keys():
-        if type(k) != six.text_type:
-            raise ProtocolError(u"{0}: invalid type {1} for key '{2}'".format(message, type(k), k))
+        if not isinstance(k, six.text_type):
+            raise ProtocolError(u"{0}: invalid type {1} for key in WAMP extra ('{2}')".format(message, type(k), k))
     return value
+
+
+def _validate_kwargs(kwargs, message=u"WAMP message invalid"):
+    """
+    Check a value for being a valid WAMP kwargs dictionary.
+
+    If the value is not a valid WAMP kwargs dictionary,
+    raises :class:`autobahn.wamp.exception.ProtocolError`.
+    Otherwise return the kwargs.
+
+    The WAMP spec requires that the keys in kwargs are proper
+    strings (unicode), not bytes. Note that the WAMP spec
+    says nothing about keys in application payload. Key in the
+    latter can be potentially of other type (if that is really
+    wanted).
+
+    :param kwargs: The keyword arguments to check.
+    :type kwargs: dict
+
+    :param message: Prefix for message in exception raised when
+        value is invalid.
+    :type message: str
+
+    :returns: The kwargs dictionary (if valid).
+    :rtype: dict
+
+    :raises: instance of
+        :class:`autobahn.wamp.exception.ProtocolError`
+    """
+    if kwargs is not None:
+        if type(kwargs) != dict:
+            raise ProtocolError(u"{0}: invalid type {1} for WAMP kwargs".format(message, type(kwargs)))
+        for k in kwargs.keys():
+            if not isinstance(k, six.text_type):
+                raise ProtocolError(u"{0}: invalid type {1} for key in WAMP kwargs ('{2}')".format(message, type(k), k))
+        return kwargs
 
 
 class Message(object):
@@ -291,12 +375,62 @@ class Message(object):
     """
 
     __slots__ = (
+        '_from_fbs',
         '_serialized',
+        '_correlation_id',
+        '_correlation_uri',
+        '_correlation_is_anchor',
+        '_correlation_is_last',
     )
 
-    def __init__(self):
+    def __init__(self, from_fbs=None):
+        # only filled in case this object has flatbuffers underlying
+        self._from_fbs = from_fbs
+
         # serialization cache: mapping from ISerializer instances to serialized bytes
         self._serialized = {}
+
+        # user attributes for message correlation (mainly for message tracing)
+        self._correlation_id = None
+        self._correlation_uri = None
+        self._correlation_is_anchor = None
+        self._correlation_is_last = None
+
+    @property
+    def correlation_id(self):
+        return self._correlation_id
+
+    @correlation_id.setter
+    def correlation_id(self, value):
+        assert(value is None or type(value) == six.text_type)
+        self._correlation_id = value
+
+    @property
+    def correlation_uri(self):
+        return self._correlation_uri
+
+    @correlation_uri.setter
+    def correlation_uri(self, value):
+        assert(value is None or type(value) == six.text_type)
+        self._correlation_uri = value
+
+    @property
+    def correlation_is_anchor(self):
+        return self._correlation_is_anchor
+
+    @correlation_is_anchor.setter
+    def correlation_is_anchor(self, value):
+        assert(value is None or type(value) == bool)
+        self._correlation_is_anchor = value
+
+    @property
+    def correlation_is_last(self):
+        return self._correlation_is_last
+
+    @correlation_is_last.setter
+    def correlation_is_last(self, value):
+        assert(value is None or type(value) == bool)
+        self._correlation_is_last = value
 
     def __eq__(self, other):
         """
@@ -312,7 +446,11 @@ class Message(object):
             return False
         # we only want the actual message data attributes (not eg _serialize)
         for k in self.__slots__:
-            if k not in ['_serialized']:
+            if k not in ['_serialized',
+                         '_correlation_id',
+                         '_correlation_uri',
+                         '_correlation_is_anchor',
+                         '_correlation_is_last'] and not k.startswith('_'):
                 if not getattr(self, k) == getattr(other, k):
                     return False
         return True
@@ -339,6 +477,17 @@ class Message(object):
         :returns: An instance of this class.
         :rtype: obj
         """
+        raise NotImplementedError()
+
+    def marshal(self):
+        raise NotImplementedError()
+
+    @staticmethod
+    def cast(buf):
+        raise NotImplementedError()
+
+    def build(self, builder):
+        raise NotImplementedError()
 
     def uncache(self):
         """
@@ -360,7 +509,22 @@ class Message(object):
         """
         # only serialize if not cached ..
         if serializer not in self._serialized:
-            self._serialized[serializer] = serializer.serialize(self.marshal())
+            if serializer.NAME == u'flatbuffers':
+                # flatbuffers get special treatment ..
+                builder = flatbuffers.Builder(1024)
+
+                # this is the core method writing out this message (self) to a (new) flatbuffer
+                # FIXME: implement this method for all classes derived from Message
+                obj = self.build(builder)
+
+                builder.Finish(obj)
+                buf = builder.Output()
+                self._serialized[serializer] = bytes(buf)
+            else:
+                # all other serializers first marshal() the object and then serialize the latter
+                self._serialized[serializer] = serializer.serialize(self.marshal())
+
+        # cache is filled now: return serialized, cached bytes
         return self._serialized[serializer]
 
 
@@ -388,7 +552,16 @@ class Hello(Message):
         'resume_token',
     )
 
-    def __init__(self, realm, roles, authmethods=None, authid=None, authrole=None, authextra=None, resumable=None, resume_session=None, resume_token=None):
+    def __init__(self,
+                 realm,
+                 roles,
+                 authmethods=None,
+                 authid=None,
+                 authrole=None,
+                 authextra=None,
+                 resumable=None,
+                 resume_session=None,
+                 resume_token=None):
         """
 
         :param realm: The URI of the WAMP realm to join.
@@ -627,7 +800,19 @@ class Welcome(Message):
         'custom',
     )
 
-    def __init__(self, session, roles, realm=None, authid=None, authrole=None, authmethod=None, authprovider=None, authextra=None, resumed=None, resumable=None, resume_token=None, custom=None):
+    def __init__(self,
+                 session,
+                 roles,
+                 realm=None,
+                 authid=None,
+                 authrole=None,
+                 authmethod=None,
+                 authprovider=None,
+                 authextra=None,
+                 resumed=None,
+                 resumable=None,
+                 resume_token=None,
+                 custom=None):
         """
 
         :param session: The WAMP session ID the other peer is assigned.
@@ -1210,10 +1395,26 @@ class Error(Message):
         'enc_algo',
         'enc_key',
         'enc_serializer',
+        'callee',
+        'callee_authid',
+        'callee_authrole',
+        'forward_for',
     )
 
-    def __init__(self, request_type, request, error, args=None, kwargs=None, payload=None,
-                 enc_algo=None, enc_key=None, enc_serializer=None):
+    def __init__(self,
+                 request_type,
+                 request,
+                 error,
+                 args=None,
+                 kwargs=None,
+                 payload=None,
+                 enc_algo=None,
+                 enc_key=None,
+                 enc_serializer=None,
+                 callee=None,
+                 callee_authid=None,
+                 callee_authrole=None,
+                 forward_for=None):
         """
 
         :param request_type: The WAMP message type code for the original request.
@@ -1244,6 +1445,18 @@ class Error(Message):
 
         :param enc_serializer: If using payload transparency, the payload object serializer that was used encoding the payload.
         :type enc_serializer: str or None
+
+        :param callee: The WAMP session ID of the effective callee that responded with the error. Only filled if callee is disclosed.
+        :type callee: None or int
+
+        :param callee_authid: The WAMP authid of the responding callee. Only filled if callee is disclosed.
+        :type callee_authid: None or unicode
+
+        :param callee_authrole: The WAMP authrole of the responding callee. Only filled if callee is disclosed.
+        :type callee_authrole: None or unicode
+
+        :param forward_for: When this Error is forwarded for a client/callee (or from an intermediary router).
+        :type forward_for: list[dict]
         """
         assert(type(request_type) in six.integer_types)
         assert(type(request) in six.integer_types)
@@ -1252,21 +1465,44 @@ class Error(Message):
         assert(kwargs is None or type(kwargs) == dict)
         assert(payload is None or type(payload) == six.binary_type)
         assert(payload is None or (payload is not None and args is None and kwargs is None))
+
         assert(enc_algo is None or is_valid_enc_algo(enc_algo))
         assert((enc_algo is None and enc_key is None and enc_serializer is None) or (payload is not None and enc_algo is not None))
         assert(enc_key is None or type(enc_key) == six.text_type)
         assert(enc_serializer is None or is_valid_enc_serializer(enc_serializer))
+
+        assert(callee is None or type(callee) in six.integer_types)
+        assert(callee_authid is None or type(callee_authid) == six.text_type)
+        assert(callee_authrole is None or type(callee_authrole) == six.text_type)
+
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
 
         Message.__init__(self)
         self.request_type = request_type
         self.request = request
         self.error = error
         self.args = args
-        self.kwargs = kwargs
+        self.kwargs = _validate_kwargs(kwargs)
         self.payload = payload
+
+        # payload transparency related knobs
         self.enc_algo = enc_algo
         self.enc_key = enc_key
         self.enc_serializer = enc_serializer
+
+        # effective callee that responded with the error
+        self.callee = callee
+        self.callee_authid = callee_authid
+        self.callee_authrole = callee_authrole
+
+        # message forwarding
+        self.forward_for = forward_for
 
     @staticmethod
     def parse(wmsg):
@@ -1307,6 +1543,10 @@ class Error(Message):
         enc_algo = None
         enc_key = None
         enc_serializer = None
+        callee = None
+        callee_authid = None
+        callee_authrole = None
+        forward_for = None
 
         if len(wmsg) == 6 and type(wmsg[5]) == six.binary_type:
 
@@ -1335,6 +1575,48 @@ class Error(Message):
                 if type(kwargs) != dict:
                     raise ProtocolError("invalid type {0} for 'kwargs' in ERROR".format(type(kwargs)))
 
+        if u'callee' in details:
+
+            detail_callee = details[u'callee']
+            if type(detail_callee) not in six.integer_types:
+                raise ProtocolError("invalid type {0} for 'callee' detail in ERROR".format(type(detail_callee)))
+
+            callee = detail_callee
+
+        if u'callee_authid' in details:
+
+            detail_callee_authid = details[u'callee_authid']
+            if type(detail_callee_authid) != six.text_type:
+                raise ProtocolError("invalid type {0} for 'callee_authid' detail in ERROR".format(type(detail_callee_authid)))
+
+            callee_authid = detail_callee_authid
+
+        if u'callee_authrole' in details:
+
+            detail_callee_authrole = details[u'callee_authrole']
+            if type(detail_callee_authrole) != six.text_type:
+                raise ProtocolError("invalid type {0} for 'callee_authrole' detail in ERROR".format(type(detail_callee_authrole)))
+
+            callee_authrole = detail_callee_authrole
+
+        if u'forward_for' in details:
+            forward_for = details[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in ERROR")
+
         obj = Error(request_type,
                     request,
                     error,
@@ -1343,7 +1625,11 @@ class Error(Message):
                     payload=payload,
                     enc_algo=enc_algo,
                     enc_key=enc_key,
-                    enc_serializer=enc_serializer)
+                    enc_serializer=enc_serializer,
+                    callee=callee,
+                    callee_authid=callee_authid,
+                    callee_authrole=callee_authrole,
+                    forward_for=forward_for)
 
         return obj
 
@@ -1355,6 +1641,15 @@ class Error(Message):
         :rtype: list
         """
         details = {}
+
+        if self.callee is not None:
+            details[u'callee'] = self.callee
+        if self.callee_authid is not None:
+            details[u'callee_authid'] = self.callee_authid
+        if self.callee_authrole is not None:
+            details[u'callee_authrole'] = self.callee_authrole
+        if self.forward_for is not None:
+            details[u'forward_for'] = self.forward_for
 
         if self.payload:
             if self.enc_algo is not None:
@@ -1376,7 +1671,7 @@ class Error(Message):
         """
         Returns string representation of this message.
         """
-        return u"Error(request_type={0}, request={1}, error={2}, args={3}, kwargs={4}, enc_algo={5}, enc_key={6}, enc_serializer={7}, payload={8})".format(self.request_type, self.request, self.error, self.args, self.kwargs, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload))
+        return u"Error(request_type={0}, request={1}, error={2}, args={3}, kwargs={4}, enc_algo={5}, enc_key={6}, enc_serializer={7}, payload={8}, callee={9}, callee_authid={10}, callee_authrole={11}, forward_for={12})".format(self.request_type, self.request, self.error, self.args, self.kwargs, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.callee, self.callee_authid, self.callee_authrole, self.forward_for)
 
 
 class Publish(Message):
@@ -1397,28 +1692,64 @@ class Publish(Message):
     """
 
     __slots__ = (
-        'request',
-        'topic',
-        'args',
-        'kwargs',
-        'payload',
-        'acknowledge',
-        'exclude_me',
-        'exclude',
-        'exclude_authid',
-        'exclude_authrole',
-        'eligible',
-        'eligible_authid',
-        'eligible_authrole',
-        'retain',
-        'enc_algo',
-        'enc_key',
-        'enc_serializer',
+        # uint64 (key)
+        '_request',
+
+        # string (required, uri)
+        '_topic',
+
+        # [uint8]
+        '_args',
+
+        # [uint8]
+        '_kwargs',
+
+        # [uint8]
+        '_payload',
+
+        # Payload => uint8
+        '_enc_algo',
+
+        # Serializer => uint8
+        '_enc_serializer',
+
+        # [uint8]
+        '_enc_key',
+
+        # bool
+        '_acknowledge',
+
+        # bool
+        '_exclude_me',
+
+        # [uint64]
+        '_exclude',
+
+        # [string] (principal)
+        '_exclude_authid',
+
+        # [string] (principal)
+        '_exclude_authrole',
+
+        # [uint64]
+        '_eligible',
+
+        # [string] (principal)
+        '_eligible_authid',
+
+        # [string] (principal)
+        '_eligible_authrole',
+
+        # bool
+        '_retain',
+
+        # [Principal]
+        '_forward_for',
     )
 
     def __init__(self,
-                 request,
-                 topic,
+                 request=None,
+                 topic=None,
                  args=None,
                  kwargs=None,
                  payload=None,
@@ -1433,7 +1764,9 @@ class Publish(Message):
                  retain=None,
                  enc_algo=None,
                  enc_key=None,
-                 enc_serializer=None):
+                 enc_serializer=None,
+                 forward_for=None,
+                 from_fbs=None):
         """
 
         :param request: The WAMP request ID of this request.
@@ -1491,9 +1824,12 @@ class Publish(Message):
 
         :param enc_serializer: If using payload transparency, the payload object serializer that was used encoding the payload.
         :type enc_serializer: str or None or None
+
+        :param forward_for: When this Call is forwarded for a client (or from an intermediary router).
+        :type forward_for: list[dict]
         """
-        assert(type(request) in six.integer_types)
-        assert(type(topic) == six.text_type)
+        assert(request is None or type(request) in six.integer_types)
+        assert(topic is None or type(topic) == six.text_type)
         assert(args is None or type(args) in [list, tuple, six.text_type, six.binary_type])
         assert(kwargs is None or type(kwargs) in [dict, six.text_type, six.binary_type])
         assert(payload is None or type(payload) == six.binary_type)
@@ -1539,30 +1875,483 @@ class Publish(Message):
         assert(enc_key is None or type(enc_key) == six.text_type)
         assert(enc_serializer is None or is_valid_enc_serializer(enc_serializer))
 
-        Message.__init__(self)
-        self.request = request
-        self.topic = topic
-        self.args = args
-        self.kwargs = kwargs
-        self.payload = payload
-        self.acknowledge = acknowledge
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+
+        Message.__init__(self, from_fbs=from_fbs)
+        self._request = request
+        self._topic = topic
+        self._args = args
+        self._kwargs = _validate_kwargs(kwargs)
+        self._payload = payload
+        self._acknowledge = acknowledge
 
         # publisher exlusion and black-/whitelisting
-        self.exclude_me = exclude_me
-        self.exclude = exclude
-        self.exclude_authid = exclude_authid
-        self.exclude_authrole = exclude_authrole
-        self.eligible = eligible
-        self.eligible_authid = eligible_authid
-        self.eligible_authrole = eligible_authrole
+        self._exclude_me = exclude_me
+        self._exclude = exclude
+        self._exclude_authid = exclude_authid
+        self._exclude_authrole = exclude_authrole
+        self._eligible = eligible
+        self._eligible_authid = eligible_authid
+        self._eligible_authrole = eligible_authrole
 
         # event retention
-        self.retain = retain
+        self._retain = retain
 
         # payload transparency related knobs
-        self.enc_algo = enc_algo
-        self.enc_key = enc_key
-        self.enc_serializer = enc_serializer
+        self._enc_algo = enc_algo
+        self._enc_key = enc_key
+        self._enc_serializer = enc_serializer
+
+        # message forwarding
+        self._forward_for = forward_for
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        if not Message.__eq__(self, other):
+            return False
+        if other.request != self.request:
+            return False
+        if other.topic != self.topic:
+            return False
+        if other.args != self.args:
+            return False
+        if other.kwargs != self.kwargs:
+            return False
+        if other.payload != self.payload:
+            return False
+        if other.acknowledge != self.acknowledge:
+            return False
+        if other.exclude_me != self.exclude_me:
+            return False
+        if other.exclude != self.exclude:
+            return False
+        if other.exclude_authid != self.exclude_authid:
+            return False
+        if other.exclude_authrole != self.exclude_authrole:
+            return False
+        if other.eligible != self.eligible:
+            return False
+        if other.eligible_authid != self.eligible_authid:
+            return False
+        if other.eligible_authrole != self.eligible_authrole:
+            return False
+        if other.retain != self.retain:
+            return False
+        if other.enc_algo != self.enc_algo:
+            return False
+        if other.enc_key != self.enc_key:
+            return False
+        if other.enc_serializer != self.enc_serializer:
+            return False
+        if other.forward_for != self.forward_for:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def request(self):
+        if self._request is None and self._from_fbs:
+            self._request = self._from_fbs.Request()
+        return self._request
+
+    @request.setter
+    def request(self, value):
+        assert(value is None or type(value) in six.integer_types)
+        self._request = value
+
+    @property
+    def topic(self):
+        if self._topic is None and self._from_fbs:
+            s = self._from_fbs.Topic()
+            if s:
+                self._topic = s.decode('utf8')
+        return self._topic
+
+    @topic.setter
+    def topic(self, value):
+        assert value is None or type(value) == str
+        self._topic = value
+
+    @property
+    def args(self):
+        if self._args is None and self._from_fbs:
+            if self._from_fbs.ArgsLength():
+                self._args = cbor.loads(bytes(self._from_fbs.ArgsAsBytes()))
+        return self._args
+
+    @args.setter
+    def args(self, value):
+        assert(value is None or type(value) in [list, tuple])
+        self._args = value
+
+    @property
+    def kwargs(self):
+        if self._kwargs is None and self._from_fbs:
+            if self._from_fbs.KwargsLength():
+                self._kwargs = cbor.loads(bytes(self._from_fbs.KwargsAsBytes()))
+        return self._kwargs
+
+    @kwargs.setter
+    def kwargs(self, value):
+        assert(value is None or type(value) == dict)
+        self._kwargs = value
+
+    @property
+    def payload(self):
+        if self._payload is None and self._from_fbs:
+            if self._from_fbs.PayloadLength():
+                self._payload = self._from_fbs.PayloadAsBytes()
+        return self._payload
+
+    @payload.setter
+    def payload(self, value):
+        assert value is None or type(value) == bytes
+        self._payload = value
+
+    @property
+    def acknowledge(self):
+        if self._acknowledge is None and self._from_fbs:
+            acknowledge = self._from_fbs.Acknowledge()
+            if acknowledge:
+                self._acknowledge = acknowledge
+        return self._acknowledge
+
+    @acknowledge.setter
+    def acknowledge(self, value):
+        assert value is None or type(value) == bool
+        self._acknowledge = value
+
+    @property
+    def exclude_me(self):
+        if self._exclude_me is None and self._from_fbs:
+            exclude_me = self._from_fbs.ExcludeMe()
+            if exclude_me is False:
+                self._exclude_me = exclude_me
+        return self._exclude_me
+
+    @exclude_me.setter
+    def exclude_me(self, value):
+        assert value is None or type(value) == bool
+        self._exclude_me = value
+
+    @property
+    def exclude(self):
+        if self._exclude is None and self._from_fbs:
+            if self._from_fbs.ExcludeLength():
+                exclude = []
+                for j in range(self._from_fbs.ExcludeLength()):
+                    exclude.append(self._from_fbs.Exclude(j))
+                self._exclude = exclude
+        return self._exclude
+
+    @exclude.setter
+    def exclude(self, value):
+        assert value is None or type(value) == list
+        if value:
+            for x in value:
+                assert type(x) == int
+        self._exclude = value
+
+    @property
+    def exclude_authid(self):
+        if self._exclude_authid is None and self._from_fbs:
+            if self._from_fbs.ExcludeAuthidLength():
+                exclude_authid = []
+                for j in range(self._from_fbs.ExcludeAuthidLength()):
+                    exclude_authid.append(self._from_fbs.ExcludeAuthid(j).decode('utf8'))
+                self._exclude_authid = exclude_authid
+        return self._exclude_authid
+
+    @exclude_authid.setter
+    def exclude_authid(self, value):
+        assert value is None or type(value) == list
+        if value:
+            for x in value:
+                assert type(x) == str
+        self._exclude_authid = value
+
+    @property
+    def exclude_authrole(self):
+        if self._exclude_authrole is None and self._from_fbs:
+            if self._from_fbs.ExcludeAuthroleLength():
+                exclude_authrole = []
+                for j in range(self._from_fbs.ExcludeAuthroleLength()):
+                    exclude_authrole.append(self._from_fbs.ExcludeAuthrole(j).decode('utf8'))
+                self._exclude_authrole = exclude_authrole
+        return self._exclude_authrole
+
+    @exclude_authrole.setter
+    def exclude_authrole(self, value):
+        assert value is None or type(value) == list
+        if value:
+            for x in value:
+                assert type(x) == str
+        self._exclude_authrole = value
+
+    @property
+    def eligible(self):
+        if self._eligible is None and self._from_fbs:
+            if self._from_fbs.EligibleLength():
+                eligible = []
+                for j in range(self._from_fbs.EligibleLength()):
+                    eligible.append(self._from_fbs.Eligible(j))
+                self._eligible = eligible
+        return self._eligible
+
+    @eligible.setter
+    def eligible(self, value):
+        assert value is None or type(value) == list
+        if value:
+            for x in value:
+                assert type(x) == int
+        self._eligible = value
+
+    @property
+    def eligible_authid(self):
+        if self._eligible_authid is None and self._from_fbs:
+            if self._from_fbs.EligibleAuthidLength():
+                eligible_authid = []
+                for j in range(self._from_fbs.EligibleAuthidLength()):
+                    eligible_authid.append(self._from_fbs.EligibleAuthid(j).decode('utf8'))
+                self._eligible_authid = eligible_authid
+        return self._eligible_authid
+
+    @eligible_authid.setter
+    def eligible_authid(self, value):
+        assert value is None or type(value) == list
+        if value:
+            for x in value:
+                assert type(x) == str
+        self._eligible_authid = value
+
+    @property
+    def eligible_authrole(self):
+        if self._eligible_authrole is None and self._from_fbs:
+            if self._from_fbs.EligibleAuthroleLength():
+                eligible_authrole = []
+                for j in range(self._from_fbs.EligibleAuthroleLength()):
+                    eligible_authrole.append(self._from_fbs.EligibleAuthrole(j).decode('utf8'))
+                self._eligible_authrole = eligible_authrole
+        return self._eligible_authrole
+
+    @eligible_authrole.setter
+    def eligible_authrole(self, value):
+        assert value is None or type(value) == list
+        if value:
+            for x in value:
+                assert type(x) == str
+        self._eligible_authrole = value
+
+    @property
+    def retain(self):
+        if self._retain is None and self._from_fbs:
+            retain = self._from_fbs.Retain()
+            if retain:
+                self._retain = retain
+        return self._retain
+
+    @retain.setter
+    def retain(self, value):
+        assert value is None or type(value) == bool
+        self._retain = value
+
+    @property
+    def enc_algo(self):
+        if self._enc_algo is None and self._from_fbs:
+            enc_algo = self._from_fbs.EncAlgo()
+            if enc_algo:
+                self._enc_algo = enc_algo
+        return self._enc_algo
+
+    @enc_algo.setter
+    def enc_algo(self, value):
+        assert value is None or value in [ENC_ALGO_CRYPTOBOX, ENC_ALGO_MQTT, ENC_ALGO_XBR]
+        self._enc_algo = value
+
+    @property
+    def enc_key(self):
+        if self._enc_key is None and self._from_fbs:
+            if self._from_fbs.EncKeyLength():
+                self._enc_key = self._from_fbs.EncKeyAsBytes()
+        return self._enc_key
+
+    @enc_key.setter
+    def enc_key(self, value):
+        assert value is None or type(value) == bytes
+        self._enc_key = value
+
+    @property
+    def enc_serializer(self):
+        if self._enc_serializer is None and self._from_fbs:
+            enc_serializer = self._from_fbs.EncSerializer()
+            if enc_serializer:
+                self._enc_serializer = enc_serializer
+        return self._enc_serializer
+
+    @enc_serializer.setter
+    def enc_serializer(self, value):
+        assert value is None or value in [ENC_SER_JSON, ENC_SER_MSGPACK, ENC_SER_CBOR, ENC_SER_UBJSON]
+        self._enc_serializer = value
+
+    @property
+    def forward_for(self):
+        # FIXME
+        return self._forward_for
+
+    @forward_for.setter
+    def forward_for(self, value):
+        # FIXME
+        self._forward_for = value
+
+    @staticmethod
+    def cast(buf):
+        return Publish(from_fbs=message_fbs.Publish.GetRootAsPublish(buf, 0))
+
+    def build(self, builder):
+
+        args = self.args
+        if args:
+            args = builder.CreateByteVector(cbor.dumps(args))
+
+        kwargs = self.kwargs
+        if kwargs:
+            kwargs = builder.CreateByteVector(cbor.dumps(kwargs))
+
+        payload = self.payload
+        if payload:
+            payload = builder.CreateByteVector(payload)
+
+        topic = self.topic
+        if topic:
+            topic = builder.CreateString(topic)
+
+        enc_key = self.enc_key
+        if enc_key:
+            enc_key = builder.CreateByteVector(enc_key)
+
+        # exclude: [int]
+        exclude = self.exclude
+        if exclude:
+            message_fbs.PublishGen.PublishStartExcludeAuthidVector(builder, len(exclude))
+            for session in reversed(exclude):
+                builder.PrependUint64(session)
+            exclude = builder.EndVector(len(exclude))
+
+        # exclude_authid: [string]
+        exclude_authid = self.exclude_authid
+        if exclude_authid:
+            _exclude_authid = []
+            for authid in exclude_authid:
+                _exclude_authid.append(builder.CreateString(authid))
+            message_fbs.PublishGen.PublishStartExcludeAuthidVector(builder, len(_exclude_authid))
+            for o in reversed(_exclude_authid):
+                builder.PrependUOffsetTRelative(o)
+            exclude_authid = builder.EndVector(len(_exclude_authid))
+
+        # exclude_authrole: [string]
+        exclude_authrole = self.exclude_authrole
+        if exclude_authid:
+            _exclude_authrole = []
+            for authrole in exclude_authrole:
+                _exclude_authrole.append(builder.CreateString(authrole))
+            message_fbs.PublishGen.PublishStartExcludeAuthroleVector(builder, len(_exclude_authrole))
+            for o in reversed(_exclude_authrole):
+                builder.PrependUOffsetTRelative(o)
+            exclude_authrole = builder.EndVector(len(_exclude_authrole))
+
+        # eligible: [int]
+        eligible = self.eligible
+        if eligible:
+            message_fbs.PublishGen.PublishStartEligibleAuthidVector(builder, len(eligible))
+            for session in reversed(eligible):
+                builder.PrependUint64(session)
+            eligible = builder.EndVector(len(eligible))
+
+        # eligible_authid: [string]
+        eligible_authid = self.eligible_authid
+        if eligible_authid:
+            _eligible_authid = []
+            for authid in eligible_authid:
+                _eligible_authid.append(builder.CreateString(authid))
+            message_fbs.PublishGen.PublishStartEligibleAuthidVector(builder, len(_eligible_authid))
+            for o in reversed(_eligible_authid):
+                builder.PrependUOffsetTRelative(o)
+            eligible_authid = builder.EndVector(len(_eligible_authid))
+
+        # eligible_authrole: [string]
+        eligible_authrole = self.eligible_authrole
+        if eligible_authrole:
+            _eligible_authrole = []
+            for authrole in eligible_authrole:
+                _eligible_authrole.append(builder.CreateString(authrole))
+            message_fbs.PublishGen.PublishStartEligibleAuthroleVector(builder, len(_eligible_authrole))
+            for o in reversed(_eligible_authrole):
+                builder.PrependUOffsetTRelative(o)
+            eligible_authrole = builder.EndVector(len(_eligible_authrole))
+
+        # now start and build a new object ..
+        message_fbs.PublishGen.PublishStart(builder)
+
+        if self.request is not None:
+            message_fbs.PublishGen.PublishAddRequest(builder, self.request)
+
+        if topic:
+            message_fbs.PublishGen.PublishAddTopic(builder, topic)
+
+        if args:
+            message_fbs.PublishGen.PublishAddArgs(builder, args)
+        if kwargs:
+            message_fbs.PublishGen.PublishAddKwargs(builder, kwargs)
+        if payload:
+            message_fbs.PublishGen.PublishAddPayload(builder, payload)
+
+        if self.acknowledge is not None:
+            message_fbs.PublishGen.PublishAddAcknowledge(builder, self.acknowledge)
+        if self.retain is not None:
+            message_fbs.PublishGen.PublishAddRetain(builder, self.retain)
+        if self.exclude_me is not None:
+            message_fbs.PublishGen.PublishAddExcludeMe(builder, self.exclude_me)
+
+        if exclude:
+            message_fbs.PublishGen.PublishAddExclude(builder, exclude)
+        if exclude_authid:
+            message_fbs.PublishGen.PublishAddExcludeAuthid(builder, exclude_authid)
+        if exclude_authrole:
+            message_fbs.PublishGen.PublishAddExcludeAuthrole(builder, exclude_authrole)
+
+        if eligible:
+            message_fbs.PublishGen.PublishAddEligible(builder, eligible)
+        if eligible_authid:
+            message_fbs.PublishGen.PublishAddEligibleAuthid(builder, eligible_authid)
+        if eligible_authrole:
+            message_fbs.PublishGen.PublishAddEligibleAuthrole(builder, eligible_authrole)
+
+        if self.enc_algo:
+            message_fbs.PublishGen.PublishAddEncAlgo(builder, self.enc_algo)
+        if enc_key:
+            message_fbs.PublishGen.PublishAddEncKey(builder, enc_key)
+        if self.enc_serializer:
+            message_fbs.PublishGen.PublishAddEncSerializer(builder, self.enc_serializer)
+
+        # FIXME: add forward_for
+
+        msg = message_fbs.PublishGen.PublishEnd(builder)
+
+        message_fbs.Message.MessageStart(builder)
+        message_fbs.Message.MessageAddMsgType(builder, message_fbs.MessageType.PUBLISH)
+        message_fbs.Message.MessageAddMsg(builder, msg)
+        union_msg = message_fbs.Message.MessageEnd(builder)
+
+        return union_msg
 
     @staticmethod
     def parse(wmsg):
@@ -1620,7 +2409,6 @@ class Publish(Message):
             enc_serializer = None
 
         acknowledge = None
-
         exclude_me = None
         exclude = None
         exclude_authid = None
@@ -1628,8 +2416,8 @@ class Publish(Message):
         eligible = None
         eligible_authid = None
         eligible_authrole = None
-
         retain = None
+        forward_for = None
 
         if u'acknowledge' in options:
 
@@ -1724,6 +2512,24 @@ class Publish(Message):
             if type(retain) != bool:
                 raise ProtocolError("invalid type {0} for 'retain' option in PUBLISH".format(type(retain)))
 
+        if u'forward_for' in options:
+            forward_for = options[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in PUBLISH")
+
         obj = Publish(request,
                       topic,
                       args=args,
@@ -1740,7 +2546,8 @@ class Publish(Message):
                       retain=retain,
                       enc_algo=enc_algo,
                       enc_key=enc_key,
-                      enc_serializer=enc_serializer)
+                      enc_serializer=enc_serializer,
+                      forward_for=forward_for)
 
         return obj
 
@@ -1775,6 +2582,9 @@ class Publish(Message):
             if self.enc_serializer is not None:
                 options[u'enc_serializer'] = self.enc_serializer
 
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
+
         return options
 
     def marshal(self):
@@ -1800,7 +2610,7 @@ class Publish(Message):
         """
         Returns string representation of this message.
         """
-        return u"Publish(request={}, topic={}, args={}, kwargs={}, acknowledge={}, exclude_me={}, exclude={}, exclude_authid={}, exclude_authrole={}, eligible={}, eligible_authid={}, eligible_authrole={}, retain={}, enc_algo={}, enc_key={}, enc_serializer={}, payload={})".format(self.request, self.topic, self.args, self.kwargs, self.acknowledge, self.exclude_me, self.exclude, self.exclude_authid, self.exclude_authrole, self.eligible, self.eligible_authid, self.eligible_authrole, self.retain, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload))
+        return u"Publish(request={}, topic={}, args={}, kwargs={}, acknowledge={}, exclude_me={}, exclude={}, exclude_authid={}, exclude_authrole={}, eligible={}, eligible_authid={}, eligible_authrole={}, retain={}, enc_algo={}, enc_key={}, enc_serializer={}, payload={}, forward_for={})".format(self.request, self.topic, self.args, self.kwargs, self.acknowledge, self.exclude_me, self.exclude, self.exclude_authid, self.exclude_authrole, self.eligible, self.eligible_authid, self.eligible_authrole, self.retain, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.forward_for)
 
 
 class Published(Message):
@@ -1896,9 +2706,15 @@ class Subscribe(Message):
         'topic',
         'match',
         'get_retained',
+        'forward_for',
     )
 
-    def __init__(self, request, topic, match=None, get_retained=None):
+    def __init__(self,
+                 request,
+                 topic,
+                 match=None,
+                 get_retained=None,
+                 forward_for=None):
         """
 
         :param request: The WAMP request ID of this request.
@@ -1912,18 +2728,30 @@ class Subscribe(Message):
 
         :param get_retained: Whether the client wants the retained message we may have along with the subscription.
         :type get_retained: bool or None
+
+        :param forward_for: When this Subscribe is forwarded over a router-to-router link,
+            or via an intermediary router.
+        :type forward_for: list[dict]
         """
         assert(type(request) in six.integer_types)
         assert(type(topic) == six.text_type)
         assert(match is None or type(match) == six.text_type)
         assert(match is None or match in [Subscribe.MATCH_EXACT, Subscribe.MATCH_PREFIX, Subscribe.MATCH_WILDCARD])
         assert(get_retained is None or type(get_retained) is bool)
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
 
         Message.__init__(self)
         self.request = request
         self.topic = topic
         self.match = match or Subscribe.MATCH_EXACT
         self.get_retained = get_retained
+        self.forward_for = forward_for
 
     @staticmethod
     def parse(wmsg):
@@ -1947,6 +2775,7 @@ class Subscribe(Message):
 
         match = Subscribe.MATCH_EXACT
         get_retained = None
+        forward_for = None
 
         if u'match' in options:
 
@@ -1965,7 +2794,25 @@ class Subscribe(Message):
             if type(get_retained) != bool:
                 raise ProtocolError("invalid type {0} for 'get_retained' option in SUBSCRIBE".format(type(get_retained)))
 
-        obj = Subscribe(request, topic, match=match, get_retained=get_retained)
+        if u'forward_for' in options:
+            forward_for = options[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in SUBSCRIBE")
+
+        obj = Subscribe(request, topic, match=match, get_retained=get_retained, forward_for=forward_for)
 
         return obj
 
@@ -1977,6 +2824,9 @@ class Subscribe(Message):
 
         if self.get_retained is not None:
             options[u'get_retained'] = self.get_retained
+
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
 
         return options
 
@@ -1993,7 +2843,7 @@ class Subscribe(Message):
         """
         Returns string representation of this message.
         """
-        return u"Subscribe(request={0}, topic={1}, match={2}, get_retained={3})".format(self.request, self.topic, self.match, self.get_retained)
+        return u"Subscribe(request={0}, topic={1}, match={2}, get_retained={3}, forward_for={4})".format(self.request, self.topic, self.match, self.get_retained, self.forward_for)
 
 
 class Subscribed(Message):
@@ -2072,7 +2922,10 @@ class Unsubscribe(Message):
     """
     A WAMP ``UNSUBSCRIBE`` message.
 
-    Format: ``[UNSUBSCRIBE, Request|id, SUBSCRIBED.Subscription|id]``
+    Formats:
+
+    * ``[UNSUBSCRIBE, Request|id, SUBSCRIBED.Subscription|id]``
+    * ``[UNSUBSCRIBE, Request|id, SUBSCRIBED.Subscription|id, Options|dict]``
     """
 
     MESSAGE_TYPE = 34
@@ -2083,9 +2936,10 @@ class Unsubscribe(Message):
     __slots__ = (
         'request',
         'subscription',
+        'forward_for',
     )
 
-    def __init__(self, request, subscription):
+    def __init__(self, request, subscription, forward_for=None):
         """
 
         :param request: The WAMP request ID of this request.
@@ -2093,13 +2947,24 @@ class Unsubscribe(Message):
 
         :param subscription: The subscription ID for the subscription to unsubscribe from.
         :type subscription: int
+
+        :param forward_for: When this Unsubscribe is forwarded over a router-to-router link,
+            or via an intermediary router.
+        :type forward_for: list[dict]
         """
         assert(type(request) in six.integer_types)
         assert(type(subscription) in six.integer_types)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
 
         Message.__init__(self)
         self.request = request
         self.subscription = subscription
+        self.forward_for = forward_for
 
     @staticmethod
     def parse(wmsg):
@@ -2114,13 +2979,36 @@ class Unsubscribe(Message):
         # this should already be verified by WampSerializer.unserialize
         assert(len(wmsg) > 0 and wmsg[0] == Unsubscribe.MESSAGE_TYPE)
 
-        if len(wmsg) != 3:
+        if len(wmsg) not in [3, 4]:
             raise ProtocolError("invalid message length {0} for WAMP UNSUBSCRIBE".format(len(wmsg)))
 
         request = check_or_raise_id(wmsg[1], u"'request' in UNSUBSCRIBE")
         subscription = check_or_raise_id(wmsg[2], u"'subscription' in UNSUBSCRIBE")
 
-        obj = Unsubscribe(request, subscription)
+        options = None
+        if len(wmsg) > 3:
+            options = check_or_raise_extra(wmsg[3], u"'options' in UNSUBSCRIBE")
+
+        forward_for = None
+        if options and u'forward_for' in options:
+            forward_for = options[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in UNSUBSCRIBE")
+
+        obj = Unsubscribe(request, subscription, forward_for=forward_for)
 
         return obj
 
@@ -2131,13 +3019,19 @@ class Unsubscribe(Message):
         :returns: The serialized raw message.
         :rtype: list
         """
-        return [Unsubscribe.MESSAGE_TYPE, self.request, self.subscription]
+        if self.forward_for:
+            options = {
+                u'forward_for': self.forward_for,
+            }
+            return [Unsubscribe.MESSAGE_TYPE, self.request, self.subscription, options]
+        else:
+            return [Unsubscribe.MESSAGE_TYPE, self.request, self.subscription]
 
     def __str__(self):
         """
         Returns string representation of this message.
         """
-        return u"Unsubscribe(request={0}, subscription={1})".format(self.request, self.subscription)
+        return u"Unsubscribe(request={0}, subscription={1}, forward_for={2})".format(self.request, self.subscription, self.forward_for)
 
 
 class Unsubscribed(Message):
@@ -2172,7 +3066,7 @@ class Unsubscribed(Message):
             of the subscription revoked.
         :type subscription: int or None
 
-        :param reason: The reason (an URI) for revocation.
+        :param reason: The reason (an URI) for an active (router initiated) revocation.
         :type reason: str or None.
         """
         assert(type(request) in six.integer_types)
@@ -2265,26 +3159,57 @@ class Event(Message):
     """
 
     __slots__ = (
-        'subscription',
-        'publication',
-        'args',
-        'kwargs',
-        'payload',
-        'publisher',
-        'publisher_authid',
-        'publisher_authrole',
-        'topic',
-        'retained',
-        'x_acknowledged_delivery',
-        'enc_algo',
-        'enc_key',
-        'enc_serializer',
+        # uint64
+        '_subscription',
+
+        # uint64
+        '_publication',
+
+        # [uint8]
+        '_args',
+
+        # [uint8]
+        '_kwargs',
+
+        # [uint8]
+        '_payload',
+
+        # Payload => uint8
+        '_enc_algo',
+
+        # Serializer => uint8
+        '_enc_serializer',
+
+        # [uint8]
+        '_enc_key',
+
+        # uint64
+        '_publisher',
+
+        # string (principal)
+        '_publisher_authid',
+
+        # string (principal)
+        '_publisher_authrole',
+
+        # string (uri)
+        '_topic',
+
+        # bool
+        '_retained',
+
+        # bool - FIXME: rename to "acknowledge"
+        '_x_acknowledged_delivery',
+
+        # [Principal]
+        '_forward_for',
     )
 
-    def __init__(self, subscription, publication, args=None, kwargs=None, payload=None,
+    def __init__(self, subscription=None, publication=None, args=None, kwargs=None, payload=None,
                  publisher=None, publisher_authid=None, publisher_authrole=None, topic=None,
                  retained=None, x_acknowledged_delivery=None,
-                 enc_algo=None, enc_key=None, enc_serializer=None):
+                 enc_algo=None, enc_key=None, enc_serializer=None, forward_for=None,
+                 from_fbs=None):
         """
 
         :param subscription: The subscription ID this event is dispatched under.
@@ -2304,13 +3229,13 @@ class Event(Message):
         :param payload: Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
         :type payload: bytes or None
 
-        :param publisher: The WAMP session ID of the pubisher. Only filled if pubisher is disclosed.
+        :param publisher: The WAMP session ID of the publisher. Only filled if publisher is disclosed.
         :type publisher: None or int
 
-        :param publisher_authid: The WAMP authid of the pubisher. Only filled if pubisher is disclosed.
+        :param publisher_authid: The WAMP authid of the publisher. Only filled if publisher is disclosed.
         :type publisher_authid: None or unicode
 
-        :param publisher_authrole: The WAMP authrole of the pubisher. Only filled if pubisher is disclosed.
+        :param publisher_authrole: The WAMP authrole of the publisher. Only filled if publisher is disclosed.
         :type publisher_authrole: None or unicode
 
         :param topic: For pattern-based subscriptions, the event MUST contain the actual topic published to.
@@ -2330,9 +3255,12 @@ class Event(Message):
 
         :param enc_serializer: If using payload transparency, the payload object serializer that was used encoding the payload.
         :type enc_serializer: str or None
+
+        :param forward_for: When this Event is forwarded for a client (or from an intermediary router).
+        :type forward_for: list[dict]
         """
-        assert(type(subscription) in six.integer_types)
-        assert(type(publication) in six.integer_types)
+        assert(subscription is None or type(subscription) in six.integer_types)
+        assert(publication is None or type(publication) in six.integer_types)
         assert(args is None or type(args) in [list, tuple])
         assert(kwargs is None or type(kwargs) == dict)
         assert(payload is None or type(payload) == six.binary_type)
@@ -2348,21 +3276,332 @@ class Event(Message):
         assert(enc_key is None or type(enc_key) == six.text_type)
         assert(enc_serializer is None or is_valid_enc_serializer(enc_serializer))
 
-        Message.__init__(self)
-        self.subscription = subscription
-        self.publication = publication
-        self.args = args
-        self.kwargs = kwargs
-        self.payload = payload
-        self.publisher = publisher
-        self.publisher_authid = publisher_authid
-        self.publisher_authrole = publisher_authrole
-        self.topic = topic
-        self.retained = retained
-        self.x_acknowledged_delivery = x_acknowledged_delivery
-        self.enc_algo = enc_algo
-        self.enc_key = enc_key
-        self.enc_serializer = enc_serializer
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+
+        Message.__init__(self, from_fbs=from_fbs)
+        self._subscription = subscription
+        self._publication = publication
+        self._args = args
+        self._kwargs = _validate_kwargs(kwargs)
+        self._payload = payload
+        self._publisher = publisher
+        self._publisher_authid = publisher_authid
+        self._publisher_authrole = publisher_authrole
+        self._topic = topic
+        self._retained = retained
+        self._x_acknowledged_delivery = x_acknowledged_delivery
+        self._enc_algo = enc_algo
+        self._enc_key = enc_key
+        self._enc_serializer = enc_serializer
+        self._forward_for = forward_for
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        if not Message.__eq__(self, other):
+            return False
+        if other.subscription != self.subscription:
+            return False
+        if other.publication != self.publication:
+            return False
+        if other.args != self.args:
+            return False
+        if other.kwargs != self.kwargs:
+            return False
+        if other.payload != self.payload:
+            return False
+        if other.publisher != self.publisher:
+            return False
+        if other.publisher_authid != self.publisher_authid:
+            return False
+        if other.publisher_authrole != self.publisher_authrole:
+            return False
+        if other.topic != self.topic:
+            return False
+        if other.retained != self.retained:
+            return False
+        if other.x_acknowledged_delivery != self.x_acknowledged_delivery:
+            return False
+        if other.enc_algo != self.enc_algo:
+            return False
+        if other.enc_key != self.enc_key:
+            return False
+        if other.enc_serializer != self.enc_serializer:
+            return False
+        if other.forward_for != self.forward_for:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def subscription(self):
+        if self._subscription is None and self._from_fbs:
+            self._subscription = self._from_fbs.Subscription()
+        return self._subscription
+
+    @subscription.setter
+    def subscription(self, value):
+        assert(value is None or type(value) in six.integer_types)
+        self._subscription = value
+
+    @property
+    def publication(self):
+        if self._publication is None and self._from_fbs:
+            self._publication = self._from_fbs.Publication()
+        return self._publication
+
+    @publication.setter
+    def publication(self, value):
+        assert(value is None or type(value) in six.integer_types)
+        self._publication = value
+
+    @property
+    def args(self):
+        if self._args is None and self._from_fbs:
+            if self._from_fbs.ArgsLength():
+                self._args = cbor.loads(bytes(self._from_fbs.ArgsAsBytes()))
+        return self._args
+
+    @args.setter
+    def args(self, value):
+        assert(value is None or type(value) in [list, tuple])
+        self._args = value
+
+    @property
+    def kwargs(self):
+        if self._kwargs is None and self._from_fbs:
+            if self._from_fbs.KwargsLength():
+                self._kwargs = cbor.loads(bytes(self._from_fbs.KwargsAsBytes()))
+        return self._kwargs
+
+    @kwargs.setter
+    def kwargs(self, value):
+        assert(value is None or type(value) == dict)
+        self._kwargs = value
+
+    @property
+    def payload(self):
+        if self._payload is None and self._from_fbs:
+            if self._from_fbs.PayloadLength():
+                self._payload = self._from_fbs.PayloadAsBytes()
+        return self._payload
+
+    @payload.setter
+    def payload(self, value):
+        assert value is None or type(value) == bytes
+        self._payload = value
+
+    @property
+    def publisher(self):
+        if self._publisher is None and self._from_fbs:
+            publisher = self._from_fbs.Publisher()
+            if publisher:
+                self._publisher = publisher
+        return self._publisher
+
+    @publisher.setter
+    def publisher(self, value):
+        assert value is None or type(value) == int
+        self._publisher = value
+
+    @property
+    def publisher_authid(self):
+        if self._publisher_authid is None and self._from_fbs:
+            s = self._from_fbs.PublisherAuthid()
+            if s:
+                self._publisher_authid = s.decode('utf8')
+        return self._publisher_authid
+
+    @publisher_authid.setter
+    def publisher_authid(self, value):
+        assert value is None or type(value) == str
+        self._publisher_authid = value
+
+    @property
+    def publisher_authrole(self):
+        if self._publisher_authrole is None and self._from_fbs:
+            s = self._from_fbs.PublisherAuthrole()
+            if s:
+                self._publisher_authrole = s.decode('utf8')
+        return self._publisher_authrole
+
+    @publisher_authrole.setter
+    def publisher_authrole(self, value):
+        assert value is None or type(value) == str
+        self._publisher_authrole = value
+
+    @property
+    def topic(self):
+        if self._topic is None and self._from_fbs:
+            s = self._from_fbs.Topic()
+            if s:
+                self._topic = s.decode('utf8')
+        return self._topic
+
+    @topic.setter
+    def topic(self, value):
+        assert value is None or type(value) == str
+        self._topic = value
+
+    @property
+    def retained(self):
+        if self._retained is None and self._from_fbs:
+            self._retained = self._from_fbs.Retained()
+        return self._retained
+
+    @retained.setter
+    def retained(self, value):
+        assert value is None or type(value) == bool
+        self._retained = value
+
+    @property
+    def x_acknowledged_delivery(self):
+        if self._x_acknowledged_delivery is None and self._from_fbs:
+            x_acknowledged_delivery = self._from_fbs.Acknowledge()
+            if x_acknowledged_delivery:
+                self._x_acknowledged_delivery = x_acknowledged_delivery
+        return self._x_acknowledged_delivery
+
+    @x_acknowledged_delivery.setter
+    def x_acknowledged_delivery(self, value):
+        assert value is None or type(value) == bool
+        self._x_acknowledged_delivery = value
+
+    @property
+    def enc_algo(self):
+        if self._enc_algo is None and self._from_fbs:
+            enc_algo = self._from_fbs.EncAlgo()
+            if enc_algo:
+                self._enc_algo = enc_algo
+        return self._enc_algo
+
+    @enc_algo.setter
+    def enc_algo(self, value):
+        assert value is None or value in [ENC_ALGO_CRYPTOBOX, ENC_ALGO_MQTT, ENC_ALGO_XBR]
+        self._enc_algo = value
+
+    @property
+    def enc_key(self):
+        if self._enc_key is None and self._from_fbs:
+            if self._from_fbs.EncKeyLength():
+                self._enc_key = self._from_fbs.EncKeyAsBytes()
+        return self._enc_key
+
+    @enc_key.setter
+    def enc_key(self, value):
+        assert value is None or type(value) == bytes
+        self._enc_key = value
+
+    @property
+    def enc_serializer(self):
+        if self._enc_serializer is None and self._from_fbs:
+            enc_serializer = self._from_fbs.EncSerializer()
+            if enc_serializer:
+                self._enc_serializer = enc_serializer
+        return self._enc_serializer
+
+    @enc_serializer.setter
+    def enc_serializer(self, value):
+        assert value is None or value in [ENC_SER_JSON, ENC_SER_MSGPACK, ENC_SER_CBOR, ENC_SER_UBJSON]
+        self._enc_serializer = value
+
+    @property
+    def forward_for(self):
+        # FIXME
+        return self._forward_for
+
+    @forward_for.setter
+    def forward_for(self, value):
+        # FIXME
+        self._forward_for = value
+
+    @staticmethod
+    def cast(buf):
+        return Event(from_fbs=message_fbs.Event.GetRootAsEvent(buf, 0))
+
+    def build(self, builder):
+
+        args = self.args
+        if args:
+            args = builder.CreateByteVector(cbor.dumps(args))
+
+        kwargs = self.kwargs
+        if kwargs:
+            kwargs = builder.CreateByteVector(cbor.dumps(kwargs))
+
+        payload = self.payload
+        if payload:
+            payload = builder.CreateByteVector(payload)
+
+        publisher_authid = self.publisher_authid
+        if publisher_authid:
+            publisher_authid = builder.CreateString(publisher_authid)
+
+        publisher_authrole = self.publisher_authrole
+        if publisher_authrole:
+            publisher_authrole = builder.CreateString(publisher_authrole)
+
+        topic = self.topic
+        if topic:
+            topic = builder.CreateString(topic)
+
+        enc_key = self.enc_key
+        if enc_key:
+            enc_key = builder.CreateByteVector(enc_key)
+
+        message_fbs.EventGen.EventStart(builder)
+
+        if self.subscription:
+            message_fbs.EventGen.EventAddSubscription(builder, self.subscription)
+        if self.publication:
+            message_fbs.EventGen.EventAddPublication(builder, self.publication)
+
+        if args:
+            message_fbs.EventGen.EventAddArgs(builder, args)
+        if kwargs:
+            message_fbs.EventGen.EventAddKwargs(builder, kwargs)
+        if payload:
+            message_fbs.EventGen.EventAddPayload(builder, payload)
+
+        if self.publisher:
+            message_fbs.EventGen.EventAddPublisher(builder, self.publisher)
+        if publisher_authid:
+            message_fbs.EventGen.EventAddPublisherAuthid(builder, publisher_authid)
+        if publisher_authrole:
+            message_fbs.EventGen.EventAddPublisherAuthrole(builder, publisher_authrole)
+
+        if topic:
+            message_fbs.EventGen.EventAddTopic(builder, topic)
+        if self.retained is not None:
+            message_fbs.EventGen.EventAddRetained(builder, self.retained)
+        if self.x_acknowledged_delivery is not None:
+            message_fbs.EventGen.EventAddAcknowledge(builder, self.x_acknowledged_delivery)
+
+        if self.enc_algo:
+            message_fbs.EventGen.EventAddEncAlgo(builder, self.enc_algo)
+        if enc_key:
+            message_fbs.EventGen.EventAddEncKey(builder, enc_key)
+        if self.enc_serializer:
+            message_fbs.EventGen.EventAddEncSerializer(builder, self.enc_serializer)
+
+        # FIXME: add forward_for
+
+        msg = message_fbs.EventGen.EventEnd(builder)
+
+        message_fbs.Message.MessageStart(builder)
+        message_fbs.Message.MessageAddMsgType(builder, message_fbs.MessageType.EVENT)
+        message_fbs.Message.MessageAddMsg(builder, msg)
+        union_msg = message_fbs.Message.MessageEnd(builder)
+
+        return union_msg
 
     @staticmethod
     def parse(wmsg):
@@ -2422,6 +3661,7 @@ class Event(Message):
         publisher_authrole = None
         topic = None
         retained = None
+        forward_for = None
         x_acknowledged_delivery = None
 
         if u'publisher' in details:
@@ -2436,7 +3676,7 @@ class Event(Message):
 
             detail_publisher_authid = details[u'publisher_authid']
             if type(detail_publisher_authid) != six.text_type:
-                raise ProtocolError("invalid type {0} for 'publisher_authid' detail in INVOCATION".format(type(detail_publisher_authid)))
+                raise ProtocolError("invalid type {0} for 'publisher_authid' detail in EVENT".format(type(detail_publisher_authid)))
 
             publisher_authid = detail_publisher_authid
 
@@ -2444,7 +3684,7 @@ class Event(Message):
 
             detail_publisher_authrole = details[u'publisher_authrole']
             if type(detail_publisher_authrole) != six.text_type:
-                raise ProtocolError("invalid type {0} for 'publisher_authrole' detail in INVOCATION".format(type(detail_publisher_authrole)))
+                raise ProtocolError("invalid type {0} for 'publisher_authrole' detail in EVENT".format(type(detail_publisher_authrole)))
 
             publisher_authrole = detail_publisher_authrole
 
@@ -2466,6 +3706,24 @@ class Event(Message):
             if type(x_acknowledged_delivery) != bool:
                 raise ProtocolError("invalid type {0} for 'x_acknowledged_delivery' detail in EVENT".format(type(x_acknowledged_delivery)))
 
+        if u'forward_for' in details:
+            forward_for = details[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in EVENT")
+
         obj = Event(subscription,
                     publication,
                     args=args,
@@ -2479,7 +3737,8 @@ class Event(Message):
                     x_acknowledged_delivery=x_acknowledged_delivery,
                     enc_algo=enc_algo,
                     enc_key=enc_key,
-                    enc_serializer=enc_serializer)
+                    enc_serializer=enc_serializer,
+                    forward_for=forward_for)
 
         return obj
 
@@ -2510,6 +3769,9 @@ class Event(Message):
         if self.x_acknowledged_delivery is not None:
             details[u'x_acknowledged_delivery'] = self.x_acknowledged_delivery
 
+        if self.forward_for is not None:
+            details[u'forward_for'] = self.forward_for
+
         if self.payload:
             if self.enc_algo is not None:
                 details[u'enc_algo'] = self.enc_algo
@@ -2530,7 +3792,7 @@ class Event(Message):
         """
         Returns string representation of this message.
         """
-        return u"Event(subscription={}, publication={}, args={}, kwargs={}, publisher={}, publisher_authid={}, publisher_authrole={}, topic={}, retained={}, enc_algo={}, enc_key={}, enc_serializer={}, payload={})".format(self.subscription, self.publication, self.args, self.kwargs, self.publisher, self.publisher_authid, self.publisher_authrole, self.topic, self.retained, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload))
+        return u"Event(subscription={}, publication={}, args={}, kwargs={}, publisher={}, publisher_authid={}, publisher_authrole={}, topic={}, retained={}, enc_algo={}, enc_key={}, enc_serializer={}, payload={}, forward_for={})".format(self.subscription, self.publication, self.args, self.kwargs, self.publisher, self.publisher_authid, self.publisher_authrole, self.topic, self.retained, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.forward_for)
 
 
 class EventReceived(Message):
@@ -2627,6 +3889,10 @@ class Call(Message):
         'enc_algo',
         'enc_key',
         'enc_serializer',
+        'caller',
+        'caller_authid',
+        'caller_authrole',
+        'forward_for',
     )
 
     def __init__(self,
@@ -2639,7 +3905,11 @@ class Call(Message):
                  receive_progress=None,
                  enc_algo=None,
                  enc_key=None,
-                 enc_serializer=None):
+                 enc_serializer=None,
+                 caller=None,
+                 caller_authid=None,
+                 caller_authrole=None,
+                 forward_for=None):
         """
 
         :param request: The WAMP request ID of this request.
@@ -2675,6 +3945,18 @@ class Call(Message):
 
         :param enc_serializer: If using payload transparency, the payload object serializer that was used encoding the payload.
         :type enc_serializer: str or None
+
+        :param caller: The WAMP session ID of the caller. Only filled if caller is disclosed.
+        :type caller: None or int
+
+        :param caller_authid: The WAMP authid of the caller. Only filled if caller is disclosed.
+        :type caller_authid: None or unicode
+
+        :param caller_authrole: The WAMP authrole of the caller. Only filled if caller is disclosed.
+        :type caller_authrole: None or unicode
+
+        :param forward_for: When this Publish is forwarded for a client (or from an intermediary router).
+        :type forward_for: list[dict]
         """
         assert(type(request) in six.integer_types)
         assert(type(procedure) == six.text_type)
@@ -2691,11 +3973,23 @@ class Call(Message):
         assert(enc_serializer is None or is_valid_enc_serializer(enc_serializer))
         assert((enc_algo is None and enc_key is None and enc_serializer is None) or (payload is not None and enc_algo is not None))
 
+        assert(caller is None or type(caller) in six.integer_types)
+        assert(caller_authid is None or type(caller_authid) == six.text_type)
+        assert(caller_authrole is None or type(caller_authrole) == six.text_type)
+
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+
         Message.__init__(self)
         self.request = request
         self.procedure = procedure
         self.args = args
-        self.kwargs = kwargs
+        self.kwargs = _validate_kwargs(kwargs)
         self.payload = payload
         self.timeout = timeout
         self.receive_progress = receive_progress
@@ -2704,6 +3998,12 @@ class Call(Message):
         self.enc_algo = enc_algo
         self.enc_key = enc_key
         self.enc_serializer = enc_serializer
+
+        # message forwarding
+        self.caller = caller
+        self.caller_authid = caller_authid
+        self.caller_authrole = caller_authrole
+        self.forward_for = forward_for
 
     @staticmethod
     def parse(wmsg):
@@ -2761,6 +4061,10 @@ class Call(Message):
 
         timeout = None
         receive_progress = None
+        caller = None
+        caller_authid = None
+        caller_authrole = None
+        forward_for = None
 
         if u'timeout' in options:
 
@@ -2781,6 +4085,48 @@ class Call(Message):
 
             receive_progress = option_receive_progress
 
+        if u'caller' in options:
+
+            option_caller = options[u'caller']
+            if type(option_caller) not in six.integer_types:
+                raise ProtocolError("invalid type {0} for 'caller' detail in CALL".format(type(option_caller)))
+
+            caller = option_caller
+
+        if u'caller_authid' in options:
+
+            option_caller_authid = options[u'caller_authid']
+            if type(option_caller_authid) != six.text_type:
+                raise ProtocolError("invalid type {0} for 'caller_authid' detail in CALL".format(type(option_caller_authid)))
+
+            caller_authid = option_caller_authid
+
+        if u'caller_authrole' in options:
+
+            option_caller_authrole = options[u'caller_authrole']
+            if type(option_caller_authrole) != six.text_type:
+                raise ProtocolError("invalid type {0} for 'caller_authrole' detail in CALL".format(type(option_caller_authrole)))
+
+            caller_authrole = option_caller_authrole
+
+        if u'forward_for' in options:
+            forward_for = options[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in CALL")
+
         obj = Call(request,
                    procedure,
                    args=args,
@@ -2790,7 +4136,11 @@ class Call(Message):
                    receive_progress=receive_progress,
                    enc_algo=enc_algo,
                    enc_key=enc_key,
-                   enc_serializer=enc_serializer)
+                   enc_serializer=enc_serializer,
+                   caller=caller,
+                   caller_authid=caller_authid,
+                   caller_authrole=caller_authrole,
+                   forward_for=forward_for)
 
         return obj
 
@@ -2810,6 +4160,16 @@ class Call(Message):
                 options[u'enc_key'] = self.enc_key
             if self.enc_serializer is not None:
                 options[u'enc_serializer'] = self.enc_serializer
+
+        if self.caller is not None:
+            options[u'caller'] = self.caller
+        if self.caller_authid is not None:
+            options[u'caller_authid'] = self.caller_authid
+        if self.caller_authrole is not None:
+            options[u'caller_authrole'] = self.caller_authrole
+
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
 
         return options
 
@@ -2836,7 +4196,7 @@ class Call(Message):
         """
         Returns string representation of this message.
         """
-        return u"Call(request={0}, procedure={1}, args={2}, kwargs={3}, timeout={4}, receive_progress={5}, enc_algo={6}, enc_key={7}, enc_serializer={8}, payload={9})".format(self.request, self.procedure, self.args, self.kwargs, self.timeout, self.receive_progress, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload))
+        return u"Call(request={}, procedure={}, args={}, kwargs={}, timeout={}, receive_progress={}, enc_algo={}, enc_key={}, enc_serializer={}, payload={}, caller={}, caller_authid={}, caller_authrole={}, forward_for={})".format(self.request, self.procedure, self.args, self.kwargs, self.timeout, self.receive_progress, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.caller, self.caller_authid, self.caller_authrole, self.forward_for)
 
 
 class Cancel(Message):
@@ -2844,6 +4204,8 @@ class Cancel(Message):
     A WAMP ``CANCEL`` message.
 
     Format: ``[CANCEL, CALL.Request|id, Options|dict]``
+
+    See: https://wamp-proto.org/static/rfc/draft-oberstet-hybi-crossbar-wamp.html#rfc.section.14.3.4
     """
 
     MESSAGE_TYPE = 49
@@ -2852,30 +4214,45 @@ class Cancel(Message):
     """
 
     SKIP = u'skip'
-    ABORT = u'abort'
     KILL = u'kill'
+    KILLNOWAIT = u'killnowait'
 
     __slots__ = (
         'request',
         'mode',
+        'forward_for',
     )
 
-    def __init__(self, request, mode=None):
+    def __init__(self, request, mode=None, forward_for=None):
         """
 
         :param request: The WAMP request ID of the original `CALL` to cancel.
         :type request: int
 
-        :param mode: Specifies how to cancel the call (``"skip"``, ``"abort"`` or ``"kill"``).
+        :param mode: Specifies how to cancel the call (``"skip"``, ``"killnowait"`` or ``"kill"``).
         :type mode: str or None
+
+        :param forward_for: When this Cancel is forwarded for a client (or from an intermediary router).
+        :type forward_for: list[dict]
         """
         assert(type(request) in six.integer_types)
         assert(mode is None or type(mode) == six.text_type)
-        assert(mode in [None, self.SKIP, self.ABORT, self.KILL])
+        assert(mode in [None, self.SKIP, self.KILLNOWAIT, self.KILL])
+        assert(forward_for is None or type(forward_for) == list)
+
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
 
         Message.__init__(self)
         self.request = request
         self.mode = mode
+
+        # message forwarding
+        self.forward_for = forward_for
 
     @staticmethod
     def parse(wmsg):
@@ -2899,6 +4276,7 @@ class Cancel(Message):
         # options
         #
         mode = None
+        forward_for = None
 
         if u'mode' in options:
 
@@ -2906,12 +4284,30 @@ class Cancel(Message):
             if type(option_mode) != six.text_type:
                 raise ProtocolError("invalid type {0} for 'mode' option in CANCEL".format(type(option_mode)))
 
-            if option_mode not in [Cancel.SKIP, Cancel.ABORT, Cancel.KILL]:
+            if option_mode not in [Cancel.SKIP, Cancel.KILLNOWAIT, Cancel.KILL]:
                 raise ProtocolError("invalid value '{0}' for 'mode' option in CANCEL".format(option_mode))
 
             mode = option_mode
 
-        obj = Cancel(request, mode=mode)
+        if u'forward_for' in options:
+            forward_for = options[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in CANCEL")
+
+        obj = Cancel(request, mode=mode, forward_for=forward_for)
 
         return obj
 
@@ -2926,6 +4322,8 @@ class Cancel(Message):
 
         if self.mode is not None:
             options[u'mode'] = self.mode
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
 
         return [Cancel.MESSAGE_TYPE, self.request, options]
 
@@ -2962,10 +4360,25 @@ class Result(Message):
         'enc_algo',
         'enc_key',
         'enc_serializer',
+        'callee',
+        'callee_authid',
+        'callee_authrole',
+        'forward_for',
     )
 
-    def __init__(self, request, args=None, kwargs=None, payload=None, progress=None,
-                 enc_algo=None, enc_key=None, enc_serializer=None):
+    def __init__(self,
+                 request,
+                 args=None,
+                 kwargs=None,
+                 payload=None,
+                 progress=None,
+                 enc_algo=None,
+                 enc_key=None,
+                 enc_serializer=None,
+                 callee=None,
+                 callee_authid=None,
+                 callee_authrole=None,
+                 forward_for=None):
         """
 
         :param request: The request ID of the original `CALL` request.
@@ -2994,6 +4407,18 @@ class Result(Message):
 
         :param enc_serializer: If using payload transparency, the payload object serializer that was used encoding the payload.
         :type enc_serializer: str or None
+
+        :param callee: The WAMP session ID of the effective callee that responded with the result. Only filled if callee is disclosed.
+        :type callee: None or int
+
+        :param callee_authid: The WAMP authid of the responding callee. Only filled if callee is disclosed.
+        :type callee_authid: None or unicode
+
+        :param callee_authrole: The WAMP authrole of the responding callee. Only filled if callee is disclosed.
+        :type callee_authrole: None or unicode
+
+        :param forward_for: When this Result is forwarded for a client/callee (or from an intermediary router).
+        :type forward_for: list[dict]
         """
         assert(type(request) in six.integer_types)
         assert(args is None or type(args) in [list, tuple])
@@ -3002,16 +4427,27 @@ class Result(Message):
         assert(payload is None or (payload is not None and args is None and kwargs is None))
         assert(progress is None or type(progress) == bool)
 
-        # payload transparency related knobs
         assert(enc_algo is None or is_valid_enc_algo(enc_algo))
         assert(enc_key is None or type(enc_key) == six.text_type)
         assert(enc_serializer is None or is_valid_enc_serializer(enc_serializer))
         assert((enc_algo is None and enc_key is None and enc_serializer is None) or (payload is not None and enc_algo is not None))
 
+        assert(callee is None or type(callee) in six.integer_types)
+        assert(callee_authid is None or type(callee_authid) == six.text_type)
+        assert(callee_authrole is None or type(callee_authrole) == six.text_type)
+
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+
         Message.__init__(self)
         self.request = request
         self.args = args
-        self.kwargs = kwargs
+        self.kwargs = _validate_kwargs(kwargs)
         self.payload = payload
         self.progress = progress
 
@@ -3019,6 +4455,14 @@ class Result(Message):
         self.enc_algo = enc_algo
         self.enc_key = enc_key
         self.enc_serializer = enc_serializer
+
+        # effective callee that responded with the result
+        self.callee = callee
+        self.callee_authid = callee_authid
+        self.callee_authrole = callee_authrole
+
+        # message forwarding
+        self.forward_for = forward_for
 
     @staticmethod
     def parse(wmsg):
@@ -3042,9 +4486,14 @@ class Result(Message):
         args = None
         kwargs = None
         payload = None
+        progress = None
         enc_algo = None
         enc_key = None
         enc_serializer = None
+        callee = None
+        callee_authid = None
+        callee_authrole = None
+        forward_for = None
 
         if len(wmsg) == 4 and type(wmsg[3]) in [six.text_type, six.binary_type]:
 
@@ -3073,8 +4522,6 @@ class Result(Message):
                 if type(kwargs) != dict:
                     raise ProtocolError("invalid type {0} for 'kwargs' in RESULT".format(type(kwargs)))
 
-        progress = None
-
         if u'progress' in details:
 
             detail_progress = details[u'progress']
@@ -3083,6 +4530,48 @@ class Result(Message):
 
             progress = detail_progress
 
+        if u'callee' in details:
+
+            detail_callee = details[u'callee']
+            if type(detail_callee) not in six.integer_types:
+                raise ProtocolError("invalid type {0} for 'callee' detail in RESULT".format(type(detail_callee)))
+
+            callee = detail_callee
+
+        if u'callee_authid' in details:
+
+            detail_callee_authid = details[u'callee_authid']
+            if type(detail_callee_authid) != six.text_type:
+                raise ProtocolError("invalid type {0} for 'callee_authid' detail in RESULT".format(type(detail_callee_authid)))
+
+            callee_authid = detail_callee_authid
+
+        if u'callee_authrole' in details:
+
+            detail_callee_authrole = details[u'callee_authrole']
+            if type(detail_callee_authrole) != six.text_type:
+                raise ProtocolError("invalid type {0} for 'callee_authrole' detail in RESULT".format(type(detail_callee_authrole)))
+
+            callee_authrole = detail_callee_authrole
+
+        if u'forward_for' in details:
+            forward_for = details[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in RESULT")
+
         obj = Result(request,
                      args=args,
                      kwargs=kwargs,
@@ -3090,7 +4579,11 @@ class Result(Message):
                      progress=progress,
                      enc_algo=enc_algo,
                      enc_key=enc_key,
-                     enc_serializer=enc_serializer)
+                     enc_serializer=enc_serializer,
+                     callee=callee,
+                     callee_authid=callee_authid,
+                     callee_authrole=callee_authrole,
+                     forward_for=forward_for)
 
         return obj
 
@@ -3105,6 +4598,15 @@ class Result(Message):
 
         if self.progress is not None:
             details[u'progress'] = self.progress
+
+        if self.callee is not None:
+            details[u'callee'] = self.callee
+        if self.callee_authid is not None:
+            details[u'callee_authid'] = self.callee_authid
+        if self.callee_authrole is not None:
+            details[u'callee_authrole'] = self.callee_authrole
+        if self.forward_for is not None:
+            details[u'forward_for'] = self.forward_for
 
         if self.payload:
             if self.enc_algo is not None:
@@ -3126,7 +4628,7 @@ class Result(Message):
         """
         Returns string representation of this message.
         """
-        return u"Result(request={0}, args={1}, kwargs={2}, progress={3}, enc_algo={4}, enc_key={5}, enc_serializer={6}, payload={7})".format(self.request, self.args, self.kwargs, self.progress, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload))
+        return u"Result(request={0}, args={1}, kwargs={2}, progress={3}, enc_algo={4}, enc_key={5}, enc_serializer={6}, payload={7}, callee={8}, callee_authid={9}, callee_authrole={10}, forward_for={11})".format(self.request, self.args, self.kwargs, self.progress, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.callee, self.callee_authid, self.callee_authrole, self.forward_for)
 
 
 class Register(Message):
@@ -3159,9 +4661,17 @@ class Register(Message):
         'invoke',
         'concurrency',
         'force_reregister',
+        'forward_for',
     )
 
-    def __init__(self, request, procedure, match=None, invoke=None, concurrency=None, force_reregister=None):
+    def __init__(self,
+                 request,
+                 procedure,
+                 match=None,
+                 invoke=None,
+                 concurrency=None,
+                 force_reregister=None,
+                 forward_for=None):
         """
 
         :param request: The WAMP request ID of this request.
@@ -3178,6 +4688,10 @@ class Register(Message):
 
         :param concurrency: The (maximum) concurrency to be used for the registration.
         :type concurrency: int
+
+        :param forward_for: When this Register is forwarded over a router-to-router link,
+            or via an intermediary router.
+        :type forward_for: list[dict]
         """
         assert(type(request) in six.integer_types)
         assert(type(procedure) == six.text_type)
@@ -3187,6 +4701,13 @@ class Register(Message):
         assert(invoke is None or invoke in [Register.INVOKE_SINGLE, Register.INVOKE_FIRST, Register.INVOKE_LAST, Register.INVOKE_ROUNDROBIN, Register.INVOKE_RANDOM])
         assert(concurrency is None or (type(concurrency) in six.integer_types and concurrency > 0))
         assert force_reregister in [None, True, False]
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
 
         Message.__init__(self)
         self.request = request
@@ -3195,6 +4716,7 @@ class Register(Message):
         self.invoke = invoke or Register.INVOKE_SINGLE
         self.concurrency = concurrency
         self.force_reregister = force_reregister
+        self.forward_for = forward_for
 
     @staticmethod
     def parse(wmsg):
@@ -3219,6 +4741,7 @@ class Register(Message):
         invoke = Register.INVOKE_SINGLE
         concurrency = None
         force_reregister = None
+        forward_for = None
 
         if u'match' in options:
 
@@ -3280,8 +4803,26 @@ class Register(Message):
         if options_reregister is not None:
             force_reregister = options_reregister
 
+        if u'forward_for' in options:
+            forward_for = options[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in REGISTER")
+
         obj = Register(request, procedure, match=match, invoke=invoke, concurrency=concurrency,
-                       force_reregister=force_reregister)
+                       force_reregister=force_reregister, forward_for=forward_for)
 
         return obj
 
@@ -3300,6 +4841,9 @@ class Register(Message):
         if self.force_reregister is not None:
             options[u'force_reregister'] = self.force_reregister
 
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
+
         return options
 
     def marshal(self):
@@ -3315,7 +4859,7 @@ class Register(Message):
         """
         Returns string representation of this message.
         """
-        return u"Register(request={0}, procedure={1}, match={2}, invoke={3}, concurrency={4}, force_reregister={5})".format(self.request, self.procedure, self.match, self.invoke, self.concurrency, self.force_reregister)
+        return u"Register(request={0}, procedure={1}, match={2}, invoke={3}, concurrency={4}, force_reregister={5}, forward_for={6})".format(self.request, self.procedure, self.match, self.invoke, self.concurrency, self.force_reregister, self.forward_for)
 
 
 class Registered(Message):
@@ -3394,7 +4938,10 @@ class Unregister(Message):
     """
     A WAMP `UNREGISTER` message.
 
-    Format: ``[UNREGISTER, Request|id, REGISTERED.Registration|id]``
+    Formats:
+
+    * ``[UNREGISTER, Request|id, REGISTERED.Registration|id]``
+    * ``[UNREGISTER, Request|id, REGISTERED.Registration|id, Options|dict]``
     """
 
     MESSAGE_TYPE = 66
@@ -3405,9 +4952,10 @@ class Unregister(Message):
     __slots__ = (
         'request',
         'registration',
+        'forward_for',
     )
 
-    def __init__(self, request, registration):
+    def __init__(self, request, registration, forward_for=None):
         """
 
         :param request: The WAMP request ID of this request.
@@ -3415,6 +4963,10 @@ class Unregister(Message):
 
         :param registration: The registration ID for the registration to unregister.
         :type registration: int
+
+        :param forward_for: When this Unregister is forwarded over a router-to-router link,
+            or via an intermediary router.
+        :type forward_for: list[dict]
         """
         assert(type(request) in six.integer_types)
         assert(type(registration) in six.integer_types)
@@ -3422,6 +4974,7 @@ class Unregister(Message):
         Message.__init__(self)
         self.request = request
         self.registration = registration
+        self.forward_for = forward_for
 
     @staticmethod
     def parse(wmsg):
@@ -3436,13 +4989,36 @@ class Unregister(Message):
         # this should already be verified by WampSerializer.unserialize
         assert(len(wmsg) > 0 and wmsg[0] == Unregister.MESSAGE_TYPE)
 
-        if len(wmsg) != 3:
+        if len(wmsg) not in [3, 4]:
             raise ProtocolError("invalid message length {0} for WAMP UNREGISTER".format(len(wmsg)))
 
         request = check_or_raise_id(wmsg[1], u"'request' in UNREGISTER")
         registration = check_or_raise_id(wmsg[2], u"'registration' in UNREGISTER")
 
-        obj = Unregister(request, registration)
+        options = None
+        if len(wmsg) > 3:
+            options = check_or_raise_extra(wmsg[3], u"'options' in UNREGISTER")
+
+        forward_for = None
+        if options and u'forward_for' in options:
+            forward_for = options[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in UNREGISTER")
+
+        obj = Unregister(request, registration, forward_for=forward_for)
 
         return obj
 
@@ -3453,7 +5029,13 @@ class Unregister(Message):
         :returns: The serialized raw message.
         :rtype: list
         """
-        return [Unregister.MESSAGE_TYPE, self.request, self.registration]
+        if self.forward_for:
+            options = {
+                u'forward_for': self.forward_for,
+            }
+            return [Unregister.MESSAGE_TYPE, self.request, self.registration, options]
+        else:
+            return [Unregister.MESSAGE_TYPE, self.request, self.registration]
 
     def __str__(self):
         """
@@ -3600,6 +5182,7 @@ class Invocation(Message):
         'enc_algo',
         'enc_key',
         'enc_serializer',
+        'forward_for',
     )
 
     def __init__(self,
@@ -3616,7 +5199,8 @@ class Invocation(Message):
                  procedure=None,
                  enc_algo=None,
                  enc_key=None,
-                 enc_serializer=None):
+                 enc_serializer=None,
+                 forward_for=None):
         """
 
         :param request: The WAMP request ID of this request.
@@ -3663,6 +5247,9 @@ class Invocation(Message):
 
         :param enc_serializer: If using payload transparency, the payload object serializer that was used encoding the payload.
         :type enc_serializer: str or None
+
+        :param forward_for: When this Call is forwarded for a client (or from an intermediary router).
+        :type forward_for: list[dict]
         """
         assert(type(request) in six.integer_types)
         assert(type(registration) in six.integer_types)
@@ -3681,11 +5268,19 @@ class Invocation(Message):
         assert(enc_serializer is None or is_valid_enc_serializer(enc_serializer))
         assert((enc_algo is None and enc_key is None and enc_serializer is None) or (payload is not None and enc_algo is not None))
 
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+
         Message.__init__(self)
         self.request = request
         self.registration = registration
         self.args = args
-        self.kwargs = kwargs
+        self.kwargs = _validate_kwargs(kwargs)
         self.payload = payload
         self.timeout = timeout
         self.receive_progress = receive_progress
@@ -3696,6 +5291,9 @@ class Invocation(Message):
         self.enc_algo = enc_algo
         self.enc_key = enc_key
         self.enc_serializer = enc_serializer
+
+        # message forwarding
+        self.forward_for = forward_for
 
     @staticmethod
     def parse(wmsg):
@@ -3757,6 +5355,7 @@ class Invocation(Message):
         caller_authid = None
         caller_authrole = None
         procedure = None
+        forward_for = None
 
         if u'timeout' in details:
 
@@ -3809,6 +5408,24 @@ class Invocation(Message):
 
             procedure = detail_procedure
 
+        if u'forward_for' in details:
+            forward_for = details[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in INVOCATION")
+
         obj = Invocation(request,
                          registration,
                          args=args,
@@ -3822,7 +5439,8 @@ class Invocation(Message):
                          procedure=procedure,
                          enc_algo=enc_algo,
                          enc_key=enc_key,
-                         enc_serializer=enc_serializer)
+                         enc_serializer=enc_serializer,
+                         forward_for=forward_for)
 
         return obj
 
@@ -3853,6 +5471,9 @@ class Invocation(Message):
         if self.procedure is not None:
             options[u'procedure'] = self.procedure
 
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
+
         if self.payload:
             if self.enc_algo is not None:
                 options[u'enc_algo'] = self.enc_algo
@@ -3881,6 +5502,8 @@ class Interrupt(Message):
     A WAMP ``INTERRUPT`` message.
 
     Format: ``[INTERRUPT, INVOCATION.Request|id, Options|dict]``
+
+    See: https://wamp-proto.org/static/rfc/draft-oberstet-hybi-crossbar-wamp.html#rfc.section.14.3.4
     """
 
     MESSAGE_TYPE = 69
@@ -3888,30 +5511,58 @@ class Interrupt(Message):
     The WAMP message code for this type of message.
     """
 
-    ABORT = u'abort'
     KILL = u'kill'
+    KILLNOWAIT = u'killnowait'
 
     __slots__ = (
         'request',
         'mode',
+        'reason',
+        'forward_for',
     )
 
-    def __init__(self, request, mode=None):
+    def __init__(self, request, mode=None, reason=None, forward_for=None):
         """
 
         :param request: The WAMP request ID of the original ``INVOCATION`` to interrupt.
         :type request: int
 
-        :param mode: Specifies how to interrupt the invocation (``"abort"`` or ``"kill"``).
+        :param mode: Specifies how to interrupt the invocation (``"killnowait"`` or ``"kill"``).
+            With ``"kill"``, the router will wait for the callee to return an ERROR before
+            proceeding (sending back an ERROR to the original caller). With ``"killnowait"`` the
+            router will immediately proceed (on the caller side returning an ERROR) - but still
+            expects the callee to send an ERROR to conclude the message exchange for the inflight
+            call.
         :type mode: str or None
+
+        :param reason: The reason (an URI) for the invocation interrupt, eg actively
+            triggered by the caller (``"wamp.error.canceled"`` - ApplicationError.CANCELED) or
+            passively because of timeout (``"wamp.error.timeout"`` - ApplicationError.TIMEOUT).
+        :type reason: str or None.
+
+        :param forward_for: When this Call is forwarded for a client (or from an intermediary router).
+        :type forward_for: list[dict]
         """
         assert(type(request) in six.integer_types)
         assert(mode is None or type(mode) == six.text_type)
-        assert(mode is None or mode in [self.ABORT, self.KILL])
+        assert(mode is None or mode in [self.KILL, self.KILLNOWAIT])
+        assert(reason is None or type(reason) == six.text_type)
+
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
 
         Message.__init__(self)
         self.request = request
         self.mode = mode
+        self.reason = reason
+
+        # message forwarding
+        self.forward_for = forward_for
 
     @staticmethod
     def parse(wmsg):
@@ -3935,6 +5586,8 @@ class Interrupt(Message):
         # options
         #
         mode = None
+        reason = None
+        forward_for = None
 
         if u'mode' in options:
 
@@ -3942,12 +5595,33 @@ class Interrupt(Message):
             if type(option_mode) != six.text_type:
                 raise ProtocolError("invalid type {0} for 'mode' option in INTERRUPT".format(type(option_mode)))
 
-            if option_mode not in [Interrupt.ABORT, Interrupt.KILL]:
+            if option_mode not in [Interrupt.KILL, Interrupt.KILLNOWAIT]:
                 raise ProtocolError("invalid value '{0}' for 'mode' option in INTERRUPT".format(option_mode))
 
             mode = option_mode
 
-        obj = Interrupt(request, mode=mode)
+        if u'reason' in options:
+            reason = check_or_raise_uri(options[u'reason'], u'"reason" in INTERRUPT')
+
+        if u'forward_for' in options:
+            forward_for = options[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in INTERRUPT")
+
+        obj = Interrupt(request, mode=mode, reason=reason, forward_for=forward_for)
 
         return obj
 
@@ -3963,13 +5637,19 @@ class Interrupt(Message):
         if self.mode is not None:
             options[u'mode'] = self.mode
 
+        if self.reason is not None:
+            options[u'reason'] = self.reason
+
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
+
         return [Interrupt.MESSAGE_TYPE, self.request, options]
 
     def __str__(self):
         """
         Returns string representation of this message.
         """
-        return u"Interrupt(request={0}, mode={1})".format(self.request, self.mode)
+        return u"Interrupt(request={0}, mode={1}, reason={2})".format(self.request, self.mode, self.reason)
 
 
 class Yield(Message):
@@ -3998,10 +5678,25 @@ class Yield(Message):
         'enc_algo',
         'enc_key',
         'enc_serializer',
+        'callee',
+        'callee_authid',
+        'callee_authrole',
+        'forward_for',
     )
 
-    def __init__(self, request, args=None, kwargs=None, payload=None, progress=None,
-                 enc_algo=None, enc_key=None, enc_serializer=None):
+    def __init__(self,
+                 request,
+                 args=None,
+                 kwargs=None,
+                 payload=None,
+                 progress=None,
+                 enc_algo=None,
+                 enc_key=None,
+                 enc_serializer=None,
+                 callee=None,
+                 callee_authid=None,
+                 callee_authrole=None,
+                 forward_for=None):
         """
 
         :param request: The WAMP request ID of the original call.
@@ -4030,6 +5725,18 @@ class Yield(Message):
 
         :param enc_serializer: If using payload transparency, the payload object serializer that was used encoding the payload.
         :type enc_serializer: str or None
+
+        :param callee: The WAMP session ID of the effective callee that responded with the error. Only filled if callee is disclosed.
+        :type callee: None or int
+
+        :param callee_authid: The WAMP authid of the responding callee. Only filled if callee is disclosed.
+        :type callee_authid: None or unicode
+
+        :param callee_authrole: The WAMP authrole of the responding callee. Only filled if callee is disclosed.
+        :type callee_authrole: None or unicode
+
+        :param forward_for: When this Call is forwarded for a client (or from an intermediary router).
+        :type forward_for: list[dict]
         """
         assert(type(request) in six.integer_types)
         assert(args is None or type(args) in [list, tuple])
@@ -4042,15 +5749,35 @@ class Yield(Message):
         assert(enc_key is None or type(enc_key) == six.text_type)
         assert(enc_serializer is None or is_valid_enc_serializer(enc_serializer))
 
+        assert(callee is None or type(callee) in six.integer_types)
+        assert(callee_authid is None or type(callee_authid) == six.text_type)
+        assert(callee_authrole is None or type(callee_authrole) == six.text_type)
+
+        assert(forward_for is None or type(forward_for) == list)
+        if forward_for:
+            for ff in forward_for:
+                assert type(ff) == dict
+                assert 'session' in ff and type(ff['session']) in six.integer_types
+                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
+                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+
         Message.__init__(self)
         self.request = request
         self.args = args
-        self.kwargs = kwargs
+        self.kwargs = _validate_kwargs(kwargs)
         self.payload = payload
         self.progress = progress
         self.enc_algo = enc_algo
         self.enc_key = enc_key
         self.enc_serializer = enc_serializer
+
+        # effective callee that responded with the result
+        self.callee = callee
+        self.callee_authid = callee_authid
+        self.callee_authrole = callee_authrole
+
+        # message forwarding
+        self.forward_for = forward_for
 
     @staticmethod
     def parse(wmsg):
@@ -4106,6 +5833,10 @@ class Yield(Message):
                     raise ProtocolError("invalid type {0} for 'kwargs' in YIELD".format(type(kwargs)))
 
         progress = None
+        callee = None
+        callee_authid = None
+        callee_authrole = None
+        forward_for = None
 
         if u'progress' in options:
 
@@ -4115,6 +5846,48 @@ class Yield(Message):
 
             progress = option_progress
 
+        if u'callee' in options:
+
+            option_callee = options[u'callee']
+            if type(option_callee) not in six.integer_types:
+                raise ProtocolError("invalid type {0} for 'callee' detail in YIELD".format(type(option_callee)))
+
+            callee = option_callee
+
+        if u'callee_authid' in options:
+
+            option_callee_authid = options[u'callee_authid']
+            if type(option_callee_authid) != six.text_type:
+                raise ProtocolError("invalid type {0} for 'callee_authid' detail in YIELD".format(type(option_callee_authid)))
+
+            callee_authid = option_callee_authid
+
+        if u'callee_authrole' in options:
+
+            option_callee_authrole = options[u'callee_authrole']
+            if type(option_callee_authrole) != six.text_type:
+                raise ProtocolError("invalid type {0} for 'callee_authrole' detail in YIELD".format(type(option_callee_authrole)))
+
+            callee_authrole = option_callee_authrole
+
+        if u'forward_for' in options:
+            forward_for = options[u'forward_for']
+            valid = False
+            if type(forward_for) == list:
+                for ff in forward_for:
+                    if type(ff) != dict:
+                        break
+                    if 'session' not in ff or type(ff['session']) not in six.integer_types:
+                        break
+                    if 'authid' not in ff or type(ff['authid']) != six.text_type:
+                        break
+                    if 'authrole' not in ff or type(ff['authrole']) != six.text_type:
+                        break
+                valid = True
+
+            if not valid:
+                raise ProtocolError("invalid type/value {0} for/within 'forward_for' option in YIELD")
+
         obj = Yield(request,
                     args=args,
                     kwargs=kwargs,
@@ -4122,7 +5895,11 @@ class Yield(Message):
                     progress=progress,
                     enc_algo=enc_algo,
                     enc_key=enc_key,
-                    enc_serializer=enc_serializer)
+                    enc_serializer=enc_serializer,
+                    callee=callee,
+                    callee_authid=callee_authid,
+                    callee_authrole=callee_authrole,
+                    forward_for=forward_for)
 
         return obj
 
@@ -4137,6 +5914,15 @@ class Yield(Message):
 
         if self.progress is not None:
             options[u'progress'] = self.progress
+
+        if self.callee is not None:
+            options[u'callee'] = self.callee
+        if self.callee_authid is not None:
+            options[u'callee_authid'] = self.callee_authid
+        if self.callee_authrole is not None:
+            options[u'callee_authrole'] = self.callee_authrole
+        if self.forward_for is not None:
+            options[u'forward_for'] = self.forward_for
 
         if self.payload:
             if self.enc_algo is not None:
@@ -4158,4 +5944,4 @@ class Yield(Message):
         """
         Returns string representation of this message.
         """
-        return u"Yield(request={0}, args={1}, kwargs={2}, progress={3}, enc_algo={4}, enc_key={5}, enc_serializer={6}, payload={7})".format(self.request, self.args, self.kwargs, self.progress, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload))
+        return u"Yield(request={0}, args={1}, kwargs={2}, progress={3}, enc_algo={4}, enc_key={5}, enc_serializer={6}, payload={7}, callee={8}, callee_authid={9}, callee_authrole={10}, forward_for={11})".format(self.request, self.args, self.kwargs, self.progress, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.callee, self.callee_authid, self.callee_authrole, self.forward_for)

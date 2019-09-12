@@ -33,6 +33,7 @@ import weakref
 import functools
 import traceback
 import logging
+import inspect
 
 from datetime import datetime
 
@@ -54,6 +55,39 @@ except ImportError:
     import trollius as asyncio
     from trollius import iscoroutine
     from trollius import Future
+
+try:
+    from types import AsyncGeneratorType  # python 3.5+
+except ImportError:
+    class AsyncGeneratorType(object):
+        pass
+
+
+def _create_future_of_loop(loop):
+    return loop.create_future()
+
+
+def _create_future_directly(loop=None):
+    return Future(loop=loop)
+
+
+def _create_task_of_loop(res, loop):
+    return loop.create_task(res)
+
+
+def _create_task_directly(res, loop=None):
+    return asyncio.Task(res, loop=loop)
+
+
+if sys.version_info >= (3, 4, 2):
+    _create_task = _create_task_of_loop
+    if sys.version_info >= (3, 5, 2):
+        _create_future = _create_future_of_loop
+    else:
+        _create_future = _create_future_directly
+else:
+    _create_task = _create_task_directly
+    _create_future = _create_future_directly
 
 
 config = _Config()
@@ -225,7 +259,21 @@ class _TxaioFileHandler(logging.Handler, object):
 
 
 def make_logger():
-    logger = _TxaioLogWrapper(logging.getLogger())
+    # we want the namespace to be the calling context of "make_logger"
+    # otherwise the root logger will be returned
+    cf = inspect.currentframe().f_back
+    if "self" in cf.f_locals:
+        # We're probably in a class init or method
+        cls = cf.f_locals["self"].__class__
+        namespace = '{0}.{1}'.format(cls.__module__, cls.__name__)
+    else:
+        namespace = cf.f_globals["__name__"]
+        if cf.f_code.co_name != "<module>":
+            # If it's not the module, and not in a class instance, add the code
+            # object's name.
+            namespace = namespace + "." + cf.f_code.co_name
+
+    logger = _TxaioLogWrapper(logging.getLogger(name=namespace))
     # remember this so we can set their levels properly once
     # start_logging is actually called
     _loggers.add(logger)
@@ -341,15 +389,28 @@ class _AsyncioApi(object):
         except Exception:
             return u"Failed to format failure traceback for '{0}'".format(fail)
 
-    def create_future(self, result=_unspecified, error=_unspecified):
+    def create_future(self, result=_unspecified, error=_unspecified, canceller=_unspecified):
         if result is not _unspecified and error is not _unspecified:
             raise ValueError("Cannot have both result and error.")
 
-        f = Future(loop=self._config.loop)
+        f = _create_future(loop=self._config.loop)
         if result is not _unspecified:
             resolve(f, result)
         elif error is not _unspecified:
             reject(f, error)
+
+        # Twisted's only API for cancelling is to pass a
+        # single-argument callable to the Deferred constructor, so
+        # txaio apes that here for asyncio. The argument is the Future
+        # that has been cancelled.
+        if canceller is not _unspecified:
+            def done(f):
+                try:
+                    f.exception()
+                except asyncio.CancelledError:
+                    canceller(f)
+            f.add_done_callback(done)
+
         return f
 
     def create_future_success(self, result):
@@ -369,7 +430,14 @@ class _AsyncioApi(object):
             if isinstance(res, Future):
                 return res
             elif iscoroutine(res):
-                return asyncio.Task(res, loop=self._config.loop)
+                return _create_task(res, loop=self._config.loop)
+            elif isinstance(res, AsyncGeneratorType):
+                raise RuntimeError(
+                    "as_future() received an async generator function; does "
+                    "'{}' use 'yield' when you meant 'await'?".format(
+                        str(fun)
+                    )
+                )
             else:
                 return create_future_success(res)
 
@@ -420,6 +488,9 @@ class _AsyncioApi(object):
             if not isinstance(error, IFailedFuture):
                 raise RuntimeError("reject requires an IFailedFuture or Exception")
         future.set_exception(error.value)
+
+    def cancel(self, future):
+        future.cancel()
 
     def create_failure(self, exception=None):
         """
@@ -495,6 +566,7 @@ make_batched_timer = _default_api.make_batched_timer
 is_called = _default_api.is_called
 resolve = _default_api.resolve
 reject = _default_api.reject
+cancel = _default_api.cancel
 create_failure = _default_api.create_failure
 add_callbacks = _default_api.add_callbacks
 gather = _default_api.gather

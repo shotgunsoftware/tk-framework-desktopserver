@@ -1,15 +1,15 @@
 #
 # This file is part of pyasn1 software.
 #
-# Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
+# License: http://snmplabs.com/pyasn1/license.html
 #
 from pyasn1 import error
 
 __all__ = ['tagClassUniversal', 'tagClassApplication', 'tagClassContext',
            'tagClassPrivate', 'tagFormatSimple', 'tagFormatConstructed',
-           'tagCategoryImplicit', 'tagCategoryExplicit', 'tagCategoryUntagged',
-           'Tag', 'TagSet']
+           'tagCategoryImplicit', 'tagCategoryExplicit',
+           'tagCategoryUntagged', 'Tag', 'TagSet']
 
 #: Identifier for ASN.1 class UNIVERSAL
 tagClassUniversal = 0x00
@@ -61,15 +61,13 @@ class Tag(object):
         self.__tagFormat = tagFormat
         self.__tagId = tagId
         self.__tagClassId = tagClass, tagId
-        self.__lazyHash = None
-
-    def __str__(self):
-        return '[%s:%s:%s]' % (self.__tagClass, self.__tagFormat, self.__tagId)
+        self.__hash = hash(self.__tagClassId)
 
     def __repr__(self):
-        return '%s(tagClass=%s, tagFormat=%s, tagId=%s)' % (
-            (self.__class__.__name__, self.__tagClass, self.__tagFormat, self.__tagId)
-        )
+        representation = '[%s:%s:%s]' % (
+            self.__tagClass, self.__tagFormat, self.__tagId)
+        return '<%s object, tag %s>' % (
+            self.__class__.__name__, representation)
 
     def __eq__(self, other):
         return self.__tagClassId == other
@@ -90,9 +88,7 @@ class Tag(object):
         return self.__tagClassId >= other
 
     def __hash__(self):
-        if self.__lazyHash is None:
-            self.__lazyHash = hash(self.__tagClassId)
-        return self.__lazyHash
+        return self.__hash
 
     def __getitem__(self, idx):
         if idx == 0:
@@ -170,23 +166,42 @@ class TagSet(object):
 
     *superTags: :class:`~pyasn1.type.tag.Tag`
         Additional *Tag* objects taking part in subtyping.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        class OrderNumber(NumericString):
+            '''
+            ASN.1 specification
+
+            Order-number ::=
+                [APPLICATION 5] IMPLICIT NumericString
+            '''
+            tagSet = NumericString.tagSet.tagImplicitly(
+                Tag(tagClassApplication, tagFormatSimple, 5)
+            )
+
+        orderNumber = OrderNumber('1234')
     """
     def __init__(self, baseTag=(), *superTags):
         self.__baseTag = baseTag
         self.__superTags = superTags
-        self.__superTagsSignature = tuple(
+        self.__superTagsClassId = tuple(
             [(superTag.tagClass, superTag.tagId) for superTag in superTags]
         )
         self.__lenOfSuperTags = len(superTags)
-        self.__lazyHash = None
-
-    def __str__(self):
-        return self.__superTags and '+'.join([str(x) for x in self.__superTags]) or '[untagged]'
+        self.__hash = hash(self.__superTagsClassId)
 
     def __repr__(self):
-        return '%s(%s)' % (
-            self.__class__.__name__, '(), ' + ', '.join([repr(x) for x in self.__superTags])
-        )
+        representation = '-'.join(['%s:%s:%s' % (x.tagClass, x.tagFormat, x.tagId)
+                                   for x in self.__superTags])
+        if representation:
+            representation = 'tags ' + representation
+        else:
+            representation = 'untagged'
+
+        return '<%s object, %s>' % (self.__class__.__name__, representation)
 
     def __add__(self, superTag):
         return self.__class__(self.__baseTag, *self.__superTags + (superTag,))
@@ -201,27 +216,25 @@ class TagSet(object):
             return self.__superTags[i]
 
     def __eq__(self, other):
-        return self.__superTagsSignature == other
+        return self.__superTagsClassId == other
 
     def __ne__(self, other):
-        return self.__superTagsSignature != other
+        return self.__superTagsClassId != other
 
     def __lt__(self, other):
-        return self.__superTagsSignature < other
+        return self.__superTagsClassId < other
 
     def __le__(self, other):
-        return self.__superTagsSignature <= other
+        return self.__superTagsClassId <= other
 
     def __gt__(self, other):
-        return self.__superTagsSignature > other
+        return self.__superTagsClassId > other
 
     def __ge__(self, other):
-        return self.__superTagsSignature >= other
+        return self.__superTagsClassId >= other
 
     def __hash__(self):
-        if self.__lazyHash is None:
-            self.__lazyHash = hash(self.__superTags)
-        return self.__lazyHash
+        return self.__hash
 
     def __len__(self):
         return self.__lenOfSuperTags
@@ -266,7 +279,7 @@ class TagSet(object):
             New *TagSet* object
         """
         if superTag.tagClass == tagClassUniversal:
-            raise error.PyAsn1Error('Can\'t tag with UNIVERSAL class tag')
+            raise error.PyAsn1Error("Can't tag with UNIVERSAL class tag")
         if superTag.tagFormat != tagFormatConstructed:
             superTag = Tag(superTag.tagClass, tagFormatConstructed, superTag.tagId)
         return self + superTag
@@ -307,7 +320,7 @@ class TagSet(object):
         Returns
         -------
         : :py:class:`bool`
-            `True` if callee is a supertype of *tagSet*
+            :obj:`True` if callee is a supertype of *tagSet*
         """
         if len(tagSet) < self.__lenOfSuperTags:
             return False

@@ -103,9 +103,6 @@ def transport_channel_id(transport, is_server, channel_id_type):
     received on one TLS channel cannot be forwarded on another.
 
     """
-    if channel_id_type is None:
-        return None
-
     if channel_id_type not in [u'tls-unique']:
         raise Exception("invalid channel ID type {}".format(channel_id_type))
 
@@ -121,6 +118,12 @@ def transport_channel_id(transport, is_server, channel_id_type):
             # for clients, the channel ID is based on the TLS Finished message we sent
             # to the router (=server)
             tls_finished_msg = transport._tlsConnection.get_finished()
+
+        if tls_finished_msg is None:
+            # this can occur if we made a successful connection (in a
+            # TCP sense) but something failed with the TLS handshake
+            # (e.g. invalid certificate)
+            return None
 
         m = hashlib.sha256()
         m.update(tls_finished_msg)

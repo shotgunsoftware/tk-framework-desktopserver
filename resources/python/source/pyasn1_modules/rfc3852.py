@@ -3,20 +3,25 @@
 # This file is part of pyasn1-modules software.
 #
 # Created by Stanisław Pitucha with asn1ate tool.
-# Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
+# License: http://snmplabs.com/pyasn1/license.html
 #
 # Cryptographic Message Syntax (CMS)
 #
 # ASN.1 source from:
 # http://www.ietf.org/rfc/rfc3852.txt
 #
-from pyasn1.type import univ, namedtype, namedval, tag, constraint, useful
+from pyasn1.type import constraint
+from pyasn1.type import namedtype
+from pyasn1.type import namedval
+from pyasn1.type import tag
+from pyasn1.type import univ
+from pyasn1.type import useful
 
 from pyasn1_modules import rfc3280
 from pyasn1_modules import rfc3281
 
-MAX = 64
+MAX = float('inf')
 
 
 def _buildOid(*components):
@@ -49,7 +54,7 @@ class SignedAttributes(univ.SetOf):
 
 
 SignedAttributes.componentType = Attribute()
-SignedAttributes.subtypeSpec = constraint.ValueSizeConstraint(1, MAX)
+SignedAttributes.sizeSpec = constraint.ValueSizeConstraint(1, MAX)
 
 
 class OtherRevocationInfoFormat(univ.Sequence):
@@ -304,7 +309,7 @@ class RecipientInfos(univ.SetOf):
 
 
 RecipientInfos.componentType = RecipientInfo()
-RecipientInfos.subtypeSpec = constraint.ValueSizeConstraint(1, MAX)
+RecipientInfos.sizeSpec = constraint.ValueSizeConstraint(1, MAX)
 
 
 class DigestAlgorithmIdentifier(rfc3280.AlgorithmIdentifier):
@@ -331,7 +336,7 @@ class UnprotectedAttributes(univ.SetOf):
 
 
 UnprotectedAttributes.componentType = Attribute()
-UnprotectedAttributes.subtypeSpec = constraint.ValueSizeConstraint(1, MAX)
+UnprotectedAttributes.sizeSpec = constraint.ValueSizeConstraint(1, MAX)
 
 
 class ContentType(univ.ObjectIdentifier):
@@ -425,7 +430,7 @@ class UnauthAttributes(univ.SetOf):
 
 
 UnauthAttributes.componentType = Attribute()
-UnauthAttributes.subtypeSpec = constraint.ValueSizeConstraint(1, MAX)
+UnauthAttributes.sizeSpec = constraint.ValueSizeConstraint(1, MAX)
 
 
 class ExtendedCertificateInfo(univ.Sequence):
@@ -545,7 +550,7 @@ class UnsignedAttributes(univ.SetOf):
 
 
 UnsignedAttributes.componentType = Attribute()
-UnsignedAttributes.subtypeSpec = constraint.ValueSizeConstraint(1, MAX)
+UnsignedAttributes.sizeSpec = constraint.ValueSizeConstraint(1, MAX)
 
 
 class SignatureValue(univ.OctetString):
@@ -627,7 +632,7 @@ class AuthAttributes(univ.SetOf):
 
 
 AuthAttributes.componentType = Attribute()
-AuthAttributes.subtypeSpec = constraint.ValueSizeConstraint(1, MAX)
+AuthAttributes.sizeSpec = constraint.ValueSizeConstraint(1, MAX)
 
 
 class AuthenticatedData(univ.Sequence):

@@ -29,6 +29,7 @@ from __future__ import absolute_import
 import six
 import inspect
 import binascii
+import random
 
 import txaio
 txaio.use_twisted()  # noqa
@@ -117,7 +118,12 @@ class ApplicationRunner(object):
                  serializers=None,
                  ssl=None,
                  proxy=None,
-                 headers=None):
+                 headers=None,
+                 max_retries=None,
+                 initial_retry_delay=None,
+                 max_retry_delay=None,
+                 retry_delay_growth=None,
+                 retry_delay_jitter=None):
         """
 
         :param url: The WebSocket URL of the WAMP router to connect to (e.g. `ws://somehost.com:8090/somepath`)
@@ -147,6 +153,21 @@ class ApplicationRunner(object):
 
         :param headers: Additional headers to send (only applies to WAMP-over-WebSocket).
         :type headers: dict
+
+        :param max_retries: Maximum number of reconnection attempts. Unlimited if set to -1.
+        :type max_retries: int
+
+        :param initial_retry_delay: Initial delay for reconnection attempt in seconds (Default: 1.0s).
+        :type initial_retry_delay: float
+
+        :param max_retry_delay: Maximum delay for reconnection attempts in seconds (Default: 60s).
+        :type max_retry_delay: float
+
+        :param retry_delay_growth: The growth factor applied to the retry delay between reconnection attempts (Default 1.5).
+        :type retry_delay_growth: float
+
+        :param retry_delay_jitter: A 0-argument callable that introduces nose into the delay. (Default random.random)
+        :type retry_delay_jitter: float
         """
         assert(type(url) == six.text_type)
         assert(realm is None or type(realm) == six.text_type)
@@ -160,6 +181,11 @@ class ApplicationRunner(object):
         self.ssl = ssl
         self.proxy = proxy
         self.headers = headers
+        self.max_retries = max_retries
+        self.initial_retry_delay = initial_retry_delay
+        self.max_retry_delay = max_retry_delay
+        self.retry_delay_growth = retry_delay_growth
+        self.retry_delay_jitter = retry_delay_jitter
 
         # this if for auto-reconnection when Twisted ClientService is avail
         self._client_service = None
@@ -172,13 +198,14 @@ class ApplicationRunner(object):
         Stop reconnecting, if auto-reconnecting was enabled.
         """
         self.log.debug('{klass}.stop()', klass=self.__class__.__name__)
+
         if self._client_service:
             return self._client_service.stopService()
         else:
             return succeed(None)
 
     @public
-    def run(self, make, start_reactor=True, auto_reconnect=False, log_level='info'):
+    def run(self, make, start_reactor=True, auto_reconnect=False, log_level='info', endpoint=None, reactor=None):
         """
         Run the application component.
 
@@ -198,6 +225,8 @@ class ApplicationRunner(object):
             an IProtocol instance, which will actually be an instance
             of :class:`WampWebSocketClientProtocol`
         """
+        self.log.debug('{klass}.run()', klass=self.__class__.__name__)
+
         if start_reactor:
             # only select framework, set loop and start logging when we are asked
             # start the reactor - otherwise we are running in a program that likely
@@ -210,7 +239,7 @@ class ApplicationRunner(object):
         if callable(make):
             # factory for use ApplicationSession
             def create():
-                cfg = ComponentConfig(self.realm, self.extra)
+                cfg = ComponentConfig(self.realm, self.extra, runner=self)
                 try:
                     session = make(cfg)
                 except Exception:
@@ -269,32 +298,35 @@ class ApplicationRunner(object):
         # supress pointless log noise
         transport_factory.noisy = False
 
-        # if user passed ssl= but isn't using isSecure, we'll never
-        # use the ssl argument which makes no sense.
-        context_factory = None
-        if self.ssl is not None:
-            if not isSecure:
-                raise RuntimeError(
-                    'ssl= argument value passed to %s conflicts with the "ws:" '
-                    'prefix of the url argument. Did you mean to use "wss:"?' %
-                    self.__class__.__name__)
-            context_factory = self.ssl
-        elif isSecure:
-            from twisted.internet.ssl import optionsForClientTLS
-            context_factory = optionsForClientTLS(host)
-
-        from twisted.internet import reactor
-        if self.proxy is not None:
-            from twisted.internet.endpoints import TCP4ClientEndpoint
-            client = TCP4ClientEndpoint(reactor, self.proxy['host'], self.proxy['port'])
-            transport_factory.contextFactory = context_factory
-        elif isSecure:
-            from twisted.internet.endpoints import SSL4ClientEndpoint
-            assert context_factory is not None
-            client = SSL4ClientEndpoint(reactor, host, port, context_factory)
+        if endpoint:
+            client = endpoint
         else:
-            from twisted.internet.endpoints import TCP4ClientEndpoint
-            client = TCP4ClientEndpoint(reactor, host, port)
+            # if user passed ssl= but isn't using isSecure, we'll never
+            # use the ssl argument which makes no sense.
+            context_factory = None
+            if self.ssl is not None:
+                if not isSecure:
+                    raise RuntimeError(
+                        'ssl= argument value passed to %s conflicts with the "ws:" '
+                        'prefix of the url argument. Did you mean to use "wss:"?' %
+                        self.__class__.__name__)
+                context_factory = self.ssl
+            elif isSecure:
+                from twisted.internet.ssl import optionsForClientTLS
+                context_factory = optionsForClientTLS(host)
+
+            from twisted.internet import reactor
+            if self.proxy is not None:
+                from twisted.internet.endpoints import TCP4ClientEndpoint
+                client = TCP4ClientEndpoint(reactor, self.proxy['host'], self.proxy['port'])
+                transport_factory.contextFactory = context_factory
+            elif isSecure:
+                from twisted.internet.endpoints import SSL4ClientEndpoint
+                assert context_factory is not None
+                client = SSL4ClientEndpoint(reactor, host, port, context_factory)
+            else:
+                from twisted.internet.endpoints import TCP4ClientEndpoint
+                client = TCP4ClientEndpoint(reactor, host, port)
 
         # as the reactor shuts down, we wish to wait until we've sent
         # out our "Goodbye" message; leave() returns a Deferred that
@@ -327,19 +359,31 @@ class ApplicationRunner(object):
             # this code path is automatically reconnecting ..
             self.log.debug('using t.a.i.ClientService')
 
-            default_retry = backoffPolicy()
+            if self.max_retries or self.initial_retry_delay or self.max_retry_delay or self.retry_delay_growth or self.retry_delay_jitter:
+                kwargs = {}
 
-            if False:
+                def _jitter():
+                    j = 1 if self.retry_delay_jitter is None else self.retry_delay_jitter
+                    return random.random() * j
+
+                for key, val in [('initialDelay', self.initial_retry_delay),
+                                 ('maxDelay', self.max_retry_delay),
+                                 ('factor', self.retry_delay_growth),
+                                 ('jitter', _jitter)]:
+                    if val:
+                        kwargs[key] = val
+
                 # retry policy that will only try to reconnect if we connected
                 # successfully at least once before (so it fails on host unreachable etc ..)
                 def retry(failed_attempts):
-                    if self._connect_successes > 0:
-                        return default_retry(failed_attempts)
+                    if self._connect_successes > 0 and (self.max_retries == -1 or failed_attempts < self.max_retries):
+                        return backoffPolicy(**kwargs)(failed_attempts)
                     else:
+                        print('hit stop')
                         self.stop()
                         return 100000000000000
             else:
-                retry = default_retry
+                retry = backoffPolicy()
 
             self._client_service = ClientService(client, transport_factory, retryPolicy=retry)
             self._client_service.startService()
@@ -729,6 +773,9 @@ if service:
 class Session(protocol._SessionShim):
     # XXX these methods are redundant, but put here for possibly
     # better clarity; maybe a bad idea.
+
+    def on_welcome(self, welcome_msg):
+        pass
 
     def on_join(self, details):
         pass

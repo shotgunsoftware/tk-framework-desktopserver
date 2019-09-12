@@ -16,6 +16,14 @@ try:
 except ImportError:
     lock = None
 
+def _workaround_for_static_import_finders():
+    # Issue #392: packaging tools like cx_Freeze can not find these
+    # because pycparser uses exec dynamic import.  This is an obscure
+    # workaround.  This function is never called.
+    import pycparser.yacctab
+    import pycparser.lextab
+
+CDEF_SOURCE_STRING = "<cdef source string>"
 _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
                         re.DOTALL | re.MULTILINE)
 _r_define  = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
@@ -136,6 +144,14 @@ def _preprocess_extern_python(csource):
     parts.append(csource)
     return ''.join(parts)
 
+def _warn_for_string_literal(csource):
+    if '"' in csource:
+        import warnings
+        warnings.warn("String literal found in cdef() or type source. "
+                      "String literals are ignored here, but you should "
+                      "remove them anyway because some character sequences "
+                      "confuse pre-parsing.")
+
 def _preprocess(csource):
     # Remove comments.  NOTE: this only work because the cdef() section
     # should not contain any string literal!
@@ -162,6 +178,9 @@ def _preprocess(csource):
     #
     # Replace `extern "Python"` with start/end markers
     csource = _preprocess_extern_python(csource)
+    #
+    # Now there should not be any string literal left; warn if we get one
+    _warn_for_string_literal(csource)
     #
     # Replace "[...]" with "[__dotdotdotarray__]"
     csource = _r_partial_array.sub('[__dotdotdotarray__]', csource)
@@ -258,15 +277,21 @@ class Parser(object):
                 ctn.discard(name)
         typenames += sorted(ctn)
         #
-        csourcelines = ['typedef int %s;' % typename for typename in typenames]
+        csourcelines = []
+        csourcelines.append('# 1 "<cdef automatic initialization code>"')
+        for typename in typenames:
+            csourcelines.append('typedef int %s;' % typename)
         csourcelines.append('typedef int __dotdotdotint__, __dotdotdotfloat__,'
                             ' __dotdotdot__;')
+        # this forces pycparser to consider the following in the file
+        # called <cdef source string> from line 1
+        csourcelines.append('# 1 "%s"' % (CDEF_SOURCE_STRING,))
         csourcelines.append(csource)
-        csource = '\n'.join(csourcelines)
+        fullcsource = '\n'.join(csourcelines)
         if lock is not None:
             lock.acquire()     # pycparser is not thread-safe...
         try:
-            ast = _get_parser().parse(csource)
+            ast = _get_parser().parse(fullcsource)
         except pycparser.c_parser.ParseError as e:
             self.convert_pycparser_error(e, csource)
         finally:
@@ -276,17 +301,17 @@ class Parser(object):
         return ast, macros, csource
 
     def _convert_pycparser_error(self, e, csource):
-        # xxx look for ":NUM:" at the start of str(e) and try to interpret
-        # it as a line number
+        # xxx look for "<cdef source string>:NUM:" at the start of str(e)
+        # and interpret that as a line number.  This will not work if
+        # the user gives explicit ``# NUM "FILE"`` directives.
         line = None
         msg = str(e)
-        if msg.startswith(':') and ':' in msg[1:]:
-            linenum = msg[1:msg.find(':',1)]
-            if linenum.isdigit():
-                linenum = int(linenum, 10)
-                csourcelines = csource.splitlines()
-                if 1 <= linenum <= len(csourcelines):
-                    line = csourcelines[linenum-1]
+        match = re.match(r"%s:(\d+):" % (CDEF_SOURCE_STRING,), msg)
+        if match:
+            linenum = int(match.group(1), 10)
+            csourcelines = csource.splitlines()
+            if 1 <= linenum <= len(csourcelines):
+                line = csourcelines[linenum-1]
         return line
 
     def convert_pycparser_error(self, e, csource):
@@ -299,11 +324,25 @@ class Parser(object):
             msg = 'parse error\n%s' % (msg,)
         raise CDefError(msg)
 
-    def parse(self, csource, override=False, packed=False, dllexport=False):
+    def parse(self, csource, override=False, packed=False, pack=None,
+                    dllexport=False):
+        if packed:
+            if packed != True:
+                raise ValueError("'packed' should be False or True; use "
+                                 "'pack' to give another value")
+            if pack:
+                raise ValueError("cannot give both 'pack' and 'packed'")
+            pack = 1
+        elif pack:
+            if pack & (pack - 1):
+                raise ValueError("'pack' must be a power of two, not %r" %
+                    (pack,))
+        else:
+            pack = 0
         prev_options = self._options
         try:
             self._options = {'override': override,
-                             'packed': packed,
+                             'packed': pack,
                              'dllexport': dllexport}
             self._internal_parse(csource)
         finally:
@@ -321,10 +360,12 @@ class Parser(object):
                 break
         else:
             assert 0
+        current_decl = None
         #
         try:
             self._inside_extern_python = '__cffi_extern_python_stop'
             for decl in iterator:
+                current_decl = decl
                 if isinstance(decl, pycparser.c_ast.Decl):
                     self._parse_decl(decl)
                 elif isinstance(decl, pycparser.c_ast.Typedef):
@@ -348,7 +389,13 @@ class Parser(object):
                 elif decl.__class__.__name__ == 'Pragma':
                     pass    # skip pragma, only in pycparser 2.15
                 else:
-                    raise CDefError("unrecognized construct", decl)
+                    raise CDefError("unexpected <%s>: this construct is valid "
+                                    "C but not valid in cdef()" %
+                                    decl.__class__.__name__, decl)
+        except CDefError as e:
+            if len(e.args) == 1:
+                e.args = e.args + (current_decl,)
+            raise
         except FFIError as e:
             msg = self._convert_pycparser_error(e, csource)
             if msg:
@@ -770,12 +817,20 @@ class Parser(object):
         # or positive/negative number
         if isinstance(exprnode, pycparser.c_ast.Constant):
             s = exprnode.value
-            if s.startswith('0'):
-                if s.startswith('0x') or s.startswith('0X'):
-                    return int(s, 16)
-                return int(s, 8)
-            elif '1' <= s[0] <= '9':
-                return int(s, 10)
+            if '0' <= s[0] <= '9':
+                s = s.rstrip('uUlL')
+                try:
+                    if s.startswith('0'):
+                        return int(s, 8)
+                    else:
+                        return int(s, 10)
+                except ValueError:
+                    if len(s) > 1:
+                        if s.lower()[0:2] == '0x':
+                            return int(s, 16)
+                        elif s.lower()[0:2] == '0b':
+                            return int(s, 2)
+                raise CDefError("invalid constant %r" % (s,))
             elif s[0] == "'" and s[-1] == "'" and (
                     len(s) == 3 or (len(s) == 4 and s[1] == "\\")):
                 return ord(s[-2])
