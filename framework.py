@@ -230,7 +230,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 "Please contact support@shotgunsoftware.com"
             )
         else:
-            self._write_cert("server.crt", certs["sg_desktop_cert"])
+            self._write_cert("server.pub.crt", certs["sg_desktop_cert"])
 
         if not certs["sg_desktop_key"]:
             self.logger.error(
@@ -239,6 +239,22 @@ class DesktopserverFramework(sgtk.platform.Framework):
             )
         else:
             self._write_cert("server.key", certs["sg_desktop_key"])
+
+        if not certs["sg_desktop_ca"]:
+            self.logger.error(
+                "shotgunlocalhost.com certificate authority is not set in Shotgun. "
+                "Please contact support@shotgunsoftware.com"
+            )
+        else:
+            self._write_cert("server.ca.crt", certs["sg_desktop_ca"])
+
+        chain_path = os.path.join(self._get_shotgunlocalhost_keys_folder(), "server.crt")
+        with open(chain_path, "wt") as chain_fh:
+            for cert_file in ["server.pub.crt", "server.ca.crt"]:
+                cert_path = os.path.join(self._get_shotgunlocalhost_keys_folder(), cert_file)
+                with open(cert_path, "rt") as cert_fh:
+                    chain_fh.write(cert_fh.read())
+                    chain_fh.write("\n")
 
     def __ensure_certificate_ready(self, regenerate_certs=False, parent=None):
         """

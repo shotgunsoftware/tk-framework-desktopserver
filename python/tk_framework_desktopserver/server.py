@@ -14,6 +14,7 @@ import base64
 
 from .server_protocol import ServerProtocol
 
+from OpenSSL import SSL
 from twisted.internet import reactor, ssl, error
 from twisted.python import log
 
@@ -27,6 +28,35 @@ from .logger import get_logger
 from sgtk.platform.qt import QtCore
 
 logger = get_logger(__name__)
+
+
+# This fix is taken from
+# https://twistedmatrix.com/pipermail/twisted-python/2010-July/022597.html
+#
+class ChainedOpenSSLContextFactory(ssl.DefaultOpenSSLContextFactory):
+    """
+    The DefaultOpenSSLContextFactory by default will only server
+    private and public key. This is not good enough.
+    """
+    def __init__(self, privateKeyFileName, certificateChainFileName,
+                 sslmethod=SSL.SSLv23_METHOD):
+        """
+        @param privateKeyFileName: Name of a file containing a private key
+        @param certificateChainFileName: Name of a file containing a certificate chain
+        @param sslmethod: The SSL method to use
+        """
+        self.privateKeyFileName = privateKeyFileName
+        self.certificateChainFileName = certificateChainFileName
+        self.sslmethod = sslmethod
+        self._context = None
+        self.cacheContext()
+
+    def cacheContext(self):
+        if self._context is None:
+            ctx = SSL.Context(self.sslmethod)
+            ctx.use_certificate_chain_file(self.certificateChainFileName)
+            ctx.use_privatekey_file(self.privateKeyFileName)
+            self._context = ctx
 
 
 class Server(object):
@@ -106,9 +136,10 @@ class Server(object):
         self._raise_if_missing_certificate(cert_key_path)
         self._raise_if_missing_certificate(cert_crt_path)
 
-        # SSL server context: load server key and certificate
-        self.context_factory = ssl.DefaultOpenSSLContextFactory(cert_key_path,
-                                                                cert_crt_path)
+        self.context_factory = ChainedOpenSSLContextFactory(
+            cert_key_path,
+            cert_crt_path
+        )
 
         # FIXME: Seems like the debugging flags are gone from the initializer at the moment.
         # We should try to restore these.
