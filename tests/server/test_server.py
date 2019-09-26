@@ -354,6 +354,12 @@ def CommonTestsMetaClass(class_name, class_parents, class_attr):
 
     @register
     def test_websocket_with_unknown_intermediate_chain(self):
+        """
+        Make sure we can connect to the site.
+        """
+        # The websocket connection in the websocket module, contrary to Twisted's implementation,
+        # requires the entire certificate chain to be available to connect to shotgunlocalhost.com
+        # So we'll use that to validate that the cert chain is passed entirely on connection.
         return threads.deferToThread(lambda: websocket.create_connection("wss://shotgunlocalhost.com:%s" % self._port).close())
 
     @register
