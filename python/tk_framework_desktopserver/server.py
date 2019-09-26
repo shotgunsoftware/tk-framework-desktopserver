@@ -30,23 +30,21 @@ from sgtk.platform.qt import QtCore
 logger = get_logger(__name__)
 
 
-# This fix is taken from
+# This fix inspired by code from
 # https://twistedmatrix.com/pipermail/twisted-python/2010-July/022597.html
-#
 class ChainedOpenSSLContextFactory(ssl.DefaultOpenSSLContextFactory):
     """
-    The DefaultOpenSSLContextFactory by default will only server
-    private and public key. This is not good enough.
+    Serves the entire public certificate chain.
     """
-    def __init__(self, privateKeyFileName, certificateChainFileName,
+    def __init__(self, private_key_file_name, certificate_chain_file_name,
                  sslmethod=SSL.SSLv23_METHOD):
         """
-        @param privateKeyFileName: Name of a file containing a private key
-        @param certificateChainFileName: Name of a file containing a certificate chain
+        @param private_key_file_name: Name of a file containing a private key
+        @param certificate_chain_file_name: Name of a file containing a certificate chain
         @param sslmethod: The SSL method to use
         """
-        self.privateKeyFileName = privateKeyFileName
-        self.certificateChainFileName = certificateChainFileName
+        self.private_key_file_name = private_key_file_name
+        self.certificate_chain_file_name = certificate_chain_file_name
         self.sslmethod = sslmethod
         self._context = None
         self.cacheContext()
@@ -54,8 +52,8 @@ class ChainedOpenSSLContextFactory(ssl.DefaultOpenSSLContextFactory):
     def cacheContext(self):
         if self._context is None:
             ctx = SSL.Context(self.sslmethod)
-            ctx.use_certificate_chain_file(self.certificateChainFileName)
-            ctx.use_privatekey_file(self.privateKeyFileName)
+            ctx.use_certificate_chain_file(self.certificate_chain_file_name)
+            ctx.use_privatekey_file(self.private_key_file_name)
             self._context = ctx
 
 

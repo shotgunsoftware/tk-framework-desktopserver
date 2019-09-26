@@ -250,6 +250,9 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 "Please contact support@shotgunsoftware.com"
             )
 
+        # When the shotgun website provides the certificate chain, we'll concatenate
+        # it with the public cert so that on connection the client can always validate
+        # the complete certification chain regardless of their ssl setup.
         if self._uses_intermediate_certificate_chain:
             self._write_cert("server.crt", certs["sg_desktop_cert"] + "\n" + certs["sg_desktop_ca"])
         else:
