@@ -30,11 +30,7 @@ def get_certificate_file_names(root_folder):
 
     :returns: The tuple (public key path, private key path)
     """
-    return (
-        os.path.join(root_folder, "server.crt"),
-        os.path.join(root_folder, "server.key")
-    )
-
+    return os.path.join(root_folder, "server.crt"), os.path.join(root_folder, "server.key")
 
 
 class _CertificateHandler(object):

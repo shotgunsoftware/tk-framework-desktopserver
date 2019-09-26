@@ -354,10 +354,7 @@ def CommonTestsMetaClass(class_name, class_parents, class_attr):
 
     @register
     def test_websocket_with_unknown_intermediate_chain(self):
-        def step1(_):
-            return threads.deferToThread(lambda: websocket.create_connection("wss://shotgunlocalhost.com:%s" % self._port).close())
-
-        return self._chain_calls(step1, lambda _: None)
+        return threads.deferToThread(lambda: websocket.create_connection("wss://shotgunlocalhost.com:%s" % self._port).close())
 
     @register
     def test_binary_unsupported(self):
