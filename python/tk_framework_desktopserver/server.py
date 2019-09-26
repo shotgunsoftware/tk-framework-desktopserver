@@ -66,7 +66,7 @@ class Server(object):
     class Notifier(QtCore.QObject):
         different_user_requested = QtCore.Signal(str, int)
 
-    def __init__(self, keys_path, encrypt, host, user_id, host_aliases, port=None):
+    def __init__(self, keys_path, encrypt, host, user_id, host_aliases, port=None, uses_intermediate_certificate_chain=False):
         """
         Constructor.
 
@@ -83,8 +83,8 @@ class Server(object):
         self._keys_path = keys_path or self._DEFAULT_KEYS_PATH
         self._host = host
         self._user_id = user_id
-
         self._host_aliases = host_aliases
+        self._uses_intermediate_certificate_chain = uses_intermediate_certificate_chain
 
         # If encryption is required, compute a server id and retrieve the secret associated to it.
         if encrypt:
@@ -136,7 +136,12 @@ class Server(object):
         self._raise_if_missing_certificate(cert_key_path)
         self._raise_if_missing_certificate(cert_crt_path)
 
-        self.context_factory = ChainedOpenSSLContextFactory(
+        if self._uses_intermediate_certificate_chain:
+            ctx_factory = ChainedOpenSSLContextFactory
+        else:
+            ctx_factory = ssl.DefaultOpenSSLContextFactory
+
+        self.context_factory = ctx_factory(
             cert_key_path,
             cert_crt_path
         )
