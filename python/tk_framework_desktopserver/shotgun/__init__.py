@@ -13,7 +13,7 @@
 from . import api_v1
 from . import api_v2
 
-def get_shotgun_api(protocol_version, host, process_manager, wss_key):
+def get_shotgun_api(protocol_version, host, process_manager, wss_key, origin):
     """
     A factory function that returns an rpc API instance. The given
     protocol version will be taken into account when determining which
@@ -28,6 +28,7 @@ def get_shotgun_api(protocol_version, host, process_manager, wss_key):
     :param str wss_key: The unique key associated with a WSS connection.
         This key is provided by the autobahn libary's ConnectionRequest
         object at the time a new WSS connection is made.
+    :param str origin: The site address where the request originated from.
 
     :returns: An RPC API instance appropriate for the given protocol
         version.
@@ -35,6 +36,6 @@ def get_shotgun_api(protocol_version, host, process_manager, wss_key):
     if protocol_version == 1:
         return api_v1.ShotgunAPI(host, process_manager, wss_key)
     elif protocol_version == 2:
-        return api_v2.ShotgunAPI(host, process_manager, wss_key)
+        return api_v2.ShotgunAPI(host, process_manager, origin)
     else:
         raise RuntimeError("Unsupported protocol version: %s" % protocol_version)

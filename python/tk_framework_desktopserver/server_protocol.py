@@ -378,6 +378,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 message_host,
                 self.process_manager,
                 wss_key=self._wss_key,
+                origin=self._origin,
             )
         except Exception, e:
             message_host.report_error("Unable to get a ShotgunAPI object: %s" % e)

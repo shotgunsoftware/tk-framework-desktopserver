@@ -36,6 +36,9 @@ from .. import command
 
 logger = sgtk.platform.get_logger(__name__)
 
+_GET_ACTIONS_LOCK = threading.Lock()
+_BOOTSTRAP_LOCK = threading.Lock()
+
 ###########################################################################
 # Classes
 
@@ -58,8 +61,8 @@ class ShotgunAPI(object):
     CACHE_VALIDATED = dict()
     CACHE_VALIDATION_INTERVAL = 600.0 # Seconds
 
-    # Stores data persistently per wss connection.
-    WSS_KEY_CACHE = dict()
+    # Stores data persistently per site.
+    ORIGIN_CACHE = dict()
     DATABASE_FORMAT_VERSION = 2
     # When the layout of the cache in a cache entry changes, bump this version
     # so we invalidate all cached entries.
@@ -78,36 +81,29 @@ class ShotgunAPI(object):
     ENTITY_PARENT_PROJECTS = "entity_parent_projects"
     SHOTGUN_YML_FILES = "shotgun_yml_files"
 
-    REQUEST_CACHE = dict()
-    REQUEST_CACHE_INTERVAL = 60.0 # Seconds
-
-    # We need to protect against concurrent bootstraps happening.
-    # This is a reentrant lock because get_actions is recursive
-    # when caching occurs, so might need to lock multiple times
-    # within the same thread.
-    _LOCK = threading.RLock()
-
-    def __init__(self, host, process_manager, wss_key):
+    def __init__(self, host, process_manager, origin):
         """
         API Constructor.
         Keep initialization pretty fast as it is created on every message.
 
         :param host: Host interface to communicate with. Abstracts the client.
         :param process_manager: Process Manager to use to interact with os processes.
-        :param str wss_key: The WSS connection's unique key.
+        :param str origin: The site address where the request originated from.
         """
         self._host = host
         self._engine = sgtk.platform.current_engine()
         self._bundle = sgtk.platform.current_bundle()
-        self._wss_key = wss_key
         self._logger = sgtk.platform.get_logger("api-v2")
         self._process_manager = process_manager
-        self._global_debug = sgtk.LogManager().global_debug
+        self._global_debug = sgtk.LogManager().global_debug,
+        self._origin = origin
 
-        if self._wss_key not in self.WSS_KEY_CACHE:
-            self.WSS_KEY_CACHE[self._wss_key] = dict()
+        self._logger.debug("Request originated from: %s", self._origin)
 
-        self._cache = self.WSS_KEY_CACHE[self._wss_key]
+        if self._origin not in self.ORIGIN_CACHE:
+            self.ORIGIN_CACHE[origin] = dict()
+
+        self._cache = self.ORIGIN_CACHE[origin]
 
         # Cache path on disk.
         self._cache_path = os.path.join(
@@ -121,7 +117,7 @@ class ShotgunAPI(object):
     @property
     def host(self):
         """
-        The host associated with the currnt RPC transaction.
+        The host associated with the current RPC transaction.
         """
         return self._host
 
@@ -150,7 +146,8 @@ class ShotgunAPI(object):
         # reply to the client so that the Promise can be kept or broken, as is
         # appropriate.
         try:
-            self._execute_action(data)
+            with _BOOTSTRAP_LOCK:
+                self._execute_action(data)
         except Exception:
             self.host.reply(
                 dict(
@@ -213,13 +210,12 @@ class ShotgunAPI(object):
         # when the menu asked for actions, so getting the manager and all of the
         # config data will be essentially free.
         manager = self._get_toolkit_manager()
-        with self._LOCK:
-            manager.bundle_cache_fallback_paths = self._engine.sgtk.bundle_cache_fallback_paths
-            all_pc_data = self._get_pipeline_configuration_data(
-                manager,
-                project_entity,
-                data,
-            )
+        manager.bundle_cache_fallback_paths = self._engine.sgtk.bundle_cache_fallback_paths
+        all_pc_data = self._get_pipeline_configuration_data(
+            manager,
+            project_entity,
+            data,
+        )
 
         python_exe = self._get_python_interpreter(all_pc_data[config_entity["id"]]["descriptor"])
         logger.debug("Python executable: %s", python_exe)
@@ -300,26 +296,27 @@ class ShotgunAPI(object):
         # reply to the client so that the Promise can be kept or broken, as is
         # appropriate.
         try:
-            cache_data = copy.deepcopy(data)
-            if "entity_id" in cache_data:
-                if cache_data.get("entity_type") == "Task":
-                    pass
-                else:
-                    del cache_data["entity_id"]
+            # This lock isn't for thread safety. Rather, it's here to keep
+            # requests for actions proceeding in an orderly fashion. Twisted
+            # will be running requests in parallel, and there's no real
+            # benefit to us getting actions for multiple requests in parallel.
+            # We either have data cached already, in which case the reply will
+            # happen very quickly and it's a non issue that we wait here, or
+            # we have a cache miss, in which case waiting is likely beneficial
+            # given that one request will possibly be caching what we need for
+            # the other request(s) anyway.
+            with _GET_ACTIONS_LOCK:
+                cache_callables = self._get_actions(copy.deepcopy(data))
 
-            data_hash = hash(str(cache_data))
-            if data_hash in self.REQUEST_CACHE:
-                if time.time() - self.REQUEST_CACHE[data_hash]["time"] < self.REQUEST_CACHE_INTERVAL:
-                    logger.info("Request found in in-memory request cache.")
-                    self.host.reply(
-                        self.REQUEST_CACHE[data_hash]["response"]
-                    )
-                    return
-                else:
-                    logger.info("Request found in in-memory request cache, but is too old.")
-            else:
-                logger.info("Request not found in in-memory request cache.")
-            self._get_actions(data)
+            if cache_callables:
+                with _BOOTSTRAP_LOCK:
+                    # Now trigger cache refresh for everything. We're doing this last so that we
+                    # reply to the request ASAP. We need to run this under a separate lock because
+                    # we know that some portions of Toolkit's bootstrap API isn't safe to run
+                    # concurrently with other bootstraps, but we don't want to block other requests
+                    # from going forward with their get_actions calls.
+                    for cache_callable in cache_callables:
+                        cache_callable()
         except Exception:
             self.host.reply(
                 dict(
@@ -395,17 +392,17 @@ class ShotgunAPI(object):
         project_entity, entities = self._get_entities_from_payload(data)
         entity = entities[0]
         manager = self._get_toolkit_manager()
-
-        with self._LOCK:
-            manager.bundle_cache_fallback_paths = self._engine.sgtk.bundle_cache_fallback_paths
-            all_pc_data = self._get_pipeline_configuration_data(
-                manager,
-                project_entity,
-                data,
-            )
+        manager.bundle_cache_fallback_paths = self._engine.sgtk.bundle_cache_fallback_paths
+        all_pc_data = self._get_pipeline_configuration_data(
+            manager,
+            project_entity,
+            data,
+        )
 
         all_actions = dict()
-        cache_callables = list()
+        cache_callables = []
+
+        logger.info("CONFIGS: %s" % all_pc_data)
 
         with self._db_connect() as (connection, cursor):
             for pc_id, pc_data in all_pc_data.iteritems():
@@ -485,79 +482,31 @@ class ShotgunAPI(object):
 
                 pc_data["lookup_hash"] = lookup_hash
                 pc_data["descriptor"] = pc_descriptor
-                cached_data = []
-                logger.debug("Querying: %s", lookup_hash)
 
                 try:
-                    cursor.execute(
-                        "SELECT commands FROM engine_commands WHERE lookup_hash=?",
-                        (lookup_hash,)
+                    cache_callable = self._query_cached_actions(
+                        cursor,
+                        data,
+                        pc_data,
+                        lookup_hash,
+                        project_entity,
+                        pipeline_config,
+                        entities,
+                        all_actions,
                     )
-                    cached_data = list(cursor.fetchone() or [])
-                except sqlite3.OperationalError:
-                    # This means the sqlite database hasn't been setup at all.
-                    # In that case, we just continue on with cached_data set
-                    # to an empty list, which will cause the caching subprocess
-                    # to be spawned, which will setup the database and populate
-                    # with the data we need.
-                    logger.debug(
-                        "Cache query failed due to missing table. "
-                        "Triggering caching subprocess..."
-                    )
-
-                try:
-                    if cached_data:
-                        # We check the validity of the cache asynchronously in this
-                        # situation. We're going to collect these into a list and then
-                        # execute them after we've replied to the request so that we
-                        # get menu actions back to the user ASAP.
-                        cache_callables.append(
-                            functools.partial(
-                                self._async_check_and_cache_actions,
-                                data,
-                                pc_data,
-                            )
-                        )
-
-                        logger.debug("Cache key was %s", lookup_hash)
-
-                        actions = self._process_commands(
-                            commands=cPickle.loads(str(cached_data[0])),
-                            project=project_entity,
-                            entities=entities,
-                        )
-
-                        logger.debug("Actions found in cache: %s", actions)
-
-                        all_actions[pipeline_config["name"]] = dict(
-                            actions=self._filter_by_project(
-                                actions,
-                                self._get_software_entities(),
-                                project_entity,
-                            ),
-                            config=pipeline_config,
-                        )
-                        logger.debug("Actions after project filtering: %s", actions)
-                    else:
-                        # Cache miss.
-                        logger.debug("Commands not found in cache, caching now...")
-                        # Caching is performed synchronously in this situation. We don't
-                        # have anything to give to the client until it's done, so we do
-                        # it in the main thread and wait for it to complete.
-                        self._cache_actions(data, pc_data)
-                        self._get_actions(data)
-                        return
+                    if cache_callable:
+                        cache_callables.append(cache_callable)
                 except TankCachingSubprocessFailed as exc:
-                    logger.error(str(exc))
+                    logger.exception(exc)
                     raise
-                except TankCachingEngineBootstrapError:
+                except TankCachingEngineBootstrapError as exc:
                     logger.error(
                         "The Shotgun engine failed to initialize in the caching "
                         "subprocess. This most likely corresponds to a configuration "
                         "problem in the config %r as it relates to entity type %s." %
                         (pc_descriptor, entity["type"])
                     )
-                    logger.debug(traceback.format_exc())
+                    logger.exception(exc)
                     continue
 
         config_names = [p["entity"]["name"] for p in all_pc_data.values()]
@@ -571,27 +520,81 @@ class ShotgunAPI(object):
             ),
         )
 
-        cache_data = copy.deepcopy(data)
-        if "entity_id" in cache_data:
-            if cache_data.get("entity_type") == "Task":
-                pass
-            else:
-                del cache_data["entity_id"]
+        # We're returning these instead of calling them here only because
+        # we don't want them running under the same lock as the get_actions
+        # call, which would block other requests from completing until our
+        # re-cache here completed, which would get in the way of our desire to
+        # reply with what we have cached and THEN re-cache.
+        return cache_callables
 
-        self.REQUEST_CACHE[hash(str(cache_data))] = dict(
-            response=dict(
-                err="",
-                retcode=constants.SUCCESSFUL_LOOKUP,
-                actions=all_actions,
-                pcs=config_names,
-            ),
-            time=time.time(),
-        )
+    def _query_cached_actions(self, cursor, data, pc_data, lookup_hash, project_entity, pipeline_config, entities, all_actions):
+        cached_data = []
+        try:
+            cursor.execute(
+                "SELECT commands FROM engine_commands WHERE lookup_hash=?",
+                (lookup_hash,)
+            )
+            cached_data = list(cursor.fetchone() or [])
+        except sqlite3.OperationalError:
+            # This means the sqlite database hasn't been setup at all.
+            # In that case, we just continue on with cached_data set
+            # to an empty list, which will cause the caching subprocess
+            # to be spawned, which will setup the database and populate
+            # with the data we need.
+            logger.debug(
+                "Cache query failed due to missing table. "
+                "Triggering caching subprocess..."
+            )
 
-        # Now trigger cache refresh for everything. We're doing this last so that we
-        # reply to the request ASAP.
-        for cache_callable in cache_callables:
-            cache_callable()
+        if cached_data:
+            # We check the validity of the cache after we reply in this
+            # situation. We're going to collect these into a list and then
+            # execute them after we've replied to the request so that we
+            # get menu actions back to the user ASAP.
+            cache_callable = functools.partial(
+                self._check_and_cache_actions,
+                data,
+                pc_data,
+            )
+
+            actions = self._process_commands(
+                commands=cPickle.loads(str(cached_data[0])),
+                project=project_entity,
+                entities=entities,
+            )
+
+            logger.debug("Actions found in cache: %s", actions)
+
+            all_actions[pipeline_config["name"]] = dict(
+                actions=self._filter_by_project(
+                    actions,
+                    self._get_software_entities(),
+                    project_entity,
+                ),
+                config=pipeline_config,
+            )
+            logger.debug("Actions after project filtering: %s", actions)
+            return cache_callable
+        else:
+            # Cache miss.
+            logger.debug("Commands not found in cache, caching now...")
+            # Caching is performed synchronously in this situation. We don't
+            # have anything to give to the client until it's done, so we do
+            # it in the main thread and wait for it to complete.
+            with _BOOTSTRAP_LOCK:
+                if self._check_and_cache_actions(data, pc_data):
+                    return self._query_cached_actions(
+                        cursor,
+                        data,
+                        pc_data,
+                        lookup_hash,
+                        project_entity,
+                        pipeline_config,
+                        entities,
+                        all_actions,
+                    )
+                else:
+                    return None
 
     def open(self, data):
         """
@@ -698,12 +701,9 @@ class ShotgunAPI(object):
     ###########################################################################
     # Internal methods
 
-    def _async_check_and_cache_actions(self, data, config_data):
+    def _check_and_cache_actions(self, data, config_data):
         """
         Checks the validity of existing cached data and recaches if necessary.
-
-        ..NOTE: This method runs asynchronously! To run the caching process in
-            a synchronous manner, see the _cache_actions method instead!
 
         :param dict data: The data passed down from the wss client.
         :param dict config_data: A dictionary that contains, at a minimum,
@@ -715,25 +715,12 @@ class ShotgunAPI(object):
         if lookup_hash in self.CACHE_VALIDATED:
             time_since = now - self.CACHE_VALIDATED[lookup_hash]
             if time_since < self.CACHE_VALIDATION_INTERVAL:
-                logger.debug(
-                    "Recaching of data for %s has already been initiated. "
-                    "This thread will exit without triggering a recache of "
-                    "actions for this entry.", lookup_hash
-                )
-                return
+                logger.debug("Config is being or has been cached recently. Not recaching: %s", lookup_hash)
+                return False
 
         self.CACHE_VALIDATED[lookup_hash] = now
-
-        logger.debug("Cache actions executing asynchronously...")
-        thread = threading.Thread(
-            target=self._cache_actions,
-            args=(
-                data,
-                config_data,
-            ),
-        )
-        thread.start()
-        logger.debug("Cache actions thread started.")
+        self._cache_actions(data, config_data)
+        return True
 
     @sgtk.LogManager.log_timing
     def _cache_actions(self, data, config_data):
@@ -785,8 +772,7 @@ class ShotgunAPI(object):
         # occur. We potentially have other threads wanting to cache, so
         # we protect ourselves from spawning concurrent caching subprocesses
         # that might end up stepping on each other.
-        with self._LOCK:
-            retcode, stdout, stderr = command.Command.call_cmd(args)
+        retcode, stdout, stderr = command.Command.call_cmd(args)
 
         if retcode == 0:
             logger.debug("Command stdout: %s", stdout)
@@ -854,7 +840,8 @@ class ShotgunAPI(object):
 
         # Once the config is cloned, we need to invalidate the in-memory cache
         # that contains the PipelineConfiguration entities queried from SG.
-        del self._cache[self.PIPELINE_CONFIGS]
+        if data['project_id'] in self._cache.get(self.PIPELINE_CONFIGS, dict()):
+            del self._cache[self.PIPELINE_CONFIGS][data['project_id']]
 
     def _filter_software_entities_by_project(self, sw_entities, project):
         """
@@ -1300,10 +1287,9 @@ class ShotgunAPI(object):
         if config_data_in_cache and \
            entity_type in cache[self.CONFIG_DATA] and \
            project_entity["id"] in cache[self.CONFIG_DATA][entity_type]:
-            logger.debug("%s pipeline config data found for %s", entity_type, self._wss_key)
+            logger.debug("%s pipeline config data found for %s", entity_type, self._origin)
         else:
             config_data = dict()
-
             pipeline_configs = self._get_pipeline_configurations(
                 manager,
                 project_entity,
@@ -1380,7 +1366,7 @@ class ShotgunAPI(object):
 
             # If we already have cached other entity types, we'll have the
             # config_data key already present in the cache. In that case, we
-            # just need to update it's contents with the new data. Otherwise,
+            # just need to update its contents with the new data. Otherwise,
             # we populate it from scratch.
             cache.setdefault(self.CONFIG_DATA, dict())
             cache[self.CONFIG_DATA].setdefault(entity_type, dict())
@@ -1406,10 +1392,6 @@ class ShotgunAPI(object):
         :returns: A list of PipelineConfiguration entity dictionaries.
         :rtype: list
         """
-        # The in-memory cache is keyed by the wss_key that is unique to each
-        # wss connection. If we've already queried and cached pipeline configs
-        # for the current wss connection, then we can just return that back to
-        # the caller.
         if self.PIPELINE_CONFIGS not in self._cache:
             self._cache[self.PIPELINE_CONFIGS] = dict()
 
@@ -1425,7 +1407,7 @@ class ShotgunAPI(object):
             )
         else:
             logger.debug(
-                "Cached PipelineConfiguration entities found for %s", self._wss_key
+                "Cached PipelineConfiguration entities found for %s", self._origin
             )
 
         # We'll deepcopy the data before returning it. That will ensure that
@@ -1458,7 +1440,7 @@ class ShotgunAPI(object):
                 fields=self.SOFTWARE_FIELDS,
             )
         else:
-            logger.debug("Cached software entities found for %s", self._wss_key)
+            logger.debug("Cached software entities found for %s", self._origin)
 
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
