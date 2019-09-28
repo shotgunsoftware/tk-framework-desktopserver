@@ -73,11 +73,9 @@ class ShotgunAPI(object):
     # Keys for the in-memory cache.
     TASK_PARENT_TYPES = "task_parent_types"
     PIPELINE_CONFIGS = "pipeline_configurations"
-    SITE_STATE_DATA = "site_state_data"
     CONFIG_DATA = "config_data"
     SOFTWARE_ENTITIES = "software_entities"
     ENTITY_TYPE_WHITELIST = "entity_type_whitelist"
-    YML_FILE_DATA = "yml_file_data"
     ENTITY_PARENT_PROJECTS = "entity_parent_projects"
     SHOTGUN_YML_FILES = "shotgun_yml_files"
 
@@ -335,6 +333,9 @@ class ShotgunAPI(object):
         :param dict data: The data passed down by the client. At a minimum,
             the dict should contain the following keys: project_id, entity_id,
             entity_type, pipeline_configs, and user.
+
+        :returns: A list of callables if re-caching is required for any configs.
+        :rtype: list
         """
         # If we weren't sent a usable entity id, we can just query the first one
         # from the project. This isn't a big deal for us, because we're only
@@ -528,6 +529,30 @@ class ShotgunAPI(object):
         return cache_callables
 
     def _query_cached_actions(self, cursor, data, pc_data, lookup_hash, project_entity, pipeline_config, entities, all_actions):
+        """
+        Queries for cached actions and stores those actions in the provided all_actions
+        dictionary. If re-caching is required due to cache age, a list of callables
+        will be returned that can be called to trigger those caching routines. If no
+        recaching is required, a None is returned. In the event of a cache miss, actions
+        will be cached synchronously.
+
+        :param cursor: An open handle to the cache sqlite database.
+        :param dict data: The data passed down by the client. At a minimum,
+            the dict should contain the following keys: project_id, entity_id,
+            entity_type, pipeline_configs, and user.
+        :param dict pc_data: The PipelineConfiguration data retrieved by the ToolkitManager
+            instance.
+        :param str lookup_hash: A cache key to use.
+        :param dict project_entity: The project associated with the request.
+        :param dict pipeline_config: The PipelineConfiguration to get actions from.
+        :param list entities: The entity or entities associated with the request.
+        :param dict all_actions: The dictionary to be populated with actions once they
+            have been retrieved.
+
+        :returns: A list of callables that can be used to trigger a recache, or None if
+            no recaching is required.
+        :rtype: list or None
+        """
         cached_data = []
         try:
             cursor.execute(
@@ -708,6 +733,9 @@ class ShotgunAPI(object):
         :param dict data: The data passed down from the wss client.
         :param dict config_data: A dictionary that contains, at a minimum,
             "lookup_hash", "descriptor", and "entity" keys.
+
+        :returns: True/False depending upon whether caching was triggered.
+        :rtype: bool
         """
         lookup_hash = config_data["lookup_hash"]
         now = time.time()
