@@ -25,6 +25,7 @@
 ###############################################################################
 
 from __future__ import absolute_import
+from __future__ import print_function
 
 import binascii
 import struct
@@ -41,7 +42,7 @@ __all__ = [
 
 try:
     # try to import everything we need for WAMP-cryptosign
-    from nacl import public, encoding, signing, bindings
+    from nacl import encoding, signing, bindings
 except ImportError:
     HAS_CRYPTOSIGN = False
 else:
@@ -137,10 +138,14 @@ class _SSHPacketReader:
         return value
 
     def get_uint32(self):
-        return int.from_bytes(self.get_bytes(4), 'big')
+        return struct.unpack('>I', self.get_bytes(4))[0]
 
     def get_string(self):
         return self.get_bytes(self.get_uint32())
+
+
+def _makepad(size):
+    return ''.join(chr(x) for x in range(1, size + 1))
 
 
 def _read_ssh_ed25519_privkey(keydata):
@@ -232,8 +237,8 @@ def _read_ssh_ed25519_privkey(keydata):
     comment = packet.get_string()                             # comment
     pad = packet.get_remaining_payload()
 
-    if len(pad) >= block_size or pad != bytes(range(1, len(pad) + 1)):
-        raise Exception('invalid OpenSSH private key')
+    if len(pad) and (len(pad) >= block_size or pad != _makepad(len(pad))):
+        raise Exception('invalid OpenSSH private key (padlen={}, actual_pad={}, expected_pad={})'.format(len(pad), pad, _makepad(len(pad))))
 
     # secret key (64 octets) = 32 octets seed || 32 octets secret key derived of seed
     seed = sk[:bindings.crypto_sign_SEEDBYTES]
@@ -363,7 +368,7 @@ if HAS_CRYPTOSIGN:
             """
 
             :param key: A Ed25519 private signing key or a Ed25519 public verification key.
-            :type key: instance of nacl.public.VerifyKey or instance of nacl.public.SigningKey
+            :type key: instance of nacl.signing.VerifyKey or instance of nacl.signing.SigningKey
             """
             if not (isinstance(key, signing.VerifyKey) or isinstance(key, signing.SigningKey)):
                 raise Exception("invalid type {} for key".format(type(key)))
@@ -448,6 +453,9 @@ if HAS_CRYPTOSIGN:
             """
             Sign WAMP-cryptosign challenge.
 
+            :param session: The authenticating WAMP session.
+            :type session: :class:`autobahn.wamp.protocol.ApplicationSession`
+
             :param challenge: The WAMP-cryptosign challenge object for which a signature should be computed.
             :type challenge: instance of autobahn.wamp.types.Challenge
 
@@ -455,13 +463,19 @@ if HAS_CRYPTOSIGN:
             :rtype: str
             """
             if not isinstance(challenge, Challenge):
-                raise Exception("challenge must be instance of autobahn.wamp.types.Challenge, not {}".format(type(challenge)))
+                raise Exception(u"challenge must be instance of autobahn.wamp.types.Challenge, not {}".format(type(challenge)))
 
             if u'challenge' not in challenge.extra:
-                raise Exception("missing challenge value in challenge.extra")
+                raise Exception(u"missing challenge value in challenge.extra")
 
             # the challenge sent by the router (a 32 bytes random value)
             challenge_hex = challenge.extra[u'challenge']
+
+            if type(challenge_hex) != six.text_type:
+                raise Exception(u"invalid type {} for challenge (expected a hex string)".format(type(challenge_hex)))
+
+            if len(challenge_hex) != 64:
+                raise Exception(u"unexpected challenge (hex) length: was {}, but expected 64".format(len(challenge_hex)))
 
             # the challenge for WAMP-cryptosign is a 32 bytes random value in Hex encoding (that is, a unicode string)
             challenge_raw = binascii.a2b_hex(challenge_hex)
@@ -470,6 +484,7 @@ if HAS_CRYPTOSIGN:
             # is the XOR of the challenge and the channel ID
             channel_id_raw = session._transport.get_channel_id()
             if channel_id_raw:
+                assert len(channel_id_raw) == 32, 'unexpected TLS transport channel ID length: was {}, but expected 32'.format(len(channel_id_raw))
                 data = util.xor(challenge_raw, channel_id_raw)
             else:
                 data = challenge_raw
@@ -501,8 +516,11 @@ if HAS_CRYPTOSIGN:
             if not (comment is None or type(comment) == six.text_type):
                 raise ValueError("invalid type {} for comment".format(type(comment)))
 
+            if type(keydata) != six.binary_type:
+                raise ValueError("invalid key type {} (expected binary)".format(type(keydata)))
+
             if len(keydata) != 32:
-                raise ValueError("invalid key length {}".format(len(keydata)))
+                raise ValueError("invalid key length {} (expected 32)".format(len(keydata)))
 
             key = signing.SigningKey(keydata)
             return cls(key, comment)
@@ -543,18 +561,51 @@ if HAS_CRYPTOSIGN:
             key (from a SSH private key file) or a (public) verification key (from a SSH
             public key file). A private key file must be passphrase-less.
             """
+
+            with open(filename, 'rb') as f:
+                keydata = f.read().decode('utf-8').strip()
+            return cls.from_ssh_data(keydata)
+
+        @util.public
+        @classmethod
+        def from_ssh_data(cls, keydata):
+            """
+            Load an Ed25519 key from SSH key file. The key file can be a (private) signing
+            key (from a SSH private key file) or a (public) verification key (from a SSH
+            public key file). A private key file must be passphrase-less.
+            """
             SSH_BEGIN = u'-----BEGIN OPENSSH PRIVATE KEY-----'
-
-            with open(filename, 'r') as f:
-                keydata = f.read().strip()
-
             if keydata.startswith(SSH_BEGIN):
                 # OpenSSH private key
                 keydata, comment = _read_ssh_ed25519_privkey(keydata)
                 key = signing.SigningKey(keydata, encoder=encoding.RawEncoder)
             else:
                 # OpenSSH public key
-                keydata, comment = _read_ssh_ed25519_pubkey(filename)
-                key = public.PublicKey(keydata, encoder=encoding.RawEncoder)
+                keydata, comment = _read_ssh_ed25519_pubkey(keydata)
+                key = signing.VerifyKey(keydata)
 
             return cls(key, comment)
+
+if __name__ == '__main__':
+    import sys
+    if not HAS_CRYPTOSIGN:
+        print('NaCl library must be installed for this to function.', file=sys.stderr)
+        sys.exit(1)
+
+    from optparse import OptionParser
+
+    parser = OptionParser()
+    parser.add_option('-f', '--file', dest='keyfile',
+                      help='file containing ssh key')
+    parser.add_option('-p', action='store_true', dest='printpub', default=False,
+                      help='print public key information')
+
+    options, args = parser.parse_args()
+
+    if not options.printpub:
+        print("Print public key must be specified as it's the only option.")
+        parser.print_usage()
+        sys.exit(1)
+
+    key = SigningKey.from_ssh_key(options.keyfile)
+    print(key.public_key())

@@ -47,13 +47,17 @@ from autobahn.websocket.interfaces import IWebSocketChannel, \
     IWebSocketChannelStreamingApi
 
 from autobahn.websocket.types import ConnectionRequest, ConnectionResponse, ConnectionDeny
+from autobahn.websocket.types import ConnectingRequest
 
 from autobahn.util import Stopwatch, newid, wildcards2patterns, encode_truncate
 from autobahn.util import _LazyHexFormatter
+from autobahn.util import ObservableMixin
 from autobahn.websocket.utf8validator import Utf8Validator
 from autobahn.websocket.xormasker import XorMaskerNull, create_xor_masker
 from autobahn.websocket.compress import PERMESSAGE_COMPRESSION_EXTENSION
 from autobahn.websocket.util import parse_url
+from autobahn.exception import PayloadExceededError
+from autobahn.util import _maybe_tls_reason
 
 from six.moves import urllib
 import txaio
@@ -356,7 +360,7 @@ class Timings(object):
         return pformat(self._timings)
 
 
-class WebSocketProtocol(object):
+class WebSocketProtocol(ObservableMixin):
     """
     Protocol base class for WebSocket.
 
@@ -547,6 +551,12 @@ class WebSocketProtocol(object):
     def __init__(self):
         #: a Future/Deferred that fires when we hit STATE_CLOSED
         self.is_closed = txaio.create_future()
+        self.is_open = txaio.create_future()
+        # XXX should we have open/close here too, or do you HAVE to use is_closed future?
+        # XXX what about when_open() and when_closed() as well/instead?
+        self.set_valid_events([
+            "message",  # like onMessage (takes: payload, is_binary=)
+        ])
 
     def onOpen(self):
         """
@@ -572,16 +582,14 @@ class WebSocketProtocol(object):
         if not self.failedByMe:
             if 0 < self.maxMessagePayloadSize < self.message_data_total_length:
                 self.wasMaxMessagePayloadSizeExceeded = True
-                self._fail_connection(
-                    WebSocketProtocol.CLOSE_STATUS_CODE_MESSAGE_TOO_BIG,
-                    u'message exceeds payload limit of {} octets'.format(self.maxMessagePayloadSize)
-                )
+                self._max_message_size_exceeded(self.message_data_total_length,
+                                                self.maxMessagePayloadSize,
+                                                u'received WebSocket message size {} exceeds payload limit of {} octets'.format(self.message_data_total_length, self.maxMessagePayloadSize))
             elif 0 < self.maxFramePayloadSize < length:
                 self.wasMaxFramePayloadSizeExceeded = True
-                self._fail_connection(
-                    WebSocketProtocol.CLOSE_STATUS_CODE_POLICY_VIOLATION,
-                    u'frame exceeds payload limit of {} octets'.format(self.maxFramePayloadSize)
-                )
+                self._max_message_size_exceeded(length,
+                                                self.maxFramePayloadSize,
+                                                u'received WebSocket frame size {} exceeds payload limit of {} octets'.format(length, self.maxFramePayloadSize))
 
     def onMessageFrameData(self, payload):
         """
@@ -592,10 +600,9 @@ class WebSocketProtocol(object):
                 self.message_data_total_length += len(payload)
                 if 0 < self.maxMessagePayloadSize < self.message_data_total_length:
                     self.wasMaxMessagePayloadSizeExceeded = True
-                    self._fail_connection(
-                        WebSocketProtocol.CLOSE_STATUS_CODE_MESSAGE_TOO_BIG,
-                        u'message exceeds payload limit of {} octets'.format(self.maxMessagePayloadSize)
-                    )
+                    self._max_message_size_exceeded(self.message_data_total_length,
+                                                    self.maxMessagePayloadSize,
+                                                    u'received (partial) WebSocket message size {} (already) exceeds payload limit of {} octets'.format(self.message_data_total_length, self.maxMessagePayloadSize))
                 self.message_data.append(payload)
             else:
                 self.frame_data.append(payload)
@@ -625,6 +632,18 @@ class WebSocketProtocol(object):
             if self.trackedTimings:
                 self.trackedTimings.track("onMessage")
             self._onMessage(payload, self.message_is_binary)
+
+            # notify any listeners about this message
+
+            f = self.fire("message", payload, is_binary=self.message_is_binary)
+
+            def error(f):
+                self.log.error(
+                    "Firing signal 'message' failed: {fail}",
+                    fail=f,
+                )
+                # all we can really do here is log; user code error
+            txaio.add_callbacks(f, None, error)
 
         self.message_data = None
 
@@ -837,6 +856,7 @@ class WebSocketProtocol(object):
         """
         Drop the underlying TCP connection.
         """
+        self.unregisterProducer()
         if self.state != WebSocketProtocol.STATE_CLOSED:
 
             if self.wasClean:
@@ -856,12 +876,19 @@ class WebSocketProtocol(object):
         else:
             self.log.debug('dropping connection to peer {peer} skipped - connection already closed', peer=self.peer)
 
+    def _max_message_size_exceeded(self, msg_size, max_msg_size, reason):
+        # hook that is fired when a message is (to be) received that is larger than what is configured to be handled
+        if True:
+            self._fail_connection(WebSocketProtocol.CLOSE_STATUS_CODE_MESSAGE_TOO_BIG, reason)
+        else:
+            raise PayloadExceededError(reason)
+
     def _fail_connection(self, code=CLOSE_STATUS_CODE_GOING_AWAY, reason=u'going away'):
         """
         Fails the WebSocket connection.
         """
         if self.state != WebSocketProtocol.STATE_CLOSED:
-            self.log.debug("failing connection: {code}: {reason}", code=code, reason=reason)
+            self.log.warn('failing WebSocket connection (code={code}): "{reason}"', code=code, reason=reason)
 
             self.failedByMe = True
 
@@ -1081,6 +1108,11 @@ class WebSocketProtocol(object):
             self.autoPingTimeoutCall.cancel()
             self.autoPingTimeoutCall = None
 
+        # our handshake timeout may not have fired
+        if self.openHandshakeTimeoutCall is not None:
+            self.openHandshakeTimeoutCall.cancel()
+            self.openHandshakeTimeoutCall = None
+
         # check required here because in some scenarios dropConnection
         # will already have resolved the Future/Deferred.
         if self.state != WebSocketProtocol.STATE_CLOSED:
@@ -1092,10 +1124,16 @@ class WebSocketProtocol(object):
         else:
             if not self.wasClean:
                 if not self.droppedByMe and self.wasNotCleanReason is None:
-                    self.wasNotCleanReason = u'peer dropped the TCP connection without previous WebSocket closing handshake'
+                    reason_value = getattr(reason, 'value', None)
+                    reason_string = None if not reason_value else _maybe_tls_reason(reason_value)
+                    if reason_string:
+                        self.wasNotCleanReason = reason_string
+                    else:
+                        self.wasNotCleanReason = u'peer dropped the TCP connection without previous WebSocket closing handshake'
                 self._onClose(self.wasClean, WebSocketProtocol.CLOSE_STATUS_CODE_ABNORMAL_CLOSE, "connection was closed uncleanly (%s)" % self.wasNotCleanReason)
             else:
                 self._onClose(self.wasClean, self.remoteCloseCode, self.remoteCloseReason)
+            # XXX could self.fire("close", ...) here if we want?
 
     def logRxOctets(self, data):
         """
@@ -1617,6 +1655,7 @@ class WebSocketProtocol(object):
                     octets=_LazyHexFormatter(payload),
                 )
 
+                # XXX oberstet
                 payload = self._perMessageCompress.decompress_message_data(payload)
                 uncompressedLen = len(payload)
             else:
@@ -1770,7 +1809,7 @@ class WebSocketProtocol(object):
             if len(payload) < 1:
                 raise Exception("cannot construct repeated payload with length %d from payload of length %d" % (payload_len, len(payload)))
             l = payload_len
-            pl = b''.join([payload for _ in range(payload_len / len(payload))]) + payload[:payload_len % len(payload)]
+            pl = b''.join([payload for _ in range(payload_len // len(payload))]) + payload[:payload_len % len(payload)]
         else:
             l = len(payload)
             pl = payload
@@ -2161,7 +2200,11 @@ class WebSocketProtocol(object):
         """
         Implements :func:`autobahn.websocket.interfaces.IWebSocketChannel.sendMessage`
         """
-        assert(type(payload) == bytes)
+        assert type(payload) == six.binary_type, '"payload" must have type bytes, but was "{}"'.format(type(payload))
+        assert type(isBinary) == bool, '"isBinary" must have type bool, but was "{}"'.format(type(isBinary))
+        assert fragmentSize is None or type(fragmentSize) == bool, '"fragmentSize" must have type bool, but was "{}"'.format(type(fragmentSize))
+        assert type(sync) == bool, '"sync" must have type bool, but was "{}"'.format(type(sync))
+        assert type(doNotCompress) == bool, '"doNotCompress" must have type bool, but was "{}"'.format(type(doNotCompress))
 
         if self.state != WebSocketProtocol.STATE_OPEN:
             return
@@ -2191,13 +2234,21 @@ class WebSocketProtocol(object):
             payload2 = self._perMessageCompress.end_compress_message()
             payload = b''.join([payload1, payload2])
 
-            self.trafficStats.outgoingOctetsWebSocketLevel += len(payload)
+            payload_len = len(payload)
+
+            self.trafficStats.outgoingOctetsWebSocketLevel += payload_len
 
         else:
             sendCompressed = False
-            l = len(payload)
-            self.trafficStats.outgoingOctetsAppLevel += l
-            self.trafficStats.outgoingOctetsWebSocketLevel += l
+            payload_len = len(payload)
+            self.trafficStats.outgoingOctetsAppLevel += payload_len
+            self.trafficStats.outgoingOctetsWebSocketLevel += payload_len
+
+        if 0 < self.maxMessagePayloadSize < payload_len:
+            self.wasMaxMessagePayloadSizeExceeded = True
+            emsg = u'tried to send WebSocket message with size {} exceeding payload limit of {} octets'.format(payload_len, self.maxMessagePayloadSize)
+            self.log.warn(emsg)
+            raise PayloadExceededError(emsg)
 
         # explicit fragmentSize arguments overrides autoFragmentSize setting
         #
@@ -2997,6 +3048,8 @@ class WebSocketServerProtocol(WebSocketProtocol):
             self.trackedTimings.track("onOpen")
         self._onOpen()
 
+        txaio.resolve(self.is_open, None)
+
         # process rest, if any
         #
         if len(self.data) > 0:
@@ -3320,6 +3373,18 @@ class WebSocketClientProtocol(WebSocketProtocol):
 
     CONFIG_ATTRS = WebSocketProtocol.CONFIG_ATTRS_COMMON + WebSocketProtocol.CONFIG_ATTRS_CLIENT
 
+    def onConnecting(self, transport_details):
+        """
+        :param transport_details: a :class:`autobahn.websocket.types.TransportDetails`
+
+        Callback fired after the connection is established, but before the
+        handshake has started. This may return a
+        :class:`autobahn.websocket.types.ConnectingRequest` instance
+        (or a future which resolves to one) to control aspects of the
+        handshake (or None for defaults)
+        """
+        pass
+
     def onConnect(self, response):
         """
         Callback fired directly after WebSocket opening handshake when new WebSocket server
@@ -3362,13 +3427,13 @@ class WebSocketClientProtocol(WebSocketProtocol):
         """
         # construct proxy connect HTTP request
         #
-        request = "CONNECT %s:%d HTTP/1.1\x0d\x0a" % (self.factory.host.encode("utf-8"), self.factory.port)
-        request += "Host: %s:%d\x0d\x0a" % (self.factory.host.encode("utf-8"), self.factory.port)
+        request = "CONNECT %s:%d HTTP/1.1\x0d\x0a" % (self.factory.host, self.factory.port)
+        request += "Host: %s:%d\x0d\x0a" % (self.factory.host, self.factory.port)
         request += "\x0d\x0a"
 
         self.log.debug("{request}", request=request)
 
-        self.sendData(request)
+        self.sendData(request.encode('utf8'))
 
     def processProxyConnect(self):
         """
@@ -3462,14 +3527,60 @@ class WebSocketClientProtocol(WebSocketProtocol):
         Start WebSocket opening handshake.
         """
 
+        # extract framework-specific transport information
+        transport_details = self._create_transport_details()
+
+        # ask our specialized framework-specific (or user-code) for a
+        # ConnectingRequest instance
+        options_d = txaio.as_future(self.onConnecting, transport_details)
+
+        def got_options(request_options):
+            """
+            onConnecting succeeded and returned options
+            """
+            if request_options is None:
+                # Note, before onConnecting was added, everything came
+                # from self.factory so we get the required parameters from
+                # there still by default
+                request_options = ConnectingRequest(
+                    # required (no defaults):
+                    host=self.factory.host,
+                    port=self.factory.port,
+                    resource=self.factory.resource,
+                    # optional (useful defaults):
+                    headers=self.factory.headers,  # might be None
+                    useragent=self.factory.useragent,  # might be None
+                    origin=self.factory.origin,  # might be None
+                    protocols=self.factory.protocols,  # might be None
+                )
+            self._actuallyStartHandshake(request_options)
+            return request_options
+
+        def options_failed(fail):
+            self.log.error(
+                "onConnecting failed: {fail}",
+                fail=fail,
+            )
+            self.dropConnection(abort=False)
+            return None
+        txaio.add_callbacks(options_d, got_options, options_failed)
+        return options_d
+
+    def _actuallyStartHandshake(self, request_options):
+        """
+        Internal helper.
+
+        Actually send the WebSocket opening handshake after receiving
+        valid request options.
+        """
         # construct WS opening handshake HTTP header
         #
-        request = "GET %s HTTP/1.1\x0d\x0a" % self.factory.resource
+        request = "GET %s HTTP/1.1\x0d\x0a" % request_options.resource
 
-        if self.factory.useragent is not None and self.factory.useragent != "":
-            request += "User-Agent: %s\x0d\x0a" % self.factory.useragent
+        if request_options.useragent is not None and request_options.useragent != "":
+            request += "User-Agent: %s\x0d\x0a" % request_options.useragent
 
-        request += "Host: %s:%d\x0d\x0a" % (self.factory.host, self.factory.port)
+        request += "Host: %s:%d\x0d\x0a" % (request_options.host, request_options.port)
         request += "Upgrade: WebSocket\x0d\x0a"
         request += "Connection: Upgrade\x0d\x0a"
 
@@ -3484,7 +3595,7 @@ class WebSocketClientProtocol(WebSocketProtocol):
 
         # optional, user supplied additional HTTP headers
         #
-        for uh in self.factory.headers.items():
+        for uh in request_options.headers.items():
             request += "%s: %s\x0d\x0a" % (uh[0], uh[1])
 
         # handshake random key
@@ -3494,16 +3605,16 @@ class WebSocketClientProtocol(WebSocketProtocol):
 
         # optional origin announced
         #
-        if self.factory.origin:
+        if request_options.origin:
             if self.version > 10:
-                request += "Origin: %s\x0d\x0a" % self.factory.origin
+                request += "Origin: %s\x0d\x0a" % request_options.origin
             else:
-                request += "Sec-WebSocket-Origin: %s\x0d\x0a" % self.factory.origin
+                request += "Sec-WebSocket-Origin: %s\x0d\x0a" % request_options.origin
 
         # optional list of WS subprotocols announced
         #
-        if len(self.factory.protocols) > 0:
-            request += "Sec-WebSocket-Protocol: %s\x0d\x0a" % ','.join(self.factory.protocols)
+        if len(request_options.protocols) > 0:
+            request += "Sec-WebSocket-Protocol: %s\x0d\x0a" % ','.join(request_options.protocols)
 
         # extensions
         #
@@ -3742,6 +3853,8 @@ class WebSocketClientProtocol(WebSocketProtocol):
                 if self.trackedTimings:
                     self.trackedTimings.track("onOpen")
                 self._onOpen()
+
+            txaio.resolve(self.is_open, None)
 
             # process rest, if any
             #

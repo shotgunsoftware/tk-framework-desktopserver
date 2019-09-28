@@ -26,3 +26,5 @@ rm -rf bin/linux/Crypto/SelfTest
 
 rm -rf bin/linux/zope/interface/tests
 rm -rf bin/linux/zope/interface/*/tests
+
+git add bin/linux

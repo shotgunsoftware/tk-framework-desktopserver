@@ -35,14 +35,28 @@ import binascii
 import hmac
 import hashlib
 import random
-from struct import Struct
-from operator import xor
-from itertools import starmap
+
 from autobahn.util import public
+from autobahn.util import xor as xor_array
 from autobahn.wamp.interfaces import IAuthenticator
+
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
+
+# if we don't have argon2/passlib (see "authentication" extra) then
+# you don't get AuthScram and variants
+try:
+    from argon2.low_level import hash_secret
+    from argon2 import Type
+    from passlib.utils import saslprep
+    HAS_ARGON = True
+except ImportError:
+    HAS_ARGON = False
 
 
 __all__ = (
+    'AuthScram',
     'AuthCryptoSign',
     'AuthWampCra',
     'pbkdf2',
@@ -65,8 +79,11 @@ def create_authenticator(name, **kwargs):
     """
     try:
         klass = {
-            AuthWampCra.name: AuthWampCra,
+            AuthScram.name: AuthScram,
             AuthCryptoSign.name: AuthCryptoSign,
+            AuthWampCra.name: AuthWampCra,
+            AuthAnonymous.name: AuthAnonymous,
+            AuthTicket.name: AuthTicket,
         }[name]
     except KeyError:
         raise ValueError(
@@ -78,6 +95,55 @@ def create_authenticator(name, **kwargs):
 
 
 # experimental authentication API
+class AuthAnonymous(object):
+    name = u'anonymous'
+
+    def __init__(self, **kw):
+        self._args = kw
+
+    @property
+    def authextra(self):
+        return self._args.get(u'authextra', dict())
+
+    def on_challenge(self, session, challenge):
+        raise RuntimeError(
+            "on_challenge called on anonymous authentication"
+        )
+
+    def on_welcome(self, msg, authextra):
+        return None
+
+
+IAuthenticator.register(AuthAnonymous)
+
+
+class AuthTicket(object):
+    name = u'ticket'
+
+    def __init__(self, **kw):
+        self._args = kw
+        try:
+            self._ticket = self._args.pop(u'ticket')
+        except KeyError:
+            raise ValueError(
+                "ticket authentication requires 'ticket=' kwarg"
+            )
+
+    @property
+    def authextra(self):
+        return self._args.get(u'authextra', dict())
+
+    def on_challenge(self, session, challenge):
+        assert challenge.method == u"ticket"
+        return self._ticket
+
+    def on_welcome(self, msg, authextra):
+        return None
+
+
+IAuthenticator.register(AuthTicket)
+
+
 class AuthCryptoSign(object):
     name = u'cryptosign'
 
@@ -122,8 +188,146 @@ class AuthCryptoSign(object):
     def on_challenge(self, session, challenge):
         return self._privkey.sign_challenge(session, challenge)
 
+    def on_welcome(self, msg, authextra):
+        return None
+
 
 IAuthenticator.register(AuthCryptoSign)
+
+
+def _hash_argon2id13_secret(password, salt, iterations, memory):
+    """
+    Internal helper. Returns the salted/hashed password using the
+    argon2id-13 algorithm. The return value is base64-encoded.
+    """
+    rawhash = hash_secret(
+        secret=password,
+        salt=base64.b64decode(salt),
+        time_cost=iterations,
+        memory_cost=memory,
+        parallelism=1,  # hard-coded by WAMP-SCRAM spec
+        hash_len=32,
+        type=Type.ID,
+        version=0x13,  # note this is decimal "19" which appears in places
+    )
+    # spits out stuff like:
+    # '$argon2i$v=19$m=512,t=2,p=2$5VtWOO3cGWYQHEMaYGbsfQ$AcmqasQgW/wI6wAHAMk4aQ'
+
+    _, tag, ver, options, salt_data, hash_data = rawhash.split(b'$')
+    return hash_data
+
+
+def _hash_pbkdf2_secret(password, salt, iterations):
+    """
+    Internal helper for SCRAM authentication
+    """
+    return pbkdf2(password, salt, iterations, keylen=32)
+
+
+class AuthScram(object):
+    """
+    Implements "wamp-scram" authentication for components.
+
+    NOTE: This is a prototype of a draft spec; see
+    https://github.com/wamp-proto/wamp-proto/issues/135
+    """
+    name = u'scram'
+
+    def __init__(self, **kw):
+        if not HAS_ARGON:
+            raise RuntimeError(
+                "Cannot support WAMP-SCRAM without argon2_cffi and "
+                "passlib libraries; install autobahn['scram']"
+            )
+        self._args = kw
+        self._client_nonce = None
+
+    @property
+    def authextra(self):
+        # is authextra() called exactly once per authentication?
+        if self._client_nonce is None:
+            self._client_nonce = base64.b64encode(os.urandom(16)).decode('ascii')
+        return {
+            u"nonce": self._client_nonce,
+        }
+
+    def on_challenge(self, session, challenge):
+        assert challenge.method == u"scram"
+        assert self._client_nonce is not None
+        required_args = ['nonce', 'kdf', 'salt', 'iterations']
+        optional_args = ['memory', 'channel_binding']
+        for k in required_args:
+            if k not in challenge.extra:
+                raise RuntimeError(
+                    "WAMP-SCRAM challenge option '{}' is "
+                    " required but not specified".format(k)
+                )
+        for k in challenge.extra:
+            if k not in optional_args + required_args:
+                raise RuntimeError(
+                    "WAMP-SCRAM challenge has unknown attribute '{}'".format(k)
+                )
+
+        channel_binding = challenge.extra.get(u'channel_binding', u'')
+        server_nonce = challenge.extra[u'nonce']  # base64
+        salt = challenge.extra[u'salt']  # base64
+        iterations = int(challenge.extra[u'iterations'])
+        memory = int(challenge.extra.get(u'memory', -1))
+        password = self._args['password'].encode('utf8')  # supplied by user
+        authid = saslprep(self._args['authid'])
+        algorithm = challenge.extra[u'kdf']
+        client_nonce = self._client_nonce
+
+        self._auth_message = (
+            u"{client_first_bare},{server_first},{client_final_no_proof}".format(
+                client_first_bare=u"n={},r={}".format(authid, client_nonce),
+                server_first=u"r={},s={},i={}".format(server_nonce, salt, iterations),
+                client_final_no_proof=u"c={},r={}".format(channel_binding, server_nonce),
+            )
+        ).encode('ascii')
+
+        if algorithm == u'argon2id-13':
+            if memory == -1:
+                raise ValueError(
+                    "WAMP-SCRAM 'argon2id-13' challenge requires 'memory' parameter"
+                )
+            self._salted_password = _hash_argon2id13_secret(password, salt, iterations, memory)
+        elif algorithm == u'pbkdf2':
+            self._salted_password = _hash_pbkdf2_secret(password, salt, iterations)
+        else:
+            raise RuntimeError(
+                "WAMP-SCRAM specified unknown KDF '{}'".format(algorithm)
+            )
+
+        client_key = hmac.new(self._salted_password, b"Client Key", hashlib.sha256).digest()
+        stored_key = hashlib.new('sha256', client_key).digest()
+
+        client_signature = hmac.new(stored_key, self._auth_message, hashlib.sha256).digest()
+        client_proof = xor_array(client_key, client_signature)
+
+        return base64.b64encode(client_proof)
+
+    def on_welcome(self, session, authextra):
+        """
+        When the server is satisfied, it sends a 'WELCOME' message.
+
+        This hook allows us an opportunity to deny the session right
+        before it gets set up -- we check the server-signature thus
+        authorizing the server and if it fails we drop the connection.
+        """
+        alleged_server_sig = base64.b64decode(authextra['scram_server_signature'])
+        server_key = hmac.new(self._salted_password, b"Server Key", hashlib.sha256).digest()
+        server_signature = hmac.new(server_key, self._auth_message, hashlib.sha256).digest()
+        if not hmac.compare_digest(server_signature, alleged_server_sig):
+            session.log.error("Verification of server SCRAM signature failed")
+            return "Verification of server SCRAM signature failed"
+        session.log.info(
+            "Verification of server SCRAM signature successful"
+        )
+        return None
+
+
+IAuthenticator.register(AuthScram)
 
 
 class AuthWampCra(object):
@@ -166,6 +370,9 @@ class AuthWampCra(object):
             challenge.extra['challenge'].encode('utf8')
         )
         return signature.decode('ascii')
+
+    def on_welcome(self, msg, authextra):
+        return None
 
 
 IAuthenticator.register(AuthWampCra)
@@ -265,52 +472,6 @@ def qrcode_from_totp(secret, label, issuer):
     return buffer.getvalue()
 
 
-#
-# The following code is adapted from the pbkdf2_bin() function
-# in here https://github.com/mitsuhiko/python-pbkdf2
-# Copyright 2011 by Armin Ronacher. Licensed under BSD license.
-# https://github.com/mitsuhiko/python-pbkdf2/blob/master/LICENSE
-#
-_pack_int = Struct('>I').pack
-
-if six.PY3:
-
-    def _pseudorandom(x, mac):
-        h = mac.copy()
-        h.update(x)
-        return h.digest()
-
-    def _pbkdf2(data, salt, iterations, keylen, hashfunc):
-        mac = hmac.new(data, None, hashfunc)
-        buf = []
-        for block in range(1, -(-keylen // mac.digest_size) + 1):
-            rv = u = _pseudorandom(salt + _pack_int(block), mac)
-            for i in range(iterations - 1):
-                u = _pseudorandom(u, mac)
-                rv = starmap(xor, zip(rv, u))
-            buf.extend(rv)
-        return bytes(buf)[:keylen]
-
-else:
-    from itertools import izip
-
-    def _pseudorandom(x, mac):
-        h = mac.copy()
-        h.update(x)
-        return map(ord, h.digest())
-
-    def _pbkdf2(data, salt, iterations, keylen, hashfunc):
-        mac = hmac.new(data, None, hashfunc)
-        buf = []
-        for block in range(1, -(-keylen // mac.digest_size) + 1):
-            rv = u = _pseudorandom(salt + _pack_int(block), mac)
-            for i in range(iterations - 1):
-                u = _pseudorandom(''.join(map(chr, u)), mac)
-                rv = starmap(xor, izip(rv, u))
-            buf.extend(rv)
-        return ''.join(map(chr, buf))[:keylen]
-
-
 @public
 def pbkdf2(data, salt, iterations=1000, keylen=32, hashfunc=None):
     """
@@ -327,17 +488,38 @@ def pbkdf2(data, salt, iterations=1000, keylen=32, hashfunc=None):
     :type iterations: int
     :param keylen: The length of the cryptographic key to derive.
     :type keylen: int
-    :param hashfunc: The hash function to use, e.g. ``hashlib.sha1``.
-    :type hashfunc: callable
+    :param hashfunc: Name of the hash algorithm to use
+    :type hashfunc: str
 
     :returns: The derived cryptographic key.
     :rtype: bytes
     """
-    assert(type(data) == bytes)
-    assert(type(salt) == bytes)
-    assert(type(iterations) in six.integer_types)
-    assert(type(keylen) in six.integer_types)
-    return _pbkdf2(data, salt, iterations, keylen, hashfunc or hashlib.sha256)
+    if not (type(data) == bytes) or \
+       not (type(salt) == bytes) or \
+       not (type(iterations) in six.integer_types) or \
+       not (type(keylen) in six.integer_types):
+        raise ValueError("Invalid argument types")
+
+    # justification: WAMP-CRA uses SHA256 and users shouldn't have any
+    # other reason to call this particular pbkdf2 function (arguably,
+    # it should be private maybe?)
+    if hashfunc is None:
+        hashfunc = 'sha256'
+    if hashfunc is callable:
+        # used to take stuff from hashlib; translate?
+        raise ValueError(
+            "pbkdf2 now takes the name of a hash algorithm for 'hashfunc='"
+        )
+
+    backend = default_backend()
+    kdf = PBKDF2HMAC(
+        algorithm=getattr(hashes, hashfunc.upper()),
+        length=keylen,
+        salt=salt,
+        iterations=iterations,
+        backend=backend,
+    )
+    return kdf.derive(data)
 
 
 @public
@@ -359,10 +541,14 @@ def derive_key(secret, salt, iterations=1000, keylen=32):
     :return: The derived key in Base64 encoding.
     :rtype: bytes
     """
-    assert(type(secret) in [six.text_type, six.binary_type])
-    assert(type(salt) in [six.text_type, six.binary_type])
-    assert(type(iterations) in six.integer_types)
-    assert(type(keylen) in six.integer_types)
+    if not (type(secret) in [six.text_type, six.binary_type]):
+        raise ValueError("'secret' must be bytes")
+    if not (type(salt) in [six.text_type, six.binary_type]):
+        raise ValueError("'salt' must be bytes")
+    if not (type(iterations) in six.integer_types):
+        raise ValueError("'iterations' must be an integer")
+    if not (type(keylen) in six.integer_types):
+        raise ValueError("'keylen' must be an integer")
     if type(secret) == six.text_type:
         secret = secret.encode('utf8')
     if type(salt) == six.text_type:

@@ -30,8 +30,7 @@ from __future__ import absolute_import, print_function
 import six
 import ssl  # XXX what Python version is this always available at?
 import signal
-import itertools
-from functools import partial
+from functools import wraps
 
 try:
     import asyncio
@@ -47,19 +46,13 @@ from autobahn.asyncio.websocket import WampWebSocketClientFactory
 from autobahn.asyncio.rawsocket import WampRawSocketClientFactory
 
 from autobahn.wamp import component
+from autobahn.wamp.exception import TransportLost
 
 from autobahn.asyncio.wamp import Session
-from autobahn.wamp.exception import ApplicationError
+from autobahn.wamp.serializer import create_transport_serializers, create_transport_serializer
 
 
-__all__ = ('Component',)
-
-
-def _is_ssl_error(e):
-    """
-    Internal helper.
-    """
-    return isinstance(e, ssl.SSLError)
+__all__ = ('Component', 'run')
 
 
 def _unique_list(seq):
@@ -68,68 +61,6 @@ def _unique_list(seq):
     """
     seen = set()
     return [x for x in seq if x not in seen and not seen.add(x)]
-
-
-def _create_transport_serializer(serializer_id):
-    if serializer_id in [u'msgpack', u'mgspack.batched']:
-        # try MsgPack WAMP serializer
-        try:
-            from autobahn.wamp.serializer import MsgPackSerializer
-        except ImportError:
-            pass
-        else:
-            if serializer_id == u'mgspack.batched':
-                return MsgPackSerializer(batched=True)
-            else:
-                return MsgPackSerializer()
-
-    if serializer_id in [u'json', u'json.batched']:
-        # try JSON WAMP serializer
-        try:
-            from autobahn.wamp.serializer import JsonSerializer
-        except ImportError:
-            pass
-        else:
-            if serializer_id == u'json.batched':
-                return JsonSerializer(batched=True)
-            else:
-                return JsonSerializer()
-
-    raise RuntimeError('could not create serializer for "{}"'.format(serializer_id))
-
-
-def _create_transport_serializers(transport):
-    """
-    Create a list of serializers to use with a WAMP protocol factory.
-    """
-    serializers = []
-    for serializer_id in transport.serializers:
-        if serializer_id == u'msgpack':
-            # try MsgPack WAMP serializer
-            try:
-                from autobahn.wamp.serializer import MsgPackSerializer
-            except ImportError:
-                pass
-            else:
-                serializers.append(MsgPackSerializer(batched=True))
-                serializers.append(MsgPackSerializer())
-
-        elif serializer_id == u'json':
-            # try JSON WAMP serializer
-            try:
-                from autobahn.wamp.serializer import JsonSerializer
-            except ImportError:
-                pass
-            else:
-                serializers.append(JsonSerializer(batched=True))
-                serializers.append(JsonSerializer())
-
-        else:
-            raise RuntimeError(
-                "Unknown serializer '{}'".format(serializer_id)
-            )
-
-    return serializers
 
 
 def _camel_case_from_snake_case(snake):
@@ -142,11 +73,16 @@ def _create_transport_factory(loop, transport, session_factory):
     Create a WAMP-over-XXX transport factory.
     """
     if transport.type == u'websocket':
-        serializers = _create_transport_serializers(transport)
-        factory = WampWebSocketClientFactory(session_factory, url=transport.url, serializers=serializers)
+        serializers = create_transport_serializers(transport)
+        factory = WampWebSocketClientFactory(
+            session_factory,
+            url=transport.url,
+            serializers=serializers,
+            proxy=transport.proxy,  # either None or a dict with host, port
+        )
 
     elif transport.type == u'rawsocket':
-        serializer = _create_transport_serializer(transport.serializers[0])
+        serializer = create_transport_serializer(transport.serializers[0])
         factory = WampRawSocketClientFactory(session_factory, serializer=serializer)
 
     else:
@@ -187,6 +123,12 @@ class Component(component.Component):
     The factory of the session we will instantiate.
     """
 
+    def _is_ssl_error(self, e):
+        """
+        Internal helper.
+        """
+        return isinstance(e, ssl.SSLError)
+
     def _check_native_endpoint(self, endpoint):
         if isinstance(endpoint, dict):
             if u'tls' in endpoint:
@@ -207,13 +149,30 @@ class Component(component.Component):
             )
 
     # async function
-    def _connect_transport(self, loop, transport, session_factory):
+    def _connect_transport(self, loop, transport, session_factory, done):
         """
         Create and connect a WAMP-over-XXX transport.
         """
         factory = _create_transport_factory(loop, transport, session_factory)
 
-        if transport.endpoint[u'type'] == u'tcp':
+        # XXX the rest of this should probably be factored into its
+        # own method (or three!)...
+
+        if transport.proxy:
+            timeout = transport.endpoint.get(u'timeout', 10)  # in seconds
+            if type(timeout) not in six.integer_types:
+                raise ValueError('invalid type {} for timeout in client endpoint configuration'.format(type(timeout)))
+            # do we support HTTPS proxies?
+
+            f = loop.create_connection(
+                protocol_factory=factory,
+                host=transport.proxy['host'],
+                port=transport.proxy['port'],
+            )
+            time_f = asyncio.ensure_future(asyncio.wait_for(f, timeout=timeout))
+            return self._wrap_connection_future(transport, done, time_f)
+
+        elif transport.endpoint[u'type'] == u'tcp':
 
             version = transport.endpoint.get(u'version', 4)
             if version not in [4, 6]:
@@ -272,7 +231,7 @@ class Component(component.Component):
                 server_hostname=tls_hostname,
             )
             time_f = asyncio.ensure_future(asyncio.wait_for(f, timeout=timeout))
-            return time_f
+            return self._wrap_connection_future(transport, done, time_f)
 
         elif transport.endpoint[u'type'] == u'unix':
             path = transport.endpoint[u'path']
@@ -283,10 +242,63 @@ class Component(component.Component):
                 path=path,
             )
             time_f = asyncio.ensure_future(asyncio.wait_for(f, timeout=timeout))
-            return time_f
+            return self._wrap_connection_future(transport, done, time_f)
 
         else:
             assert(False), 'should not arrive here'
+
+    def _wrap_connection_future(self, transport, done, conn_f):
+
+        def on_connect_success(result):
+            # async connect call returns a 2-tuple
+            transport, proto = result
+
+            # in the case where we .abort() the transport / connection
+            # during setup, we still get on_connect_success but our
+            # transport is already closed (this will happen if
+            # e.g. there's an "open handshake timeout") -- I don't
+            # know if there's a "better" way to detect this? #python
+            # doesn't know of one, anyway
+            if transport.is_closing():
+                if not txaio.is_called(done):
+                    reason = getattr(proto, "_onclose_reason", "Connection already closed")
+                    txaio.reject(done, TransportLost(reason))
+                return
+
+            # if e.g. an SSL handshake fails, we will have
+            # successfully connected (i.e. get here) but need to
+            # 'listen' for the "connection_lost" from the underlying
+            # protocol in case of handshake failure .. so we wrap
+            # it. Also, we don't increment transport.success_count
+            # here on purpose (because we might not succeed).
+
+            # XXX double-check that asyncio behavior on TLS handshake
+            # failures is in fact as described above
+            orig = proto.connection_lost
+
+            @wraps(orig)
+            def lost(fail):
+                rtn = orig(fail)
+                if not txaio.is_called(done):
+                    # asyncio will call connection_lost(None) in case of
+                    # a transport failure, in which case we create an
+                    # appropriate exception
+                    if fail is None:
+                        fail = TransportLost("failed to complete connection")
+                    txaio.reject(done, fail)
+                return rtn
+            proto.connection_lost = lost
+
+        def on_connect_failure(err):
+            transport.connect_failures += 1
+            # failed to establish a connection in the first place
+            txaio.reject(done, err)
+
+        txaio.add_callbacks(conn_f, on_connect_success, None)
+        # the errback is added as a second step so it gets called if
+        # there as an error in on_connect_success itself.
+        txaio.add_callbacks(conn_f, None, on_connect_failure)
+        return conn_f
 
     # async function
     def start(self, loop=None):
@@ -294,130 +306,19 @@ class Component(component.Component):
         This starts the Component, which means it will start connecting
         (and re-connecting) to its configured transports. A Component
         runs until it is "done", which means one of:
-
         - There was a "main" function defined, and it completed successfully;
         - Something called ``.leave()`` on our session, and we left successfully;
         - ``.stop()`` was called, and completed successfully;
         - none of our transports were able to connect successfully (failure);
-
         :returns: a Future which will resolve (to ``None``) when we are
             "done" or with an error if something went wrong.
         """
 
         if loop is None:
             self.log.warn("Using default loop")
-            loop = asyncio.get_default_loop()
+            loop = asyncio.get_event_loop()
 
-        # this future will be returned, and thus has the semantics
-        # specified in the docstring.
-        done_f = txaio.create_future()
-
-        # transports to try again and again ..
-        transport_gen = itertools.cycle(self._transports)
-
-        # issue our first event, then start the reconnect loop
-        f0 = self.fire('start', loop, self)
-
-        # this is a 1-element list so we can set it from closures in
-        # this function
-        reconnect = [True]
-
-        def one_reconnect_loop(_):
-            self.log.debug('Entering re-connect loop')
-            if not reconnect[0]:
-                return
-
-            # cycle through all transports forever ..
-            transport = next(transport_gen)
-
-            # only actually try to connect using the transport,
-            # if the transport hasn't reached max. connect count
-            if transport.can_reconnect():
-                delay = transport.next_delay()
-                self.log.debug(
-                    'trying transport {transport_idx} using connect delay {transport_delay}',
-                    transport_idx=transport.idx,
-                    transport_delay=delay,
-                )
-
-                delay_f = asyncio.ensure_future(txaio.sleep(delay))
-
-                def actual_connect(_):
-                    f = self._connect_once(loop, transport)
-
-                    def session_done(x):
-                        txaio.resolve(done_f, None)
-
-                    def connect_error(fail):
-                        if isinstance(fail.value, asyncio.CancelledError):
-                            reconnect[0] = False
-                            txaio.reject(done_f, fail)
-                            return
-
-                        self.log.debug(u'component failed: {error}', error=txaio.failure_message(fail))
-                        self.log.debug(u'{tb}', tb=txaio.failure_format_traceback(fail))
-                        # If this is a "fatal error" that will never work,
-                        # we bail out now
-                        if isinstance(fail.value, ApplicationError):
-                            if fail.value.error in [u'wamp.error.no_such_realm']:
-                                reconnect[0] = False
-                                self.log.error(u"Fatal error, not reconnecting")
-                                txaio.reject(done_f, fail)
-                                return
-
-                            self.log.error(u"{msg}", msg=fail.value.error_message())
-                            return one_reconnect_loop(None)
-
-                        elif isinstance(fail.value, OSError):
-                            # failed to connect entirely, like nobody
-                            # listening etc.
-                            self.log.info(u"Connection failed: {msg}", msg=txaio.failure_message(fail))
-                            return one_reconnect_loop(None)
-
-                        elif _is_ssl_error(fail.value):
-                            # Quoting pyOpenSSL docs: "Whenever
-                            # [SSL.Error] is raised directly, it has a
-                            # list of error messages from the OpenSSL
-                            # error queue, where each item is a tuple
-                            # (lib, function, reason). Here lib, function
-                            # and reason are all strings, describing where
-                            # and what the problem is. See err(3) for more
-                            # information."
-                            self.log.error(u"TLS failure: {reason}", reason=fail.value.args[1])
-                            self.log.error(u"Marking this transport as failed")
-                            transport.failed()
-                        else:
-                            self.log.error(
-                                u'Connection failed: {error}',
-                                error=txaio.failure_message(fail),
-                            )
-                            # some types of errors should probably have
-                            # stacktraces logged immediately at error
-                            # level, e.g. SyntaxError?
-                            self.log.debug(u'{tb}', tb=txaio.failure_format_traceback(fail))
-                            return one_reconnect_loop(None)
-
-                    txaio.add_callbacks(f, session_done, connect_error)
-
-            txaio.add_callbacks(delay_f, actual_connect, error)
-
-            if False:
-                # check if there is any transport left we can use
-                # to connect
-                if not self._can_reconnect():
-                    self.log.info("No remaining transports to try")
-                    reconnect[0] = False
-
-        def error(fail):
-            self.log.info("Internal error {msg}", msg=txaio.failure_message(fail))
-            self.log.debug("{tb}", tb=txaio.failure_format_traceback(fail))
-            txaio.reject(done_f, fail)
-
-        txaio.add_callbacks(f0, one_reconnect_loop, error)
-        return done_f
-
-    def stop(self):
-        return self._session.leave()
+        return self._start(loop=loop)
 
 
 def run(components, log_level='info'):
@@ -430,7 +331,7 @@ def run(components, log_level='info'):
 
     XXX fixme for asyncio
 
-    -- if you wish to manage the loop loop yourself, use the
+    -- if you wish to manage the loop yourself, use the
     :meth:`autobahn.asyncio.component.Component.start` method to start
     each component yourself.
 
@@ -447,6 +348,10 @@ def run(components, log_level='info'):
     if log_level is not None:
         txaio.start_logging(level=log_level)
     loop = asyncio.get_event_loop()
+    if loop.is_closed():
+        asyncio.set_event_loop(asyncio.new_event_loop())
+        loop = asyncio.get_event_loop()
+        txaio.config.loop = loop
     log = txaio.make_logger()
 
     # see https://github.com/python/asyncio/issues/341 asyncio has
@@ -457,20 +362,40 @@ def run(components, log_level='info'):
     #   signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     @asyncio.coroutine
-    def exit():
-        return loop.stop()
-
     def nicely_exit(signal):
         log.info("Shutting down due to {signal}", signal=signal)
-        for task in asyncio.Task.all_tasks():
-            task.cancel()
-        asyncio.ensure_future(exit())
 
-    loop.add_signal_handler(signal.SIGINT, partial(nicely_exit, 'SIGINT'))
-    loop.add_signal_handler(signal.SIGTERM, partial(nicely_exit, 'SIGTERM'))
+        tasks = asyncio.Task.all_tasks()
+        for task in tasks:
+            # Do not cancel the current task.
+            if task is not asyncio.Task.current_task():
+                task.cancel()
+
+        def cancel_all_callback(fut):
+            try:
+                fut.result()
+            except asyncio.CancelledError:
+                log.debug("All task cancelled")
+            except Exception as e:
+                log.error("Error while shutting down: {exception}", exception=e)
+            finally:
+                loop.stop()
+
+        fut = asyncio.gather(*tasks)
+        fut.add_done_callback(cancel_all_callback)
+
+    try:
+        loop.add_signal_handler(signal.SIGINT, lambda: asyncio.ensure_future(nicely_exit("SIGINT")))
+        loop.add_signal_handler(signal.SIGTERM, lambda: asyncio.ensure_future(nicely_exit("SIGTERM")))
+    except NotImplementedError:
+        # signals are not available on Windows
+        pass
+
+    def done_callback(loop, arg):
+        loop.stop()
 
     # returns a future; could run_until_complete() but see below
-    component._run(loop, components)
+    component._run(loop, components, done_callback)
 
     try:
         loop.run_forever()
@@ -482,3 +407,7 @@ def run(components, log_level='info'):
     # finally:
     #     signal.signal(signal.SIGINT, signal.SIG_DFL)
     #     signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
+    # Close the event loop at the end, otherwise an exception is
+    # thrown. https://bugs.python.org/issue23548
+    loop.close()

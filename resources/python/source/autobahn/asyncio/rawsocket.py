@@ -146,7 +146,7 @@ class PrefixProtocol(asyncio.Protocol):
                 self._header = frame_type, frame_length
                 break
 
-        self._buffer = self._buffer[:remaining]
+        self._buffer = self._buffer[pos:]
 
     def stringReceived(self, data):
         raise NotImplementedError()
@@ -408,7 +408,7 @@ class WampRawSocketClientProtocol(WampRawSocketMixinGeneral, WampRawSocketMixinA
     @property
     def serializer_id(self):
         if not hasattr(self, '_serializer'):
-            self._serializer = self.factory._serializer()
+            self._serializer = self.factory._serializer
         return self._serializer.RAWSOCKET_SERIALIZER_ID
 
     def get_channel_id(self, channel_id_type=u'tls-unique'):
@@ -497,7 +497,7 @@ class WampRawSocketClientFactory(WampRawSocketFactory):
         if serializer is None:
             serializers = get_serializers()
             if serializers:
-                serializer = serializers[0]
+                serializer = serializers[0]()
 
         if serializer is None:
             raise Exception("could not import any WAMP serializer")

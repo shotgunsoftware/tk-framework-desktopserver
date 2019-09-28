@@ -1,13 +1,17 @@
 #
 # This file is part of pyasn1 software.
 #
-# Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
+# License: http://snmplabs.com/pyasn1/license.html
 #
 import datetime
-from pyasn1.type import univ, char, tag
-from pyasn1.compat import string, dateandtime
+
 from pyasn1 import error
+from pyasn1.compat import dateandtime
+from pyasn1.compat import string
+from pyasn1.type import char
+from pyasn1.type import tag
+from pyasn1.type import univ
 
 __all__ = ['ObjectDescriptor', 'GeneralizedTime', 'UTCTime']
 
@@ -23,6 +27,9 @@ class ObjectDescriptor(char.GraphicString):
         tag.Tag(tag.tagClassUniversal, tag.tagFormatSimple, 7)
     )
 
+    # Optimization for faster codec lookup
+    typeId = char.GraphicString.getTypeId()
+
 
 class TimeMixIn(object):
 
@@ -34,7 +41,9 @@ class TimeMixIn(object):
     class FixedOffset(datetime.tzinfo):
         """Fixed offset in minutes east from UTC."""
 
-        def __init__(self, offset, name):
+        # defaulted arguments required
+        # https: // docs.python.org / 2.3 / lib / datetime - tzinfo.html
+        def __init__(self, offset=0, name='UTC'):
             self.__offset = datetime.timedelta(minutes=offset)
             self.__name = name
 
@@ -47,7 +56,7 @@ class TimeMixIn(object):
         def dst(self, dt):
             return datetime.timedelta(0)
 
-    UTC = FixedOffset(0, 'UTC')
+    UTC = FixedOffset()
 
     @property
     def asDateTime(self):
@@ -56,7 +65,7 @@ class TimeMixIn(object):
         Returns
         -------
         :
-            new instance of :py:class:`datetime.datetime` object            
+            new instance of :py:class:`datetime.datetime` object
         """
         text = str(self)
         if text.endswith('Z'):
@@ -95,7 +104,7 @@ class TimeMixIn(object):
                 text, _, ms = string.partition(text, ',')
 
             try:
-                ms = int(ms) * 10000
+                ms = int(ms) * 1000
 
             except ValueError:
                 raise error.PyAsn1Error('bad sub-second time specification %s' % self)
@@ -122,10 +131,10 @@ class TimeMixIn(object):
 
         Parameters
         ----------
-        dt : :py:class:`datetime.datetime` object
-            The `datetime.datetime` object to initialize the |ASN.1| object from
-            
-        
+        dt: :py:class:`datetime.datetime` object
+            The `datetime.datetime` object to initialize the |ASN.1| object
+            from
+
         Returns
         -------
         :
@@ -133,7 +142,7 @@ class TimeMixIn(object):
         """
         text = dt.strftime(cls._yearsDigits == 4 and '%Y%m%d%H%M%S' or '%y%m%d%H%M%S')
         if cls._hasSubsecond:
-            text += '.%d' % (dt.microsecond // 10000)
+            text += '.%d' % (dt.microsecond // 1000)
 
         if dt.utcoffset():
             seconds = dt.utcoffset().seconds
@@ -156,6 +165,9 @@ class GeneralizedTime(char.VisibleString, TimeMixIn):
         tag.Tag(tag.tagClassUniversal, tag.tagFormatSimple, 24)
     )
 
+    # Optimization for faster codec lookup
+    typeId = char.VideotexString.getTypeId()
+
     _yearsDigits = 4
     _hasSubsecond = True
     _optionalMinutes = True
@@ -169,6 +181,9 @@ class UTCTime(char.VisibleString, TimeMixIn):
     tagSet = char.VisibleString.tagSet.tagImplicitly(
         tag.Tag(tag.tagClassUniversal, tag.tagFormatSimple, 23)
     )
+
+    # Optimization for faster codec lookup
+    typeId = char.VideotexString.getTypeId()
 
     _yearsDigits = 2
     _hasSubsecond = False

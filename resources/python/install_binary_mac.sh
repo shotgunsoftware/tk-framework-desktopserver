@@ -21,3 +21,5 @@ rm -rf bin/mac/Crypto/SelfTest
 
 rm -rf bin/mac/zope/interface/tests
 rm -rf bin/mac/zope/interface/*/tests
+
+git add bin/mac

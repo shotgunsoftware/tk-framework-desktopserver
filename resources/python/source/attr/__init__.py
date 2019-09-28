@@ -1,37 +1,29 @@
 from __future__ import absolute_import, division, print_function
 
-from ._funcs import (
-    asdict,
-    assoc,
-    astuple,
-    evolve,
-    has,
-)
+from functools import partial
+
+from . import converters, exceptions, filters, validators
+from ._config import get_run_validators, set_run_validators
+from ._funcs import asdict, assoc, astuple, evolve, has
 from ._make import (
+    NOTHING,
     Attribute,
     Factory,
-    NOTHING,
-    attr,
-    attributes,
+    attrib,
+    attrs,
     fields,
+    fields_dict,
     make_class,
     validate,
 )
-from ._config import (
-    get_run_validators,
-    set_run_validators,
-)
-from . import exceptions
-from . import filters
-from . import converters
-from . import validators
 
 
-__version__ = "17.2.0"
+__version__ = "19.1.0"
 
 __title__ = "attrs"
 __description__ = "Classes Without Boilerplate"
-__uri__ = "http://www.attrs.org/"
+__url__ = "https://www.attrs.org/"
+__uri__ = __url__
 __doc__ = __description__ + " <" + __uri__ + ">"
 
 __author__ = "Hynek Schlawack"
@@ -41,8 +33,9 @@ __license__ = "MIT"
 __copyright__ = "Copyright (c) 2015 Hynek Schlawack"
 
 
-s = attrs = attributes
-ib = attrib = attr
+s = attributes = attrs
+ib = attr = attrib
+dataclass = partial(attrs, auto_attribs=True)  # happy Easter ;)
 
 __all__ = [
     "Attribute",
@@ -59,6 +52,7 @@ __all__ = [
     "evolve",
     "exceptions",
     "fields",
+    "fields_dict",
     "filters",
     "get_run_validators",
     "has",

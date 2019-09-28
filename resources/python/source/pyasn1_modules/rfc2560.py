@@ -1,8 +1,8 @@
 #
 # This file is part of pyasn1-modules software.
 #
-# Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
+# License: http://snmplabs.com/pyasn1/license.html
 #
 # OCSP request/response syntax
 #
@@ -21,7 +21,12 @@
 # * dates are left as strings in GeneralizedTime format -- datetime.datetime
 # would be nicer
 #
-from pyasn1.type import tag, namedtype, namedval, univ, useful
+from pyasn1.type import namedtype
+from pyasn1.type import namedval
+from pyasn1.type import tag
+from pyasn1.type import univ
+from pyasn1.type import useful
+
 from pyasn1_modules import rfc2459
 
 
@@ -124,9 +129,9 @@ class KeyHash(univ.OctetString):
 class ResponderID(univ.Choice):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('byName',
-                            rfc2459.Name().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1))),
+                            rfc2459.Name().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1))),
         namedtype.NamedType('byKey',
-                            KeyHash().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 2)))
+                            KeyHash().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 2)))
     )
 
 
@@ -140,7 +145,7 @@ class ResponseData(univ.Sequence):
             explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))),
         namedtype.NamedType('responderID', ResponderID()),
         namedtype.NamedType('producedAt', useful.GeneralizedTime()),
-        namedtype.NamedType('responses', univ.SequenceOf(SingleResponse())),
+        namedtype.NamedType('responses', univ.SequenceOf(componentType=SingleResponse())),
         namedtype.OptionalNamedType('responseExtensions', rfc2459.Extensions().subtype(
             explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1)))
     )
@@ -151,7 +156,7 @@ class BasicOCSPResponse(univ.Sequence):
         namedtype.NamedType('tbsResponseData', ResponseData()),
         namedtype.NamedType('signatureAlgorithm', rfc2459.AlgorithmIdentifier()),
         namedtype.NamedType('signature', univ.BitString()),
-        namedtype.OptionalNamedType('certs', univ.SequenceOf(rfc2459.Certificate()).subtype(
+        namedtype.OptionalNamedType('certs', univ.SequenceOf(componentType=rfc2459.Certificate()).subtype(
             explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)))
     )
 
@@ -195,7 +200,7 @@ class Signature(univ.Sequence):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('signatureAlgorithm', rfc2459.AlgorithmIdentifier()),
         namedtype.NamedType('signature', univ.BitString()),
-        namedtype.OptionalNamedType('certs', univ.SequenceOf(rfc2459.Certificate()).subtype(
+        namedtype.OptionalNamedType('certs', univ.SequenceOf(componentType=rfc2459.Certificate()).subtype(
             explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)))
     )
 
@@ -206,7 +211,7 @@ class TBSRequest(univ.Sequence):
             explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))),
         namedtype.OptionalNamedType('requestorName', GeneralName().subtype(
             explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1))),
-        namedtype.NamedType('requestList', univ.SequenceOf(Request())),
+        namedtype.NamedType('requestList', univ.SequenceOf(componentType=Request())),
         namedtype.OptionalNamedType('requestExtensions', rfc2459.Extensions().subtype(
             explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 2)))
     )

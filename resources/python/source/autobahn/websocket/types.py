@@ -128,6 +128,111 @@ class ConnectionRequest(object):
 
 
 @public
+class ConnectingRequest(object):
+    """
+    Thin-wrapper for WebSocket connection request information provided in
+    :meth:`autobahn.websocket.protocol.WebSocketClientProtocol.onConnecting`
+    after a client has connected, but before the handshake has
+    proceeded.
+
+    `host`, `port`, and `resource` are all required, everything else
+    is optional. Note that these are values that will be seen by the
+    client and should represent the public-facing host, port and
+    resource to which the client is connecting (not necessarily the
+    action host/port being used).
+    """
+
+    __slots__ = (
+        'host',
+        'port',
+        'resource',
+        'headers',
+        'useragent',
+        'origin',
+        'protocols',
+    )
+
+    def __init__(self, host=None, port=None, resource=None, headers=None, useragent=None, origin=None, protocols=None):
+        """
+        Any of the arguments can be `None`, which will provide a useful
+        default.
+
+        :param str host: the host to present to the server
+
+        :param int port: the port to present to the server
+
+        :param str resouce:
+
+        :param headers: extra HTTP headers to send in the opening handshake
+        :type headers: dict
+        """
+        # required
+        self.host = host if host is not None else "localhost"
+        self.port = port if port is not None else 80
+        self.resource = resource if resource is not None else "/"
+        # optional
+        self.headers = headers if headers is not None else dict()
+        self.useragent = useragent
+        self.origin = origin
+        self.protocols = protocols if protocols is not None else []
+
+    def __json__(self):
+        return {
+            'host': self.host,
+            'port': self.port,
+            'resource': self.resource,
+            'headers': self.headers,
+            'useragent': self.useragent,
+            'origin': self.origin,
+            'protocols': self.protocols,
+        }
+
+    def __str__(self):
+        return json.dumps(self.__json__())
+
+
+@public
+class TransportDetails(object):
+    """
+    Details of our transport made available to the `onConnecting`
+    callback.
+    """
+
+    __slots__ = (
+        'peer',
+        'is_secure',
+        'secure_channel_id',
+    )
+    # possibly useful:
+    # peer_certificate  # getPeerCertificate(), .get_extra_info('peercert')
+
+    def __init__(self, peer, is_secure, secure_channel_id):
+        """
+        :param str peer: the peer to which we are connected
+
+        :param bool is_secure: using TLS or not
+
+        :param dict secure_channel_id: information about our
+            channel-binding or None if not using TLS. The only
+            channel-binding currently is `tls-unique` so if this is a
+            `dict` it will be: `{u'tls-unique': bytes}`
+        """
+        self.peer = peer
+        self.is_secure = is_secure
+        self.secure_channel_id = secure_channel_id
+
+    def __json__(self):
+        return {
+            'peer': self.peer,
+            'is_secure': self.is_secure,
+            'secure_channel_id': self.secure_channel_id,
+        }
+
+    def __str__(self):
+        return json.dumps(self.__json__())
+
+
+@public
 class ConnectionResponse(object):
     """
     Thin-wrapper for WebSocket connection response information provided in
