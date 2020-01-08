@@ -26,6 +26,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         self._server = None
         self._settings = None
         self._tk_framework_desktopserver = None
+        self._uses_intermediate_certificate_chain = False
 
     def can_run_server(self):
         """
@@ -119,7 +120,8 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 host=host,
                 user_id=user_id,
                 host_aliases=self._get_host_aliases(host),
-                port=self._settings.port
+                port=self._settings.port,
+                uses_intermediate_certificate_chain=self._uses_intermediate_certificate_chain
             )
 
             self._server.start()
@@ -224,21 +226,39 @@ class DesktopserverFramework(sgtk.platform.Framework):
         self.logger.debug("Retrieving certificates from Shotgun")
         certs = self.shotgun._call_rpc("sg_desktop_certificates", {})
         sgtk.util.filesystem.ensure_folder_exists(self._get_shotgunlocalhost_keys_folder())
+
+        # This is valid case. One does not have to put the CA bundke if they signed
+        # the cert with the root certificate directly. This can happen when people
+        # are running Shotgun locally.
+        if not certs["sg_desktop_ca"]:
+            self.logger.debug(
+                "shotgunlocalhost.com certificate authority is not set in Shotgun. "
+            )
+        else:
+            self._uses_intermediate_certificate_chain = True
+
+        # These two however, are really bad and should raise an error if missing.
         if not certs["sg_desktop_cert"]:
             self.logger.error(
                 "shotgunlocalhost.com public key is not set in Shotgun. "
                 "Please contact support@shotgunsoftware.com"
             )
-        else:
-            self._write_cert("server.crt", certs["sg_desktop_cert"])
 
         if not certs["sg_desktop_key"]:
             self.logger.error(
                 "shotgunlocalhost.com private key is not set in Shotgun. "
                 "Please contact support@shotgunsoftware.com"
             )
+
+        # When the shotgun website provides the certificate chain, we'll concatenate
+        # it with the public cert so that on connection the client can always validate
+        # the complete certification chain regardless of their ssl setup.
+        if self._uses_intermediate_certificate_chain:
+            self._write_cert("server.crt", certs["sg_desktop_cert"] + "\n" + certs["sg_desktop_ca"])
         else:
-            self._write_cert("server.key", certs["sg_desktop_key"])
+            self._write_cert("server.crt", certs["sg_desktop_cert"])
+
+        self._write_cert("server.key", certs["sg_desktop_key"])
 
     def __ensure_certificate_ready(self, regenerate_certs=False, parent=None):
         """

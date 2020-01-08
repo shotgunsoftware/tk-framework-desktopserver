@@ -14,6 +14,7 @@ import base64
 
 from .server_protocol import ServerProtocol
 
+from OpenSSL import SSL
 from twisted.internet import reactor, ssl, error
 from twisted.python import log
 
@@ -29,6 +30,33 @@ from sgtk.platform.qt import QtCore
 logger = get_logger(__name__)
 
 
+# This fix inspired by code from
+# https://twistedmatrix.com/pipermail/twisted-python/2010-July/022597.html
+class ChainedOpenSSLContextFactory(ssl.DefaultOpenSSLContextFactory):
+    """
+    Serves the entire public certificate chain.
+    """
+    def __init__(self, private_key_file_name, certificate_chain_file_name,
+                 sslmethod=SSL.SSLv23_METHOD):
+        """
+        @param private_key_file_name: Name of a file containing a private key
+        @param certificate_chain_file_name: Name of a file containing a certificate chain
+        @param sslmethod: The SSL method to use
+        """
+        self.private_key_file_name = private_key_file_name
+        self.certificate_chain_file_name = certificate_chain_file_name
+        self.sslmethod = sslmethod
+        self._context = None
+        self.cacheContext()
+
+    def cacheContext(self):
+        if self._context is None:
+            ctx = SSL.Context(self.sslmethod)
+            ctx.use_certificate_chain_file(self.certificate_chain_file_name)
+            ctx.use_privatekey_file(self.private_key_file_name)
+            self._context = ctx
+
+
 class Server(object):
     _DEFAULT_PORT = 9000
     _DEFAULT_KEYS_PATH = "../resources/keys"
@@ -36,7 +64,7 @@ class Server(object):
     class Notifier(QtCore.QObject):
         different_user_requested = QtCore.Signal(str, int)
 
-    def __init__(self, keys_path, encrypt, host, user_id, host_aliases, port=None):
+    def __init__(self, keys_path, encrypt, host, user_id, host_aliases, port=None, uses_intermediate_certificate_chain=False):
         """
         Constructor.
 
@@ -53,8 +81,8 @@ class Server(object):
         self._keys_path = keys_path or self._DEFAULT_KEYS_PATH
         self._host = host
         self._user_id = user_id
-
         self._host_aliases = host_aliases
+        self._uses_intermediate_certificate_chain = uses_intermediate_certificate_chain
 
         # If encryption is required, compute a server id and retrieve the secret associated to it.
         if encrypt:
@@ -106,9 +134,15 @@ class Server(object):
         self._raise_if_missing_certificate(cert_key_path)
         self._raise_if_missing_certificate(cert_crt_path)
 
-        # SSL server context: load server key and certificate
-        self.context_factory = ssl.DefaultOpenSSLContextFactory(cert_key_path,
-                                                                cert_crt_path)
+        if self._uses_intermediate_certificate_chain:
+            ctx_factory = ChainedOpenSSLContextFactory
+        else:
+            ctx_factory = ssl.DefaultOpenSSLContextFactory
+
+        self.context_factory = ctx_factory(
+            cert_key_path,
+            cert_crt_path
+        )
 
         # FIXME: Seems like the debugging flags are gone from the initializer at the moment.
         # We should try to restore these.

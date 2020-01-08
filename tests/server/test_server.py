@@ -15,6 +15,7 @@ import base64
 import json
 import contextlib
 import socket
+import websocket
 
 from mock import patch, Mock
 
@@ -39,7 +40,7 @@ from twisted.trial import unittest
 from twisted.internet import ssl
 from autobahn.twisted.websocket import connectWS, WebSocketClientFactory, WebSocketClientProtocol
 from twisted.internet.defer import Deferred
-from twisted.internet import reactor
+from twisted.internet import reactor, threads
 from cryptography.fernet import Fernet
 
 from twisted.internet import base
@@ -125,7 +126,8 @@ class TestServerBase(unittest.TestCase):
             host="https://site.shotgunstudio.com",
             user_id=self._user["id"],
             host_aliases=host_aliases,
-            port=port
+            port=port,
+            uses_intermediate_certificate_chain=True
         )
 
         patched = patch.object(
@@ -198,7 +200,8 @@ class TestServerBase(unittest.TestCase):
                     self._get_deferred().callback((code, reason))
 
         # Create the websocket connection to the server.
-        client_factory = WebSocketClientFactory("wss://localhost:%s" % port)
+        self._port = port
+        client_factory = WebSocketClientFactory("wss://shotgunlocalhost.com:%s" % self._port)
         client_factory.origin = origin
         client_factory.protocol = ClientProtocol
         self.client = connectWS(client_factory, context_factory, timeout=2)
@@ -348,6 +351,16 @@ def CommonTestsMetaClass(class_name, class_parents, class_attr):
         Makes sure our unit tests framework can connect
         """
         self.assertEqual(self.client.state, "connected")
+
+    @register
+    def test_websocket_with_unknown_intermediate_chain(self):
+        """
+        Make sure we can connect to the site.
+        """
+        # The websocket connection in the websocket module, contrary to Twisted's implementation,
+        # requires the entire certificate chain to be available to connect to shotgunlocalhost.com
+        # So we'll use that to validate that the cert chain is passed entirely on connection.
+        return threads.deferToThread(lambda: websocket.create_connection("wss://shotgunlocalhost.com:%s" % self._port).close())
 
     @register
     def test_binary_unsupported(self):
