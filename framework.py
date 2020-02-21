@@ -12,7 +12,12 @@ import sgtk
 import sys
 import os
 import struct
-import urlparse
+
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
+
 from sgtk.util import LocalFileStorageManager
 
 
