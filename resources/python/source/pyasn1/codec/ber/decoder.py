@@ -638,7 +638,10 @@ class UniversalConstructedTypeDecoder(AbstractConstructedDecoder):
                     openTypes = options.get('openTypes', {})
 
                     if LOG:
-                        LOG('using open types map: %r' % openTypes)
+                        LOG('user-specified open types map:')
+
+                        for k, v in openTypes.items():
+                            LOG('%s -> %r' % (k, v))
 
                     if openTypes or options.get('decodeOpenTypes', False):
 
@@ -657,6 +660,17 @@ class UniversalConstructedTypeDecoder(AbstractConstructedDecoder):
                                 openType = openTypes[governingValue]
 
                             except KeyError:
+
+                                if LOG:
+                                    LOG('default open types map of component '
+                                        '"%s.%s" governed by component "%s.%s"'
+                                        ':' % (asn1Object.__class__.__name__,
+                                               namedType.name,
+                                               asn1Object.__class__.__name__,
+                                               namedType.openType.name))
+
+                                    for k, v in namedType.openType.items():
+                                        LOG('%s -> %r' % (k, v))
 
                                 try:
                                     openType = namedType.openType[governingValue]
@@ -695,7 +709,9 @@ class UniversalConstructedTypeDecoder(AbstractConstructedDecoder):
                                 asn1Object.setComponentByPosition(idx, component)
 
             else:
-                asn1Object.verifySizeSpec()
+                inconsistency = asn1Object.isInconsistent
+                if inconsistency:
+                    raise inconsistency
 
         else:
             asn1Object = asn1Spec.clone()
@@ -821,7 +837,10 @@ class UniversalConstructedTypeDecoder(AbstractConstructedDecoder):
                     openTypes = options.get('openTypes', {})
 
                     if LOG:
-                        LOG('using open types map: %r' % openTypes)
+                        LOG('user-specified open types map:')
+
+                        for k, v in openTypes.items():
+                            LOG('%s -> %r' % (k, v))
 
                     if openTypes or options.get('decodeOpenTypes', False):
 
@@ -840,6 +859,17 @@ class UniversalConstructedTypeDecoder(AbstractConstructedDecoder):
                                 openType = openTypes[governingValue]
 
                             except KeyError:
+
+                                if LOG:
+                                    LOG('default open types map of component '
+                                        '"%s.%s" governed by component "%s.%s"'
+                                        ':' % (asn1Object.__class__.__name__,
+                                               namedType.name,
+                                               asn1Object.__class__.__name__,
+                                               namedType.openType.name))
+
+                                    for k, v in namedType.openType.items():
+                                        LOG('%s -> %r' % (k, v))
 
                                 try:
                                     openType = namedType.openType[governingValue]
@@ -879,7 +909,9 @@ class UniversalConstructedTypeDecoder(AbstractConstructedDecoder):
                                     asn1Object.setComponentByPosition(idx, component)
 
                 else:
-                    asn1Object.verifySizeSpec()
+                    inconsistency = asn1Object.isInconsistent
+                    if inconsistency:
+                        raise inconsistency
 
         else:
             asn1Object = asn1Spec.clone()

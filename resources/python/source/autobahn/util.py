@@ -67,7 +67,24 @@ __all__ = ("public",
            "generate_token",
            "generate_activation_code",
            "generate_serial_number",
-           "generate_user_password")
+           "generate_user_password",
+           "time_ns",
+           "perf_counter_ns")
+
+
+# time_ns: epoch time in ns, corresponds to pandas.Timestamp or numpy.datetime64[ns]
+# perf_counter_ns: hardware time in ns, use only in relative terms
+if hasattr(time, 'time_ns'):
+    # python 3.7
+    time_ns = time.time_ns
+    perf_counter_ns = time.perf_counter_ns
+else:
+    # python <3.7
+    def time_ns():
+        return int(time.time() * 1000000000.)
+
+    def perf_counter_ns():
+        return int(time.perf_counter() * 1000000000.)
 
 
 def public(obj):
@@ -463,7 +480,10 @@ if sys.platform.startswith('win'):
     # first call to this function, as a floating point number, based on the
     # Win32 function QueryPerformanceCounter(). The resolution is typically
     # better than one microsecond
-    _rtime = time.clock
+    if sys.version_info >= (3, 8):
+        _rtime = time.perf_counter
+    else:
+        _rtime = time.clock
     _ = _rtime()  # this starts wallclock
 else:
     # On Unix-like platforms, this used the first available from this list:

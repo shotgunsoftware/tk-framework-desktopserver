@@ -10,7 +10,9 @@
 
 git rm -rf source
 rm -rf source
-PYTHONPATH=$PWD/build /Applications/Shotgun.app/Contents/Resources/Python/bin/python build/pip install --target source --no-deps -r source_only_requirements.txt
+git reset HEAD source/explicit_requirements.txt
+git checkout HEAD -- source/explicit_requirements.txt
+PYTHONPATH=$PWD/build /Applications/Shotgun.app/Contents/Resources/Python/bin/python build/pip install --target source --no-deps -r source/explicit_requirements.txt
 
 # We're thinning out the packages by removing unit tests.
 rm -rf source/autobahn/test
