@@ -10,7 +10,7 @@
 
 git rm -rf bin/mac
 rm -rf bin/mac
-/Applications/Shotgun.app/Contents/Resources/Python/bin/python build/pip install --target bin/mac --no-deps -r binary_requirements.txt
+/Applications/Shotgun.app/Contents/Resources/Python/bin/python build/pip install --target bin/mac --no-deps -r bin/explicit_requirements.txt
 
 # For some reason zope is missing a top level init file when installed with
 # pip, so we're adding it.

@@ -11,11 +11,12 @@ import ipaddress
 import warnings
 from enum import Enum
 
-from asn1crypto.keys import PublicKeyInfo
-
 import six
 
 from cryptography import utils
+from cryptography.hazmat._der import (
+    BIT_STRING, DERReader, OBJECT_IDENTIFIER, SEQUENCE
+)
 from cryptography.hazmat.primitives import constant_time, serialization
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
@@ -47,9 +48,39 @@ def _key_identifier_from_public_key(public_key):
             serialization.PublicFormat.SubjectPublicKeyInfo
         )
 
-        data = bytes(PublicKeyInfo.load(serialized)['public_key'])
+        reader = DERReader(serialized)
+        with reader.read_single_element(SEQUENCE) as public_key_info:
+            algorithm = public_key_info.read_element(SEQUENCE)
+            public_key = public_key_info.read_element(BIT_STRING)
+
+        # Double-check the algorithm structure.
+        with algorithm:
+            algorithm.read_element(OBJECT_IDENTIFIER)
+            if not algorithm.is_empty():
+                # Skip the optional parameters field.
+                algorithm.read_any_element()
+
+        # BIT STRING contents begin with the number of padding bytes added. It
+        # must be zero for SubjectPublicKeyInfo structures.
+        if public_key.read_byte() != 0:
+            raise ValueError('Invalid public key encoding')
+
+        data = public_key.data
 
     return hashlib.sha1(data).digest()
+
+
+def _make_sequence_methods(field_name):
+    def len_method(self):
+        return len(getattr(self, field_name))
+
+    def iter_method(self):
+        return iter(getattr(self, field_name))
+
+    def getitem_method(self, idx):
+        return getattr(self, field_name)[idx]
+
+    return len_method, iter_method, getitem_method
 
 
 class DuplicateExtension(Exception):
@@ -100,14 +131,7 @@ class Extensions(object):
             "No {} extension was found".format(extclass), extclass.oid
         )
 
-    def __iter__(self):
-        return iter(self._extensions)
-
-    def __len__(self):
-        return len(self._extensions)
-
-    def __getitem__(self, idx):
-        return self._extensions[idx]
+    __len__, __iter__, __getitem__ = _make_sequence_methods("_extensions")
 
     def __repr__(self):
         return (
@@ -289,11 +313,7 @@ class AuthorityInformationAccess(object):
 
         self._descriptions = descriptions
 
-    def __iter__(self):
-        return iter(self._descriptions)
-
-    def __len__(self):
-        return len(self._descriptions)
+    __len__, __iter__, __getitem__ = _make_sequence_methods("_descriptions")
 
     def __repr__(self):
         return "<AuthorityInformationAccess({})>".format(self._descriptions)
@@ -306,9 +326,6 @@ class AuthorityInformationAccess(object):
 
     def __ne__(self, other):
         return not self == other
-
-    def __getitem__(self, idx):
-        return self._descriptions[idx]
 
     def __hash__(self):
         return hash(tuple(self._descriptions))
@@ -436,11 +453,9 @@ class CRLDistributionPoints(object):
 
         self._distribution_points = distribution_points
 
-    def __iter__(self):
-        return iter(self._distribution_points)
-
-    def __len__(self):
-        return len(self._distribution_points)
+    __len__, __iter__, __getitem__ = _make_sequence_methods(
+        "_distribution_points"
+    )
 
     def __repr__(self):
         return "<CRLDistributionPoints({})>".format(self._distribution_points)
@@ -453,9 +468,6 @@ class CRLDistributionPoints(object):
 
     def __ne__(self, other):
         return not self == other
-
-    def __getitem__(self, idx):
-        return self._distribution_points[idx]
 
     def __hash__(self):
         return hash(tuple(self._distribution_points))
@@ -477,11 +489,9 @@ class FreshestCRL(object):
 
         self._distribution_points = distribution_points
 
-    def __iter__(self):
-        return iter(self._distribution_points)
-
-    def __len__(self):
-        return len(self._distribution_points)
+    __len__, __iter__, __getitem__ = _make_sequence_methods(
+        "_distribution_points"
+    )
 
     def __repr__(self):
         return "<FreshestCRL({})>".format(self._distribution_points)
@@ -494,9 +504,6 @@ class FreshestCRL(object):
 
     def __ne__(self, other):
         return not self == other
-
-    def __getitem__(self, idx):
-        return self._distribution_points[idx]
 
     def __hash__(self):
         return hash(tuple(self._distribution_points))
@@ -683,11 +690,7 @@ class CertificatePolicies(object):
 
         self._policies = policies
 
-    def __iter__(self):
-        return iter(self._policies)
-
-    def __len__(self):
-        return len(self._policies)
+    __len__, __iter__, __getitem__ = _make_sequence_methods("_policies")
 
     def __repr__(self):
         return "<CertificatePolicies({})>".format(self._policies)
@@ -700,9 +703,6 @@ class CertificatePolicies(object):
 
     def __ne__(self, other):
         return not self == other
-
-    def __getitem__(self, idx):
-        return self._policies[idx]
 
     def __hash__(self):
         return hash(tuple(self._policies))
@@ -844,11 +844,7 @@ class ExtendedKeyUsage(object):
 
         self._usages = usages
 
-    def __iter__(self):
-        return iter(self._usages)
-
-    def __len__(self):
-        return len(self._usages)
+    __len__, __iter__, __getitem__ = _make_sequence_methods("_usages")
 
     def __repr__(self):
         return "<ExtendedKeyUsage({})>".format(self._usages)
@@ -923,11 +919,7 @@ class TLSFeature(object):
 
         self._features = features
 
-    def __iter__(self):
-        return iter(self._features)
-
-    def __len__(self):
-        return len(self._features)
+    __len__, __iter__, __getitem__ = _make_sequence_methods("_features")
 
     def __repr__(self):
         return "<TLSFeature(features={0._features})>".format(self)
@@ -937,9 +929,6 @@ class TLSFeature(object):
             return NotImplemented
 
         return self._features == other._features
-
-    def __getitem__(self, idx):
-        return self._features[idx]
 
     def __ne__(self, other):
         return not self == other
@@ -959,7 +948,7 @@ class TLSFeatureType(Enum):
     status_request_v2 = 17
 
 
-_TLS_FEATURE_TYPE_TO_ENUM = dict((x.value, x) for x in TLSFeatureType)
+_TLS_FEATURE_TYPE_TO_ENUM = {x.value: x for x in TLSFeatureType}
 
 
 @utils.register_interface(ExtensionType)
@@ -1219,12 +1208,7 @@ class GeneralNames(object):
             )
 
         self._general_names = general_names
-
-    def __iter__(self):
-        return iter(self._general_names)
-
-    def __len__(self):
-        return len(self._general_names)
+    __len__, __iter__, __getitem__ = _make_sequence_methods("_general_names")
 
     def get_values_for_type(self, type):
         # Return the value of each GeneralName, except for OtherName instances
@@ -1247,9 +1231,6 @@ class GeneralNames(object):
     def __ne__(self, other):
         return not self == other
 
-    def __getitem__(self, idx):
-        return self._general_names[idx]
-
     def __hash__(self):
         return hash(tuple(self._general_names))
 
@@ -1261,11 +1242,7 @@ class SubjectAlternativeName(object):
     def __init__(self, general_names):
         self._general_names = GeneralNames(general_names)
 
-    def __iter__(self):
-        return iter(self._general_names)
-
-    def __len__(self):
-        return len(self._general_names)
+    __len__, __iter__, __getitem__ = _make_sequence_methods("_general_names")
 
     def get_values_for_type(self, type):
         return self._general_names.get_values_for_type(type)
@@ -1278,9 +1255,6 @@ class SubjectAlternativeName(object):
             return NotImplemented
 
         return self._general_names == other._general_names
-
-    def __getitem__(self, idx):
-        return self._general_names[idx]
 
     def __ne__(self, other):
         return not self == other
@@ -1296,11 +1270,7 @@ class IssuerAlternativeName(object):
     def __init__(self, general_names):
         self._general_names = GeneralNames(general_names)
 
-    def __iter__(self):
-        return iter(self._general_names)
-
-    def __len__(self):
-        return len(self._general_names)
+    __len__, __iter__, __getitem__ = _make_sequence_methods("_general_names")
 
     def get_values_for_type(self, type):
         return self._general_names.get_values_for_type(type)
@@ -1317,9 +1287,6 @@ class IssuerAlternativeName(object):
     def __ne__(self, other):
         return not self == other
 
-    def __getitem__(self, idx):
-        return self._general_names[idx]
-
     def __hash__(self):
         return hash(self._general_names)
 
@@ -1331,11 +1298,7 @@ class CertificateIssuer(object):
     def __init__(self, general_names):
         self._general_names = GeneralNames(general_names)
 
-    def __iter__(self):
-        return iter(self._general_names)
-
-    def __len__(self):
-        return len(self._general_names)
+    __len__, __iter__, __getitem__ = _make_sequence_methods("_general_names")
 
     def get_values_for_type(self, type):
         return self._general_names.get_values_for_type(type)
@@ -1351,9 +1314,6 @@ class CertificateIssuer(object):
 
     def __ne__(self, other):
         return not self == other
-
-    def __getitem__(self, idx):
-        return self._general_names[idx]
 
     def __hash__(self):
         return hash(self._general_names)
@@ -1433,14 +1393,9 @@ class PrecertificateSignedCertificateTimestamps(object):
             )
         self._signed_certificate_timestamps = signed_certificate_timestamps
 
-    def __iter__(self):
-        return iter(self._signed_certificate_timestamps)
-
-    def __len__(self):
-        return len(self._signed_certificate_timestamps)
-
-    def __getitem__(self, idx):
-        return self._signed_certificate_timestamps[idx]
+    __len__, __iter__, __getitem__ = _make_sequence_methods(
+        "_signed_certificate_timestamps"
+    )
 
     def __repr__(self):
         return (

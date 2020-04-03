@@ -7,21 +7,16 @@ from __future__ import absolute_import, division, print_function
 import datetime
 import ipaddress
 
-import asn1crypto.core
-
 import six
 
 from cryptography import x509
+from cryptography.hazmat._der import DERReader, INTEGER, NULL, SEQUENCE
 from cryptography.x509.extensions import _TLS_FEATURE_TYPE_TO_ENUM
 from cryptography.x509.name import _ASN1_TYPE_TO_ENUM
 from cryptography.x509.oid import (
     CRLEntryExtensionOID, CertificatePoliciesOID, ExtensionOID,
     OCSPExtensionOID,
 )
-
-
-class _Integers(asn1crypto.core.SequenceOf):
-    _child_spec = asn1crypto.core.Integer
 
 
 def _obj2txt(backend, obj):
@@ -69,7 +64,7 @@ def _decode_x509_name(backend, x509_name):
         attribute = _decode_x509_name_entry(backend, entry)
         set_id = backend._lib.Cryptography_X509_NAME_ENTRY_set(entry)
         if set_id != prev_set_id:
-            attributes.append(set([attribute]))
+            attributes.append({attribute})
         else:
             # is in the same RDN a previous entry
             attributes[-1].add(attribute)
@@ -209,20 +204,25 @@ class _X509ExtensionParser(object):
             # to support them in all versions of OpenSSL so we decode them
             # ourselves.
             if oid == ExtensionOID.TLS_FEATURE:
+                # The extension contents are a SEQUENCE OF INTEGERs.
                 data = backend._lib.X509_EXTENSION_get_data(ext)
-                parsed = _Integers.load(_asn1_string_to_bytes(backend, data))
+                data_bytes = _asn1_string_to_bytes(backend, data)
+                features = DERReader(data_bytes).read_single_element(SEQUENCE)
+                parsed = []
+                while not features.is_empty():
+                    parsed.append(features.read_element(INTEGER).as_integer())
+                # Map the features to their enum value.
                 value = x509.TLSFeature(
-                    [_TLS_FEATURE_TYPE_TO_ENUM[x.native] for x in parsed]
+                    [_TLS_FEATURE_TYPE_TO_ENUM[x] for x in parsed]
                 )
                 extensions.append(x509.Extension(oid, critical, value))
                 seen_oids.add(oid)
                 continue
             elif oid == ExtensionOID.PRECERT_POISON:
                 data = backend._lib.X509_EXTENSION_get_data(ext)
-                parsed = asn1crypto.core.Null.load(
-                    _asn1_string_to_bytes(backend, data)
-                )
-                assert parsed == asn1crypto.core.Null()
+                # The contents of the extension must be an ASN.1 NULL.
+                reader = DERReader(_asn1_string_to_bytes(backend, data))
+                reader.read_single_element(NULL).check_empty()
                 extensions.append(x509.Extension(
                     oid, critical, x509.PrecertPoison()
                 ))
@@ -846,6 +846,7 @@ _CRL_EXTENSION_HANDLERS = {
         _decode_authority_information_access
     ),
     ExtensionOID.ISSUING_DISTRIBUTION_POINT: _decode_issuing_dist_point,
+    ExtensionOID.FRESHEST_CRL: _decode_freshest_crl,
 }
 
 _OCSP_REQ_EXTENSION_HANDLERS = {
@@ -855,6 +856,10 @@ _OCSP_REQ_EXTENSION_HANDLERS = {
 _OCSP_BASICRESP_EXTENSION_HANDLERS = {
     OCSPExtensionOID.NONCE: _decode_nonce,
 }
+
+# All revoked extensions are valid single response extensions, see:
+# https://tools.ietf.org/html/rfc6960#section-4.4.5
+_OCSP_SINGLERESP_EXTENSION_HANDLERS = _REVOKED_EXTENSION_HANDLERS.copy()
 
 _CERTIFICATE_EXTENSION_PARSER_NO_SCT = _X509ExtensionParser(
     ext_count=lambda backend, x: backend._lib.X509_get_ext_count(x),
@@ -896,4 +901,10 @@ _OCSP_BASICRESP_EXT_PARSER = _X509ExtensionParser(
     ext_count=lambda backend, x: backend._lib.OCSP_BASICRESP_get_ext_count(x),
     get_ext=lambda backend, x, i: backend._lib.OCSP_BASICRESP_get_ext(x, i),
     handlers=_OCSP_BASICRESP_EXTENSION_HANDLERS,
+)
+
+_OCSP_SINGLERESP_EXT_PARSER = _X509ExtensionParser(
+    ext_count=lambda backend, x: backend._lib.OCSP_SINGLERESP_get_ext_count(x),
+    get_ext=lambda backend, x, i: backend._lib.OCSP_SINGLERESP_get_ext(x, i),
+    handlers=_OCSP_SINGLERESP_EXTENSION_HANDLERS,
 )
