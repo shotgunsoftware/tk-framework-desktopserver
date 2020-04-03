@@ -1165,16 +1165,22 @@ class FileBodyProducer(object):
         """
         Start a cooperative task which will read bytes from the input file and
         write them to C{consumer}.  Return a L{Deferred} which fires after all
-        bytes have been written.
+        bytes have been written.  If this L{Deferred} is cancelled before it is
+        fired, stop reading and writing bytes.
 
         @param consumer: Any L{IConsumer} provider
         """
         self._task = self._cooperate(self._writeloop(consumer))
         d = self._task.whenDone()
         def maybeStopped(reason):
-            # IBodyProducer.startProducing's Deferred isn't support to fire if
+            if reason.check(defer.CancelledError):
+                self.stopProducing()
+            elif reason.check(task.TaskStopped):
+                pass
+            else:
+                return reason
+            # IBodyProducer.startProducing's Deferred isn't supposed to fire if
             # stopProducing is called.
-            reason.trap(task.TaskStopped)
             return defer.Deferred()
         d.addCallbacks(lambda ignored: None, maybeStopped)
         return d
@@ -1496,6 +1502,10 @@ class _AgentBase(object):
         Issue a new request, given the endpoint and the path sent as part of
         the request.
         """
+        if not isinstance(method, bytes):
+            raise TypeError('method={!r} is {}, but must be bytes'.format(
+                    method, type(method)))
+
         method = _ensureValidMethod(method)
 
         # Create minimal headers, if necessary:
@@ -2300,6 +2310,7 @@ def readBody(response):
 
 __all__ = [
     'Agent',
+    'BrowserLikePolicyForHTTPS',
     'BrowserLikeRedirectAgent',
     'ContentDecoderAgent',
     'CookieAgent',

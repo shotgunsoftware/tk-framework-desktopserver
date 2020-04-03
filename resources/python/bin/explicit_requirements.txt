@@ -1,5 +1,5 @@
 
-# Copyright (c) 2019 Shotgun Software Inc.
+# Copyright (c) 2020 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
 #
@@ -8,6 +8,6 @@
 # By accessing, using, copying or modifying this work you indicate your
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
-cffi==1.12.3
-cryptography==2.7
-zope.interface==4.6.0
+cffi==1.14.0
+cryptography==2.9
+zope.interface==5.0.2

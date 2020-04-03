@@ -21,6 +21,7 @@ from pyasn1.type import tag
 from pyasn1.type import univ
 from pyasn1.type import useful
 
+from pyasn1_modules import rfc7292
 from pyasn1_modules import rfc5958
 from pyasn1_modules import rfc5652
 from pyasn1_modules import rfc5280
@@ -76,11 +77,10 @@ SigningTime = rfc5652.SigningTime
 
 EncryptedPrivateKeyInfo = rfc5958.EncryptedPrivateKeyInfo
 
+
 # Imports from RFC 7292
 
-# TODO: place holder until RFC 7292 is done
-class PFX(univ.OctetString):
-    pass
+PFX = rfc7292.PFX
 
 
 # TODO:
@@ -108,8 +108,6 @@ class SingleAttributeValues(univ.SetOf):
     pass
 
 SingleAttributeValues.componentType = AttributeValue()
-SingleAttributeValues.sizeSpec = univ.Set.sizeSpec + \
-    constraint.ValueSizeConstraint(1, 1)
 
 
 class SingleAttribute(univ.Sequence):
@@ -117,7 +115,8 @@ class SingleAttribute(univ.Sequence):
 
 SingleAttribute.componentType = namedtype.NamedTypes(
     namedtype.NamedType('type', AttributeType()),
-    namedtype.NamedType('values', AttributeValues(),
+    namedtype.NamedType('values',
+        AttributeValues().subtype(sizeSpec=constraint.ValueSizeConstraint(1, 1)),
         openType=opentype.OpenType('type', rfc5280.certificateAttributesMap)
     )
 )
@@ -134,7 +133,8 @@ class CMSSingleAttribute(univ.Sequence):
 
 CMSSingleAttribute.componentType = namedtype.NamedTypes(
     namedtype.NamedType('attrType', AttributeType()),
-    namedtype.NamedType('attrValues', AttributeValues(),
+    namedtype.NamedType('attrValues',
+        AttributeValues().subtype(sizeSpec=constraint.ValueSizeConstraint(1, 1)),
         openType=opentype.OpenType('attrType', rfc5652.cmsAttributesMap)
     )
 )
@@ -258,7 +258,7 @@ pKCS7PDU['values'][0] = ContentInfo()
 pkcs_9_at_userPKCS12 = _OID(2, 16, 840, 1, 113730, 3, 1, 216)
 
 userPKCS12 = Attribute()
-userPKCS12['type'] = pkcs_9_at_pkcs7PDU
+userPKCS12['type'] = pkcs_9_at_userPKCS12
 userPKCS12['values'][0] = PFX()
 
 
@@ -323,7 +323,7 @@ dateOfBirth['values'][0] = useful.GeneralizedTime()
 pkcs_9_at_placeOfBirth = _OID(ietf_at, 2)
 
 placeOfBirth = SingleAttribute()
-placeOfBirth['type'] = pkcs_9_at_dateOfBirth
+placeOfBirth['type'] = pkcs_9_at_placeOfBirth
 placeOfBirth['values'][0] = DirectoryString()
 
 
@@ -530,13 +530,13 @@ SMIMECapabilities.componentType = SMIMECapability()
 pkcs_9_at_smimeCapabilities = _OID(pkcs_9, 15)
 
 smimeCapabilities = CMSSingleAttribute()
-signingDescription['attrType'] = pkcs_9_at_smimeCapabilities
-signingDescription['attrValues'][0] = SMIMECapabilities()
+smimeCapabilities['attrType'] = pkcs_9_at_smimeCapabilities
+smimeCapabilities['attrValues'][0] = SMIMECapabilities()
 
 
 # Certificate Attribute Map
 
-certificateAttributesMapUpdate = {
+_certificateAttributesMapUpdate = {
     # Attribute types for use with the "pkcsEntity" object class
     pkcs_9_at_pkcs7PDU: ContentInfo(),
     pkcs_9_at_userPKCS12: PFX(),
@@ -551,20 +551,26 @@ certificateAttributesMapUpdate = {
     pkcs_9_at_placeOfBirth: DirectoryString(),
     pkcs_9_at_gender: GenderString(),
     pkcs_9_at_countryOfCitizenship: X520countryName(),
-    pkcs_9_at_countryOfCitizenship: X520countryName(),
+    pkcs_9_at_countryOfResidence: X520countryName(),
     id_at_pseudonym: DirectoryString(),
+    id_at_serialNumber: X520SerialNumber(),
     # Attribute types for use with PKCS #10 certificate requests
     pkcs_9_at_challengePassword: DirectoryString(),
     pkcs_9_at_extensionRequest: ExtensionRequest(),
     pkcs_9_at_extendedCertificateAttributes: AttributeSet(),
 }
 
-rfc5280.certificateAttributesMap.update(certificateAttributesMapUpdate)
+rfc5280.certificateAttributesMap.update(_certificateAttributesMapUpdate)
 
 
 # CMS Attribute Map
 
-cmsAttributesMapUpdate = {
+# Note: pkcs_9_at_smimeCapabilities is not included in the map because
+#       the definition in RFC 5751 is preferred, which produces the same
+#       encoding, but it allows different parameters for SMIMECapability
+#       and AlgorithmIdentifier.
+
+_cmsAttributesMapUpdate = {
     # Attribute types for use in PKCS #7 data (a.k.a. CMS)
     pkcs_9_at_contentType: ContentType(),
     pkcs_9_at_messageDigest: MessageDigest(),
@@ -576,9 +582,7 @@ cmsAttributesMapUpdate = {
     pkcs_9_at_friendlyName: FriendlyName(),
     pkcs_9_at_localKeyId: univ.OctetString(),
     pkcs_9_at_signingDescription: DirectoryString(),
-    pkcs_9_at_smimeCapabilities: SMIMECapabilities(),
+    # pkcs_9_at_smimeCapabilities: SMIMECapabilities(),
 }
 
-rfc5652.cmsAttributesMap.update(cmsAttributesMapUpdate)
-
-
+rfc5652.cmsAttributesMap.update(_cmsAttributesMapUpdate)

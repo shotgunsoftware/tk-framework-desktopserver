@@ -99,6 +99,7 @@ def cryptography_has_102_verification_params():
         "X509_VERIFY_PARAM_set1_ip_asc",
         "X509_VERIFY_PARAM_set_hostflags",
         "SSL_get0_param",
+        "SSL_CTX_get0_param",
         "X509_CHECK_FLAG_ALWAYS_CHECK_SUBJECT",
         "X509_CHECK_FLAG_NO_WILDCARDS",
         "X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS",
@@ -269,7 +270,7 @@ def cryptography_has_evp_pkey_get_set_tls_encodedpoint():
 
 def cryptography_has_fips():
     return [
-        "FIPS_set_mode",
+        "FIPS_mode_set",
         "FIPS_mode",
     ]
 
@@ -358,6 +359,12 @@ def cryptography_has_engine():
     ]
 
 
+def cryptography_has_verified_chain():
+    return [
+        "SSL_get0_verified_chain",
+    ]
+
+
 # This is a mapping of
 # {condition: function-returning-names-dependent-on-that-condition} so we can
 # loop over them and delete unsupported names at runtime. It will be removed
@@ -431,4 +438,5 @@ CONDITIONAL_NAMES = {
         cryptography_has_evp_r_memory_limit_exceeded
     ),
     "Cryptography_HAS_ENGINE": cryptography_has_engine,
+    "Cryptography_HAS_VERIFIED_CHAIN": cryptography_has_verified_chain,
 }

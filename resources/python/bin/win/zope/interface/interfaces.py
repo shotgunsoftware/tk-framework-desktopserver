@@ -19,33 +19,121 @@ from zope.interface.interface import Attribute
 from zope.interface.interface import Interface
 from zope.interface.declarations import implementer
 
+__all__ = [
+    'IAdapterRegistration',
+    'IAdapterRegistry',
+    'IAttribute',
+    'IComponentLookup',
+    'IComponentRegistry',
+    'IComponents',
+    'IDeclaration',
+    'IElement',
+    'IHandlerRegistration',
+    'IInterface',
+    'IInterfaceDeclaration',
+    'IMethod',
+    'IObjectEvent',
+    'IRegistered',
+    'IRegistration',
+    'IRegistrationEvent',
+    'ISpecification',
+    'ISubscriptionAdapterRegistration',
+    'IUnregistered',
+    'IUtilityRegistration',
+]
 
-_BLANK = u''
 
 class IElement(Interface):
-    """Objects that have basic documentation and tagged values.
     """
+    Objects that have basic documentation and tagged values.
+
+    Known derivatives include :class:`IAttribute` and its derivative
+    :class:`IMethod`; these have no notion of inheritance.
+    :class:`IInterface` is also a derivative, and it does have a
+    notion of inheritance, expressed through its ``__bases__`` and
+    ordered in its ``__iro__`` (both defined by
+    :class:`ISpecification`).
+    """
+
+    # Note that defining __doc__ as an Attribute hides the docstring
+    # from introspection. When changing it, also change it in the Sphinx
+    # ReST files.
 
     __name__ = Attribute('__name__', 'The object name')
     __doc__  = Attribute('__doc__', 'The object doc string')
 
-    def getTaggedValue(tag):
-        """Returns the value associated with `tag`.
+    ###
+    # Tagged values.
+    #
+    # Direct values are established in this instance. Others may be
+    # inherited. Although ``IElement`` itself doesn't have a notion of
+    # inheritance, ``IInterface`` *does*. It might have been better to
+    # make ``IInterface`` define new methods
+    # ``getIndirectTaggedValue``, etc, to include inheritance instead
+    # of overriding ``getTaggedValue`` to do that, but that ship has sailed.
+    # So to keep things nice and symmetric, we define the ``Direct`` methods here.
+    ###
 
-        Raise a `KeyError` of the tag isn't set.
+    def getTaggedValue(tag):
+        """Returns the value associated with *tag*.
+
+        Raise a `KeyError` if the tag isn't set.
+
+        If the object has a notion of inheritance, this searches
+        through the inheritance hierarchy and returns the nearest result.
+        If there is no such notion, this looks only at this object.
+
+        .. versionchanged:: 4.7.0
+           This method should respect inheritance if present.
         """
 
     def queryTaggedValue(tag, default=None):
-        """Returns the value associated with `tag`.
+        """
+        As for `getTaggedValue`, but instead of raising a `KeyError`, returns *default*.
 
-        Return the default value of the tag isn't set.
+
+        .. versionchanged:: 4.7.0
+           This method should respect inheritance if present.
         """
 
     def getTaggedValueTags():
-        """Returns a list of all tags."""
+        """
+        Returns a collection of all tags in no particular order.
+
+        If the object has a notion of inheritance, this
+        includes all the inherited tagged values. If there is
+        no such notion, this looks only at this object.
+
+        .. versionchanged:: 4.7.0
+           This method should respect inheritance if present.
+        """
 
     def setTaggedValue(tag, value):
-        """Associates `value` with `key`."""
+        """
+        Associates *value* with *key* directly in this object.
+        """
+
+    def getDirectTaggedValue(tag):
+        """
+        As for `getTaggedValue`, but never includes inheritance.
+
+        .. versionadded:: 5.0.0
+        """
+
+    def queryDirectTaggedValue(tag, default=None):
+        """
+        As for `queryTaggedValue`, but never includes inheritance.
+
+        .. versionadded:: 5.0.0
+        """
+
+    def getDirectTaggedValueTags():
+        """
+        As for `getTaggedValueTags`, but includes only tags directly
+        set on this object.
+
+        .. versionadded:: 5.0.0
+        """
 
 
 class IAttribute(IElement):
@@ -62,25 +150,26 @@ class IMethod(IAttribute):
     def getSignatureInfo():
         """Returns the signature information.
 
-        This method returns a dictionary with the following keys:
+        This method returns a dictionary with the following string keys:
 
-        o `positional` - All positional arguments.
-
-        o `required` - A list of all required arguments.
-
-        o `optional` - A list of all optional arguments.
-
-        o `varargs` - The name of the varargs argument.
-
-        o `kwargs` - The name of the kwargs argument.
+        - positional
+            A sequence of the names of positional arguments.
+        - required
+            A sequence of the names of required arguments.
+        - optional
+            A dictionary mapping argument names to their default values.
+        - varargs
+            The name of the varargs argument (or None).
+        - kwargs
+            The name of the kwargs argument (or None).
         """
 
     def getSignatureString():
         """Return a signature string suitable for inclusion in documentation.
 
         This method returns the function signature string. For example, if you
-        have `func(a, b, c=1, d='f')`, then the signature string is `(a, b,
-        c=1, d='f')`.
+        have ``def func(a, b, c=1, d='f')``, then the signature string is ``"(a, b,
+        c=1, d='f')"``.
         """
 
 class ISpecification(Interface):
@@ -127,7 +216,7 @@ class ISpecification(Interface):
 
     __bases__ = Attribute("""Base specifications
 
-    A tuple if specifications from which this specification is
+    A tuple of specifications from which this specification is
     directly derived.
 
     """)
@@ -135,14 +224,15 @@ class ISpecification(Interface):
     __sro__ = Attribute("""Specification-resolution order
 
     A tuple of the specification and all of it's ancestor
-    specifications from most specific to least specific.
+    specifications from most specific to least specific. The specification
+    itself is the first element.
 
     (This is similar to the method-resolution order for new-style classes.)
     """)
 
     __iro__ = Attribute("""Interface-resolution order
 
-    A tuple of the of the specification's ancestor interfaces from
+    A tuple of the specification's ancestor interfaces from
     most specific to least specific.  The specification itself is
     included if it is an interface.
 
@@ -163,16 +253,16 @@ class IInterface(ISpecification, IElement):
     Interface objects describe the behavior of an object by containing
     useful information about the object.  This information includes:
 
-      o Prose documentation about the object.  In Python terms, this
-        is called the "doc string" of the interface.  In this element,
-        you describe how the object works in prose language and any
-        other useful information about the object.
+    - Prose documentation about the object.  In Python terms, this
+      is called the "doc string" of the interface.  In this element,
+      you describe how the object works in prose language and any
+      other useful information about the object.
 
-      o Descriptions of attributes.  Attribute descriptions include
-        the name of the attribute and prose documentation describing
-        the attributes usage.
+    - Descriptions of attributes.  Attribute descriptions include
+      the name of the attribute and prose documentation describing
+      the attributes usage.
 
-      o Descriptions of methods.  Method descriptions can include:
+    - Descriptions of methods.  Method descriptions can include:
 
         - Prose "doc string" documentation about the method and its
           usage.
@@ -183,12 +273,12 @@ class IInterface(ISpecification, IElement):
           method accepts arbitrary arguments and whether the method
           accepts arbitrary keyword arguments.
 
-      o Optional tagged data.  Interface objects (and their attributes and
-        methods) can have optional, application specific tagged data
-        associated with them.  Examples uses for this are examples,
-        security assertions, pre/post conditions, and other possible
-        information you may want to associate with an Interface or its
-        attributes.
+    - Optional tagged data.  Interface objects (and their attributes and
+      methods) can have optional, application specific tagged data
+      associated with them.  Examples uses for this are examples,
+      security assertions, pre/post conditions, and other possible
+      information you may want to associate with an Interface or its
+      attributes.
 
     Not all of this information is mandatory.  For example, you may
     only want the methods of your interface to have prose
@@ -197,7 +287,7 @@ class IInterface(ISpecification, IElement):
     take any of these components.
 
     Interfaces are created with the Python class statement using
-    either Interface.Interface or another interface, as in::
+    either `zope.interface.Interface` or another interface, as in::
 
       from zope.interface import Interface
 
@@ -217,16 +307,16 @@ class IInterface(ISpecification, IElement):
 
     You use interfaces in two ways:
 
-    o You assert that your object implement the interfaces.
+    - You assert that your object implement the interfaces.
 
-      There are several ways that you can assert that an object
-      implements an interface:
+      There are several ways that you can declare that an object
+      provides an interface:
 
-      1. Call zope.interface.implements in your class definition.
+      1. Call `zope.interface.implementer` on your class definition.
 
-      2. Call zope.interfaces.directlyProvides on your object.
+      2. Call `zope.interface.directlyProvides` on your object.
 
-      3. Call 'zope.interface.classImplements' to assert that instances
+      3. Call `zope.interface.classImplements` to declare that instances
          of a class implement an interface.
 
          For example::
@@ -240,7 +330,7 @@ class IInterface(ISpecification, IElement):
          class itself implements, but only what its instances
          implement.
 
-    o You query interface meta-data. See the IInterface methods and
+    - You query interface meta-data. See the IInterface methods and
       attributes for details.
 
     """
@@ -248,7 +338,7 @@ class IInterface(ISpecification, IElement):
     def names(all=False):
         """Get the interface attribute names
 
-        Return a sequence of the names of the attributes, including
+        Return a collection of the names of the attributes, including
         methods, included in the interface definition.
 
         Normally, only directly defined attributes are included. If
@@ -259,7 +349,7 @@ class IInterface(ISpecification, IElement):
     def namesAndDescriptions(all=False):
         """Get the interface attribute names and descriptions
 
-        Return a sequence of the names and descriptions of the
+        Return a collection of the names and descriptions of the
         attributes, including methods, as name-value pairs, included
         in the interface definition.
 
@@ -271,7 +361,7 @@ class IInterface(ISpecification, IElement):
     def __getitem__(name):
         """Get the description for a name
 
-        If the named attribute is not defined, a KeyError is raised.
+        If the named attribute is not defined, a `KeyError` is raised.
         """
 
     def direct(name):
@@ -299,6 +389,7 @@ class IInterface(ISpecification, IElement):
         """
 
     __module__ = Attribute("""The name of the module defining the interface""")
+
 
 class IDeclaration(ISpecification):
     """Interface declaration
@@ -389,20 +480,20 @@ class IInterfaceDeclaration(Interface):
         This is the union of the interfaces directly provided by an
         object and interfaces implemented by it's class.
 
-        The value returned is an IDeclaration.
+        The value returned is an `IDeclaration`.
         """
 
     def implementedBy(class_):
         """Return the interfaces implemented for a class' instances
 
-        The value returned is an IDeclaration.
+        The value returned is an `IDeclaration`.
         """
 
     def classImplements(class_, *interfaces):
         """Declare additional interfaces implemented for instances of a class
 
         The arguments after the class are one or more interfaces or
-        interface specifications (IDeclaration objects).
+        interface specifications (`IDeclaration` objects).
 
         The interfaces given (including the interfaces in the
         specifications) are added to any interfaces previously
@@ -420,8 +511,13 @@ class IInterfaceDeclaration(Interface):
         instances of ``A`` and ``B`` provide.
         """
 
+    def classImplementsFirst(cls, interface):
+        """
+        See :func:`zope.interface.classImplementsFirst`.
+        """
+
     def implementer(*interfaces):
-        """Create a decorator for declaring interfaces implemented by a facory
+        """Create a decorator for declaring interfaces implemented by a factory.
 
         A callable is returned that makes an implements declaration on
         objects passed to it.
@@ -431,7 +527,7 @@ class IInterfaceDeclaration(Interface):
         """Declare the only interfaces implemented by instances of a class
 
         The arguments after the class are one or more interfaces or
-        interface specifications (IDeclaration objects).
+        interface specifications (`IDeclaration` objects).
 
         The interfaces given (including the interfaces in the
         specifications) replace any previous declarations.
@@ -447,10 +543,10 @@ class IInterfaceDeclaration(Interface):
         Instances of ``C`` provide only ``I1``, ``I2``, and regardless of
         whatever interfaces instances of ``A`` and ``B`` implement.
         """
-        
+
     def implementer_only(*interfaces):
-        """Create a decorator for declaring the only interfaces implemented 
-        
+        """Create a decorator for declaring the only interfaces implemented
+
         A callable is returned that makes an implements declaration on
         objects passed to it.
         """
@@ -458,14 +554,14 @@ class IInterfaceDeclaration(Interface):
     def directlyProvidedBy(object):
         """Return the interfaces directly provided by the given object
 
-        The value returned is an IDeclaration.
+        The value returned is an `IDeclaration`.
         """
 
     def directlyProvides(object, *interfaces):
         """Declare interfaces declared directly for an object
 
         The arguments after the object are one or more interfaces or
-        interface specifications (IDeclaration objects).
+        interface specifications (`IDeclaration` objects).
 
         The interfaces given (including the interfaces in the
         specifications) replace interfaces previously
@@ -482,7 +578,7 @@ class IInterfaceDeclaration(Interface):
         The object, ``ob`` provides ``I1``, ``I2``, and whatever interfaces
         instances have been declared for instances of ``C``.
 
-        To remove directly provided interfaces, use ``directlyProvidedBy`` and
+        To remove directly provided interfaces, use `directlyProvidedBy` and
         subtract the unwanted interfaces. For example::
 
           directlyProvides(ob, directlyProvidedBy(ob)-I2)
@@ -492,7 +588,7 @@ class IInterfaceDeclaration(Interface):
         although it might still provide ``I2`` if it's class
         implements ``I2``.
 
-        To add directly provided interfaces, use ``directlyProvidedBy`` and
+        To add directly provided interfaces, use `directlyProvidedBy` and
         include additional interfaces.  For example::
 
           directlyProvides(ob, directlyProvidedBy(ob), I2)
@@ -518,11 +614,11 @@ class IInterfaceDeclaration(Interface):
 
         is equivalent to::
 
-          directlyProvides(ob, directlyProvidedBy(ob)-I1)
+          directlyProvides(ob, directlyProvidedBy(ob) - I1)
 
         with the exception that if ``I1`` is an interface that is
         provided by ``ob`` through the class's implementation,
-        ValueError is raised.
+        `ValueError` is raised.
         """
 
     def implements(*interfaces):
@@ -531,7 +627,7 @@ class IInterfaceDeclaration(Interface):
         This function is called in a class definition (Python 2.x only).
 
         The arguments are one or more interfaces or interface
-        specifications (IDeclaration objects).
+        specifications (`IDeclaration` objects).
 
         The interfaces given (including the interfaces in the
         specifications) are added to any interfaces previously
@@ -541,7 +637,7 @@ class IInterfaceDeclaration(Interface):
         unless implementsOnly was used.
 
         This function is provided for convenience. It provides a more
-        convenient way to call classImplements. For example::
+        convenient way to call `classImplements`. For example::
 
           implements(I1)
 
@@ -559,6 +655,10 @@ class IInterfaceDeclaration(Interface):
 
         Instances of ``C`` implement ``I1``, ``I2``, and whatever interfaces
         instances of ``A`` and ``B`` implement.
+
+        .. deprecated:: 5.0
+           This only works for Python 2. The `implementer` decorator
+           is preferred for all versions.
         """
 
     def implementsOnly(*interfaces):
@@ -567,13 +667,13 @@ class IInterfaceDeclaration(Interface):
         This function is called in a class definition (Python 2.x only).
 
         The arguments are one or more interfaces or interface
-        specifications (IDeclaration objects).
+        specifications (`IDeclaration` objects).
 
         Previous declarations including declarations for base classes
         are overridden.
 
         This function is provided for convenience. It provides a more
-        convenient way to call classImplementsOnly. For example::
+        convenient way to call `classImplementsOnly`. For example::
 
           implementsOnly(I1)
 
@@ -591,6 +691,10 @@ class IInterfaceDeclaration(Interface):
 
         Instances of ``C`` implement ``I1``, ``I2``, regardless of what
         instances of ``A`` and ``B`` implement.
+
+        .. deprecated:: 5.0
+           This only works for Python 2. The `implementer_only` decorator
+           is preferred for all versions.
         """
 
     def classProvides(*interfaces):
@@ -599,7 +703,7 @@ class IInterfaceDeclaration(Interface):
         This function is called in a class definition.
 
         The arguments are one or more interfaces or interface
-        specifications (IDeclaration objects).
+        specifications (`IDeclaration` objects).
 
         The given interfaces (including the interfaces in the
         specifications) are used to create the class's direct-object
@@ -612,7 +716,7 @@ class IInterfaceDeclaration(Interface):
         interfaces implemented by instances of the class.
 
         This function is provided for convenience. It provides a more
-        convenient way to call directlyProvides for a class. For example::
+        convenient way to call `directlyProvides` for a class. For example::
 
           classProvides(I1)
 
@@ -621,9 +725,14 @@ class IInterfaceDeclaration(Interface):
           directlyProvides(theclass, I1)
 
         after the class has been created.
+
+        .. deprecated:: 5.0
+           This only works for Python 2. The `provider` decorator
+           is preferred for all versions.
         """
+
     def provider(*interfaces):
-        """A class decorator version of classProvides"""
+        """A class decorator version of `classProvides`"""
 
     def moduleProvides(*interfaces):
         """Declare interfaces provided by a module
@@ -631,7 +740,7 @@ class IInterfaceDeclaration(Interface):
         This function is used in a module definition.
 
         The arguments are one or more interfaces or interface
-        specifications (IDeclaration objects).
+        specifications (`IDeclaration` objects).
 
         The given interfaces (including the interfaces in the
         specifications) are used to create the module's direct-object
@@ -641,7 +750,7 @@ class IInterfaceDeclaration(Interface):
         definition.
 
         This function is provided for convenience. It provides a more
-        convenient way to call directlyProvides for a module. For example::
+        convenient way to call `directlyProvides` for a module. For example::
 
           moduleImplements(I1)
 
@@ -654,9 +763,9 @@ class IInterfaceDeclaration(Interface):
         """Create an interface specification
 
         The arguments are one or more interfaces or interface
-        specifications (IDeclaration objects).
+        specifications (`IDeclaration` objects).
 
-        A new interface specification (IDeclaration) with
+        A new interface specification (`IDeclaration`) with
         the given interfaces is returned.
         """
 
@@ -679,7 +788,7 @@ class IAdapterRegistry(Interface):
         provided interface, and a name, which must be text.
         """
 
-    def registered(required, provided, name=_BLANK):
+    def registered(required, provided, name=u''):
         """Return the component registered for the given interfaces and name
 
         name must be text.
@@ -701,11 +810,11 @@ class IAdapterRegistry(Interface):
         text.
         """
 
-    def queryMultiAdapter(objects, provided, name=_BLANK, default=None):
+    def queryMultiAdapter(objects, provided, name=u'', default=None):
         """Adapt a sequence of objects to a named, provided, interface
         """
 
-    def lookup1(required, provided, name=_BLANK, default=None):
+    def lookup1(required, provided, name=u'', default=None):
         """Lookup a value using a single required interface
 
         A value is looked up based on a single required
@@ -713,11 +822,11 @@ class IAdapterRegistry(Interface):
         text.
         """
 
-    def queryAdapter(object, provided, name=_BLANK, default=None):
+    def queryAdapter(object, provided, name=u'', default=None):
         """Adapt an object using a registered adapter factory.
         """
 
-    def adapter_hook(provided, object, name=_BLANK, default=None):
+    def adapter_hook(provided, object, name=u'', default=None):
         """Adapt an object using a registered adapter factory.
 
         name must be text.
@@ -733,7 +842,7 @@ class IAdapterRegistry(Interface):
         """Return the names for which there are registered objects
         """
 
-    def subscribe(required, provided, subscriber, name=_BLANK):
+    def subscribe(required, provided, subscriber, name=u''):
         """Register a subscriber
 
         A subscriber is registered for a *sequence* of required
@@ -743,14 +852,14 @@ class IAdapterRegistry(Interface):
         equivalent) interfaces.
         """
 
-    def subscriptions(required, provided, name=_BLANK):
+    def subscriptions(required, provided, name=u''):
         """Get a sequence of subscribers
 
         Subscribers for a *sequence* of required interfaces, and a provided
         interface are returned.
         """
 
-    def subscribers(objects, provided, name=_BLANK):
+    def subscribers(objects, provided, name=u''):
         """Get a sequence of subscription adapters
         """
 
@@ -791,29 +900,29 @@ class IComponentLookup(Interface):
     utilities = Attribute(
         "Adapter Registry to manage all registered utilities.")
 
-    def queryAdapter(object, interface, name=_BLANK, default=None):
+    def queryAdapter(object, interface, name=u'', default=None):
         """Look for a named adapter to an interface for an object
 
         If a matching adapter cannot be found, returns the default.
         """
 
-    def getAdapter(object, interface, name=_BLANK):
+    def getAdapter(object, interface, name=u''):
         """Look for a named adapter to an interface for an object
 
-        If a matching adapter cannot be found, a ComponentLookupError
+        If a matching adapter cannot be found, a `ComponentLookupError`
         is raised.
         """
 
-    def queryMultiAdapter(objects, interface, name=_BLANK, default=None):
+    def queryMultiAdapter(objects, interface, name=u'', default=None):
         """Look for a multi-adapter to an interface for multiple objects
 
         If a matching adapter cannot be found, returns the default.
         """
 
-    def getMultiAdapter(objects, interface, name=_BLANK):
+    def getMultiAdapter(objects, interface, name=u''):
         """Look for a multi-adapter to an interface for multiple objects
 
-        If a matching adapter cannot be found, a ComponentLookupError
+        If a matching adapter cannot be found, a `ComponentLookupError`
         is raised.
         """
 
@@ -952,129 +1061,128 @@ class IComponentRegistry(Interface):
     """Register components
     """
 
-    def registerUtility(component=None, provided=None, name=_BLANK,
-                        info=_BLANK, factory=None):
+    def registerUtility(component=None, provided=None, name=u'',
+                        info=u'', factory=None):
         """Register a utility
 
-        factory
-           Factory for the component to be registerd.
+        :param factory:
+           Factory for the component to be registered.
 
-        component
+        :param component:
            The registered component
 
-        provided
+        :param provided:
            This is the interface provided by the utility.  If the
            component provides a single interface, then this
            argument is optional and the component-implemented
            interface will be used.
 
-        name
+        :param name:
            The utility name.
 
-        info
+        :param info:
            An object that can be converted to a string to provide
            information about the registration.
 
-        Only one of component and factory can be used.
-        A Registered event is generated with an IUtilityRegistration.
+        Only one of *component* and *factory* can be used.
+
+        A `IRegistered` event is generated with an `IUtilityRegistration`.
         """
 
-    def unregisterUtility(component=None, provided=None, name=_BLANK,
+    def unregisterUtility(component=None, provided=None, name=u'',
                           factory=None):
         """Unregister a utility
 
-        A boolean is returned indicating whether the registry was
-        changed.  If the given component is None and there is no
-        component registered, or if the given component is not
-        None and is not registered, then the function returns
-        False, otherwise it returns True.
+        :returns:
+            A boolean is returned indicating whether the registry was
+            changed.  If the given *component* is None and there is no
+            component registered, or if the given *component* is not
+            None and is not registered, then the function returns
+            False, otherwise it returns True.
 
-        factory
-           Factory for the component to be unregisterd.
+        :param factory:
+           Factory for the component to be unregistered.
 
-        component
+        :param component:
            The registered component The given component can be
            None, in which case any component registered to provide
            the given provided interface with the given name is
            unregistered.
 
-        provided
+        :param provided:
            This is the interface provided by the utility.  If the
            component is not None and provides a single interface,
            then this argument is optional and the
            component-implemented interface will be used.
 
-        name
+        :param name:
            The utility name.
 
-        Only one of component and factory can be used.
-        An UnRegistered event is generated with an IUtilityRegistration.
+        Only one of *component* and *factory* can be used.
+        An `IUnregistered` event is generated with an `IUtilityRegistration`.
         """
 
     def registeredUtilities():
-        """Return an iterable of IUtilityRegistration instances.
+        """Return an iterable of `IUtilityRegistration` instances.
 
         These registrations describe the current utility registrations
         in the object.
         """
 
-    def registerAdapter(factory, required=None, provided=None, name=_BLANK,
-                       info=_BLANK):
+    def registerAdapter(factory, required=None, provided=None, name=u'',
+                       info=u''):
         """Register an adapter factory
 
-        Parameters:
-
-        factory
+        :param factory:
             The object used to compute the adapter
 
-        required
+        :param required:
             This is a sequence of specifications for objects to be
             adapted.  If omitted, then the value of the factory's
-            __component_adapts__ attribute will be used.  The
-            __component_adapts__ attribute is usually attribute is
-            normally set in class definitions using adapts
-            function, or for callables using the adapter
+            ``__component_adapts__`` attribute will be used.  The
+            ``__component_adapts__`` attribute is
+            normally set in class definitions using
+            the `.adapter`
             decorator.  If the factory doesn't have a
-            __component_adapts__ adapts attribute, then this
+            ``__component_adapts__`` adapts attribute, then this
             argument is required.
 
-        provided
+        :param provided:
             This is the interface provided by the adapter and
             implemented by the factory.  If the factory
             implements a single interface, then this argument is
             optional and the factory-implemented interface will be
             used.
 
-        name
+        :param name:
             The adapter name.
 
-        info
+        :param info:
            An object that can be converted to a string to provide
            information about the registration.
 
-        A Registered event is generated with an IAdapterRegistration.
+        A `IRegistered` event is generated with an `IAdapterRegistration`.
         """
 
     def unregisterAdapter(factory=None, required=None,
-                          provided=None, name=_BLANK):
+                          provided=None, name=u''):
         """Unregister an adapter factory
 
-        A boolean is returned indicating whether the registry was
-        changed.  If the given component is None and there is no
-        component registered, or if the given component is not
-        None and is not registered, then the function returns
-        False, otherwise it returns True.
+        :returns:
+            A boolean is returned indicating whether the registry was
+            changed.  If the given component is None and there is no
+            component registered, or if the given component is not
+            None and is not registered, then the function returns
+            False, otherwise it returns True.
 
-        Parameters:
-
-        factory
+        :param factory:
             This is the object used to compute the adapter. The
             factory can be None, in which case any factory
             registered to implement the given provided interface
             for the given required specifications with the given
             name is unregistered.
 
-        required
+        :param required:
             This is a sequence of specifications for objects to be
             adapted.  If the factory is not None and the required
             arguments is omitted, then the value of the factory's
@@ -1085,201 +1193,190 @@ class IComponentRegistry(Interface):
             is None or doesn't have a __component_adapts__ adapts
             attribute, then this argument is required.
 
-        provided
+        :param provided:
             This is the interface provided by the adapter and
             implemented by the factory.  If the factory is not
             None and implements a single interface, then this
             argument is optional and the factory-implemented
             interface will be used.
 
-        name
+        :param name:
             The adapter name.
 
-        An Unregistered event is generated with an IAdapterRegistration.
+        An `IUnregistered` event is generated with an `IAdapterRegistration`.
         """
 
     def registeredAdapters():
-        """Return an iterable of IAdapterRegistration instances.
+        """Return an iterable of `IAdapterRegistration` instances.
 
         These registrations describe the current adapter registrations
         in the object.
         """
 
     def registerSubscriptionAdapter(factory, required=None, provides=None,
-                                    name=_BLANK, info=''):
+                                    name=u'', info=''):
         """Register a subscriber factory
 
-        Parameters:
-
-        factory
+        :param factory:
             The object used to compute the adapter
 
-        required
+        :param required:
             This is a sequence of specifications for objects to be
             adapted.  If omitted, then the value of the factory's
-            __component_adapts__ attribute will be used.  The
-            __component_adapts__ attribute is usually attribute is
-            normally set in class definitions using adapts
-            function, or for callables using the adapter
+            ``__component_adapts__`` attribute will be used.  The
+            ``__component_adapts__`` attribute is
+            normally set using the adapter
             decorator.  If the factory doesn't have a
-            __component_adapts__ adapts attribute, then this
+            ``__component_adapts__`` adapts attribute, then this
             argument is required.
 
-        provided
+        :param provided:
             This is the interface provided by the adapter and
             implemented by the factory.  If the factory implements
             a single interface, then this argument is optional and
             the factory-implemented interface will be used.
 
-        name
+        :param name:
             The adapter name.
 
             Currently, only the empty string is accepted.  Other
             strings will be accepted in the future when support for
             named subscribers is added.
 
-        info
+        :param info:
            An object that can be converted to a string to provide
            information about the registration.
 
-        A Registered event is generated with an
-        ISubscriptionAdapterRegistration.
+        A `IRegistered` event is generated with an
+        `ISubscriptionAdapterRegistration`.
         """
 
     def unregisterSubscriptionAdapter(factory=None, required=None,
-                                      provides=None, name=_BLANK):
+                                      provides=None, name=u''):
         """Unregister a subscriber factory.
 
-        A boolean is returned indicating whether the registry was
-        changed.  If the given component is None and there is no
-        component registered, or if the given component is not
-        None and is not registered, then the function returns
-        False, otherwise it returns True.
+        :returns:
+            A boolean is returned indicating whether the registry was
+            changed.  If the given component is None and there is no
+            component registered, or if the given component is not
+            None and is not registered, then the function returns
+            False, otherwise it returns True.
 
-        Parameters:
-
-        factory
+        :param factory:
             This is the object used to compute the adapter. The
             factory can be None, in which case any factories
             registered to implement the given provided interface
             for the given required specifications with the given
             name are unregistered.
 
-        required
+        :param required:
             This is a sequence of specifications for objects to be
-            adapted.  If the factory is not None and the required
-            arguments is omitted, then the value of the factory's
-            __component_adapts__ attribute will be used.  The
-            __component_adapts__ attribute attribute is normally
-            set in class definitions using adapts function, or for
-            callables using the adapter decorator.  If the factory
-            is None or doesn't have a __component_adapts__ adapts
-            attribute, then this argument is required.
+            adapted.  If omitted, then the value of the factory's
+            ``__component_adapts__`` attribute will be used.  The
+            ``__component_adapts__`` attribute is
+            normally set using the adapter
+            decorator.  If the factory doesn't have a
+            ``__component_adapts__`` adapts attribute, then this
+            argument is required.
 
-        provided
+        :param provided:
             This is the interface provided by the adapter and
             implemented by the factory.  If the factory is not
             None implements a single interface, then this argument
             is optional and the factory-implemented interface will
             be used.
 
-        name
+        :param name:
             The adapter name.
 
             Currently, only the empty string is accepted.  Other
             strings will be accepted in the future when support for
             named subscribers is added.
 
-        An Unregistered event is generated with an
-        ISubscriptionAdapterRegistration.
+        An `IUnregistered` event is generated with an
+        `ISubscriptionAdapterRegistration`.
         """
 
     def registeredSubscriptionAdapters():
-        """Return an iterable of ISubscriptionAdapterRegistration instances.
+        """Return an iterable of `ISubscriptionAdapterRegistration` instances.
 
         These registrations describe the current subscription adapter
         registrations in the object.
         """
 
-    def registerHandler(handler, required=None, name=_BLANK, info=''):
+    def registerHandler(handler, required=None, name=u'', info=''):
         """Register a handler.
 
         A handler is a subscriber that doesn't compute an adapter
         but performs some function when called.
 
-        Parameters:
-
-        handler
+        :param handler:
             The object used to handle some event represented by
             the objects passed to it.
 
-        required
+        :param required:
             This is a sequence of specifications for objects to be
             adapted.  If omitted, then the value of the factory's
-            __component_adapts__ attribute will be used.  The
-            __component_adapts__ attribute is usually attribute is
-            normally set in class definitions using adapts
-            function, or for callables using the adapter
+            ``__component_adapts__`` attribute will be used.  The
+            ``__component_adapts__`` attribute is
+            normally set using the adapter
             decorator.  If the factory doesn't have a
-            __component_adapts__ adapts attribute, then this
+            ``__component_adapts__`` adapts attribute, then this
             argument is required.
 
-        name
+        :param name:
             The handler name.
 
             Currently, only the empty string is accepted.  Other
             strings will be accepted in the future when support for
             named handlers is added.
 
-        info
+        :param info:
            An object that can be converted to a string to provide
            information about the registration.
 
 
-        A Registered event is generated with an IHandlerRegistration.
+        A `IRegistered` event is generated with an `IHandlerRegistration`.
         """
 
-    def unregisterHandler(handler=None, required=None, name=_BLANK):
+    def unregisterHandler(handler=None, required=None, name=u''):
         """Unregister a handler.
 
         A handler is a subscriber that doesn't compute an adapter
         but performs some function when called.
 
-        A boolean is returned indicating whether the registry was
-        changed.
+        :returns: A boolean is returned indicating whether the registry was
+            changed.
 
-        Parameters:
-
-        handler
+        :param handler:
             This is the object used to handle some event
             represented by the objects passed to it. The handler
             can be None, in which case any handlers registered for
             the given required specifications with the given are
             unregistered.
 
-        required
+        :param required:
             This is a sequence of specifications for objects to be
             adapted.  If omitted, then the value of the factory's
-            __component_adapts__ attribute will be used.  The
-            __component_adapts__ attribute is usually attribute is
-            normally set in class definitions using adapts
-            function, or for callables using the adapter
+            ``__component_adapts__`` attribute will be used.  The
+            ``__component_adapts__`` attribute is
+            normally set using the adapter
             decorator.  If the factory doesn't have a
-            __component_adapts__ adapts attribute, then this
+            ``__component_adapts__`` adapts attribute, then this
             argument is required.
 
-        name
+        :param name:
             The handler name.
 
             Currently, only the empty string is accepted.  Other
             strings will be accepted in the future when support for
             named handlers is added.
 
-        An Unregistered event is generated with an IHandlerRegistration.
+        An `IUnregistered` event is generated with an `IHandlerRegistration`.
         """
 
     def registeredHandlers():
-        """Return an iterable of IHandlerRegistration instances.
+        """Return an iterable of `IHandlerRegistration` instances.
 
         These registrations describe the current handler registrations
         in the object.

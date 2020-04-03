@@ -12,6 +12,7 @@ import six
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ed25519, ed448
 from cryptography.x509.base import (
     _EARLIEST_UTC_TIME, _convert_to_naive_utc_time, _reject_duplicate_extension
 )
@@ -40,7 +41,7 @@ class OCSPResponseStatus(Enum):
     UNAUTHORIZED = 6
 
 
-_RESPONSE_STATUS_TO_ENUM = dict((x.value, x) for x in OCSPResponseStatus)
+_RESPONSE_STATUS_TO_ENUM = {x.value: x for x in OCSPResponseStatus}
 _ALLOWED_HASHES = (
     hashes.SHA1, hashes.SHA224, hashes.SHA256,
     hashes.SHA384, hashes.SHA512
@@ -60,7 +61,7 @@ class OCSPCertStatus(Enum):
     UNKNOWN = 2
 
 
-_CERT_STATUS_TO_ENUM = dict((x.value, x) for x in OCSPCertStatus)
+_CERT_STATUS_TO_ENUM = {x.value: x for x in OCSPCertStatus}
 
 
 def load_der_ocsp_request(data):
@@ -241,7 +242,13 @@ class OCSPResponseBuilder(object):
         if self._responder_id is None:
             raise ValueError("You must add a responder_id before signing")
 
-        if not isinstance(algorithm, hashes.HashAlgorithm):
+        if isinstance(private_key,
+                      (ed25519.Ed25519PrivateKey, ed448.Ed448PrivateKey)):
+            if algorithm is not None:
+                raise ValueError(
+                    "algorithm must be None when signing via ed25519 or ed448"
+                )
+        elif not isinstance(algorithm, hashes.HashAlgorithm):
             raise TypeError("Algorithm must be a registered hash algorithm.")
 
         return backend.create_ocsp_response(
@@ -419,4 +426,10 @@ class OCSPResponse(object):
     def extensions(self):
         """
         The list of response extensions. Not single response extensions.
+        """
+
+    @abc.abstractproperty
+    def single_extensions(self):
+        """
+        The list of single response extensions. Not response extensions.
         """

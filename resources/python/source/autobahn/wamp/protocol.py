@@ -67,13 +67,14 @@ class BaseSession(ObservableMixin):
 
     This class implements :class:`autobahn.wamp.interfaces.ISession`.
     """
-
-    log = txaio.make_logger()
+    log = None
 
     def __init__(self):
         """
 
         """
+        self.log = txaio.make_logger()
+
         self.set_valid_events(
             valid_events=[
                 'join',         # right before onJoin runs
@@ -542,6 +543,7 @@ class ApplicationSession(BaseSession):
                         authmethod=self._authmethod,
                         authprovider=self._authprovider,
                         authextra=msg.authextra,
+                        serializer=self._transport._serializer.SERIALIZER_ID,
                         resumed=msg.resumed,
                         resumable=msg.resumable,
                         resume_token=msg.resume_token,
