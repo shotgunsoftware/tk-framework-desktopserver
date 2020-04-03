@@ -1,5 +1,5 @@
 
-# Copyright (c) 2019 Shotgun Software Inc.
+# Copyright (c) 2020 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
 #
@@ -8,23 +8,22 @@
 # By accessing, using, copying or modifying this work you indicate your
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
-Automat==0.7.0
-PyHamcrest==1.9.0
-Twisted==19.2.1
-asn1crypto==0.24.0
-attrs==19.1.0
-autobahn==19.8.1
-certifi==2019.6.16
+Automat==20.2.0
+PyHamcrest==1.10.1
+Twisted==20.3.0
+attrs==19.3.0
+autobahn==19.11.2
+certifi==2019.11.28
 constantly==15.1.0
-enum34==1.1.6
+enum34==1.1.10
 hyperlink==19.0.0
-idna==2.8
+idna==2.9
 incremental==17.5.0
-ipaddress==1.0.22
+ipaddress==1.0.23
 pyOpenSSL==19.0.0
-pyasn1-modules==0.2.6
-pyasn1==0.4.6
-pycparser==2.19
+pyasn1-modules==0.2.8
+pyasn1==0.4.8
+pycparser==2.20
 service-identity==18.1.0
-six==1.12.0
+six==1.14.0
 txaio==18.8.1
