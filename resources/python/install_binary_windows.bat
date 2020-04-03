@@ -11,7 +11,7 @@
 git rm -rf bin\win
 rmdir /s /q bin\win
 
-"C:\Program Files\Shotgun\Python\python.exe" build/pip install --target bin\win --no-deps -r binary_requirements.txt
+"C:\Program Files\Shotgun\Python\python.exe" build/pip install --target bin\win --no-deps -r bin\explicit_requirements.txt
 
 # Remove tests to thin out the packages
 rmdir /s /q bin\win\Crypto\SelfTest
