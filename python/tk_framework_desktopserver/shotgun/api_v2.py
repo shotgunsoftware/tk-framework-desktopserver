@@ -695,7 +695,7 @@ class ShotgunAPI(object):
             reply["result"] = result
 
             self.host.reply(reply)
-        except Exception, e:
+        except Exception as e:
             logger.exception(e)
             self.host.report_error(e.message)
 

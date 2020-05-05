@@ -26,6 +26,7 @@
 
 from __future__ import absolute_import
 
+from __future__ import print_function
 import os
 from cffi import FFI
 
@@ -65,7 +66,7 @@ class Utf8Validator:
         self.lib = lib
 
         self._vld = self.ffi.gc(self.lib.nvx_utf8vld_new(), self.lib.nvx_utf8vld_free)
-        print(self.lib.nvx_utf8vld_get_impl(self._vld))
+        print((self.lib.nvx_utf8vld_get_impl(self._vld)))
 
     def reset(self):
         self.lib.nvx_utf8vld_reset(self._vld)

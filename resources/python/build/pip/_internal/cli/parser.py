@@ -1,6 +1,7 @@
 """Base option parser setup"""
 from __future__ import absolute_import
 
+from __future__ import print_function
 import logging
 import optparse
 import sys
@@ -146,7 +147,7 @@ class ConfigOptionParser(CustomOptionParser):
         try:
             return option.check_value(key, val)
         except optparse.OptionValueError as exc:
-            print("An error occurred during configuration: %s" % exc)
+            print(("An error occurred during configuration: %s" % exc))
             sys.exit(3)
 
     def _get_ordered_configuration_items(self):

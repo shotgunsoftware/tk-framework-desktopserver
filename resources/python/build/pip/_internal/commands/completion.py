@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+from __future__ import print_function
 import sys
 import textwrap
 
@@ -87,7 +88,7 @@ class CompletionCommand(Command):
                     'prog': get_prog(),
                 }
             )
-            print(BASE_COMPLETION % {'script': script, 'shell': options.shell})
+            print((BASE_COMPLETION % {'script': script, 'shell': options.shell}))
         else:
             sys.stderr.write(
                 'ERROR: You must pass %s\n' % ' or '.join(shell_options)

@@ -1,6 +1,7 @@
 """Logic that powers autocompletion installed by ``pip completion``.
 """
 
+from __future__ import print_function
 import optparse
 import os
 import sys
@@ -97,7 +98,7 @@ def autocomplete():
             if completion_type:
                 subcommands = auto_complete_paths(current, completion_type)
 
-        print(' '.join([x for x in subcommands if x.startswith(current)]))
+        print((' '.join([x for x in subcommands if x.startswith(current)])))
     sys.exit(1)
 
 

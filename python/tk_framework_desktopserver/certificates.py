@@ -221,7 +221,7 @@ class _CertificateHandler(object):
         :param path: Path to the file.
         :param content: Text to write to disl.
         """
-        old_umask = os.umask(0077)
+        old_umask = os.umask(0o077)
         try:
             with open(path, "wt") as f:
                 f.write(content)

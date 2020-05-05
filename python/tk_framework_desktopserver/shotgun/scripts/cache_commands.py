@@ -8,6 +8,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+from __future__ import print_function
 import sys
 import cPickle
 import glob
@@ -105,7 +106,7 @@ def cache(
         # We need to give the server a way to know that this failed due
         # to an engine initialization issue. That will allow it to skip
         # this config gracefully and log appropriately.
-        print traceback.format_exc()
+        print(traceback.format_exc())
         sys.exit(ENGINE_INIT_ERROR_EXIT_CODE)
 
     # Note that from here on out, we have to use the legacy log_* methods

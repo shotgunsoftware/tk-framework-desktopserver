@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+from __future__ import print_function
 import contextlib
 import errno
 import io
@@ -167,10 +168,10 @@ def ask(message, options):
         response = input(message)
         response = response.strip().lower()
         if response not in options:
-            print(
+            print((
                 'Your response (%r) was not one of the expected responses: '
                 '%s' % (response, ', '.join(options))
-            )
+            ))
         else:
             return response
 

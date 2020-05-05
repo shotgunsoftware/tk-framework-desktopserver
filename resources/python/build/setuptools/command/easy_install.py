@@ -11,6 +11,7 @@ __ https://setuptools.readthedocs.io/en/latest/easy_install.html
 
 """
 
+from __future__ import print_function
 from glob import glob
 from distutils.util import get_platform
 from distutils.util import convert_path, subst_vars
@@ -241,7 +242,7 @@ class easy_install(Command):
         ver = sys.version[:3]
         dist = get_distribution('setuptools')
         tmpl = 'setuptools {dist.version} from {dist.location} (Python {ver})'
-        print(tmpl.format(**locals()))
+        print((tmpl.format(**locals())))
         raise SystemExit()
 
     def finalize_options(self):

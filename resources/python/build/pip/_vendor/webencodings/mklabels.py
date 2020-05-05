@@ -10,6 +10,7 @@
 
 """
 
+from __future__ import print_function
 import json
 try:
     from urllib import urlopen
@@ -56,4 +57,4 @@ LABELS = {
 
 
 if __name__ == '__main__':
-    print(generate('http://encoding.spec.whatwg.org/encodings.json'))
+    print((generate('http://encoding.spec.whatwg.org/encodings.json')))

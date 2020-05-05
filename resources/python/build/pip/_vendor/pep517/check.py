@@ -1,5 +1,6 @@
 """Check a project and backend by attempting to build using PEP 517 hooks.
 """
+from __future__ import print_function
 import argparse
 import logging
 import os
@@ -173,9 +174,9 @@ def main(argv=None):
     ok = check(args.source_dir)
 
     if ok:
-        print(ansi('Checks passed', 'green'))
+        print((ansi('Checks passed', 'green')))
     else:
-        print(ansi('Checks failed', 'red'))
+        print((ansi('Checks failed', 'red')))
         sys.exit(1)
 
 ansi_codes = {

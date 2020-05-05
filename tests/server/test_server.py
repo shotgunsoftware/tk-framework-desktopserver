@@ -9,6 +9,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 
+from __future__ import print_function
 import os
 import sys
 import base64
@@ -579,7 +580,7 @@ class DifferentHostBase(object):
     class Impl(TestServerBase):
         def setUp(self):
             super(DifferentHostBase.Impl, self).setUp()
-            print(self.__class__)
+            print((self.__class__))
             return self.setUpClientServer(
                 use_encryption=self.use_encryption,
                 origin=self.origin,

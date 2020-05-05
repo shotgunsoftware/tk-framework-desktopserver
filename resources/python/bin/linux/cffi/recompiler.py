@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os, sys, io
 from . import ffiplatform, model
 from .error import VerificationError
@@ -1392,7 +1393,7 @@ else:
 
 def _make_c_or_py_source(ffi, module_name, preamble, target_file, verbose):
     if verbose:
-        print("generating %s" % (target_file,))
+        print(("generating %s" % (target_file,)))
     recompiler = Recompiler(ffi, module_name,
                             target_is_python=(preamble is None))
     recompiler.collect_type_table()
@@ -1530,7 +1531,7 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                         msg = 'the current directory is'
                     else:
                         msg = 'setting the current directory to'
-                    print('%s %r' % (msg, os.path.abspath(tmpdir)))
+                    print(('%s %r' % (msg, os.path.abspath(tmpdir))))
                 os.chdir(tmpdir)
                 outputfilename = ffiplatform.compile('.', ext,
                                                      compiler_verbose, debug)

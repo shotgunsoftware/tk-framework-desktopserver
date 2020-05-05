@@ -7,6 +7,7 @@
 # for that method is then used to create the other methods.   See the comments in
 # yacc.py for further details.
 
+from __future__ import print_function
 import os.path
 import shutil
 

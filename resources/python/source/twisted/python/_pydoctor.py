@@ -9,6 +9,7 @@ FIXME: https://github.com/twisted/pydoctor/issues/106
 This documentation does not link to pydoctor API as there is no public API yet.
 """
 
+from __future__ import print_function
 import urllib2
 
 from compiler import ast
@@ -100,7 +101,7 @@ class TwistedSphinxInventory(SphinxInventory):
                     return fullURL
                 else:
                     # Bad URL resolution.
-                    print("BAD URL resolution, code: ", response.code)
+                    print(("BAD URL resolution, code: ", response.code))
 
         return None
 
@@ -120,7 +121,7 @@ class TwistedSphinxInventory(SphinxInventory):
         try:
             return urllib2.urlopen(HeadRequest(url))
         except Exception as e:
-            print("Error opening {}: {}".format(url, e))
+            print(("Error opening {}: {}".format(url, e)))
             return None
 
 

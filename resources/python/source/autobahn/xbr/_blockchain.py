@@ -24,6 +24,7 @@
 #
 ###############################################################################
 
+from __future__ import print_function
 import web3
 import txaio
 from autobahn import xbr
@@ -79,8 +80,8 @@ class SimpleBlockchain(object):
             self.log.warn(emsg)
             raise RuntimeError(emsg)
         else:
-            print('connected to network {} at provider "{}"'.format(w3.version.network,
-                                                                    self._gateway or 'auto'))
+            print(('connected to network {} at provider "{}"'.format(w3.version.network,
+                                                                    self._gateway or 'auto')))
 
         self._w3 = w3
 

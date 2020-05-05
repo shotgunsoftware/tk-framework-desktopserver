@@ -67,7 +67,7 @@ def _create_invoker():
             """
             try:
                 self._res = self._fn()
-            except Exception, e:
+            except Exception as e:
                 self._exception = e
 
     return MainThreadInvoker()
@@ -195,7 +195,7 @@ class ProcessManager(object):
             return_code, out, err = Command.call_cmd(exec_command)
 
             return (out, err, return_code)
-        except Exception, e:
+        except Exception as e:
             # call_cmd is not including sentitive information in the error message, so this won't
             # either.
             raise Exception("Error executing toolkit command: " + e.message)
@@ -263,7 +263,7 @@ class ProcessManager(object):
                                                                             "shotgun_get_actions",
                                                                             [cache_filename, env_filename])
                             self._add_action_output(shotgun_get_actions_dict[env_filename], out, err, code)
-            except ExecuteTankCommandError, e:
+            except ExecuteTankCommandError as e:
                 # Something is wrong with the pipeline configuration,
                 # Clear any temporary result we might have accumulated for that pipeline
                 # contiguration.

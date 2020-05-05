@@ -159,7 +159,7 @@ class Server(object):
         self.factory.setProtocolOptions(echoCloseCodeReason=True)
         try:
             self.listener = listenWS(self.factory, self.context_factory)
-        except error.CannotListenError, e:
+        except error.CannotListenError as e:
             raise PortBusyError(str(e))
 
     def _start_reactor(self):

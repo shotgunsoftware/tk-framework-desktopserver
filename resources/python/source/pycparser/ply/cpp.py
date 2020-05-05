@@ -7,6 +7,7 @@
 #
 # This module implements an ANSI-C style lexical preprocessor for PLY.
 # -----------------------------------------------------------------------------
+from __future__ import print_function
 import sys
 
 # Some Python 3 compatibility shims
@@ -193,7 +194,7 @@ class Preprocessor(object):
     # ----------------------------------------------------------------------
 
     def error(self,file,line,msg):
-        print("%s:%d %s" % (file,line,msg))
+        print(("%s:%d %s" % (file,line,msg)))
 
     # ----------------------------------------------------------------------
     # lexprobe()
@@ -256,7 +257,7 @@ class Preprocessor(object):
             self.lexer.input(c)
             tok = self.lexer.token()
             if not tok or tok.value != c:
-                print("Unable to lex '%s' required for preprocessor" % c)
+                print(("Unable to lex '%s' required for preprocessor" % c))
 
     # ----------------------------------------------------------------------
     # add_path()
@@ -780,7 +781,7 @@ class Preprocessor(object):
             except IOError:
                 pass
         else:
-            print("Couldn't find '%s'" % filename)
+            print(("Couldn't find '%s'" % filename))
 
     # ----------------------------------------------------------------------
     # define()
@@ -902,4 +903,4 @@ if __name__ == '__main__':
     while True:
         tok = p.token()
         if not tok: break
-        print(p.source, tok)
+        print((p.source, tok))

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os.path
 import re
 import shutil
@@ -261,7 +262,7 @@ def convert(files, dest_dir, verbose):
                 conv = wininst2wheel
 
             if verbose:
-                print("{}... ".format(installer))
+                print(("{}... ".format(installer)))
                 sys.stdout.flush()
 
             conv(installer, dest_dir)

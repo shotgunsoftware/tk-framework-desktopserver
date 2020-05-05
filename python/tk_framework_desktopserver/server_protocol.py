@@ -173,7 +173,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # Extract json response (every message is expected to be in json format)
         try:
             message = json.loads(decoded_payload)
-        except ValueError, e:
+        except ValueError as e:
             self.report_error("Error in decoding the message's json data: %s" % e.message)
             return
 
@@ -379,7 +379,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 self.process_manager,
                 wss_key=self._wss_key,
             )
-        except Exception, e:
+        except Exception as e:
             message_host.report_error("Unable to get a ShotgunAPI object: %s" % e)
             return
 
@@ -388,7 +388,7 @@ class ServerProtocol(WebSocketServerProtocol):
             # Call matching shotgun command
             try:
                 func = getattr(api, cmd_name)
-            except Exception, e:
+            except Exception as e:
                 message_host.report_error(
                     "Could not find API method %s: %s." % (cmd_name, e)
                 )
@@ -403,7 +403,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 # copying/downloading files to disk in the same location.
                 try:
                     func(data)
-                except Exception, e:
+                except Exception as e:
                     import traceback
                     message_host.report_error(
                         "Method call failed for %s: %s" % (cmd_name, traceback.format_exc())

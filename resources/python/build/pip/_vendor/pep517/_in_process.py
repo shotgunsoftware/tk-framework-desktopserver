@@ -10,6 +10,7 @@ Results:
 - control_dir/output.json
   - {"return_val": ...}
 """
+from __future__ import print_function
 from glob import glob
 from importlib import import_module
 import os

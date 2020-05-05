@@ -22,6 +22,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
+from __future__ import print_function
 __doc__ = \
 """
 pyparsing module - Classes and methods to define and execute parsing grammars
@@ -1004,10 +1005,10 @@ def _defaultStartDebugAction( instring, loc, expr ):
     print (("Match " + _ustr(expr) + " at loc " + _ustr(loc) + "(%d,%d)" % ( lineno(loc,instring), col(loc,instring) )))
 
 def _defaultSuccessDebugAction( instring, startloc, endloc, expr, toks ):
-    print ("Matched " + _ustr(expr) + " -> " + str(toks.asList()))
+    print(("Matched " + _ustr(expr) + " -> " + str(toks.asList())))
 
 def _defaultExceptionDebugAction( instring, loc, expr, exc ):
-    print ("Exception raised:" + _ustr(exc))
+    print(("Exception raised:" + _ustr(exc)))
 
 def nullDebugAction(*args):
     """'Do-nothing' debug action, to suppress debugging output during parsing."""
@@ -2354,7 +2355,7 @@ class ParserElement(object):
             if printResults:
                 if fullDump:
                     out.append('')
-                print('\n'.join(out))
+                print(('\n'.join(out)))
 
             allResults.append((t, result))
         

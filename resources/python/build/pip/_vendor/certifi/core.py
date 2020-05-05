@@ -7,6 +7,7 @@ certifi.py
 
 This module returns the installation location of cacert.pem.
 """
+from __future__ import print_function
 import os
 import warnings
 
@@ -34,4 +35,4 @@ def old_where():
     return where()
 
 if __name__ == '__main__':
-    print(where())
+    print((where()))
