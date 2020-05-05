@@ -26,8 +26,10 @@ from incremental import Version
 from twisted.internet.defer import Deferred
 from twisted.internet.error import VerifyError, CertificateError
 from twisted.internet.interfaces import (
-    IAcceptableCiphers, ICipher, IOpenSSLClientConnectionCreator,
-    IOpenSSLContextFactory
+    IAcceptableCiphers,
+    ICipher,
+    IOpenSSLClientConnectionCreator,
+    IOpenSSLContextFactory,
 )
 
 from twisted.python import util
@@ -39,11 +41,11 @@ from twisted.python.util import FancyEqMixin
 from twisted.python.deprecate import deprecated
 
 
-
 class TLSVersion(Names):
     """
     TLS versions that we can negotiate with the client/server.
     """
+
     SSLv3 = NamedConstant()
     TLSv1_0 = NamedConstant()
     TLSv1_1 = NamedConstant()
@@ -51,19 +53,16 @@ class TLSVersion(Names):
     TLSv1_3 = NamedConstant()
 
 
-
 _tlsDisableFlags = {
     TLSVersion.SSLv3: SSL.OP_NO_SSLv3,
     TLSVersion.TLSv1_0: SSL.OP_NO_TLSv1,
     TLSVersion.TLSv1_1: SSL.OP_NO_TLSv1_1,
     TLSVersion.TLSv1_2: SSL.OP_NO_TLSv1_2,
-
     # If we don't have TLS v1.3 yet, we can't disable it -- this is just so
     # when it makes it into OpenSSL, connections knowingly bracketed to v1.2
     # don't end up going to v1.3
     TLSVersion.TLSv1_3: getattr(SSL, "OP_NO_TLSv1_3", 0x00),
 }
-
 
 
 def _getExcludedTLSProtocols(oldest, newest):
@@ -82,21 +81,18 @@ def _getExcludedTLSProtocols(oldest, newest):
     @rtype: L{list} of L{TLSVersion} constants.
     """
     versions = list(TLSVersion.iterconstants())
-    excludedVersions = [x for x in versions[:versions.index(oldest)]]
+    excludedVersions = [x for x in versions[: versions.index(oldest)]]
 
     if newest:
-        excludedVersions.extend([x for x in versions[versions.index(newest):]])
+        excludedVersions.extend([x for x in versions[versions.index(newest) :]])
 
     return excludedVersions
-
-
 
 
 class SimpleVerificationError(Exception):
     """
     Not a very useful verification error.
     """
-
 
 
 def simpleVerifyHostname(connection, hostname):
@@ -121,9 +117,7 @@ def simpleVerifyHostname(connection, hostname):
     """
     commonName = connection.get_peer_certificate().get_subject().commonName
     if commonName != hostname:
-        raise SimpleVerificationError(repr(commonName) + "!=" +
-                                      repr(hostname))
-
+        raise SimpleVerificationError(repr(commonName) + "!=" + repr(hostname))
 
 
 def simpleVerifyIPAddress(connection, hostname):
@@ -141,7 +135,6 @@ def simpleVerifyIPAddress(connection, hostname):
     raise SimpleVerificationError("Cannot verify certificate IP addresses")
 
 
-
 def _usablePyOpenSSL(version):
     """
     Check pyOpenSSL version string whether we can use it for host verification.
@@ -153,7 +146,6 @@ def _usablePyOpenSSL(version):
     """
     major, minor = (int(part) for part in version.split(".")[:2])
     return (major, minor) >= (0, 12)
-
 
 
 def _selectVerifyImplementation():
@@ -174,9 +166,8 @@ def _selectVerifyImplementation():
 
     try:
         from service_identity import VerificationError
-        from service_identity.pyopenssl import (
-            verify_hostname, verify_ip_address
-        )
+        from service_identity.pyopenssl import verify_hostname, verify_ip_address
+
         return verify_hostname, verify_ip_address, VerificationError
     except ImportError as e:
         warnings.warn_explicit(
@@ -184,18 +175,17 @@ def _selectVerifyImplementation():
             "service_identity module: '" + str(e) + "'.  "
             "Please install it from "
             "<https://pypi.python.org/pypi/service_identity> and make "
-            "sure all of its dependencies are satisfied.  "
-            + whatsWrong,
+            "sure all of its dependencies are satisfied.  " + whatsWrong,
             # Unfortunately the lineno is required.
-            category=UserWarning, filename="", lineno=0)
+            category=UserWarning,
+            filename="",
+            lineno=0,
+        )
 
     return simpleVerifyHostname, simpleVerifyIPAddress, SimpleVerificationError
 
 
-
-verifyHostname, verifyIPAddress, VerificationError = \
-    _selectVerifyImplementation()
-
+verifyHostname, verifyIPAddress, VerificationError = _selectVerifyImplementation()
 
 
 class ProtocolNegotiationSupport(Flags):
@@ -209,8 +199,10 @@ class ProtocolNegotiationSupport(Flags):
     @cvar ALPN: The implementation supports Application Layer Protocol
         Negotiation.
     """
+
     NPN = FlagConstant(0x0001)
     ALPN = FlagConstant(0x0002)
+
 
 # FIXME: https://twistedmatrix.com/trac/ticket/8074
 # Currently flags with literal zero values behave incorrectly. However,
@@ -251,28 +243,21 @@ def protocolNegotiationMechanisms():
     return support
 
 
-
 _x509names = {
-    'CN': 'commonName',
-    'commonName': 'commonName',
-
-    'O': 'organizationName',
-    'organizationName': 'organizationName',
-
-    'OU': 'organizationalUnitName',
-    'organizationalUnitName': 'organizationalUnitName',
-
-    'L': 'localityName',
-    'localityName': 'localityName',
-
-    'ST': 'stateOrProvinceName',
-    'stateOrProvinceName': 'stateOrProvinceName',
-
-    'C': 'countryName',
-    'countryName': 'countryName',
-
-    'emailAddress': 'emailAddress'}
-
+    "CN": "commonName",
+    "commonName": "commonName",
+    "O": "organizationName",
+    "organizationName": "organizationName",
+    "OU": "organizationalUnitName",
+    "organizationalUnitName": "organizationalUnitName",
+    "L": "localityName",
+    "localityName": "localityName",
+    "ST": "stateOrProvinceName",
+    "stateOrProvinceName": "stateOrProvinceName",
+    "C": "countryName",
+    "countryName": "countryName",
+    "emailAddress": "emailAddress",
+}
 
 
 class DistinguishedName(dict):
@@ -317,12 +302,12 @@ class DistinguishedName(dict):
         b'US'
 
     """
+
     __slots__ = ()
 
     def __init__(self, **kw):
         for k, v in kw.items():
             setattr(self, k, v)
-
 
     def _copyFrom(self, x509name):
         for name in _x509names:
@@ -330,22 +315,18 @@ class DistinguishedName(dict):
             if value is not None:
                 setattr(self, name, value)
 
-
     def _copyInto(self, x509name):
         for k, v in self.items():
             setattr(x509name, k, nativeString(v))
 
-
     def __repr__(self):
-        return '<DN %s>' % (dict.__repr__(self)[1:-1])
-
+        return "<DN %s>" % (dict.__repr__(self)[1:-1])
 
     def __getattr__(self, attr):
         try:
             return self[_x509names[attr]]
         except KeyError:
             raise AttributeError(attr)
-
 
     def __setattr__(self, attr, value):
         if attr not in _x509names:
@@ -355,7 +336,6 @@ class DistinguishedName(dict):
             value = value.encode("ascii")
         self[realAttr] = value
 
-
     def inspect(self):
         """
         Return a multi-line, human-readable representation of this DN.
@@ -364,8 +344,10 @@ class DistinguishedName(dict):
         """
         l = []
         lablen = 0
+
         def uniqueValues(mapping):
             return set(mapping.values())
+
         for k in sorted(uniqueValues(_x509names)):
             label = util.nameToLabel(k)
             lablen = max(len(label), lablen)
@@ -374,11 +356,11 @@ class DistinguishedName(dict):
                 l.append((label, nativeString(v)))
         lablen += 2
         for n, (label, attr) in enumerate(l):
-            l[n] = (label.rjust(lablen)+': '+ attr)
-        return '\n'.join(l)
+            l[n] = label.rjust(lablen) + ": " + attr
+        return "\n".join(l)
+
 
 DN = DistinguishedName
-
 
 
 @_oldStyle
@@ -394,12 +376,10 @@ class CertBase:
     def __init__(self, original):
         self.original = original
 
-
     def _copyName(self, suffix):
         dn = DistinguishedName()
-        dn._copyFrom(getattr(self.original, 'get_'+suffix)())
+        dn._copyFrom(getattr(self.original, "get_" + suffix)())
         return dn
-
 
     def getSubject(self):
         """
@@ -408,8 +388,7 @@ class CertBase:
         @return: A copy of the subject of this certificate.
         @rtype: L{DistinguishedName}
         """
-        return self._copyName('subject')
-
+        return self._copyName("subject")
 
     def __conform__(self, interface):
         """
@@ -426,7 +405,6 @@ class CertBase:
         return NotImplemented
 
 
-
 def _handleattrhelper(Class, transport, methodName):
     """
     (private) Helper for L{Certificate.peerFromTransport} and
@@ -434,38 +412,38 @@ def _handleattrhelper(Class, transport, methodName):
     and null certificates and raises the appropriate exception or returns the
     appropriate certificate object.
     """
-    method = getattr(transport.getHandle(),
-                     "get_%s_certificate" % (methodName,), None)
+    method = getattr(transport.getHandle(), "get_%s_certificate" % (methodName,), None)
     if method is None:
         raise CertificateError(
-            "non-TLS transport %r did not have %s certificate" % (transport, methodName))
+            "non-TLS transport %r did not have %s certificate" % (transport, methodName)
+        )
     cert = method()
     if cert is None:
         raise CertificateError(
-            "TLS transport %r did not have %s certificate" % (transport, methodName))
+            "TLS transport %r did not have %s certificate" % (transport, methodName)
+        )
     return Class(cert)
-
 
 
 class Certificate(CertBase):
     """
     An x509 certificate.
     """
-    def __repr__(self):
-        return '<%s Subject=%s Issuer=%s>' % (self.__class__.__name__,
-                                              self.getSubject().commonName,
-                                              self.getIssuer().commonName)
 
+    def __repr__(self):
+        return "<%s Subject=%s Issuer=%s>" % (
+            self.__class__.__name__,
+            self.getSubject().commonName,
+            self.getIssuer().commonName,
+        )
 
     def __eq__(self, other):
         if isinstance(other, Certificate):
             return self.dump() == other.dump()
         return False
 
-
     def __ne__(self, other):
         return not self.__eq__(other)
-
 
     @classmethod
     def load(Class, requestData, format=crypto.FILETYPE_ASN1, args=()):
@@ -480,7 +458,6 @@ class Certificate(CertBase):
     # around things wanting to call the parent function
     _load = load
 
-
     def dumpPEM(self):
         """
         Dump this certificate to a PEM-format data string.
@@ -488,7 +465,6 @@ class Certificate(CertBase):
         @rtype: L{str}
         """
         return self.dump(crypto.FILETYPE_PEM)
-
 
     @classmethod
     def loadPEM(Class, data):
@@ -498,7 +474,6 @@ class Certificate(CertBase):
         @rtype: C{Class}
         """
         return Class.load(data, crypto.FILETYPE_PEM)
-
 
     @classmethod
     def peerFromTransport(Class, transport):
@@ -512,8 +487,7 @@ class Certificate(CertBase):
         @raise: L{CertificateError}, if the given transport does not have a peer
             certificate.
         """
-        return _handleattrhelper(Class, transport, 'peer')
-
+        return _handleattrhelper(Class, transport, "peer")
 
     @classmethod
     def hostFromTransport(Class, transport):
@@ -527,8 +501,7 @@ class Certificate(CertBase):
         @raise: L{CertificateError}, if the given transport does not have a host
             certificate.
         """
-        return _handleattrhelper(Class, transport, 'host')
-
+        return _handleattrhelper(Class, transport, "host")
 
     def getPublicKey(self):
         """
@@ -538,10 +511,8 @@ class Certificate(CertBase):
         """
         return PublicKey(self.original.get_pubkey())
 
-
     def dump(self, format=crypto.FILETYPE_ASN1):
         return crypto.dump_certificate(format, self.original)
-
 
     def serialNumber(self):
         """
@@ -551,8 +522,7 @@ class Certificate(CertBase):
         """
         return self.original.get_serial_number()
 
-
-    def digest(self, method='md5'):
+    def digest(self, method="md5"):
         """
         Return a digest hash of this certificate using the specified hash
         algorithm.
@@ -565,15 +535,17 @@ class Certificate(CertBase):
         """
         return self.original.digest(method)
 
-
     def _inspect(self):
-        return '\n'.join(['Certificate For Subject:',
-                          self.getSubject().inspect(),
-                          '\nIssuer:',
-                          self.getIssuer().inspect(),
-                          '\nSerial Number: %d' % self.serialNumber(),
-                          'Digest: %s' % nativeString(self.digest())])
-
+        return "\n".join(
+            [
+                "Certificate For Subject:",
+                self.getSubject().inspect(),
+                "\nIssuer:",
+                self.getIssuer().inspect(),
+                "\nSerial Number: %d" % self.serialNumber(),
+                "Digest: %s" % nativeString(self.digest()),
+            ]
+        )
 
     def inspect(self):
         """
@@ -581,8 +553,7 @@ class Certificate(CertBase):
         Certificate, including information about the subject, issuer, and
         public key.
         """
-        return '\n'.join((self._inspect(), self.getPublicKey().inspect()))
-
+        return "\n".join((self._inspect(), self.getPublicKey().inspect()))
 
     def getIssuer(self):
         """
@@ -591,12 +562,10 @@ class Certificate(CertBase):
         @rtype: L{DistinguishedName}
         @return: A copy of the issuer of this certificate.
         """
-        return self._copyName('issuer')
-
+        return self._copyName("issuer")
 
     def options(self, *authorities):
-        raise NotImplementedError('Possible, but doubtful we need this yet')
-
+        raise NotImplementedError("Possible, but doubtful we need this yet")
 
 
 class CertificateRequest(CertBase):
@@ -606,36 +575,35 @@ class CertificateRequest(CertBase):
     Certificate requests are given to certificate authorities to be signed and
     returned resulting in an actual certificate.
     """
+
     @classmethod
     def load(Class, requestData, requestFormat=crypto.FILETYPE_ASN1):
         req = crypto.load_certificate_request(requestFormat, requestData)
         dn = DistinguishedName()
         dn._copyFrom(req.get_subject())
         if not req.verify(req.get_pubkey()):
-            raise VerifyError("Can't verify that request for %r is self-signed." % (dn,))
+            raise VerifyError(
+                "Can't verify that request for %r is self-signed." % (dn,)
+            )
         return Class(req)
-
 
     def dump(self, format=crypto.FILETYPE_ASN1):
         return crypto.dump_certificate_request(format, self.original)
-
 
 
 class PrivateCertificate(Certificate):
     """
     An x509 certificate and private key.
     """
-    def __repr__(self):
-        return Certificate.__repr__(self) + ' with ' + repr(self.privateKey)
 
+    def __repr__(self):
+        return Certificate.__repr__(self) + " with " + repr(self.privateKey)
 
     def _setPrivateKey(self, privateKey):
         if not privateKey.matches(self.getPublicKey()):
-            raise VerifyError(
-                "Certificate public and private keys do not match.")
+            raise VerifyError("Certificate public and private keys do not match.")
         self.privateKey = privateKey
         return self
-
 
     def newCertificate(self, newCertData, format=crypto.FILETYPE_ASN1):
         """
@@ -644,24 +612,21 @@ class PrivateCertificate(Certificate):
         """
         return self.load(newCertData, self.privateKey, format)
 
-
     @classmethod
     def load(Class, data, privateKey, format=crypto.FILETYPE_ASN1):
         return Class._load(data, format)._setPrivateKey(privateKey)
 
-
     def inspect(self):
-        return '\n'.join([Certificate._inspect(self),
-                          self.privateKey.inspect()])
-
+        return "\n".join([Certificate._inspect(self), self.privateKey.inspect()])
 
     def dumpPEM(self):
         """
         Dump both public and private parts of a private certificate to
         PEM-format data.
         """
-        return self.dump(crypto.FILETYPE_PEM) + self.privateKey.dump(crypto.FILETYPE_PEM)
-
+        return self.dump(crypto.FILETYPE_PEM) + self.privateKey.dump(
+            crypto.FILETYPE_PEM
+        )
 
     @classmethod
     def loadPEM(Class, data):
@@ -669,15 +634,14 @@ class PrivateCertificate(Certificate):
         Load both private and public parts of a private certificate from a
         chunk of PEM-format data.
         """
-        return Class.load(data, KeyPair.load(data, crypto.FILETYPE_PEM),
-                          crypto.FILETYPE_PEM)
-
+        return Class.load(
+            data, KeyPair.load(data, crypto.FILETYPE_PEM), crypto.FILETYPE_PEM
+        )
 
     @classmethod
     def fromCertificateAndKeyPair(Class, certificateInstance, privateKey):
         privcert = Class(certificateInstance.original)
         return privcert._setPrivateKey(privateKey)
-
 
     def options(self, *authorities):
         """
@@ -689,29 +653,30 @@ class PrivateCertificate(Certificate):
         @return: A context factory.
         @rtype: L{CertificateOptions <twisted.internet.ssl.CertificateOptions>}
         """
-        options = dict(privateKey=self.privateKey.original,
-                       certificate=self.original)
+        options = dict(privateKey=self.privateKey.original, certificate=self.original)
         if authorities:
-            options.update(dict(trustRoot=OpenSSLCertificateAuthorities(
-                [auth.original for auth in authorities]
-            )))
+            options.update(
+                dict(
+                    trustRoot=OpenSSLCertificateAuthorities(
+                        [auth.original for auth in authorities]
+                    )
+                )
+            )
         return OpenSSLCertificateOptions(**options)
 
-
-    def certificateRequest(self, format=crypto.FILETYPE_ASN1,
-                           digestAlgorithm='sha256'):
+    def certificateRequest(self, format=crypto.FILETYPE_ASN1, digestAlgorithm="sha256"):
         return self.privateKey.certificateRequest(
-            self.getSubject(),
-            format,
-            digestAlgorithm)
+            self.getSubject(), format, digestAlgorithm
+        )
 
-
-    def signCertificateRequest(self,
-                               requestData,
-                               verifyDNCallback,
-                               serialNumber,
-                               requestFormat=crypto.FILETYPE_ASN1,
-                               certificateFormat=crypto.FILETYPE_ASN1):
+    def signCertificateRequest(
+        self,
+        requestData,
+        verifyDNCallback,
+        serialNumber,
+        requestFormat=crypto.FILETYPE_ASN1,
+        certificateFormat=crypto.FILETYPE_ASN1,
+    ):
         issuer = self.getSubject()
         return self.privateKey.signCertificateRequest(
             issuer,
@@ -719,18 +684,23 @@ class PrivateCertificate(Certificate):
             verifyDNCallback,
             serialNumber,
             requestFormat,
-            certificateFormat)
+            certificateFormat,
+        )
 
-
-    def signRequestObject(self, certificateRequest, serialNumber,
-                          secondsToExpiry=60 * 60 * 24 * 365, # One year
-                          digestAlgorithm='sha256'):
-        return self.privateKey.signRequestObject(self.getSubject(),
-                                                 certificateRequest,
-                                                 serialNumber,
-                                                 secondsToExpiry,
-                                                 digestAlgorithm)
-
+    def signRequestObject(
+        self,
+        certificateRequest,
+        serialNumber,
+        secondsToExpiry=60 * 60 * 24 * 365,  # One year
+        digestAlgorithm="sha256",
+    ):
+        return self.privateKey.signRequestObject(
+            self.getSubject(),
+            certificateRequest,
+            serialNumber,
+            secondsToExpiry,
+            digestAlgorithm,
+        )
 
 
 @_oldStyle
@@ -754,7 +724,6 @@ class PublicKey:
         """
         self.original = osslpkey
 
-
     def matches(self, otherKey):
         """
         Does this L{PublicKey} contain the same value as another L{PublicKey}?
@@ -767,10 +736,8 @@ class PublicKey:
         """
         return self.keyHash() == otherKey.keyHash()
 
-
     def __repr__(self):
-        return '<%s %s>' % (self.__class__.__name__, self.keyHash())
-
+        return "<%s %s>" % (self.__class__.__name__, self.keyHash())
 
     def keyHash(self):
         """
@@ -793,42 +760,34 @@ class PublicKey:
         h.update(raw)
         return h.hexdigest()
 
-
     def inspect(self):
-        return 'Public Key with Hash: %s' % (self.keyHash(),)
-
+        return "Public Key with Hash: %s" % (self.keyHash(),)
 
 
 class KeyPair(PublicKey):
-
     @classmethod
     def load(Class, data, format=crypto.FILETYPE_ASN1):
         return Class(crypto.load_privatekey(format, data))
 
-
     def dump(self, format=crypto.FILETYPE_ASN1):
         return crypto.dump_privatekey(format, self.original)
-
 
     def __getstate__(self):
         return self.dump()
 
-
     def __setstate__(self, state):
         self.__init__(crypto.load_privatekey(crypto.FILETYPE_ASN1, state))
-
 
     def inspect(self):
         t = self.original.type()
         if t == crypto.TYPE_RSA:
-            ts = 'RSA'
+            ts = "RSA"
         elif t == crypto.TYPE_DSA:
-            ts = 'DSA'
+            ts = "DSA"
         else:
-            ts = '(Unknown Type!)'
+            ts = "(Unknown Type!)"
         L = (self.original.bits(), ts, self.keyHash())
-        return '%s-bit %s Key Pair with Hash: %s' % L
-
+        return "%s-bit %s Key Pair with Hash: %s" % L
 
     @classmethod
     def generate(Class, kind=crypto.TYPE_RSA, size=2048):
@@ -836,22 +795,19 @@ class KeyPair(PublicKey):
         pkey.generate_key(kind, size)
         return Class(pkey)
 
-
     def newCertificate(self, newCertData, format=crypto.FILETYPE_ASN1):
         return PrivateCertificate.load(newCertData, self, format)
 
-
-    def requestObject(self, distinguishedName, digestAlgorithm='sha256'):
+    def requestObject(self, distinguishedName, digestAlgorithm="sha256"):
         req = crypto.X509Req()
         req.set_pubkey(self.original)
         distinguishedName._copyInto(req.get_subject())
         req.sign(self.original, digestAlgorithm)
         return CertificateRequest(req)
 
-
-    def certificateRequest(self, distinguishedName,
-                           format=crypto.FILETYPE_ASN1,
-                           digestAlgorithm='sha256'):
+    def certificateRequest(
+        self, distinguishedName, format=crypto.FILETYPE_ASN1, digestAlgorithm="sha256"
+    ):
         """
         Create a certificate request signed with this key.
 
@@ -859,16 +815,17 @@ class KeyPair(PublicKey):
         """
         return self.requestObject(distinguishedName, digestAlgorithm).dump(format)
 
-
-    def signCertificateRequest(self,
-                               issuerDistinguishedName,
-                               requestData,
-                               verifyDNCallback,
-                               serialNumber,
-                               requestFormat=crypto.FILETYPE_ASN1,
-                               certificateFormat=crypto.FILETYPE_ASN1,
-                               secondsToExpiry=60 * 60 * 24 * 365, # One year
-                               digestAlgorithm='sha256'):
+    def signCertificateRequest(
+        self,
+        issuerDistinguishedName,
+        requestData,
+        verifyDNCallback,
+        serialNumber,
+        requestFormat=crypto.FILETYPE_ASN1,
+        certificateFormat=crypto.FILETYPE_ASN1,
+        secondsToExpiry=60 * 60 * 24 * 365,  # One year
+        digestAlgorithm="sha256",
+    ):
         """
         Given a blob of certificate request data and a certificate authority's
         DistinguishedName, return a blob of signed certificate data.
@@ -883,22 +840,30 @@ class KeyPair(PublicKey):
 
         def verified(value):
             if not value:
-                raise VerifyError("DN callback %r rejected request DN %r" % (verifyDNCallback, dn))
-            return self.signRequestObject(issuerDistinguishedName, hlreq,
-                                          serialNumber, secondsToExpiry, digestAlgorithm).dump(certificateFormat)
+                raise VerifyError(
+                    "DN callback %r rejected request DN %r" % (verifyDNCallback, dn)
+                )
+            return self.signRequestObject(
+                issuerDistinguishedName,
+                hlreq,
+                serialNumber,
+                secondsToExpiry,
+                digestAlgorithm,
+            ).dump(certificateFormat)
 
         if isinstance(vval, Deferred):
             return vval.addCallback(verified)
         else:
             return verified(vval)
 
-
-    def signRequestObject(self,
-                          issuerDistinguishedName,
-                          requestObject,
-                          serialNumber,
-                          secondsToExpiry=60 * 60 * 24 * 365, # One year
-                          digestAlgorithm='sha256'):
+    def signRequestObject(
+        self,
+        issuerDistinguishedName,
+        requestObject,
+        serialNumber,
+        secondsToExpiry=60 * 60 * 24 * 365,  # One year
+        digestAlgorithm="sha256",
+    ):
         """
         Sign a CertificateRequest instance, returning a Certificate instance.
         """
@@ -913,18 +878,19 @@ class KeyPair(PublicKey):
         cert.sign(self.original, digestAlgorithm)
         return Certificate(cert)
 
-
     def selfSignedCert(self, serialNumber, **kw):
         dn = DN(**kw)
         return PrivateCertificate.fromCertificateAndKeyPair(
-            self.signRequestObject(dn, self.requestObject(dn), serialNumber),
-            self)
+            self.signRequestObject(dn, self.requestObject(dn), serialNumber), self
+        )
 
-KeyPair.__getstate__ = deprecated(Version("Twisted", 15, 0, 0),
-    "a real persistence system")(KeyPair.__getstate__)
-KeyPair.__setstate__ = deprecated(Version("Twisted", 15, 0, 0),
-    "a real persistence system")(KeyPair.__setstate__)
 
+KeyPair.__getstate__ = deprecated(
+    Version("Twisted", 15, 0, 0), "a real persistence system"
+)(KeyPair.__getstate__)
+KeyPair.__setstate__ = deprecated(
+    Version("Twisted", 15, 0, 0), "a real persistence system"
+)(KeyPair.__setstate__)
 
 
 class IOpenSSLTrustRoot(Interface):
@@ -948,7 +914,6 @@ class IOpenSSLTrustRoot(Interface):
         """
 
 
-
 @implementer(IOpenSSLTrustRoot)
 class OpenSSLCertificateAuthorities(object):
     """
@@ -964,12 +929,10 @@ class OpenSSLCertificateAuthorities(object):
         """
         self._caCerts = caCerts
 
-
     def _addCACertsToContext(self, context):
         store = context.get_cert_store()
         for cert in self._caCerts:
             store.add_cert(cert)
-
 
 
 def trustRootFromCertificates(certificates):
@@ -997,12 +960,10 @@ def trustRootFromCertificates(certificates):
             cert = cert.original
         else:
             raise TypeError(
-                "certificates items must be twisted.internet.ssl.CertBase"
-                " instances"
+                "certificates items must be twisted.internet.ssl.CertBase" " instances"
             )
         certs.append(cert)
     return OpenSSLCertificateAuthorities(certs)
-
 
 
 @implementer(IOpenSSLTrustRoot)
@@ -1015,7 +976,6 @@ class OpenSSLDefaultPaths(object):
 
     def _addCACertsToContext(self, context):
         context.set_default_verify_paths()
-
 
 
 def platformTrust():
@@ -1088,7 +1048,6 @@ def platformTrust():
     return OpenSSLDefaultPaths()
 
 
-
 def _tolerateErrors(wrapped):
     """
     Wrap up an C{info_callback} for pyOpenSSL so that if something goes wrong
@@ -1109,6 +1068,7 @@ def _tolerateErrors(wrapped):
         C{wrapped}.
     @rtype: L{callable}
     """
+
     def infoCallback(connection, where, ret):
         try:
             return wrapped(connection, where, ret)
@@ -1116,8 +1076,8 @@ def _tolerateErrors(wrapped):
             f = Failure()
             log.err(f, "Error during info_callback")
             connection.get_app_data().failVerification(f)
-    return infoCallback
 
+    return infoCallback
 
 
 @implementer(IOpenSSLClientConnectionCreator)
@@ -1168,17 +1128,14 @@ class ClientTLSOptions(object):
         self._hostname = hostname
 
         if isIPAddress(hostname) or isIPv6Address(hostname):
-            self._hostnameBytes = hostname.encode('ascii')
+            self._hostnameBytes = hostname.encode("ascii")
             self._hostnameIsDnsName = False
         else:
             self._hostnameBytes = _idnaBytes(hostname)
             self._hostnameIsDnsName = True
 
         self._hostnameASCII = self._hostnameBytes.decode("ascii")
-        ctx.set_info_callback(
-            _tolerateErrors(self._identityVerifyingInfoCallback)
-        )
-
+        ctx.set_info_callback(_tolerateErrors(self._identityVerifyingInfoCallback))
 
     def clientConnectionForTLS(self, tlsProtocol):
         """
@@ -1200,7 +1157,6 @@ class ClientTLSOptions(object):
         connection = SSL.Connection(context, None)
         connection.set_app_data(tlsProtocol)
         return connection
-
 
     def _identityVerifyingInfoCallback(self, connection, where, ret):
         """
@@ -1234,9 +1190,9 @@ class ClientTLSOptions(object):
                 transport.failVerification(f)
 
 
-
-def optionsForClientTLS(hostname, trustRoot=None, clientCertificate=None,
-                        acceptableProtocols=None, **kw):
+def optionsForClientTLS(
+    hostname, trustRoot=None, clientCertificate=None, acceptableProtocols=None, **kw
+):
     """
     Create a L{client connection creator <IOpenSSLClientConnectionCreator>} for
     use with APIs such as L{SSL4ClientEndpoint
@@ -1290,15 +1246,13 @@ def optionsForClientTLS(hostname, trustRoot=None, clientCertificate=None,
     @return: A client connection creator.
     @rtype: L{IOpenSSLClientConnectionCreator}
     """
-    extraCertificateOptions = kw.pop('extraCertificateOptions', None) or {}
+    extraCertificateOptions = kw.pop("extraCertificateOptions", None) or {}
     if trustRoot is None:
         trustRoot = platformTrust()
     if kw:
         raise TypeError(
             "optionsForClientTLS() got an unexpected keyword argument"
-            " '{arg}'".format(
-                arg=kw.popitem()[0]
-            )
+            " '{arg}'".format(arg=kw.popitem()[0])
         )
     if not isinstance(hostname, unicode):
         raise TypeError(
@@ -1308,7 +1262,7 @@ def optionsForClientTLS(hostname, trustRoot=None, clientCertificate=None,
     if clientCertificate:
         extraCertificateOptions.update(
             privateKey=clientCertificate.privateKey.original,
-            certificate=clientCertificate.original
+            certificate=clientCertificate.original,
         )
     certificateOptions = OpenSSLCertificateOptions(
         trustRoot=trustRoot,
@@ -1316,7 +1270,6 @@ def optionsForClientTLS(hostname, trustRoot=None, clientCertificate=None,
         **extraCertificateOptions
     )
     return ClientTLSOptions(hostname, certificateOptions.getContext())
-
 
 
 @implementer(IOpenSSLContextFactory)
@@ -1348,37 +1301,40 @@ class OpenSSLCertificateOptions(object):
 
     _defaultMinimumTLSVersion = TLSVersion.TLSv1_0
 
-    @_mutuallyExclusiveArguments([
-        ['trustRoot', 'requireCertificate'],
-        ['trustRoot', 'verify'],
-        ['trustRoot', 'caCerts'],
-        ['method', 'insecurelyLowerMinimumTo'],
-        ['method', 'raiseMinimumTo'],
-        ['raiseMinimumTo', 'insecurelyLowerMinimumTo'],
-        ['method', 'lowerMaximumSecurityTo'],
-    ])
-    def __init__(self,
-                 privateKey=None,
-                 certificate=None,
-                 method=None,
-                 verify=False,
-                 caCerts=None,
-                 verifyDepth=9,
-                 requireCertificate=True,
-                 verifyOnce=True,
-                 enableSingleUseKeys=True,
-                 enableSessions=True,
-                 fixBrokenPeers=False,
-                 enableSessionTickets=False,
-                 extraCertChain=None,
-                 acceptableCiphers=None,
-                 dhParameters=None,
-                 trustRoot=None,
-                 acceptableProtocols=None,
-                 raiseMinimumTo=None,
-                 insecurelyLowerMinimumTo=None,
-                 lowerMaximumSecurityTo=None,
-                 ):
+    @_mutuallyExclusiveArguments(
+        [
+            ["trustRoot", "requireCertificate"],
+            ["trustRoot", "verify"],
+            ["trustRoot", "caCerts"],
+            ["method", "insecurelyLowerMinimumTo"],
+            ["method", "raiseMinimumTo"],
+            ["raiseMinimumTo", "insecurelyLowerMinimumTo"],
+            ["method", "lowerMaximumSecurityTo"],
+        ]
+    )
+    def __init__(
+        self,
+        privateKey=None,
+        certificate=None,
+        method=None,
+        verify=False,
+        caCerts=None,
+        verifyDepth=9,
+        requireCertificate=True,
+        verifyOnce=True,
+        enableSingleUseKeys=True,
+        enableSessions=True,
+        fixBrokenPeers=False,
+        enableSessionTickets=False,
+        extraCertChain=None,
+        acceptableCiphers=None,
+        dhParameters=None,
+        trustRoot=None,
+        acceptableProtocols=None,
+        raiseMinimumTo=None,
+        insecurelyLowerMinimumTo=None,
+        lowerMaximumSecurityTo=None,
+    ):
         """
         Create an OpenSSL context SSL connection context factory.
 
@@ -1528,8 +1484,7 @@ class OpenSSLCertificateOptions(object):
         """
 
         if (privateKey is None) != (certificate is None):
-            raise ValueError(
-                "Specify neither or both of privateKey and certificate")
+            raise ValueError("Specify neither or both of privateKey and certificate")
         self.privateKey = privateKey
         self.certificate = certificate
 
@@ -1537,8 +1492,7 @@ class OpenSSLCertificateOptions(object):
         # compression to avoid CRIME attack, make the server choose the
         # ciphers.
         self._options = (
-            SSL.OP_NO_SSLv2 | SSL.OP_NO_COMPRESSION |
-            SSL.OP_CIPHER_SERVER_PREFERENCE
+            SSL.OP_NO_SSLv2 | SSL.OP_NO_COMPRESSION | SSL.OP_CIPHER_SERVER_PREFERENCE
         )
 
         # Set the mode to Release Buffers, which demallocs send/recv buffers on
@@ -1549,11 +1503,13 @@ class OpenSSLCertificateOptions(object):
             self.method = SSL.SSLv23_METHOD
 
             if raiseMinimumTo:
-                if (lowerMaximumSecurityTo and
-                    raiseMinimumTo > lowerMaximumSecurityTo):
+                if lowerMaximumSecurityTo and raiseMinimumTo > lowerMaximumSecurityTo:
                     raise ValueError(
-                        ("raiseMinimumTo needs to be lower than "
-                         "lowerMaximumSecurityTo"))
+                        (
+                            "raiseMinimumTo needs to be lower than "
+                            "lowerMaximumSecurityTo"
+                        )
+                    )
 
                 if raiseMinimumTo > self._defaultMinimumTLSVersion:
                     insecurelyLowerMinimumTo = raiseMinimumTo
@@ -1563,40 +1519,56 @@ class OpenSSLCertificateOptions(object):
 
                 # If you set the max lower than the default, but don't set the
                 # minimum, pull it down to that
-                if (lowerMaximumSecurityTo and
-                    insecurelyLowerMinimumTo > lowerMaximumSecurityTo):
+                if (
+                    lowerMaximumSecurityTo
+                    and insecurelyLowerMinimumTo > lowerMaximumSecurityTo
+                ):
                     insecurelyLowerMinimumTo = lowerMaximumSecurityTo
 
-            if (lowerMaximumSecurityTo and
-                insecurelyLowerMinimumTo > lowerMaximumSecurityTo):
+            if (
+                lowerMaximumSecurityTo
+                and insecurelyLowerMinimumTo > lowerMaximumSecurityTo
+            ):
                 raise ValueError(
-                    ("insecurelyLowerMinimumTo needs to be lower than "
-                     "lowerMaximumSecurityTo"))
+                    (
+                        "insecurelyLowerMinimumTo needs to be lower than "
+                        "lowerMaximumSecurityTo"
+                    )
+                )
 
             excludedVersions = _getExcludedTLSProtocols(
-                insecurelyLowerMinimumTo, lowerMaximumSecurityTo)
+                insecurelyLowerMinimumTo, lowerMaximumSecurityTo
+            )
 
             for version in excludedVersions:
                 self._options |= _tlsDisableFlags[version]
         else:
             warnings.warn(
-                ("Passing method to twisted.internet.ssl.CertificateOptions "
-                 "was deprecated in Twisted 17.1.0. Please use a combination "
-                 "of insecurelyLowerMinimumTo, raiseMinimumTo, and "
-                 "lowerMaximumSecurityTo instead, as Twisted will correctly "
-                 "configure the method."),
-                DeprecationWarning, stacklevel=3)
+                (
+                    "Passing method to twisted.internet.ssl.CertificateOptions "
+                    "was deprecated in Twisted 17.1.0. Please use a combination "
+                    "of insecurelyLowerMinimumTo, raiseMinimumTo, and "
+                    "lowerMaximumSecurityTo instead, as Twisted will correctly "
+                    "configure the method."
+                ),
+                DeprecationWarning,
+                stacklevel=3,
+            )
 
             # Otherwise respect the application decision.
             self.method = method
 
         if verify and not caCerts:
-            raise ValueError("Specify client CA certificate information if and"
-                             " only if enabling certificate verification")
+            raise ValueError(
+                "Specify client CA certificate information if and"
+                " only if enabling certificate verification"
+            )
         self.verify = verify
         if extraCertChain is not None and None in (privateKey, certificate):
-            raise ValueError("A private key and a certificate are required "
-                             "when adding a supplemental certificate chain.")
+            raise ValueError(
+                "A private key and a certificate are required "
+                "when adding a supplemental certificate chain."
+            )
         if extraCertChain is not None:
             self.extraCertChain = extraCertChain
         else:
@@ -1620,24 +1592,22 @@ class OpenSSLCertificateOptions(object):
         self.dhParameters = dhParameters
 
         self._ecChooser = _ChooseDiffieHellmanEllipticCurve(
-            SSL.OPENSSL_VERSION_NUMBER,
-            openSSLlib=pyOpenSSLlib,
-            openSSLcrypto=crypto,
+            SSL.OPENSSL_VERSION_NUMBER, openSSLlib=pyOpenSSLlib, openSSLcrypto=crypto,
         )
 
         if acceptableCiphers is None:
             acceptableCiphers = defaultCiphers
         # This needs to run when method and _options are finalized.
-        self._cipherString = u':'.join(
+        self._cipherString = u":".join(
             c.fullName
             for c in acceptableCiphers.selectCiphers(
-                _expandCipherString(u'ALL', self.method, self._options)
+                _expandCipherString(u"ALL", self.method, self._options)
             )
         )
-        if self._cipherString == u'':
+        if self._cipherString == u"":
             raise ValueError(
-                'Supplied IAcceptableCiphers yielded no usable ciphers '
-                'on this platform.'
+                "Supplied IAcceptableCiphers yielded no usable ciphers "
+                "on this platform."
             )
 
         if trustRoot is None:
@@ -1656,19 +1626,16 @@ class OpenSSLCertificateOptions(object):
 
         self._acceptableProtocols = acceptableProtocols
 
-
     def __getstate__(self):
         d = self.__dict__.copy()
         try:
-            del d['_context']
+            del d["_context"]
         except KeyError:
             pass
         return d
 
-
     def __setstate__(self, state):
         self.__dict__ = state
-
 
     def getContext(self):
         """
@@ -1677,7 +1644,6 @@ class OpenSSLCertificateOptions(object):
         if self._context is None:
             self._context = self._makeContext()
         return self._context
-
 
     def _makeContext(self):
         ctx = self._contextFactory(self.method)
@@ -1706,6 +1672,7 @@ class OpenSSLCertificateOptions(object):
         # doesn't, so we'll supply a function which does the same thing.
         def _verifyCallback(conn, cert, errno, depth, preverify_ok):
             return preverify_ok
+
         ctx.set_verify(verifyFlags, _verifyCallback)
         if self.verifyDepth is not None:
             ctx.set_verify_depth(self.verifyDepth)
@@ -1718,7 +1685,7 @@ class OpenSSLCertificateOptions(object):
 
         if self.dhParameters:
             ctx.load_tmp_dh(self.dhParameters._dhFile.path)
-        ctx.set_cipher_list(self._cipherString.encode('ascii'))
+        ctx.set_cipher_list(self._cipherString.encode("ascii"))
 
         self._ecChooser.configureECDHCurve(ctx)
 
@@ -1731,12 +1698,11 @@ class OpenSSLCertificateOptions(object):
 
 
 OpenSSLCertificateOptions.__getstate__ = deprecated(
-        Version("Twisted", 15, 0, 0),
-        "a real persistence system")(OpenSSLCertificateOptions.__getstate__)
+    Version("Twisted", 15, 0, 0), "a real persistence system"
+)(OpenSSLCertificateOptions.__getstate__)
 OpenSSLCertificateOptions.__setstate__ = deprecated(
-        Version("Twisted", 15, 0, 0),
-        "a real persistence system")(OpenSSLCertificateOptions.__setstate__)
-
+    Version("Twisted", 15, 0, 0), "a real persistence system"
+)(OpenSSLCertificateOptions.__setstate__)
 
 
 @implementer(ICipher)
@@ -1744,7 +1710,8 @@ class OpenSSLCipher(FancyEqMixin, object):
     """
     A representation of an OpenSSL cipher.
     """
-    compareAttributes = ('fullName',)
+
+    compareAttributes = ("fullName",)
 
     def __init__(self, fullName):
         """
@@ -1754,13 +1721,11 @@ class OpenSSLCipher(FancyEqMixin, object):
         """
         self.fullName = fullName
 
-
     def __repr__(self):
         """
         A runnable representation of the cipher.
         """
-        return 'OpenSSLCipher({0!r})'.format(self.fullName)
-
+        return "OpenSSLCipher({0!r})".format(self.fullName)
 
 
 def _expandCipherString(cipherString, method, options):
@@ -1784,7 +1749,7 @@ def _expandCipherString(cipherString, method, options):
     ctx = SSL.Context(method)
     ctx.set_options(options)
     try:
-        ctx.set_cipher_list(cipherString.encode('ascii'))
+        ctx.set_cipher_list(cipherString.encode("ascii"))
     except SSL.Error as e:
         # OpenSSL 1.1.1 turns an invalid cipher list into TLS 1.3
         # ciphers, so pyOpenSSL >= 19.0.0 raises an artificial Error
@@ -1792,7 +1757,7 @@ def _expandCipherString(cipherString, method, options):
         # consists only of these after a call to set_cipher_list.
         if not e.args[0]:
             return []
-        if e.args[0][0][2] == 'no cipher match':
+        if e.args[0][0][2] == "no cipher match":
             return []
         else:
             raise
@@ -1801,8 +1766,7 @@ def _expandCipherString(cipherString, method, options):
     if isinstance(ciphers[0], unicode):
         return [OpenSSLCipher(cipher) for cipher in ciphers]
     else:
-        return [OpenSSLCipher(cipher.decode('ascii')) for cipher in ciphers]
-
+        return [OpenSSLCipher(cipher.decode("ascii")) for cipher in ciphers]
 
 
 @implementer(IAcceptableCiphers)
@@ -1810,15 +1774,12 @@ class OpenSSLAcceptableCiphers(object):
     """
     A representation of ciphers that are acceptable for TLS connections.
     """
+
     def __init__(self, ciphers):
         self._ciphers = ciphers
 
-
     def selectCiphers(self, availableCiphers):
-        return [cipher
-                for cipher in self._ciphers
-                if cipher in availableCiphers]
-
+        return [cipher for cipher in self._ciphers if cipher in availableCiphers]
 
     @classmethod
     def fromOpenSSLCipherString(cls, cipherString):
@@ -1837,9 +1798,12 @@ class OpenSSLAcceptableCiphers(object):
         @return: Instance representing C{cipherString}.
         @rtype: L{twisted.internet.ssl.AcceptableCiphers}
         """
-        return cls(_expandCipherString(
-            nativeString(cipherString),
-            SSL.SSLv23_METHOD, SSL.OP_NO_SSLv2 | SSL.OP_NO_SSLv3)
+        return cls(
+            _expandCipherString(
+                nativeString(cipherString),
+                SSL.SSLv23_METHOD,
+                SSL.OP_NO_SSLv2 | SSL.OP_NO_SSLv3,
+            )
         )
 
 
@@ -1866,7 +1830,6 @@ defaultCiphers = OpenSSLAcceptableCiphers.fromOpenSSLCipherString(
     "!aNULL:!MD5:!DSS"
 )
 _defaultCurveName = u"prime256v1"
-
 
 
 class _ChooseDiffieHellmanEllipticCurve(object):
@@ -1906,15 +1869,13 @@ class _ChooseDiffieHellmanEllipticCurve(object):
             self.configureECDHCurve = self._configureOpenSSL102
         else:
             try:
-                self._ecCurve = openSSLcrypto.get_elliptic_curve(
-                    _defaultCurveName)
+                self._ecCurve = openSSLcrypto.get_elliptic_curve(_defaultCurveName)
             except ValueError:
                 # The get_elliptic_curve method raises a ValueError
                 # when the curve does not exist.
                 self.configureECDHCurve = self._configureOpenSSL101NoCurves
             else:
                 self.configureECDHCurve = self._configureOpenSSL101
-
 
     def _configureOpenSSL110(self, ctx):
         """
@@ -1923,7 +1884,6 @@ class _ChooseDiffieHellmanEllipticCurve(object):
 
         @param ctx: L{OpenSSL.SSL.Context}
         """
-
 
     def _configureOpenSSL102(self, ctx):
         """
@@ -1940,7 +1900,6 @@ class _ChooseDiffieHellmanEllipticCurve(object):
         except:
             pass
 
-
     def _configureOpenSSL101(self, ctx):
         """
         Set the default elliptic curve for ECDH on the context.  Only
@@ -1954,7 +1913,6 @@ class _ChooseDiffieHellmanEllipticCurve(object):
         except:
             pass
 
-
     def _configureOpenSSL101NoCurves(self, ctx):
         """
         No elliptic curves are available on OpenSSL 1.0.1. We can't
@@ -1965,15 +1923,14 @@ class _ChooseDiffieHellmanEllipticCurve(object):
         """
 
 
-
 class OpenSSLDiffieHellmanParameters(object):
     """
     A representation of key generation parameters that are required for
     Diffie-Hellman key exchange.
     """
+
     def __init__(self, parameters):
         self._dhFile = parameters
-
 
     @classmethod
     def fromFile(cls, filePath):
@@ -1999,7 +1956,6 @@ class OpenSSLDiffieHellmanParameters(object):
         return cls(filePath)
 
 
-
 def _setAcceptableProtocols(context, acceptableProtocols):
     """
     Called to set up the L{OpenSSL.SSL.Context} for doing NPN and/or ALPN
@@ -2017,6 +1973,7 @@ def _setAcceptableProtocols(context, acceptableProtocols):
         the list are preferred over those later in the list.
     @type acceptableProtocols: L{list} of L{bytes}
     """
+
     def protoSelectCallback(conn, protocols):
         """
         NPN client-side and ALPN server-side callback used to select
@@ -2035,7 +1992,7 @@ def _setAcceptableProtocols(context, acceptableProtocols):
             if p in overlap:
                 return p
         else:
-            return b''
+            return b""
 
     # If we don't actually have protocols to negotiate, don't set anything up.
     # Depending on OpenSSL version, failing some of the selection callbacks can
@@ -2047,6 +2004,7 @@ def _setAcceptableProtocols(context, acceptableProtocols):
     supported = protocolNegotiationMechanisms()
 
     if supported & ProtocolNegotiationSupport.NPN:
+
         def npnAdvertiseCallback(conn):
             return acceptableProtocols
 

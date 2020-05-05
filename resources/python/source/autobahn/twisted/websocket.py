@@ -32,54 +32,56 @@ import six
 from zope.interface import implementer
 
 import txaio
+
 txaio.use_twisted()
 
 import twisted.internet.protocol
 from twisted.internet import endpoints
 from twisted.internet.interfaces import ITransport, ISSLTransport
 
-from twisted.internet.error import ConnectionDone, ConnectionAborted, \
-    ConnectionLost
+from twisted.internet.error import ConnectionDone, ConnectionAborted, ConnectionLost
 from twisted.internet.defer import Deferred
 
 from autobahn.util import public
 from autobahn.util import _is_tls_error, _maybe_tls_reason
 from autobahn.wamp import websocket
-from autobahn.websocket.types import ConnectionRequest, ConnectionResponse, ConnectionDeny, \
-    TransportDetails
+from autobahn.websocket.types import (
+    ConnectionRequest,
+    ConnectionResponse,
+    ConnectionDeny,
+    TransportDetails,
+)
 from autobahn.websocket import protocol
 from autobahn.websocket.interfaces import IWebSocketClientAgent
 from autobahn.twisted.util import peer2str, transport_channel_id
 
-from autobahn.websocket.compress import PerMessageDeflateOffer, \
-    PerMessageDeflateOfferAccept, \
-    PerMessageDeflateResponse, \
-    PerMessageDeflateResponseAccept
+from autobahn.websocket.compress import (
+    PerMessageDeflateOffer,
+    PerMessageDeflateOfferAccept,
+    PerMessageDeflateResponse,
+    PerMessageDeflateResponseAccept,
+)
 
 
 __all__ = (
-    'create_client_agent',
-
-    'WebSocketAdapterProtocol',
-    'WebSocketServerProtocol',
-    'WebSocketClientProtocol',
-    'WebSocketAdapterFactory',
-    'WebSocketServerFactory',
-    'WebSocketClientFactory',
-
-    'WrappingWebSocketAdapter',
-    'WrappingWebSocketServerProtocol',
-    'WrappingWebSocketClientProtocol',
-    'WrappingWebSocketServerFactory',
-    'WrappingWebSocketClientFactory',
-
-    'listenWS',
-    'connectWS',
-
-    'WampWebSocketServerProtocol',
-    'WampWebSocketServerFactory',
-    'WampWebSocketClientProtocol',
-    'WampWebSocketClientFactory',
+    "create_client_agent",
+    "WebSocketAdapterProtocol",
+    "WebSocketServerProtocol",
+    "WebSocketClientProtocol",
+    "WebSocketAdapterFactory",
+    "WebSocketServerFactory",
+    "WebSocketClientFactory",
+    "WrappingWebSocketAdapter",
+    "WrappingWebSocketServerProtocol",
+    "WrappingWebSocketClientProtocol",
+    "WrappingWebSocketServerFactory",
+    "WrappingWebSocketClientFactory",
+    "listenWS",
+    "connectWS",
+    "WampWebSocketServerProtocol",
+    "WampWebSocketServerFactory",
+    "WampWebSocketClientProtocol",
+    "WampWebSocketClientFactory",
 )
 
 
@@ -97,16 +99,17 @@ def check_transport_config(transport_config):
     # XXX move me to "autobahn.websocket.util"
     if not isinstance(transport_config, six.text_type):
         raise ValueError(
-            "'transport_config' must be a string, found {}".format(type(transport_config))
+            "'transport_config' must be a string, found {}".format(
+                type(transport_config)
+            )
         )
     # XXX also accept everything Crossbar has in client transport configs? e.g like:
     # { "type": "websocket", "endpoint": {"type": "tcp", "host": "example.com", ...}}
     # XXX what about TLS options? (the above point would address that too)
-    if not transport_config.startswith("ws://") and \
-       not transport_config.startswith("wss://"):
-        raise ValueError(
-            "'transport_config' must start with 'ws://' or 'wss://'"
-        )
+    if not transport_config.startswith("ws://") and not transport_config.startswith(
+        "wss://"
+    ):
+        raise ValueError("'transport_config' must start with 'ws://' or 'wss://'")
     return None
 
 
@@ -116,9 +119,7 @@ def check_client_options(options):
     """
     # XXX move me to "autobahn.websocket.util"
     if not isinstance(options, dict):
-        raise ValueError(
-            "'options' must be a dict"
-        )
+        raise ValueError("'options' must be a dict")
 
     # anything that WebSocketClientFactory accepts (at least)
     valid_keys = [
@@ -130,9 +131,7 @@ def check_client_options(options):
     ]
     for actual_k in options.keys():
         if actual_k not in valid_keys:
-            raise ValueError(
-                "'options' may not contain '{}'".format(actual_k)
-            )
+            raise ValueError("'options' may not contain '{}'".format(actual_k))
 
 
 def _endpoint_from_config(reactor, factory, transport_config, options):
@@ -145,19 +144,21 @@ def _endpoint_from_config(reactor, factory, transport_config, options):
     if factory.isSecure:
         # create default client SSL context factory when none given
         from twisted.internet import ssl
+
         context_factory = ssl.optionsForClientTLS(factory.host)
 
     if factory.proxy is not None:
         factory.contextFactory = context_factory
         endpoint = endpoints.HostnameEndpoint(
             reactor,
-            factory.proxy[u'host'],
-            factory.proxy[u'port'],
+            factory.proxy[u"host"],
+            factory.proxy[u"port"],
             # timeout,  option?
         )
     else:
         if factory.isSecure:
             from twisted.internet import ssl
+
             endpoint = endpoints.SSL4ClientEndpoint(
                 reactor,
                 factory.host,
@@ -205,14 +206,16 @@ class _TwistedWebSocketClientAgent(IWebSocketClientAgent):
         check_client_options(options)
 
         factory = WebSocketClientFactory(
-            url=transport_config,
-            reactor=self._reactor,
-            **options
+            url=transport_config, reactor=self._reactor, **options
         )
-        factory.protocol = WebSocketClientProtocol if protocol_class is None else protocol_class
+        factory.protocol = (
+            WebSocketClientProtocol if protocol_class is None else protocol_class
+        )
         # XXX might want "contextFactory" for TLS ...? (or e.g. CA etc options?)
 
-        endpoint = _endpoint_from_config(self._reactor, factory, transport_config, options)
+        endpoint = _endpoint_from_config(
+            self._reactor, factory, transport_config, options
+        )
 
         rtn_d = Deferred()
         proto_d = endpoint.connect(factory)
@@ -221,12 +224,13 @@ class _TwistedWebSocketClientAgent(IWebSocketClientAgent):
             rtn_d.errback(f)
 
         def got_proto(proto):
-
             def handshake_completed(arg):
                 rtn_d.callback(proto)
                 return arg
+
             proto.is_open.addCallbacks(handshake_completed, failed)
             return proto
+
         proto_d.addCallbacks(got_proto, failed)
         return rtn_d
 
@@ -236,7 +240,7 @@ class WebSocketAdapterProtocol(twisted.internet.protocol.Protocol):
     Adapter class for Twisted WebSocket client and server protocols.
     """
 
-    peer = u'<never connected>'
+    peer = u"<never connected>"
 
     log = txaio.make_logger()
 
@@ -246,10 +250,10 @@ class WebSocketAdapterProtocol(twisted.internet.protocol.Protocol):
             self.peer = peer2str(self.transport.getPeer())
         except AttributeError:
             # ProcessProtocols lack getPeer()
-            self.peer = u'process:{}'.format(self.transport.pid)
+            self.peer = u"process:{}".format(self.transport.pid)
 
         self._connectionMade()
-        self.log.debug('Connection made to {peer}', peer=self.peer)
+        self.log.debug("Connection made to {peer}", peer=self.peer)
 
         # Set "Nagle"
         try:
@@ -260,19 +264,21 @@ class WebSocketAdapterProtocol(twisted.internet.protocol.Protocol):
 
     def connectionLost(self, reason):
         if isinstance(reason.value, ConnectionDone):
-            self.log.debug("Connection to/from {peer} was closed cleanly",
-                           peer=self.peer)
+            self.log.debug(
+                "Connection to/from {peer} was closed cleanly", peer=self.peer
+            )
 
         elif _is_tls_error(reason.value):
             self.log.error(_maybe_tls_reason(reason.value))
 
         elif isinstance(reason.value, ConnectionAborted):
-            self.log.debug("Connection to/from {peer} was aborted locally",
-                           peer=self.peer)
+            self.log.debug(
+                "Connection to/from {peer} was aborted locally", peer=self.peer
+            )
 
         elif isinstance(reason.value, ConnectionLost):
             message = str(reason.value)
-            if hasattr(reason.value, 'message'):
+            if hasattr(reason.value, "message"):
                 message = reason.value.message
             self.log.debug(
                 "Connection to/from {peer} was lost in a non-clean fashion: {message}",
@@ -282,8 +288,12 @@ class WebSocketAdapterProtocol(twisted.internet.protocol.Protocol):
 
         # at least: FileDescriptorOverrun, ConnectionFdescWentAway - but maybe others as well?
         else:
-            self.log.debug("Connection to/from {peer} lost ({error_type}): {error})",
-                           peer=self.peer, error_type=type(reason.value), error=reason.value)
+            self.log.debug(
+                "Connection to/from {peer} lost ({error_type}): {error})",
+                peer=self.peer,
+                error_type=type(reason.value),
+                error=reason.value,
+            )
 
         self._connectionLost(reason)
 
@@ -291,7 +301,7 @@ class WebSocketAdapterProtocol(twisted.internet.protocol.Protocol):
         self._dataReceived(data)
 
     def _closeConnection(self, abort=False):
-        if abort and hasattr(self.transport, 'abortConnection'):
+        if abort and hasattr(self.transport, "abortConnection"):
             self.transport.abortConnection()
         else:
             # e.g. ProcessProtocol lacks abortConnection()
@@ -349,7 +359,9 @@ class WebSocketAdapterProtocol(twisted.internet.protocol.Protocol):
 
 
 @public
-class WebSocketServerProtocol(WebSocketAdapterProtocol, protocol.WebSocketServerProtocol):
+class WebSocketServerProtocol(
+    WebSocketAdapterProtocol, protocol.WebSocketServerProtocol
+):
     """
     Base class for Twisted-based WebSocket server protocols.
 
@@ -358,7 +370,7 @@ class WebSocketServerProtocol(WebSocketAdapterProtocol, protocol.WebSocketServer
 
     log = txaio.make_logger()
 
-    def get_channel_id(self, channel_id_type=u'tls-unique'):
+    def get_channel_id(self, channel_id_type=u"tls-unique"):
         """
         Implements :func:`autobahn.wamp.interfaces.ITransport.get_channel_id`
         """
@@ -366,7 +378,9 @@ class WebSocketServerProtocol(WebSocketAdapterProtocol, protocol.WebSocketServer
 
 
 @public
-class WebSocketClientProtocol(WebSocketAdapterProtocol, protocol.WebSocketClientProtocol):
+class WebSocketClientProtocol(
+    WebSocketAdapterProtocol, protocol.WebSocketClientProtocol
+):
     """
     Base class for Twisted-based WebSocket client protocols.
 
@@ -382,7 +396,7 @@ class WebSocketClientProtocol(WebSocketAdapterProtocol, protocol.WebSocketClient
         self.log.debug("Starting TLS upgrade")
         self.transport.startTLS(self.factory.contextFactory)
 
-    def get_channel_id(self, channel_id_type=u'tls-unique'):
+    def get_channel_id(self, channel_id_type=u"tls-unique"):
         """
         Implements :func:`autobahn.wamp.interfaces.ITransport.get_channel_id`
         """
@@ -402,11 +416,15 @@ class WebSocketClientProtocol(WebSocketAdapterProtocol, protocol.WebSocketClient
         is_secure = ISSLTransport.providedBy(self.transport)
         if is_secure:
             secure_channel_id = {
-                u'tls-unique': transport_channel_id(self.transport, False, u'tls-unique'),
+                u"tls-unique": transport_channel_id(
+                    self.transport, False, u"tls-unique"
+                ),
             }
         else:
             secure_channel_id = {}
-        return TransportDetails(peer=self.peer, is_secure=is_secure, secure_channel_id=secure_channel_id)
+        return TransportDetails(
+            peer=self.peer, is_secure=is_secure, secure_channel_id=secure_channel_id
+        )
 
 
 class WebSocketAdapterFactory(object):
@@ -416,7 +434,11 @@ class WebSocketAdapterFactory(object):
 
 
 @public
-class WebSocketServerFactory(WebSocketAdapterFactory, protocol.WebSocketServerFactory, twisted.internet.protocol.ServerFactory):
+class WebSocketServerFactory(
+    WebSocketAdapterFactory,
+    protocol.WebSocketServerFactory,
+    twisted.internet.protocol.ServerFactory,
+):
     """
     Base class for Twisted-based WebSocket server factories.
 
@@ -433,7 +455,7 @@ class WebSocketServerFactory(WebSocketAdapterFactory, protocol.WebSocketServerFa
             Twisted reactor to be used.
         """
         # lazy import to avoid reactor install upon module import
-        reactor = kwargs.pop('reactor', None)
+        reactor = kwargs.pop("reactor", None)
         if reactor is None:
             from twisted.internet import reactor
         self.reactor = reactor
@@ -442,7 +464,11 @@ class WebSocketServerFactory(WebSocketAdapterFactory, protocol.WebSocketServerFa
 
 
 @public
-class WebSocketClientFactory(WebSocketAdapterFactory, protocol.WebSocketClientFactory, twisted.internet.protocol.ClientFactory):
+class WebSocketClientFactory(
+    WebSocketAdapterFactory,
+    protocol.WebSocketClientFactory,
+    twisted.internet.protocol.ClientFactory,
+):
     """
     Base class for Twisted-based WebSocket client factories.
 
@@ -459,7 +485,7 @@ class WebSocketClientFactory(WebSocketAdapterFactory, protocol.WebSocketClientFa
             Twisted reactor to be used.
         """
         # lazy import to avoid reactor install upon module import
-        reactor = kwargs.pop('reactor', None)
+        reactor = kwargs.pop("reactor", None)
         if reactor is None:
             from twisted.internet import reactor
         self.reactor = reactor
@@ -472,6 +498,7 @@ class WebSocketClientFactory(WebSocketAdapterFactory, protocol.WebSocketClientFa
             # create the connection after CONNECT and if it's doing
             # TLS it needs a contextFactory
             from twisted.internet import ssl
+
             self.contextFactory = ssl.optionsForClientTLS(self.host)
         # NOTE: there's thus no way to send in our own
         # context-factory, nor any TLS options.
@@ -508,14 +535,24 @@ class WrappingWebSocketAdapter(object):
             request = requestOrResponse
             for p in request.protocols:
                 if p in self.factory._subprotocols:
-                    self._binaryMode = (p != u'base64')
+                    self._binaryMode = p != u"base64"
                     return p
-            raise ConnectionDeny(ConnectionDeny.NOT_ACCEPTABLE, u'this server only speaks {0} WebSocket subprotocols'.format(self.factory._subprotocols))
+            raise ConnectionDeny(
+                ConnectionDeny.NOT_ACCEPTABLE,
+                u"this server only speaks {0} WebSocket subprotocols".format(
+                    self.factory._subprotocols
+                ),
+            )
         elif isinstance(requestOrResponse, ConnectionResponse):
             response = requestOrResponse
             if response.protocol not in self.factory._subprotocols:
-                self._fail_connection(protocol.WebSocketProtocol.CLOSE_STATUS_CODE_PROTOCOL_ERROR, u'this client only speaks {0} WebSocket subprotocols'.format(self.factory._subprotocols))
-            self._binaryMode = (response.protocol != u'base64')
+                self._fail_connection(
+                    protocol.WebSocketProtocol.CLOSE_STATUS_CODE_PROTOCOL_ERROR,
+                    u"this client only speaks {0} WebSocket subprotocols".format(
+                        self.factory._subprotocols
+                    ),
+                )
+            self._binaryMode = response.protocol != u"base64"
         else:
             # should not arrive here
             raise Exception("logic error")
@@ -525,13 +562,19 @@ class WrappingWebSocketAdapter(object):
 
     def onMessage(self, payload, isBinary):
         if isBinary != self._binaryMode:
-            self._fail_connection(protocol.WebSocketProtocol.CLOSE_STATUS_CODE_UNSUPPORTED_DATA, u'message payload type does not match the negotiated subprotocol')
+            self._fail_connection(
+                protocol.WebSocketProtocol.CLOSE_STATUS_CODE_UNSUPPORTED_DATA,
+                u"message payload type does not match the negotiated subprotocol",
+            )
         else:
             if not isBinary:
                 try:
                     payload = b64decode(payload)
                 except Exception as e:
-                    self._fail_connection(protocol.WebSocketProtocol.CLOSE_STATUS_CODE_INVALID_PAYLOAD, u'message payload base64 decoding error: {0}'.format(e))
+                    self._fail_connection(
+                        protocol.WebSocketProtocol.CLOSE_STATUS_CODE_INVALID_PAYLOAD,
+                        u"message payload base64 decoding error: {0}".format(e),
+                    )
             self._proto.dataReceived(payload)
 
     # noinspection PyUnusedLocal
@@ -540,7 +583,7 @@ class WrappingWebSocketAdapter(object):
 
     def write(self, data):
         # part of ITransport
-        assert(type(data) == bytes)
+        assert type(data) == bytes
         if self._binaryMode:
             self.sendMessage(data, isBinary=True)
         else:
@@ -565,13 +608,17 @@ class WrappingWebSocketAdapter(object):
         return self.transport.getHost()
 
 
-class WrappingWebSocketServerProtocol(WrappingWebSocketAdapter, WebSocketServerProtocol):
+class WrappingWebSocketServerProtocol(
+    WrappingWebSocketAdapter, WebSocketServerProtocol
+):
     """
     Server protocol for stream-based transport over WebSocket.
     """
 
 
-class WrappingWebSocketClientProtocol(WrappingWebSocketAdapter, WebSocketClientProtocol):
+class WrappingWebSocketClientProtocol(
+    WrappingWebSocketAdapter, WebSocketClientProtocol
+):
     """
     Client protocol for stream-based transport over WebSocket.
     """
@@ -582,13 +629,15 @@ class WrappingWebSocketServerFactory(WebSocketServerFactory):
     Wrapping server factory for stream-based transport over WebSocket.
     """
 
-    def __init__(self,
-                 factory,
-                 url,
-                 reactor=None,
-                 enableCompression=True,
-                 autoFragmentSize=0,
-                 subprotocol=None):
+    def __init__(
+        self,
+        factory,
+        url,
+        reactor=None,
+        enableCompression=True,
+        autoFragmentSize=0,
+        subprotocol=None,
+    ):
         """
 
         :param factory: Stream-based factory to be wrapped.
@@ -597,14 +646,13 @@ class WrappingWebSocketServerFactory(WebSocketServerFactory):
         :type url: unicode
         """
         self._factory = factory
-        self._subprotocols = [u'binary', u'base64']
+        self._subprotocols = [u"binary", u"base64"]
         if subprotocol:
             self._subprotocols.append(subprotocol)
 
-        WebSocketServerFactory.__init__(self,
-                                        url=url,
-                                        reactor=reactor,
-                                        protocols=self._subprotocols)
+        WebSocketServerFactory.__init__(
+            self, url=url, reactor=reactor, protocols=self._subprotocols
+        )
 
         # automatically fragment outgoing traffic into WebSocket frames
         # of this size
@@ -645,13 +693,15 @@ class WrappingWebSocketClientFactory(WebSocketClientFactory):
     Wrapping client factory for stream-based transport over WebSocket.
     """
 
-    def __init__(self,
-                 factory,
-                 url,
-                 reactor=None,
-                 enableCompression=True,
-                 autoFragmentSize=0,
-                 subprotocol=None):
+    def __init__(
+        self,
+        factory,
+        url,
+        reactor=None,
+        enableCompression=True,
+        autoFragmentSize=0,
+        subprotocol=None,
+    ):
         """
 
         :param factory: Stream-based factory to be wrapped.
@@ -660,14 +710,13 @@ class WrappingWebSocketClientFactory(WebSocketClientFactory):
         :type url: unicode
         """
         self._factory = factory
-        self._subprotocols = [u'binary', u'base64']
+        self._subprotocols = [u"binary", u"base64"]
         if subprotocol:
             self._subprotocols.append(subprotocol)
 
-        WebSocketClientFactory.__init__(self,
-                                        url=url,
-                                        reactor=reactor,
-                                        protocols=self._subprotocols)
+        WebSocketClientFactory.__init__(
+            self, url=url, reactor=reactor, protocols=self._subprotocols
+        )
 
         # automatically fragment outgoing traffic into WebSocket frames
         # of this size
@@ -720,7 +769,7 @@ def connectWS(factory, contextFactory=None, timeout=30, bindAddress=None):
     :rtype: An object which implements `twisted.interface.IConnector <http://twistedmatrix.com/documents/current/api/twisted.internet.interfaces.IConnector.html>`_.
     """
     # lazy import to avoid reactor install upon module import
-    if hasattr(factory, 'reactor'):
+    if hasattr(factory, "reactor"):
         reactor = factory.reactor
     else:
         from twisted.internet import reactor
@@ -729,21 +778,37 @@ def connectWS(factory, contextFactory=None, timeout=30, bindAddress=None):
         if contextFactory is None:
             # create default client SSL context factory when none given
             from twisted.internet import ssl
+
             contextFactory = ssl.ClientContextFactory()
 
     if factory.proxy is not None:
         factory.contextFactory = contextFactory
-        conn = reactor.connectTCP(factory.proxy[u'host'], factory.proxy[u'port'], factory, timeout, bindAddress)
+        conn = reactor.connectTCP(
+            factory.proxy[u"host"],
+            factory.proxy[u"port"],
+            factory,
+            timeout,
+            bindAddress,
+        )
     else:
         if factory.isSecure:
-            conn = reactor.connectSSL(factory.host, factory.port, factory, contextFactory, timeout, bindAddress)
+            conn = reactor.connectSSL(
+                factory.host,
+                factory.port,
+                factory,
+                contextFactory,
+                timeout,
+                bindAddress,
+            )
         else:
-            conn = reactor.connectTCP(factory.host, factory.port, factory, timeout, bindAddress)
+            conn = reactor.connectTCP(
+                factory.host, factory.port, factory, timeout, bindAddress
+            )
     return conn
 
 
 @public
-def listenWS(factory, contextFactory=None, backlog=50, interface=''):
+def listenWS(factory, contextFactory=None, backlog=50, interface=""):
     """
     Listen for incoming WebSocket connections from clients. The connection parameters like
     listening port and others are provided via the factory.
@@ -764,22 +829,28 @@ def listenWS(factory, contextFactory=None, backlog=50, interface=''):
     :rtype: An object that implements `twisted.interface.IListeningPort <http://twistedmatrix.com/documents/current/api/twisted.internet.interfaces.IListeningPort.html>`_.
     """
     # lazy import to avoid reactor install upon module import
-    if hasattr(factory, 'reactor'):
+    if hasattr(factory, "reactor"):
         reactor = factory.reactor
     else:
         from twisted.internet import reactor
 
     if factory.isSecure:
         if contextFactory is None:
-            raise Exception("Secure WebSocket listen requested, but no SSL context factory given")
-        listener = reactor.listenSSL(factory.port, factory, contextFactory, backlog, interface)
+            raise Exception(
+                "Secure WebSocket listen requested, but no SSL context factory given"
+            )
+        listener = reactor.listenSSL(
+            factory.port, factory, contextFactory, backlog, interface
+        )
     else:
         listener = reactor.listenTCP(factory.port, factory, backlog, interface)
     return listener
 
 
 @public
-class WampWebSocketServerProtocol(websocket.WampWebSocketServerProtocol, WebSocketServerProtocol):
+class WampWebSocketServerProtocol(
+    websocket.WampWebSocketServerProtocol, WebSocketServerProtocol
+):
     """
     Twisted-based WAMP-over-WebSocket server protocol.
 
@@ -790,7 +861,9 @@ class WampWebSocketServerProtocol(websocket.WampWebSocketServerProtocol, WebSock
 
 
 @public
-class WampWebSocketServerFactory(websocket.WampWebSocketServerFactory, WebSocketServerFactory):
+class WampWebSocketServerFactory(
+    websocket.WampWebSocketServerFactory, WebSocketServerFactory
+):
     """
     Twisted-based WAMP-over-WebSocket server protocol factory.
     """
@@ -810,18 +883,20 @@ class WampWebSocketServerFactory(websocket.WampWebSocketServerFactory, WebSocket
             :class:`autobahn.wamp.interfaces.ISerializer`
         """
 
-        serializers = kwargs.pop('serializers', None)
+        serializers = kwargs.pop("serializers", None)
 
         websocket.WampWebSocketServerFactory.__init__(self, factory, serializers)
 
-        kwargs['protocols'] = self._protocols
+        kwargs["protocols"] = self._protocols
 
         # noinspection PyCallByClass
         WebSocketServerFactory.__init__(self, *args, **kwargs)
 
 
 @public
-class WampWebSocketClientProtocol(websocket.WampWebSocketClientProtocol, WebSocketClientProtocol):
+class WampWebSocketClientProtocol(
+    websocket.WampWebSocketClientProtocol, WebSocketClientProtocol
+):
     """
     Twisted-based WAMP-over-WebSocket client protocol.
 
@@ -832,7 +907,9 @@ class WampWebSocketClientProtocol(websocket.WampWebSocketClientProtocol, WebSock
 
 
 @public
-class WampWebSocketClientFactory(websocket.WampWebSocketClientFactory, WebSocketClientFactory):
+class WampWebSocketClientFactory(
+    websocket.WampWebSocketClientFactory, WebSocketClientFactory
+):
     """
     Twisted-based WAMP-over-WebSocket client protocol factory.
     """
@@ -852,10 +929,10 @@ class WampWebSocketClientFactory(websocket.WampWebSocketClientFactory, WebSocket
         :type serializer: object implementing :class:`autobahn.wamp.interfaces.ISerializer`
         """
 
-        serializers = kwargs.pop('serializers', None)
+        serializers = kwargs.pop("serializers", None)
 
         websocket.WampWebSocketClientFactory.__init__(self, factory, serializers)
 
-        kwargs['protocols'] = self._protocols
+        kwargs["protocols"] = self._protocols
 
         WebSocketClientFactory.__init__(self, *args, **kwargs)

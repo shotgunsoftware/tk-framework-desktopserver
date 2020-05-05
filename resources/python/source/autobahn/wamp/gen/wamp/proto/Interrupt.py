@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Interrupt(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsInterrupt(cls, buf, offset):
@@ -22,7 +23,9 @@ class Interrupt(object):
     def Request(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
     # Interrupt
@@ -32,7 +35,18 @@ class Interrupt(object):
             return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 1
 
-def InterruptStart(builder): builder.StartObject(2)
-def InterruptAddRequest(builder, request): builder.PrependUint64Slot(0, request, 0)
-def InterruptAddMode(builder, mode): builder.PrependUint8Slot(1, mode, 1)
-def InterruptEnd(builder): return builder.EndObject()
+
+def InterruptStart(builder):
+    builder.StartObject(2)
+
+
+def InterruptAddRequest(builder, request):
+    builder.PrependUint64Slot(0, request, 0)
+
+
+def InterruptAddMode(builder, mode):
+    builder.PrependUint8Slot(1, mode, 1)
+
+
+def InterruptEnd(builder):
+    return builder.EndObject()

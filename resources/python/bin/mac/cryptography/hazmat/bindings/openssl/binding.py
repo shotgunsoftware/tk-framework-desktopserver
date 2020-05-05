@@ -76,7 +76,7 @@ def _openssl_assert(lib, ok):
             "please file an issue at https://github.com/pyca/cryptography/"
             "issues with information on how to reproduce "
             "this. ({0!r})".format(errors_with_text),
-            errors_with_text
+            errors_with_text,
         )
 
 
@@ -99,6 +99,7 @@ class Binding(object):
     """
     OpenSSL API wrapper.
     """
+
     lib = None
     ffi = ffi
     _lib_loaded = False
@@ -142,8 +143,10 @@ class Binding(object):
             # the setup for this.
             __import__("_ssl")
 
-            if (not cls.lib.Cryptography_HAS_LOCKING_CALLBACKS or
-                    cls.lib.CRYPTO_get_locking_callback() != cls.ffi.NULL):
+            if (
+                not cls.lib.Cryptography_HAS_LOCKING_CALLBACKS
+                or cls.lib.CRYPTO_get_locking_callback() != cls.ffi.NULL
+            ):
                 return
 
             # If nothing else has setup a locking callback already, we set up
@@ -153,16 +156,13 @@ class Binding(object):
 
 
 def _verify_openssl_version(lib):
-    if (
-        lib.CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 and
-        not lib.CRYPTOGRAPHY_IS_LIBRESSL
-    ):
+    if lib.CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 and not lib.CRYPTOGRAPHY_IS_LIBRESSL:
         if os.environ.get("CRYPTOGRAPHY_ALLOW_OPENSSL_101"):
             warnings.warn(
                 "OpenSSL version 1.0.1 is no longer supported by the OpenSSL "
                 "project, please upgrade. The next version of cryptography "
                 "will completely remove support for it.",
-                utils.CryptographyDeprecationWarning
+                utils.CryptographyDeprecationWarning,
             )
         else:
             raise RuntimeError(

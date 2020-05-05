@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class CallerFeatures(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsCallerFeatures(cls, buf, offset):
@@ -22,49 +23,84 @@ class CallerFeatures(object):
     def CallerIdentification(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CallerFeatures
     def CallTimeout(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CallerFeatures
     def CallCanceling(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CallerFeatures
     def ProgressiveCallResults(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CallerFeatures
     def PayloadTransparency(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CallerFeatures
     def PayloadEncryptionCryptobox(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
-def CallerFeaturesStart(builder): builder.StartObject(6)
-def CallerFeaturesAddCallerIdentification(builder, callerIdentification): builder.PrependBoolSlot(0, callerIdentification, 0)
-def CallerFeaturesAddCallTimeout(builder, callTimeout): builder.PrependBoolSlot(1, callTimeout, 0)
-def CallerFeaturesAddCallCanceling(builder, callCanceling): builder.PrependBoolSlot(2, callCanceling, 0)
-def CallerFeaturesAddProgressiveCallResults(builder, progressiveCallResults): builder.PrependBoolSlot(3, progressiveCallResults, 0)
-def CallerFeaturesAddPayloadTransparency(builder, payloadTransparency): builder.PrependBoolSlot(4, payloadTransparency, 0)
-def CallerFeaturesAddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox): builder.PrependBoolSlot(5, payloadEncryptionCryptobox, 0)
-def CallerFeaturesEnd(builder): return builder.EndObject()
+
+def CallerFeaturesStart(builder):
+    builder.StartObject(6)
+
+
+def CallerFeaturesAddCallerIdentification(builder, callerIdentification):
+    builder.PrependBoolSlot(0, callerIdentification, 0)
+
+
+def CallerFeaturesAddCallTimeout(builder, callTimeout):
+    builder.PrependBoolSlot(1, callTimeout, 0)
+
+
+def CallerFeaturesAddCallCanceling(builder, callCanceling):
+    builder.PrependBoolSlot(2, callCanceling, 0)
+
+
+def CallerFeaturesAddProgressiveCallResults(builder, progressiveCallResults):
+    builder.PrependBoolSlot(3, progressiveCallResults, 0)
+
+
+def CallerFeaturesAddPayloadTransparency(builder, payloadTransparency):
+    builder.PrependBoolSlot(4, payloadTransparency, 0)
+
+
+def CallerFeaturesAddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox):
+    builder.PrependBoolSlot(5, payloadEncryptionCryptobox, 0)
+
+
+def CallerFeaturesEnd(builder):
+    return builder.EndObject()

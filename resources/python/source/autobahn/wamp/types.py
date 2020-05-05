@@ -34,23 +34,23 @@ from autobahn.wamp.request import Subscription, Registration
 
 
 __all__ = (
-    'ComponentConfig',
-    'HelloReturn',
-    'Accept',
-    'Deny',
-    'Challenge',
-    'HelloDetails',
-    'SessionDetails',
-    'SessionIdent',
-    'CloseDetails',
-    'SubscribeOptions',
-    'EventDetails',
-    'PublishOptions',
-    'RegisterOptions',
-    'CallDetails',
-    'CallOptions',
-    'CallResult',
-    'EncodedPayload'
+    "ComponentConfig",
+    "HelloReturn",
+    "Accept",
+    "Deny",
+    "Challenge",
+    "HelloDetails",
+    "SessionDetails",
+    "SessionIdent",
+    "CloseDetails",
+    "SubscribeOptions",
+    "EventDetails",
+    "PublishOptions",
+    "RegisterOptions",
+    "CallDetails",
+    "CallOptions",
+    "CallResult",
+    "EncodedPayload",
 )
 
 
@@ -62,15 +62,23 @@ class ComponentConfig(object):
     """
 
     __slots__ = (
-        'realm',
-        'extra',
-        'keyring',
-        'controller',
-        'shared',
-        'runner',
+        "realm",
+        "extra",
+        "keyring",
+        "controller",
+        "shared",
+        "runner",
     )
 
-    def __init__(self, realm=None, extra=None, keyring=None, controller=None, shared=None, runner=None):
+    def __init__(
+        self,
+        realm=None,
+        extra=None,
+        keyring=None,
+        controller=None,
+        shared=None,
+        runner=None,
+    ):
         """
 
         :param realm: The realm the session would like to join or ``None`` to let the router
@@ -106,7 +114,7 @@ class ComponentConfig(object):
         :param runner: Instance of ApplicationRunner when run under this.
         :type runner: :class:`autobahn.twisted.wamp.ApplicationRunner`
         """
-        assert(realm is None or type(realm) == six.text_type)
+        assert realm is None or type(realm) == six.text_type
         # assert(keyring is None or ...) # FIXME
 
         self.realm = realm
@@ -117,7 +125,14 @@ class ComponentConfig(object):
         self.runner = runner
 
     def __str__(self):
-        return u"ComponentConfig(realm=<{}>, extra={}, keyring={}, controller={}, shared={}, runner={})".format(self.realm, self.extra, self.keyring, self.controller, self.shared, self.runner)
+        return u"ComponentConfig(realm=<{}>, extra={}, keyring={}, controller={}, shared={}, runner={})".format(
+            self.realm,
+            self.extra,
+            self.keyring,
+            self.controller,
+            self.shared,
+            self.runner,
+        )
 
 
 @public
@@ -134,15 +149,23 @@ class Accept(HelloReturn):
     """
 
     __slots__ = (
-        'realm',
-        'authid',
-        'authrole',
-        'authmethod',
-        'authprovider',
-        'authextra',
+        "realm",
+        "authid",
+        "authrole",
+        "authmethod",
+        "authprovider",
+        "authextra",
     )
 
-    def __init__(self, realm=None, authid=None, authrole=None, authmethod=None, authprovider=None, authextra=None):
+    def __init__(
+        self,
+        realm=None,
+        authid=None,
+        authrole=None,
+        authmethod=None,
+        authprovider=None,
+        authextra=None,
+    ):
         """
 
         :param realm: The realm the client is joined to.
@@ -163,12 +186,12 @@ class Accept(HelloReturn):
         :param authextra: Application-specific authextra to be forwarded to the client in `WELCOME.details.authextra`.
         :type authextra: dict
         """
-        assert(realm is None or type(realm) == six.text_type)
-        assert(authid is None or type(authid) == six.text_type)
-        assert(authrole is None or type(authrole) == six.text_type)
-        assert(authmethod is None or type(authmethod) == six.text_type)
-        assert(authprovider is None or type(authprovider) == six.text_type)
-        assert(authextra is None or type(authextra) == dict)
+        assert realm is None or type(realm) == six.text_type
+        assert authid is None or type(authid) == six.text_type
+        assert authrole is None or type(authrole) == six.text_type
+        assert authmethod is None or type(authmethod) == six.text_type
+        assert authprovider is None or type(authprovider) == six.text_type
+        assert authextra is None or type(authextra) == dict
 
         self.realm = realm
         self.authid = authid
@@ -178,7 +201,14 @@ class Accept(HelloReturn):
         self.authextra = authextra
 
     def __str__(self):
-        return u"Accept(realm=<{}>, authid=<{}>, authrole=<{}>, authmethod={}, authprovider={}, authextra={})".format(self.realm, self.authid, self.authrole, self.authmethod, self.authprovider, self.authextra)
+        return u"Accept(realm=<{}>, authid=<{}>, authrole=<{}>, authmethod={}, authprovider={}, authextra={})".format(
+            self.realm,
+            self.authid,
+            self.authrole,
+            self.authmethod,
+            self.authprovider,
+            self.authextra,
+        )
 
 
 @public
@@ -188,11 +218,11 @@ class Deny(HelloReturn):
     """
 
     __slots__ = (
-        'reason',
-        'message',
+        "reason",
+        "message",
     )
 
-    def __init__(self, reason=u'wamp.error.not_authorized', message=None):
+    def __init__(self, reason=u"wamp.error.not_authorized", message=None):
         """
 
         :param reason: The reason of denying the authentication (an URI, e.g. ``u'wamp.error.not_authorized'``)
@@ -201,8 +231,8 @@ class Deny(HelloReturn):
         :param message: A human readable message (for logging purposes).
         :type message: str
         """
-        assert(type(reason) == six.text_type)
-        assert(message is None or type(message) == six.text_type)
+        assert type(reason) == six.text_type
+        assert message is None or type(message) == six.text_type
 
         self.reason = reason
         self.message = message
@@ -218,8 +248,8 @@ class Challenge(HelloReturn):
     """
 
     __slots__ = (
-        'method',
-        'extra',
+        "method",
+        "extra",
     )
 
     def __init__(self, method, extra=None):
@@ -232,8 +262,8 @@ class Challenge(HelloReturn):
            specific to the authentication method.
         :type extra: dict
         """
-        assert(type(method) == six.text_type)
-        assert(extra is None or type(extra) == dict)
+        assert type(method) == six.text_type
+        assert extra is None or type(extra) == dict
 
         self.method = method
         self.extra = extra or {}
@@ -249,19 +279,31 @@ class HelloDetails(object):
     """
 
     __slots__ = (
-        'realm',
-        'authmethods',
-        'authid',
-        'authrole',
-        'authextra',
-        'session_roles',
-        'pending_session',
-        'resumable',
-        'resume_session',
-        'resume_token',
+        "realm",
+        "authmethods",
+        "authid",
+        "authrole",
+        "authextra",
+        "session_roles",
+        "pending_session",
+        "resumable",
+        "resume_session",
+        "resume_token",
     )
 
-    def __init__(self, realm=None, authmethods=None, authid=None, authrole=None, authextra=None, session_roles=None, pending_session=None, resumable=None, resume_session=None, resume_token=None):
+    def __init__(
+        self,
+        realm=None,
+        authmethods=None,
+        authid=None,
+        authrole=None,
+        authextra=None,
+        session_roles=None,
+        pending_session=None,
+        resumable=None,
+        resume_session=None,
+        resume_token=None,
+    ):
         """
 
         :param realm: The realm the client wants to join.
@@ -294,16 +336,19 @@ class HelloDetails(object):
         :param resume_token: The secure authorisation token to resume the session.
         :type resume_token: str or None
         """
-        assert(realm is None or type(realm) == six.text_type)
-        assert(authmethods is None or (type(authmethods) == list and all(type(x) == six.text_type for x in authmethods)))
-        assert(authid is None or type(authid) == six.text_type)
-        assert(authrole is None or type(authrole) == six.text_type)
-        assert(authextra is None or type(authextra) == dict)
+        assert realm is None or type(realm) == six.text_type
+        assert authmethods is None or (
+            type(authmethods) == list
+            and all(type(x) == six.text_type for x in authmethods)
+        )
+        assert authid is None or type(authid) == six.text_type
+        assert authrole is None or type(authrole) == six.text_type
+        assert authextra is None or type(authextra) == dict
         # assert(session_roles is None or ...)  # FIXME
-        assert(pending_session is None or type(pending_session) in six.integer_types)
-        assert(resumable is None or type(resumable) == bool)
-        assert(resume_session is None or type(resume_session) == int)
-        assert(resume_token is None or type(resume_token) == six.text_type)
+        assert pending_session is None or type(pending_session) in six.integer_types
+        assert resumable is None or type(resumable) == bool
+        assert resume_session is None or type(resume_session) == int
+        assert resume_token is None or type(resume_token) == six.text_type
 
         self.realm = realm
         self.authmethods = authmethods
@@ -317,7 +362,18 @@ class HelloDetails(object):
         self.resume_token = resume_token
 
     def __str__(self):
-        return u"HelloDetails(realm=<{}>, authmethods={}, authid=<{}>, authrole=<{}>, authextra={}, session_roles={}, pending_session={}, resumable={}, resume_session={}, resume_token={})".format(self.realm, self.authmethods, self.authid, self.authrole, self.authextra, self.session_roles, self.pending_session, self.resumable, self.resume_session, self.resume_token)
+        return u"HelloDetails(realm=<{}>, authmethods={}, authid=<{}>, authrole=<{}>, authextra={}, session_roles={}, pending_session={}, resumable={}, resume_session={}, resume_token={})".format(
+            self.realm,
+            self.authmethods,
+            self.authid,
+            self.authrole,
+            self.authextra,
+            self.session_roles,
+            self.pending_session,
+            self.resumable,
+            self.resume_session,
+            self.resume_token,
+        )
 
 
 @public
@@ -329,21 +385,33 @@ class SessionDetails(object):
     """
 
     __slots__ = (
-        'realm',
-        'session',
-        'authid',
-        'authrole',
-        'authmethod',
-        'authprovider',
-        'authextra',
-        'serializer',
-        'resumed',
-        'resumable',
-        'resume_token',
+        "realm",
+        "session",
+        "authid",
+        "authrole",
+        "authmethod",
+        "authprovider",
+        "authextra",
+        "serializer",
+        "resumed",
+        "resumable",
+        "resume_token",
     )
 
-    def __init__(self, realm, session, authid=None, authrole=None, authmethod=None, authprovider=None, authextra=None,
-                 serializer=None, resumed=None, resumable=None, resume_token=None):
+    def __init__(
+        self,
+        realm,
+        session,
+        authid=None,
+        authrole=None,
+        authmethod=None,
+        authprovider=None,
+        authextra=None,
+        serializer=None,
+        resumed=None,
+        resumable=None,
+        resume_token=None,
+    ):
         """
 
         :param realm: The realm this WAMP session is attached to.
@@ -361,17 +429,17 @@ class SessionDetails(object):
         :param resume_token: The secure authorisation token to resume the session.
         :type resume_token: str or None
         """
-        assert(type(realm) == six.text_type)
-        assert(type(session) in six.integer_types)
-        assert(authid is None or type(authid) == six.text_type)
-        assert(authrole is None or type(authrole) == six.text_type)
-        assert(authmethod is None or type(authmethod) == six.text_type)
-        assert(authprovider is None or type(authprovider) == six.text_type)
-        assert(authextra is None or type(authextra) == dict)
-        assert(serializer is None or type(serializer) == six.text_type)
-        assert(resumed is None or type(resumed) == bool)
-        assert(resumable is None or type(resumable) == bool)
-        assert(resume_token is None or type(resume_token) == six.text_type)
+        assert type(realm) == six.text_type
+        assert type(session) in six.integer_types
+        assert authid is None or type(authid) == six.text_type
+        assert authrole is None or type(authrole) == six.text_type
+        assert authmethod is None or type(authmethod) == six.text_type
+        assert authprovider is None or type(authprovider) == six.text_type
+        assert authextra is None or type(authextra) == dict
+        assert serializer is None or type(serializer) == six.text_type
+        assert resumed is None or type(resumed) == bool
+        assert resumable is None or type(resumable) == bool
+        assert resume_token is None or type(resume_token) == six.text_type
 
         self.realm = realm
         self.session = session
@@ -387,17 +455,17 @@ class SessionDetails(object):
 
     def marshal(self):
         obj = {
-            u'realm': self.realm,
-            u'session': self.session,
-            u'authid': self.authid,
-            u'authrole': self.authrole,
-            u'authmethod': self.authmethod,
-            u'authprovider': self.authprovider,
-            u'authextra': self.authextra,
-            u'serializer': self.serializer,
-            u'resumed': self.resumed,
-            u'resumable': self.resumable,
-            u'resume_token': self.resume_token
+            u"realm": self.realm,
+            u"session": self.session,
+            u"authid": self.authid,
+            u"authrole": self.authrole,
+            u"authmethod": self.authmethod,
+            u"authprovider": self.authprovider,
+            u"authextra": self.authextra,
+            u"serializer": self.serializer,
+            u"resumed": self.resumed,
+            u"resumable": self.resumable,
+            u"resume_token": self.resume_token,
         }
         return obj
 
@@ -413,7 +481,19 @@ SessionDetails(realm=<{}>,
                serializer=<{}>,
                resumed={},
                resumable={},
-               resume_token={})""".format(self.realm, self.session, self.authid, self.authrole, self.authmethod, self.authprovider, self.authextra, self.serializer, self.resumed, self.resumable, self.resume_token)
+               resume_token={})""".format(
+            self.realm,
+            self.session,
+            self.authid,
+            self.authrole,
+            self.authmethod,
+            self.authprovider,
+            self.authextra,
+            self.serializer,
+            self.resumed,
+            self.resumable,
+            self.resume_token,
+        )
 
 
 @public
@@ -433,9 +513,9 @@ class SessionIdent(object):
     """
 
     __slots__ = (
-        'session',
-        'authid',
-        'authrole',
+        "session",
+        "authid",
+        "authrole",
     )
 
     def __init__(self, session=None, authid=None, authrole=None):
@@ -450,22 +530,24 @@ class SessionIdent(object):
         :param authrole: The WAMP authrole of the session.
         :type authrole: str
         """
-        assert(session is None or type(session) in six.integer_types)
-        assert(authid is None or type(authid) == six.text_type)
-        assert(type(authrole) == six.text_type)
+        assert session is None or type(session) in six.integer_types
+        assert authid is None or type(authid) == six.text_type
+        assert type(authrole) == six.text_type
 
         self.session = session
         self.authid = authid
         self.authrole = authrole
 
     def __str__(self):
-        return u"SessionIdent(session={}, authid={}, authrole={})".format(self.session, self.authid, self.authrole)
+        return u"SessionIdent(session={}, authid={}, authrole={})".format(
+            self.session, self.authid, self.authrole
+        )
 
     def marshal(self):
         obj = {
-            u'session': self.session,
-            u'authid': self.authid,
-            u'authrole': self.authrole,
+            u"session": self.session,
+            u"authid": self.authid,
+            u"authrole": self.authrole,
         }
         return obj
 
@@ -485,13 +567,15 @@ class SessionIdent(object):
 
         if call_details.forward_for:
             caller = call_details.forward_for[0]
-            session_ident = SessionIdent(caller['session'],
-                                         caller['authid'],
-                                         caller['authrole'])
+            session_ident = SessionIdent(
+                caller["session"], caller["authid"], caller["authrole"]
+            )
         else:
-            session_ident = SessionIdent(call_details.caller,
-                                         call_details.caller_authid,
-                                         call_details.caller_authrole)
+            session_ident = SessionIdent(
+                call_details.caller,
+                call_details.caller_authid,
+                call_details.caller_authrole,
+            )
         return session_ident
 
     @staticmethod
@@ -510,13 +594,15 @@ class SessionIdent(object):
 
         if event_details.forward_for:
             publisher = event_details.forward_for[0]
-            session_ident = SessionIdent(publisher['session'],
-                                         publisher['authid'],
-                                         publisher['authrole'])
+            session_ident = SessionIdent(
+                publisher["session"], publisher["authid"], publisher["authrole"]
+            )
         else:
-            session_ident = SessionIdent(event_details.publisher,
-                                         event_details.publisher_authid,
-                                         event_details.publisher_authrole)
+            session_ident = SessionIdent(
+                event_details.publisher,
+                event_details.publisher_authid,
+                event_details.publisher_authrole,
+            )
         return session_ident
 
 
@@ -527,12 +613,13 @@ class CloseDetails(object):
 
     .. seealso:: :func:`autobahn.wamp.interfaces.ISession.onLeave`
     """
+
     REASON_DEFAULT = u"wamp.close.normal"
     REASON_TRANSPORT_LOST = u"wamp.close.transport_lost"
 
     __slots__ = (
-        'reason',
-        'message',
+        "reason",
+        "message",
     )
 
     def __init__(self, reason=None, message=None):
@@ -544,21 +631,20 @@ class CloseDetails(object):
         :param message: Closing log message.
         :type message: str
         """
-        assert(reason is None or type(reason) == six.text_type)
-        assert(message is None or type(message) == six.text_type)
+        assert reason is None or type(reason) == six.text_type
+        assert message is None or type(message) == six.text_type
 
         self.reason = reason
         self.message = message
 
     def marshal(self):
-        obj = {
-            u'reason': self.reason,
-            u'message': self.message
-        }
+        obj = {u"reason": self.reason, u"message": self.message}
         return obj
 
     def __str__(self):
-        return u"CloseDetails(reason=<{}>, message='{}')".format(self.reason, self.message)
+        return u"CloseDetails(reason=<{}>, message='{}')".format(
+            self.reason, self.message
+        )
 
 
 @public
@@ -569,20 +655,29 @@ class SubscribeOptions(object):
     """
 
     __slots__ = (
-        'match',
-        'details',
-        'details_arg',
-        'get_retained',
-        'forward_for',
-        'correlation_id',
-        'correlation_uri',
-        'correlation_is_anchor',
-        'correlation_is_last',
+        "match",
+        "details",
+        "details_arg",
+        "get_retained",
+        "forward_for",
+        "correlation_id",
+        "correlation_uri",
+        "correlation_is_anchor",
+        "correlation_is_last",
     )
 
-    def __init__(self, match=None, details=None, details_arg=None, forward_for=None, get_retained=None,
-                 correlation_id=None, correlation_uri=None, correlation_is_anchor=None,
-                 correlation_is_last=None):
+    def __init__(
+        self,
+        match=None,
+        details=None,
+        details_arg=None,
+        forward_for=None,
+        get_retained=None,
+        correlation_id=None,
+        correlation_uri=None,
+        correlation_is_anchor=None,
+        correlation_is_last=None,
+    ):
         """
 
         :param match: The topic matching method to be used for the subscription.
@@ -599,25 +694,31 @@ class SubscribeOptions(object):
         :param get_retained: Whether the client wants the retained message we may have along with the subscription.
         :type get_retained: bool or None
         """
-        assert(match is None or (type(match) == six.text_type and match in [u'exact', u'prefix', u'wildcard']))
-        assert(details is None or (type(details) == bool and details_arg is None))
-        assert(details_arg is None or type(details_arg) == str)  # yes, "str" is correct here, since this is about Python identifiers!
-        assert(get_retained is None or type(get_retained) is bool)
+        assert match is None or (
+            type(match) == six.text_type and match in [u"exact", u"prefix", u"wildcard"]
+        )
+        assert details is None or (type(details) == bool and details_arg is None)
+        assert (
+            details_arg is None or type(details_arg) == str
+        )  # yes, "str" is correct here, since this is about Python identifiers!
+        assert get_retained is None or type(get_retained) is bool
 
-        assert(forward_for is None or type(forward_for) == list)
+        assert forward_for is None or type(forward_for) == list
         if forward_for:
             for ff in forward_for:
                 assert type(ff) == dict
-                assert 'session' in ff and type(ff['session']) in six.integer_types
-                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
-                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+                assert "session" in ff and type(ff["session"]) in six.integer_types
+                assert "authid" in ff and (
+                    ff["authid"] is None or type(ff["authid"]) == six.text_type
+                )
+                assert "authrole" in ff and type(ff["authrole"]) == six.text_type
 
         self.match = match
 
         # FIXME: this is for backwards compat, but we'll deprecate it in the future
         self.details = details
         if details:
-            self.details_arg = 'details'
+            self.details_arg = "details"
         else:
             self.details_arg = details_arg
 
@@ -636,18 +737,24 @@ class SubscribeOptions(object):
         options = {}
 
         if self.match is not None:
-            options[u'match'] = self.match
+            options[u"match"] = self.match
 
         if self.get_retained is not None:
-            options[u'get_retained'] = self.get_retained
+            options[u"get_retained"] = self.get_retained
 
         if self.forward_for is not None:
-            options[u'forward_for'] = self.forward_for
+            options[u"forward_for"] = self.forward_for
 
         return options
 
     def __str__(self):
-        return u"SubscribeOptions(match={}, details={}, details_arg={}, get_retained={}, forward_for={})".format(self.match, self.details, self.details_arg, self.get_retained, self.forward_for)
+        return u"SubscribeOptions(match={}, details={}, details_arg={}, get_retained={}, forward_for={})".format(
+            self.match,
+            self.details,
+            self.details_arg,
+            self.get_retained,
+            self.forward_for,
+        )
 
 
 @public
@@ -658,19 +765,29 @@ class EventDetails(object):
     """
 
     __slots__ = (
-        'subscription',
-        'publication',
-        'publisher',
-        'publisher_authid',
-        'publisher_authrole',
-        'topic',
-        'retained',
-        'enc_algo',
-        'forward_for',
+        "subscription",
+        "publication",
+        "publisher",
+        "publisher_authid",
+        "publisher_authrole",
+        "topic",
+        "retained",
+        "enc_algo",
+        "forward_for",
     )
 
-    def __init__(self, subscription, publication, publisher=None, publisher_authid=None, publisher_authrole=None,
-                 topic=None, retained=None, enc_algo=None, forward_for=None):
+    def __init__(
+        self,
+        subscription,
+        publication,
+        publisher=None,
+        publisher_authid=None,
+        publisher_authrole=None,
+        topic=None,
+        retained=None,
+        enc_algo=None,
+        forward_for=None,
+    ):
         """
 
         :param subscription: The (client side) subscription object on which this event is delivered.
@@ -705,21 +822,23 @@ class EventDetails(object):
         :param forward_for: When this Event is forwarded for a client (or from an intermediary router).
         :type forward_for: list[dict]
         """
-        assert(isinstance(subscription, Subscription))
-        assert(type(publication) in six.integer_types)
-        assert(publisher is None or type(publisher) in six.integer_types)
-        assert(publisher_authid is None or type(publisher_authid) == six.text_type)
-        assert(publisher_authrole is None or type(publisher_authrole) == six.text_type)
-        assert(topic is None or type(topic) == six.text_type)
-        assert(retained is None or type(retained) is bool)
-        assert(enc_algo is None or type(enc_algo) == six.text_type)
-        assert(forward_for is None or type(forward_for) == list)
+        assert isinstance(subscription, Subscription)
+        assert type(publication) in six.integer_types
+        assert publisher is None or type(publisher) in six.integer_types
+        assert publisher_authid is None or type(publisher_authid) == six.text_type
+        assert publisher_authrole is None or type(publisher_authrole) == six.text_type
+        assert topic is None or type(topic) == six.text_type
+        assert retained is None or type(retained) is bool
+        assert enc_algo is None or type(enc_algo) == six.text_type
+        assert forward_for is None or type(forward_for) == list
         if forward_for:
             for ff in forward_for:
                 assert type(ff) == dict
-                assert 'session' in ff and type(ff['session']) in six.integer_types
-                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
-                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+                assert "session" in ff and type(ff["session"]) in six.integer_types
+                assert "authid" in ff and (
+                    ff["authid"] is None or type(ff["authid"]) == six.text_type
+                )
+                assert "authrole" in ff and type(ff["authrole"]) == six.text_type
 
         self.subscription = subscription
         self.publication = publication
@@ -732,7 +851,17 @@ class EventDetails(object):
         self.forward_for = forward_for
 
     def __str__(self):
-        return u"EventDetails(subscription={}, publication={}, publisher={}, publisher_authid={}, publisher_authrole={}, topic=<{}>, retained={}, enc_algo={}, forward_for={})".format(self.subscription, self.publication, self.publisher, self.publisher_authid, self.publisher_authrole, self.topic, self.retained, self.enc_algo, self.forward_for)
+        return u"EventDetails(subscription={}, publication={}, publisher={}, publisher_authid={}, publisher_authrole={}, topic=<{}>, retained={}, enc_algo={}, forward_for={})".format(
+            self.subscription,
+            self.publication,
+            self.publisher,
+            self.publisher_authid,
+            self.publisher_authrole,
+            self.topic,
+            self.retained,
+            self.enc_algo,
+            self.forward_for,
+        )
 
 
 @public
@@ -743,37 +872,39 @@ class PublishOptions(object):
     """
 
     __slots__ = (
-        'acknowledge',
-        'exclude_me',
-        'exclude',
-        'exclude_authid',
-        'exclude_authrole',
-        'eligible',
-        'eligible_authid',
-        'eligible_authrole',
-        'retain',
-        'forward_for',
-        'correlation_id',
-        'correlation_uri',
-        'correlation_is_anchor',
-        'correlation_is_last',
+        "acknowledge",
+        "exclude_me",
+        "exclude",
+        "exclude_authid",
+        "exclude_authrole",
+        "eligible",
+        "eligible_authid",
+        "eligible_authrole",
+        "retain",
+        "forward_for",
+        "correlation_id",
+        "correlation_uri",
+        "correlation_is_anchor",
+        "correlation_is_last",
     )
 
-    def __init__(self,
-                 acknowledge=None,
-                 exclude_me=None,
-                 exclude=None,
-                 exclude_authid=None,
-                 exclude_authrole=None,
-                 eligible=None,
-                 eligible_authid=None,
-                 eligible_authrole=None,
-                 retain=None,
-                 forward_for=None,
-                 correlation_id=None,
-                 correlation_uri=None,
-                 correlation_is_anchor=None,
-                 correlation_is_last=None):
+    def __init__(
+        self,
+        acknowledge=None,
+        exclude_me=None,
+        exclude=None,
+        exclude_authid=None,
+        exclude_authrole=None,
+        eligible=None,
+        eligible_authid=None,
+        eligible_authrole=None,
+        retain=None,
+        forward_for=None,
+        correlation_id=None,
+        correlation_uri=None,
+        correlation_is_anchor=None,
+        correlation_is_last=None,
+    ):
         """
 
         :param acknowledge: If ``True``, acknowledge the publication with a success or
@@ -808,26 +939,86 @@ class PublishOptions(object):
         :param forward_for: When this Event is forwarded for a client (or from an intermediary router).
         :type forward_for: list[dict]
         """
-        assert(acknowledge is None or type(acknowledge) == bool)
-        assert(exclude_me is None or type(exclude_me) == bool)
-        assert(exclude is None or type(exclude) in six.integer_types or (type(exclude) == list and all(type(x) in six.integer_types for x in exclude)))
-        assert(exclude_authid is None or type(exclude_authid) == six.text_type or (type(exclude_authid) == list and all(type(x) == six.text_type for x in exclude_authid)))
-        assert(exclude_authrole is None or type(exclude_authrole) == six.text_type or (type(exclude_authrole) == list and all(type(x) == six.text_type for x in exclude_authrole)))
-        assert(eligible is None or type(eligible) in six.integer_types or (type(eligible) == list and all(type(x) in six.integer_types for x in eligible)))
-        assert(eligible_authid is None or type(eligible_authid) == six.text_type or (type(eligible_authid) == list and all(type(x) == six.text_type for x in eligible_authid)))
-        assert(eligible_authrole is None or type(eligible_authrole) == six.text_type or (type(eligible_authrole) == list and all(type(x) == six.text_type for x in eligible_authrole)))
-        assert(retain is None or type(retain) == bool)
+        assert acknowledge is None or type(acknowledge) == bool
+        assert exclude_me is None or type(exclude_me) == bool
+        assert (
+            exclude is None
+            or type(exclude) in six.integer_types
+            or (
+                type(exclude) == list
+                and all(type(x) in six.integer_types for x in exclude)
+            )
+        )
+        assert (
+            exclude_authid is None
+            or type(exclude_authid) == six.text_type
+            or (
+                type(exclude_authid) == list
+                and all(type(x) == six.text_type for x in exclude_authid)
+            )
+        )
+        assert (
+            exclude_authrole is None
+            or type(exclude_authrole) == six.text_type
+            or (
+                type(exclude_authrole) == list
+                and all(type(x) == six.text_type for x in exclude_authrole)
+            )
+        )
+        assert (
+            eligible is None
+            or type(eligible) in six.integer_types
+            or (
+                type(eligible) == list
+                and all(type(x) in six.integer_types for x in eligible)
+            )
+        )
+        assert (
+            eligible_authid is None
+            or type(eligible_authid) == six.text_type
+            or (
+                type(eligible_authid) == list
+                and all(type(x) == six.text_type for x in eligible_authid)
+            )
+        )
+        assert (
+            eligible_authrole is None
+            or type(eligible_authrole) == six.text_type
+            or (
+                type(eligible_authrole) == list
+                and all(type(x) == six.text_type for x in eligible_authrole)
+            )
+        )
+        assert retain is None or type(retain) == bool
 
-        assert(forward_for is None or type(forward_for) == list), 'forward_for, when present, must have list type - was {}'.format(type(forward_for))
+        assert (
+            forward_for is None or type(forward_for) == list
+        ), "forward_for, when present, must have list type - was {}".format(
+            type(forward_for)
+        )
         if forward_for:
             for ff in forward_for:
-                assert type(ff) == dict, 'forward_for must be type dict - was {}'.format(type(ff))
-                assert 'session' in ff, 'forward_for must have session attribute'
-                assert type(ff['session']) in six.integer_types, 'forward_for.session must have integer type - was {}'.format(type(ff['session']))
-                assert 'authid' in ff, 'forward_for must have authid attributed'
-                assert type(ff['authid']) == six.text_type, 'forward_for.authid must have str type - was {}'.format(type(ff['authid']))
-                assert 'authrole' in ff, 'forward_for must have authrole attribute'
-                assert type(ff['authrole']) == six.text_type, 'forward_for.authrole must have str type - was {}'.format(type(ff['authrole']))
+                assert (
+                    type(ff) == dict
+                ), "forward_for must be type dict - was {}".format(type(ff))
+                assert "session" in ff, "forward_for must have session attribute"
+                assert (
+                    type(ff["session"]) in six.integer_types
+                ), "forward_for.session must have integer type - was {}".format(
+                    type(ff["session"])
+                )
+                assert "authid" in ff, "forward_for must have authid attributed"
+                assert (
+                    type(ff["authid"]) == six.text_type
+                ), "forward_for.authid must have str type - was {}".format(
+                    type(ff["authid"])
+                )
+                assert "authrole" in ff, "forward_for must have authrole attribute"
+                assert (
+                    type(ff["authrole"]) == six.text_type
+                ), "forward_for.authrole must have str type - was {}".format(
+                    type(ff["authrole"])
+                )
 
         self.acknowledge = acknowledge
         self.exclude_me = exclude_me
@@ -852,39 +1043,70 @@ class PublishOptions(object):
         options = {}
 
         if self.acknowledge is not None:
-            options[u'acknowledge'] = self.acknowledge
+            options[u"acknowledge"] = self.acknowledge
 
         if self.exclude_me is not None:
-            options[u'exclude_me'] = self.exclude_me
+            options[u"exclude_me"] = self.exclude_me
 
         if self.exclude is not None:
-            options[u'exclude'] = self.exclude if type(self.exclude) == list else [self.exclude]
+            options[u"exclude"] = (
+                self.exclude if type(self.exclude) == list else [self.exclude]
+            )
 
         if self.exclude_authid is not None:
-            options[u'exclude_authid'] = self.exclude_authid if type(self.exclude_authid) == list else [self.exclude_authid]
+            options[u"exclude_authid"] = (
+                self.exclude_authid
+                if type(self.exclude_authid) == list
+                else [self.exclude_authid]
+            )
 
         if self.exclude_authrole is not None:
-            options[u'exclude_authrole'] = self.exclude_authrole if type(self.exclude_authrole) == list else [self.exclude_authrole]
+            options[u"exclude_authrole"] = (
+                self.exclude_authrole
+                if type(self.exclude_authrole) == list
+                else [self.exclude_authrole]
+            )
 
         if self.eligible is not None:
-            options[u'eligible'] = self.eligible if type(self.eligible) == list else [self.eligible]
+            options[u"eligible"] = (
+                self.eligible if type(self.eligible) == list else [self.eligible]
+            )
 
         if self.eligible_authid is not None:
-            options[u'eligible_authid'] = self.eligible_authid if type(self.eligible_authid) == list else [self.eligible_authid]
+            options[u"eligible_authid"] = (
+                self.eligible_authid
+                if type(self.eligible_authid) == list
+                else [self.eligible_authid]
+            )
 
         if self.eligible_authrole is not None:
-            options[u'eligible_authrole'] = self.eligible_authrole if type(self.eligible_authrole) == list else [self.eligible_authrole]
+            options[u"eligible_authrole"] = (
+                self.eligible_authrole
+                if type(self.eligible_authrole) == list
+                else [self.eligible_authrole]
+            )
 
         if self.retain is not None:
-            options[u'retain'] = self.retain
+            options[u"retain"] = self.retain
 
         if self.forward_for is not None:
-            options[u'forward_for'] = self.forward_for
+            options[u"forward_for"] = self.forward_for
 
         return options
 
     def __str__(self):
-        return u"PublishOptions(acknowledge={}, exclude_me={}, exclude={}, exclude_authid={}, exclude_authrole={}, eligible={}, eligible_authid={}, eligible_authrole={}, retain={}, forward_for={})".format(self.acknowledge, self.exclude_me, self.exclude, self.exclude_authid, self.exclude_authrole, self.eligible, self.eligible_authid, self.eligible_authrole, self.retain, self.forward_for)
+        return u"PublishOptions(acknowledge={}, exclude_me={}, exclude={}, exclude_authid={}, exclude_authrole={}, eligible={}, eligible_authid={}, eligible_authrole={}, retain={}, forward_for={})".format(
+            self.acknowledge,
+            self.exclude_me,
+            self.exclude,
+            self.exclude_authid,
+            self.exclude_authrole,
+            self.eligible,
+            self.eligible_authid,
+            self.eligible_authrole,
+            self.retain,
+            self.forward_for,
+        )
 
 
 @public
@@ -895,22 +1117,33 @@ class RegisterOptions(object):
     """
 
     __slots__ = (
-        'match',
-        'invoke',
-        'concurrency',
-        'force_reregister',
-        'forward_for',
-        'details',
-        'details_arg',
-        'correlation_id',
-        'correlation_uri',
-        'correlation_is_anchor',
-        'correlation_is_last',
+        "match",
+        "invoke",
+        "concurrency",
+        "force_reregister",
+        "forward_for",
+        "details",
+        "details_arg",
+        "correlation_id",
+        "correlation_uri",
+        "correlation_is_anchor",
+        "correlation_is_last",
     )
 
-    def __init__(self, match=None, invoke=None, concurrency=None, force_reregister=None, forward_for=None,
-                 details=None, details_arg=None, correlation_id=None, correlation_uri=None,
-                 correlation_is_anchor=None, correlation_is_last=None):
+    def __init__(
+        self,
+        match=None,
+        invoke=None,
+        concurrency=None,
+        force_reregister=None,
+        forward_for=None,
+        details=None,
+        details_arg=None,
+        correlation_id=None,
+        correlation_uri=None,
+        correlation_is_anchor=None,
+        correlation_is_last=None,
+    ):
         """
         :param match: Type of matching to use on the URI (`exact`, `prefix` or `wildcard`)
 
@@ -943,20 +1176,31 @@ class RegisterOptions(object):
             or via an intermediary router.
         :type forward_for: list[dict]
         """
-        assert(match is None or (type(match) == six.text_type and match in [u'exact', u'prefix', u'wildcard']))
-        assert(invoke is None or (type(invoke) == six.text_type and invoke in [u'single', u'first', u'last', u'roundrobin', u'random']))
-        assert(concurrency is None or (type(concurrency) in six.integer_types and concurrency > 0))
-        assert(details is None or (type(details) == bool and details_arg is None))
-        assert(details_arg is None or type(details_arg) == str)  # yes, "str" is correct here, since this is about Python identifiers!
+        assert match is None or (
+            type(match) == six.text_type and match in [u"exact", u"prefix", u"wildcard"]
+        )
+        assert invoke is None or (
+            type(invoke) == six.text_type
+            and invoke in [u"single", u"first", u"last", u"roundrobin", u"random"]
+        )
+        assert concurrency is None or (
+            type(concurrency) in six.integer_types and concurrency > 0
+        )
+        assert details is None or (type(details) == bool and details_arg is None)
+        assert (
+            details_arg is None or type(details_arg) == str
+        )  # yes, "str" is correct here, since this is about Python identifiers!
         assert force_reregister in [None, True, False]
 
-        assert(forward_for is None or type(forward_for) == list)
+        assert forward_for is None or type(forward_for) == list
         if forward_for:
             for ff in forward_for:
                 assert type(ff) == dict
-                assert 'session' in ff and type(ff['session']) in six.integer_types
-                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
-                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+                assert "session" in ff and type(ff["session"]) in six.integer_types
+                assert "authid" in ff and (
+                    ff["authid"] is None or type(ff["authid"]) == six.text_type
+                )
+                assert "authrole" in ff and type(ff["authrole"]) == six.text_type
 
         self.match = match
         self.invoke = invoke
@@ -967,7 +1211,7 @@ class RegisterOptions(object):
         # FIXME: this is for backwards compat, but we'll deprecate it in the future
         self.details = details
         if details:
-            self.details_arg = 'details'
+            self.details_arg = "details"
         else:
             self.details_arg = details_arg
 
@@ -983,24 +1227,32 @@ class RegisterOptions(object):
         options = {}
 
         if self.match is not None:
-            options[u'match'] = self.match
+            options[u"match"] = self.match
 
         if self.invoke is not None:
-            options[u'invoke'] = self.invoke
+            options[u"invoke"] = self.invoke
 
         if self.concurrency is not None:
-            options[u'concurrency'] = self.concurrency
+            options[u"concurrency"] = self.concurrency
 
         if self.force_reregister is not None:
-            options[u'force_reregister'] = self.force_reregister
+            options[u"force_reregister"] = self.force_reregister
 
         if self.forward_for is not None:
-            options[u'forward_for'] = self.forward_for
+            options[u"forward_for"] = self.forward_for
 
         return options
 
     def __str__(self):
-        return u"RegisterOptions(match={}, invoke={}, concurrency={}, details={}, details_arg={}, force_reregister={}, forward_for={})".format(self.match, self.invoke, self.concurrency, self.details, self.details_arg, self.force_reregister, self.forward_for)
+        return u"RegisterOptions(match={}, invoke={}, concurrency={}, details={}, details_arg={}, force_reregister={}, forward_for={})".format(
+            self.match,
+            self.invoke,
+            self.concurrency,
+            self.details,
+            self.details_arg,
+            self.force_reregister,
+            self.forward_for,
+        )
 
 
 @public
@@ -1011,18 +1263,27 @@ class CallDetails(object):
     """
 
     __slots__ = (
-        'registration',
-        'progress',
-        'caller',
-        'caller_authid',
-        'caller_authrole',
-        'procedure',
-        'enc_algo',
-        'forward_for',
+        "registration",
+        "progress",
+        "caller",
+        "caller_authid",
+        "caller_authrole",
+        "procedure",
+        "enc_algo",
+        "forward_for",
     )
 
-    def __init__(self, registration, progress=None, caller=None, caller_authid=None,
-                 caller_authrole=None, procedure=None, enc_algo=None, forward_for=None):
+    def __init__(
+        self,
+        registration,
+        progress=None,
+        caller=None,
+        caller_authid=None,
+        caller_authrole=None,
+        procedure=None,
+        enc_algo=None,
+        forward_for=None,
+    ):
         """
 
         :param registration: The (client side) registration object this invocation is delivered on.
@@ -1053,21 +1314,23 @@ class CallDetails(object):
         :param forward_for: When this Call is forwarded for a client (or from an intermediary router).
         :type forward_for: list[dict]
         """
-        assert(isinstance(registration, Registration))
-        assert(progress is None or callable(progress))
-        assert(caller is None or type(caller) in six.integer_types)
-        assert(caller_authid is None or type(caller_authid) == six.text_type)
-        assert(caller_authrole is None or type(caller_authrole) == six.text_type)
-        assert(procedure is None or type(procedure) == six.text_type)
-        assert(enc_algo is None or type(enc_algo) == six.text_type)
+        assert isinstance(registration, Registration)
+        assert progress is None or callable(progress)
+        assert caller is None or type(caller) in six.integer_types
+        assert caller_authid is None or type(caller_authid) == six.text_type
+        assert caller_authrole is None or type(caller_authrole) == six.text_type
+        assert procedure is None or type(procedure) == six.text_type
+        assert enc_algo is None or type(enc_algo) == six.text_type
 
-        assert(forward_for is None or type(forward_for) == list)
+        assert forward_for is None or type(forward_for) == list
         if forward_for:
             for ff in forward_for:
                 assert type(ff) == dict
-                assert 'session' in ff and type(ff['session']) in six.integer_types
-                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
-                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+                assert "session" in ff and type(ff["session"]) in six.integer_types
+                assert "authid" in ff and (
+                    ff["authid"] is None or type(ff["authid"]) == six.text_type
+                )
+                assert "authrole" in ff and type(ff["authrole"]) == six.text_type
 
         self.registration = registration
         self.progress = progress
@@ -1079,7 +1342,16 @@ class CallDetails(object):
         self.forward_for = forward_for
 
     def __str__(self):
-        return u"CallDetails(registration={}, progress={}, caller={}, caller_authid={}, caller_authrole={}, procedure=<{}>, enc_algo={}, forward_for={})".format(self.registration, self.progress, self.caller, self.caller_authid, self.caller_authrole, self.procedure, self.enc_algo, self.forward_for)
+        return u"CallDetails(registration={}, progress={}, caller={}, caller_authid={}, caller_authrole={}, procedure=<{}>, enc_algo={}, forward_for={})".format(
+            self.registration,
+            self.progress,
+            self.caller,
+            self.caller_authid,
+            self.caller_authrole,
+            self.procedure,
+            self.enc_algo,
+            self.forward_for,
+        )
 
 
 @public
@@ -1089,31 +1361,33 @@ class CallOptions(object):
     """
 
     __slots__ = (
-        'on_progress',
-        'timeout',
-        'caller',
-        'caller_authid',
-        'caller_authrole',
-        'forward_for',
-        'correlation_id',
-        'correlation_uri',
-        'correlation_is_anchor',
-        'correlation_is_last',
-        'details',
+        "on_progress",
+        "timeout",
+        "caller",
+        "caller_authid",
+        "caller_authrole",
+        "forward_for",
+        "correlation_id",
+        "correlation_uri",
+        "correlation_is_anchor",
+        "correlation_is_last",
+        "details",
     )
 
-    def __init__(self,
-                 on_progress=None,
-                 timeout=None,
-                 caller=None,
-                 caller_authid=None,
-                 caller_authrole=None,
-                 forward_for=None,
-                 correlation_id=None,
-                 correlation_uri=None,
-                 correlation_is_anchor=None,
-                 correlation_is_last=None,
-                 details=None):
+    def __init__(
+        self,
+        on_progress=None,
+        timeout=None,
+        caller=None,
+        caller_authid=None,
+        caller_authrole=None,
+        forward_for=None,
+        correlation_id=None,
+        correlation_uri=None,
+        correlation_is_anchor=None,
+        correlation_is_last=None,
+        details=None,
+    ):
         """
 
         :param on_progress: A callback that will be called when the remote endpoint
@@ -1126,19 +1400,23 @@ class CallOptions(object):
         :param forward_for: When this Call is forwarded for a client (or from an intermediary router).
         :type forward_for: list[dict]
         """
-        assert(on_progress is None or callable(on_progress))
-        assert(timeout is None or (type(timeout) in list(six.integer_types) + [float] and timeout > 0))
-        assert(details is None or type(details) == bool)
-        assert(caller is None or type(caller) in six.integer_types)
-        assert(caller_authid is None or type(caller_authid) == six.text_type)
-        assert(caller_authrole is None or type(caller_authrole) == six.text_type)
-        assert(forward_for is None or type(forward_for) == list)
+        assert on_progress is None or callable(on_progress)
+        assert timeout is None or (
+            type(timeout) in list(six.integer_types) + [float] and timeout > 0
+        )
+        assert details is None or type(details) == bool
+        assert caller is None or type(caller) in six.integer_types
+        assert caller_authid is None or type(caller_authid) == six.text_type
+        assert caller_authrole is None or type(caller_authrole) == six.text_type
+        assert forward_for is None or type(forward_for) == list
         if forward_for:
             for ff in forward_for:
                 assert type(ff) == dict
-                assert 'session' in ff and type(ff['session']) in six.integer_types
-                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
-                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+                assert "session" in ff and type(ff["session"]) in six.integer_types
+                assert "authid" in ff and (
+                    ff["authid"] is None or type(ff["authid"]) == six.text_type
+                )
+                assert "authrole" in ff and type(ff["authrole"]) == six.text_type
 
         self.on_progress = on_progress
         self.timeout = timeout
@@ -1164,27 +1442,35 @@ class CallOptions(object):
         # other attributes are for client-side/client-internal use only
 
         if self.timeout is not None:
-            options[u'timeout'] = self.timeout
+            options[u"timeout"] = self.timeout
 
         if self.on_progress is not None:
-            options[u'receive_progress'] = True
+            options[u"receive_progress"] = True
 
         if self.forward_for is not None:
-            options[u'forward_for'] = self.forward_for
+            options[u"forward_for"] = self.forward_for
 
         if self.caller is not None:
-            options[u'caller'] = self.caller
+            options[u"caller"] = self.caller
 
         if self.caller_authid is not None:
-            options[u'caller_authid'] = self.caller_authid
+            options[u"caller_authid"] = self.caller_authid
 
         if self.caller_authrole is not None:
-            options[u'caller_authrole'] = self.caller_authrole
+            options[u"caller_authrole"] = self.caller_authrole
 
         return options
 
     def __str__(self):
-        return u"CallOptions(on_progress={}, timeout={}, caller={}, caller_authid={}, caller_authrole={}, forward_for={}, details={})".format(self.on_progress, self.timeout, self.caller, self.caller_authid, self.caller_authrole, self.forward_for, self.details)
+        return u"CallOptions(on_progress={}, timeout={}, caller={}, caller_authid={}, caller_authrole={}, forward_for={}, details={})".format(
+            self.on_progress,
+            self.timeout,
+            self.caller,
+            self.caller_authid,
+            self.caller_authrole,
+            self.forward_for,
+            self.details,
+        )
 
 
 @public
@@ -1195,13 +1481,13 @@ class CallResult(object):
     """
 
     __slots__ = (
-        'results',
-        'kwresults',
-        'enc_algo',
-        'callee',
-        'callee_authid',
-        'callee_authrole',
-        'forward_for',
+        "results",
+        "kwresults",
+        "enc_algo",
+        "callee",
+        "callee_authid",
+        "callee_authrole",
+        "forward_for",
     )
 
     def __init__(self, *results, **kwresults):
@@ -1213,25 +1499,27 @@ class CallResult(object):
         :param kwresults: The keyword result values.
         :type kwresults: dict
         """
-        enc_algo = kwresults.pop('enc_algo', None)
-        assert(enc_algo is None or type(enc_algo) == six.text_type)
+        enc_algo = kwresults.pop("enc_algo", None)
+        assert enc_algo is None or type(enc_algo) == six.text_type
 
-        callee = kwresults.pop('callee', None)
-        callee_authid = kwresults.pop('callee_authid', None)
-        callee_authrole = kwresults.pop('callee_authrole', None)
+        callee = kwresults.pop("callee", None)
+        callee_authid = kwresults.pop("callee_authid", None)
+        callee_authrole = kwresults.pop("callee_authrole", None)
 
         assert callee is None or type(callee) in six.integer_types
         assert callee_authid is None or type(callee_authid) == six.text_type
         assert callee_authrole is None or type(callee_authrole) == six.text_type
 
-        forward_for = kwresults.pop('forward_for', None)
-        assert(forward_for is None or type(forward_for) == list)
+        forward_for = kwresults.pop("forward_for", None)
+        assert forward_for is None or type(forward_for) == list
         if forward_for:
             for ff in forward_for:
                 assert type(ff) == dict
-                assert 'session' in ff and type(ff['session']) in six.integer_types
-                assert 'authid' in ff and (ff['authid'] is None or type(ff['authid']) == six.text_type)
-                assert 'authrole' in ff and type(ff['authrole']) == six.text_type
+                assert "session" in ff and type(ff["session"]) in six.integer_types
+                assert "authid" in ff and (
+                    ff["authid"] is None or type(ff["authid"]) == six.text_type
+                )
+                assert "authrole" in ff and type(ff["authrole"]) == six.text_type
 
         self.enc_algo = enc_algo
         self.callee = callee
@@ -1242,7 +1530,15 @@ class CallResult(object):
         self.kwresults = kwresults
 
     def __str__(self):
-        return u"CallResult(results={}, kwresults={}, enc_algo={}, callee={}, callee_authid={}, callee_authrole={}, forward_for={})".format(self.results, self.kwresults, self.enc_algo, self.callee, self.callee_authid, self.callee_authrole, self.forward_for)
+        return u"CallResult(results={}, kwresults={}, enc_algo={}, callee={}, callee_authid={}, callee_authrole={}, forward_for={})".format(
+            self.results,
+            self.kwresults,
+            self.enc_algo,
+            self.callee,
+            self.callee_authid,
+            self.callee_authrole,
+            self.forward_for,
+        )
 
 
 @public
@@ -1251,12 +1547,7 @@ class EncodedPayload(object):
     Wrapper holding an encoded application payload when using WAMP payload transparency.
     """
 
-    __slots__ = (
-        'payload',
-        'enc_algo',
-        'enc_serializer',
-        'enc_key'
-    )
+    __slots__ = ("payload", "enc_algo", "enc_serializer", "enc_key")
 
     def __init__(self, payload, enc_algo, enc_serializer=None, enc_key=None):
         """
@@ -1273,10 +1564,10 @@ class EncodedPayload(object):
         :param enc_key: If using payload transparency with an encryption algorithm, the payload encryption key.
         :type enc_key: str or None
         """
-        assert(type(payload) == six.binary_type)
-        assert(type(enc_algo) == six.text_type)
-        assert(enc_serializer is None or type(enc_serializer) == six.text_type)
-        assert(enc_key is None or type(enc_key) == six.text_type)
+        assert type(payload) == six.binary_type
+        assert type(enc_algo) == six.text_type
+        assert enc_serializer is None or type(enc_serializer) == six.text_type
+        assert enc_key is None or type(enc_key) == six.text_type
 
         self.payload = payload
         self.enc_algo = enc_algo

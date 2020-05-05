@@ -2,10 +2,10 @@
 
 # namespace: proto
 
+
 class AuthFactor(object):
     NONE = 0
     AuthTicketRequest = 1
     AuthCraRequest = 2
     AuthScramRequest = 3
     AuthCryptosignRequest = 4
-

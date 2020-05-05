@@ -21,8 +21,7 @@ class DHPrivateNumbers(object):
             raise TypeError("x must be an integer.")
 
         if not isinstance(public_numbers, DHPublicNumbers):
-            raise TypeError("public_numbers must be an instance of "
-                            "DHPublicNumbers.")
+            raise TypeError("public_numbers must be an instance of " "DHPublicNumbers.")
 
         self._x = x
         self._public_numbers = public_numbers
@@ -31,10 +30,7 @@ class DHPrivateNumbers(object):
         if not isinstance(other, DHPrivateNumbers):
             return NotImplemented
 
-        return (
-            self._x == other._x and
-            self._public_numbers == other._public_numbers
-        )
+        return self._x == other._x and self._public_numbers == other._public_numbers
 
     def __ne__(self, other):
         return not self == other
@@ -52,8 +48,7 @@ class DHPublicNumbers(object):
             raise TypeError("y must be an integer.")
 
         if not isinstance(parameter_numbers, DHParameterNumbers):
-            raise TypeError(
-                "parameters must be an instance of DHParameterNumbers.")
+            raise TypeError("parameters must be an instance of DHParameterNumbers.")
 
         self._y = y
         self._parameter_numbers = parameter_numbers
@@ -63,8 +58,7 @@ class DHPublicNumbers(object):
             return NotImplemented
 
         return (
-            self._y == other._y and
-            self._parameter_numbers == other._parameter_numbers
+            self._y == other._y and self._parameter_numbers == other._parameter_numbers
         )
 
     def __ne__(self, other):
@@ -79,10 +73,7 @@ class DHPublicNumbers(object):
 
 class DHParameterNumbers(object):
     def __init__(self, p, g, q=None):
-        if (
-            not isinstance(p, six.integer_types) or
-            not isinstance(g, six.integer_types)
-        ):
+        if not isinstance(p, six.integer_types) or not isinstance(g, six.integer_types):
             raise TypeError("p and g must be integers")
         if q is not None and not isinstance(q, six.integer_types):
             raise TypeError("q must be integer or None")
@@ -98,11 +89,7 @@ class DHParameterNumbers(object):
         if not isinstance(other, DHParameterNumbers):
             return NotImplemented
 
-        return (
-            self._p == other._p and
-            self._g == other._g and
-            self._q == other._q
-        )
+        return self._p == other._p and self._g == other._g and self._q == other._q
 
     def __ne__(self, other):
         return not self == other

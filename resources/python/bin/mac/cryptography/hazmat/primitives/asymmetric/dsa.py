@@ -150,9 +150,9 @@ def _check_dsa_private_numbers(numbers):
 class DSAParameterNumbers(object):
     def __init__(self, p, q, g):
         if (
-            not isinstance(p, six.integer_types) or
-            not isinstance(q, six.integer_types) or
-            not isinstance(g, six.integer_types)
+            not isinstance(p, six.integer_types)
+            or not isinstance(q, six.integer_types)
+            or not isinstance(g, six.integer_types)
         ):
             raise TypeError(
                 "DSAParameterNumbers p, q, and g arguments must be integers."
@@ -179,10 +179,8 @@ class DSAParameterNumbers(object):
         return not self == other
 
     def __repr__(self):
-        return (
-            "<DSAParameterNumbers(p={self.p}, q={self.q}, g={self.g})>".format(
-                self=self
-            )
+        return "<DSAParameterNumbers(p={self.p}, q={self.q}, g={self.g})>".format(
+            self=self
         )
 
 
@@ -192,9 +190,7 @@ class DSAPublicNumbers(object):
             raise TypeError("DSAPublicNumbers y argument must be an integer.")
 
         if not isinstance(parameter_numbers, DSAParameterNumbers):
-            raise TypeError(
-                "parameter_numbers must be a DSAParameterNumbers instance."
-            )
+            raise TypeError("parameter_numbers must be a DSAParameterNumbers instance.")
 
         self._y = y
         self._parameter_numbers = parameter_numbers
@@ -209,10 +205,7 @@ class DSAPublicNumbers(object):
         if not isinstance(other, DSAPublicNumbers):
             return NotImplemented
 
-        return (
-            self.y == other.y and
-            self.parameter_numbers == other.parameter_numbers
-        )
+        return self.y == other.y and self.parameter_numbers == other.parameter_numbers
 
     def __ne__(self, other):
         return not self == other
@@ -230,9 +223,7 @@ class DSAPrivateNumbers(object):
             raise TypeError("DSAPrivateNumbers x argument must be an integer.")
 
         if not isinstance(public_numbers, DSAPublicNumbers):
-            raise TypeError(
-                "public_numbers must be a DSAPublicNumbers instance."
-            )
+            raise TypeError("public_numbers must be a DSAPublicNumbers instance.")
         self._public_numbers = public_numbers
         self._x = x
 
@@ -246,9 +237,7 @@ class DSAPrivateNumbers(object):
         if not isinstance(other, DSAPrivateNumbers):
             return NotImplemented
 
-        return (
-            self.x == other.x and self.public_numbers == other.public_numbers
-        )
+        return self.x == other.x and self.public_numbers == other.public_numbers
 
     def __ne__(self, other):
         return not self == other

@@ -15,11 +15,17 @@ from twisted import plugin
 from twisted.words import iwords, service
 from twisted.cred import checkers, credentials, portal, strcred
 
+
 class Options(usage.Options, strcred.AuthOptionMixin):
     supportedInterfaces = [credentials.IUsernamePassword]
     optParameters = [
-        ('hostname', None, socket.gethostname(),
-         'Name of this server; purely an informative')]
+        (
+            "hostname",
+            None,
+            socket.gethostname(),
+            "Name of this server; purely an informative",
+        )
+    ]
 
     compData = usage.Completions(multiUse=["group"])
 
@@ -28,20 +34,26 @@ class Options(usage.Options, strcred.AuthOptionMixin):
     for plg in plugin.getPlugins(iwords.IProtocolPlugin):
         assert plg.name not in interfacePlugins
         interfacePlugins[plg.name] = plg
-        optParameters.append((
-            plg.name + '-port',
-            None, None,
-            'strports description of the port to bind for the  ' + plg.name + ' server'))
+        optParameters.append(
+            (
+                plg.name + "-port",
+                None,
+                None,
+                "strports description of the port to bind for the  "
+                + plg.name
+                + " server",
+            )
+        )
     del plg
 
     def __init__(self, *a, **kw):
         usage.Options.__init__(self, *a, **kw)
-        self['groups'] = []
+        self["groups"] = []
 
     def opt_group(self, name):
         """Specify a group which should exist
         """
-        self['groups'].append(name.decode(sys.stdin.encoding))
+        self["groups"].append(name.decode(sys.stdin.encoding))
 
     def opt_passwd(self, filename):
         """
@@ -51,24 +63,27 @@ class Options(usage.Options, strcred.AuthOptionMixin):
         """
         self.addChecker(checkers.FilePasswordDB(filename))
 
+
 def makeService(config):
-    credCheckers = config.get('credCheckers', [])
-    wordsRealm = service.InMemoryWordsRealm(config['hostname'])
+    credCheckers = config.get("credCheckers", [])
+    wordsRealm = service.InMemoryWordsRealm(config["hostname"])
     wordsPortal = portal.Portal(wordsRealm, credCheckers)
 
     msvc = MultiService()
 
     # XXX Attribute lookup on config is kind of bad - hrm.
     for plgName in config.interfacePlugins:
-        port = config.get(plgName + '-port')
+        port = config.get(plgName + "-port")
         if port is not None:
-            factory = config.interfacePlugins[plgName].getFactory(wordsRealm, wordsPortal)
+            factory = config.interfacePlugins[plgName].getFactory(
+                wordsRealm, wordsPortal
+            )
             svc = strports.service(port, factory)
             svc.setServiceParent(msvc)
 
     # This is bogus.  createGroup is async.  makeService must be
     # allowed to return a Deferred or some crap.
-    for g in config['groups']:
+    for g in config["groups"]:
         wordsRealm.createGroup(g)
 
     return msvc

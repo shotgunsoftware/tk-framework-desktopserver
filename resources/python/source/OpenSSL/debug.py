@@ -25,9 +25,9 @@ sys.path: {sys_path}""".format(
     crypto_openssl_compile=OpenSSL._util.ffi.string(
         OpenSSL._util.lib.OPENSSL_VERSION_TEXT,
     ).decode("ascii"),
-    crypto_openssl_link=OpenSSL.SSL.SSLeay_version(
-        OpenSSL.SSL.SSLEAY_VERSION
-    ).decode("ascii"),
+    crypto_openssl_link=OpenSSL.SSL.SSLeay_version(OpenSSL.SSL.SSLEAY_VERSION).decode(
+        "ascii"
+    ),
     python_openssl=getattr(ssl, "OPENSSL_VERSION", "n/a"),
     cryptography=cryptography.__version__,
     cffi=cffi.__version__,

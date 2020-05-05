@@ -11,5 +11,3 @@ engines:
 frameworks:
   tk-framework-desktopserver_v1.x.x:
     location: {type: path, path: '$FRAMEWORK_ROOT' }
-
-                

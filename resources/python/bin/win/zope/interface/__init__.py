@@ -48,7 +48,7 @@ The package has several public modules:
 
 See the module doc strings for more information.
 """
-__docformat__ = 'restructuredtext'
+__docformat__ = "restructuredtext"
 
 from zope.interface.interface import Interface
 from zope.interface.interface import _wire
@@ -88,6 +88,6 @@ from zope.interface.interfaces import IInterfaceDeclaration
 
 moduleProvides(IInterfaceDeclaration)
 
-__all__ = ('Interface', 'Attribute') + tuple(IInterfaceDeclaration)
+__all__ = ("Interface", "Attribute") + tuple(IInterfaceDeclaration)
 
 assert all(k in globals() for k in __all__)

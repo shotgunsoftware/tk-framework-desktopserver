@@ -1,11 +1,11 @@
 # Copyright (c) 2017 Shotgun Software Inc.
-# 
+#
 # CONFIDENTIAL AND PROPRIETARY
-# 
-# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit 
+#
+# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
 # Source Code License included in this distribution package. See LICENSE.
-# By accessing, using, copying or modifying this work you indicate your 
-# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights 
+# By accessing, using, copying or modifying this work you indicate your
+# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import os
@@ -17,6 +17,7 @@ from mock_test_classes import MockHost, MockConfigDescriptor
 
 from mock import patch, Mock
 
+
 class TestDesktopServerFramework(TankTestBase):
     def setUp(self):
         super(TestDesktopServerFramework, self).setUp()
@@ -25,7 +26,9 @@ class TestDesktopServerFramework(TankTestBase):
         # set up an environment variable that points to the root of the
         # framework so we can specify its location in the environment fixture
 
-        self.framework_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        self.framework_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..")
+        )
         os.environ["FRAMEWORK_ROOT"] = self.framework_root
 
         # We're not going to be adding tests for the legacy workaround, so we
@@ -44,7 +47,8 @@ class TestDesktopServerFramework(TankTestBase):
         context = self.tk.context_from_entity(self.project["type"], self.project["id"])
 
         patched = patch(
-            "sgtk.platform.Engine._define_qt_base", return_value={"qt_core": Mock(), "qt_gui": Mock()}
+            "sgtk.platform.Engine._define_qt_base",
+            return_value={"qt_core": Mock(), "qt_gui": Mock()},
         )
         patched.start()
         self.addCleanup(patched.stop)
@@ -53,8 +57,10 @@ class TestDesktopServerFramework(TankTestBase):
         self.engine = sgtk.platform.start_engine("test_engine", self.tk, context)
 
         self.app = self.engine.apps["test_app"]
-        self.framework = self.app.frameworks['tk-framework-desktopserver']
-        self.framework_module = self.framework.import_module("tk_framework_desktopserver")
+        self.framework = self.app.frameworks["tk-framework-desktopserver"]
+        self.framework_module = self.framework.import_module(
+            "tk_framework_desktopserver"
+        )
         self.mock_host = MockHost()
         self.wss_key = "12345"
         self.api = self.framework_module.get_shotgun_api(
@@ -64,12 +70,7 @@ class TestDesktopServerFramework(TankTestBase):
             process_manager=None,
         )
         self.config_root = os.path.abspath(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "fixtures",
-                "config"
-            )
+            os.path.join(os.path.dirname(__file__), "..", "fixtures", "config")
         )
 
     def tearDown(self):
@@ -83,14 +84,3 @@ class TestDesktopServerFramework(TankTestBase):
 
         # important to call base class so it can clean up memory
         super(TestDesktopServerFramework, self).tearDown()
-
-
-
-
-
-
-
-
-
-
-

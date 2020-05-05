@@ -31,9 +31,7 @@ from autobahn.wamp.cryptosign import HAS_CRYPTOSIGN, SigningKey
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-__all__ = [
-    'HAS_CRYPTOSIGN_SSHAGENT'
-]
+__all__ = ["HAS_CRYPTOSIGN_SSHAGENT"]
 
 if HAS_CRYPTOSIGN:
     try:
@@ -47,7 +45,7 @@ if HAS_CRYPTOSIGN:
         HAS_CRYPTOSIGN_SSHAGENT = False
     else:
         HAS_CRYPTOSIGN_SSHAGENT = True
-        __all__.append('SSHAgentSigningKey')
+        __all__.append("SSHAgentSigningKey")
 
 
 if HAS_CRYPTOSIGN_SSHAGENT:
@@ -81,7 +79,9 @@ if HAS_CRYPTOSIGN_SSHAGENT:
             :type pubkey: unicode
             """
             if not HAS_CRYPTOSIGN_SSHAGENT:
-                raise Exception("SSH agent integration is not supported on this platform")
+                raise Exception(
+                    "SSH agent integration is not supported on this platform"
+                )
 
             pubkey, _ = _read_ssh_ed25519_pubkey(pubkey)
 
@@ -109,11 +109,11 @@ if HAS_CRYPTOSIGN_SSHAGENT:
                 for blob, comment in keys:
                     raw = _unpack(blob)
                     algo = raw[0]
-                    if algo == u'ssh-ed25519':
+                    if algo == u"ssh-ed25519":
                         algo, _pubkey = raw
                         if _pubkey == pubkey:
                             key_data = _pubkey
-                            key_comment = comment.decode('utf8')
+                            key_comment = comment.decode("utf8")
                             break
 
                 agent.transport.loseConnection()
@@ -141,7 +141,7 @@ if HAS_CRYPTOSIGN_SSHAGENT:
                 # we are now connected to the locally running ssh-agent
                 # that agent might be the openssh-agent, or eg on Ubuntu 14.04 by
                 # default the gnome-keyring / ssh-askpass-gnome application
-                blob = _pack(['ssh-ed25519', self.public_key(binary=True)])
+                blob = _pack(["ssh-ed25519", self.public_key(binary=True)])
 
                 # now ask the agent
                 signature_blob = yield agent.signData(blob, challenge)

@@ -9,7 +9,6 @@ __license__ = "BSD, see License.txt"
 
 
 class IsSequenceOnlyContaining(BaseMatcher):
-
     def __init__(self, matcher):
         self.matcher = matcher
 
@@ -26,8 +25,9 @@ class IsSequenceOnlyContaining(BaseMatcher):
             return False
 
     def describe_to(self, description):
-        description.append_text('a sequence containing items matching ')    \
-                    .append_description_of(self.matcher)
+        description.append_text(
+            "a sequence containing items matching "
+        ).append_description_of(self.matcher)
 
 
 def only_contains(*items):

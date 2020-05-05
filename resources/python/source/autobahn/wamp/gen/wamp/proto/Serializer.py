@@ -2,6 +2,7 @@
 
 # namespace: proto
 
+
 class Serializer(object):
     TRANSPORT = 0
     JSON = 1
@@ -10,4 +11,3 @@ class Serializer(object):
     UBJSON = 4
     OPAQUE = 5
     FLATBUFFERS = 6
-

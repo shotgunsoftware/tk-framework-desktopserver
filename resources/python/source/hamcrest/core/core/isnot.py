@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+
 __author__ = "Jon Reid"
 __copyright__ = "Copyright 2011 hamcrest.org"
 __license__ = "BSD, see License.txt"
@@ -10,7 +11,6 @@ from .isinstanceof import instance_of
 
 
 class IsNot(BaseMatcher):
-
     def __init__(self, matcher):
         self.matcher = matcher
 
@@ -18,7 +18,7 @@ class IsNot(BaseMatcher):
         return not self.matcher.matches(item)
 
     def describe_to(self, description):
-        description.append_text('not ').append_description_of(self.matcher)
+        description.append_text("not ").append_description_of(self.matcher)
 
 
 def wrap_value_or_type(x):
@@ -45,6 +45,7 @@ def is_not(match):
 
     """
     return IsNot(wrap_value_or_type(match))
+
 
 def not_(match):
     """Alias of :py:func:`is_not` for better readability of negations.

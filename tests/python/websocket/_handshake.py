@@ -49,19 +49,24 @@ __all__ = ["handshake_response", "handshake", "SUPPORTED_REDIRECT_STATUSES"]
 if hasattr(hmac, "compare_digest"):
     compare_digest = hmac.compare_digest
 else:
+
     def compare_digest(s1, s2):
         return s1 == s2
+
 
 # websocket supported version.
 VERSION = 13
 
-SUPPORTED_REDIRECT_STATUSES = [HTTPStatus.MOVED_PERMANENTLY, HTTPStatus.FOUND, HTTPStatus.SEE_OTHER]
+SUPPORTED_REDIRECT_STATUSES = [
+    HTTPStatus.MOVED_PERMANENTLY,
+    HTTPStatus.FOUND,
+    HTTPStatus.SEE_OTHER,
+]
 
 CookieJar = SimpleCookieJar()
 
 
 class handshake_response(object):
-
     def __init__(self, status, headers, subprotocol):
         self.status = status
         self.headers = headers
@@ -85,18 +90,20 @@ def handshake(sock, hostname, port, resource, **options):
 
     return handshake_response(status, resp, subproto)
 
+
 def _pack_hostname(hostname):
     # IPv6 address
-    if ':' in hostname:
-        return '[' + hostname + ']'
+    if ":" in hostname:
+        return "[" + hostname + "]"
 
     return hostname
+
 
 def _get_handshake_headers(resource, host, port, options):
     headers = [
         "GET %s HTTP/1.1" % resource,
         "Upgrade: websocket",
-        "Connection: Upgrade"
+        "Connection: Upgrade",
     ]
     if port == 80 or port == 443:
         hostport = _pack_hostname(host)
@@ -115,15 +122,15 @@ def _get_handshake_headers(resource, host, port, options):
             headers.append("Origin: http://%s" % hostport)
 
     key = _create_sec_websocket_key()
-    
+
     # Append Sec-WebSocket-Key & Sec-WebSocket-Version if not manually specified
-    if not 'header' in options or 'Sec-WebSocket-Key' not in options['header']:
+    if not "header" in options or "Sec-WebSocket-Key" not in options["header"]:
         key = _create_sec_websocket_key()
         headers.append("Sec-WebSocket-Key: %s" % key)
     else:
-        key = options['header']['Sec-WebSocket-Key']
+        key = options["header"]["Sec-WebSocket-Key"]
 
-    if not 'header' in options or 'Sec-WebSocket-Version' not in options['header']:
+    if not "header" in options or "Sec-WebSocket-Version" not in options["header"]:
         headers.append("Sec-WebSocket-Version: %s" % VERSION)
 
     subprotocols = options.get("subprotocols")
@@ -133,11 +140,7 @@ def _get_handshake_headers(resource, host, port, options):
     if "header" in options:
         header = options["header"]
         if isinstance(header, dict):
-            header = [
-                ": ".join([k, v])
-                for k, v in header.items()
-                if v is not None
-            ]
+            header = [": ".join([k, v]) for k, v in header.items() if v is not None]
         headers.extend(header)
 
     server_cookie = CookieJar.get(host)
@@ -157,8 +160,11 @@ def _get_handshake_headers(resource, host, port, options):
 def _get_resp_headers(sock, success_statuses=(101, 301, 302, 303)):
     status, resp_headers, status_message = read_headers(sock)
     if status not in success_statuses:
-        raise WebSocketBadStatusException("Handshake status %d %s", status, status_message, resp_headers)
+        raise WebSocketBadStatusException(
+            "Handshake status %d %s", status, status_message, resp_headers
+        )
     return status, resp_headers
+
 
 _HEADERS_TO_CHECK = {
     "upgrade": "websocket",
@@ -188,9 +194,9 @@ def _validate(headers, key, subprotocols):
     result = result.lower()
 
     if isinstance(result, six.text_type):
-        result = result.encode('utf-8')
+        result = result.encode("utf-8")
 
-    value = (key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode('utf-8')
+    value = (key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode("utf-8")
     hashed = base64encode(hashlib.sha1(value).digest()).strip().lower()
     success = compare_digest(hashed, result)
 
@@ -202,4 +208,4 @@ def _validate(headers, key, subprotocols):
 
 def _create_sec_websocket_key():
     randomness = os.urandom(16)
-    return base64encode(randomness).decode('utf-8').strip()
+    return base64encode(randomness).decode("utf-8").strip()

@@ -29,21 +29,20 @@ class BuildEnvironment(object):
         return self._temp_dir.path
 
     def __enter__(self):
-        self.save_path = os.environ.get('PATH', None)
-        self.save_pythonpath = os.environ.get('PYTHONPATH', None)
-        self.save_nousersite = os.environ.get('PYTHONNOUSERSITE', None)
+        self.save_path = os.environ.get("PATH", None)
+        self.save_pythonpath = os.environ.get("PYTHONPATH", None)
+        self.save_nousersite = os.environ.get("PYTHONNOUSERSITE", None)
 
-        install_scheme = 'nt' if (os.name == 'nt') else 'posix_prefix'
-        install_dirs = get_paths(install_scheme, vars={
-            'base': self.path,
-            'platbase': self.path,
-        })
+        install_scheme = "nt" if (os.name == "nt") else "posix_prefix"
+        install_dirs = get_paths(
+            install_scheme, vars={"base": self.path, "platbase": self.path,}
+        )
 
-        scripts = install_dirs['scripts']
+        scripts = install_dirs["scripts"]
         if self.save_path:
-            os.environ['PATH'] = scripts + os.pathsep + self.save_path
+            os.environ["PATH"] = scripts + os.pathsep + self.save_path
         else:
-            os.environ['PATH'] = scripts + os.pathsep + os.defpath
+            os.environ["PATH"] = scripts + os.pathsep + os.defpath
 
         # Note: prefer distutils' sysconfig to get the
         # library paths so PyPy is correctly supported.
@@ -54,12 +53,11 @@ class BuildEnvironment(object):
         else:
             lib_dirs = purelib + os.pathsep + platlib
         if self.save_pythonpath:
-            os.environ['PYTHONPATH'] = lib_dirs + os.pathsep + \
-                self.save_pythonpath
+            os.environ["PYTHONPATH"] = lib_dirs + os.pathsep + self.save_pythonpath
         else:
-            os.environ['PYTHONPATH'] = lib_dirs
+            os.environ["PYTHONPATH"] = lib_dirs
 
-        os.environ['PYTHONNOUSERSITE'] = '1'
+        os.environ["PYTHONNOUSERSITE"] = "1"
 
         return self.path
 
@@ -70,9 +68,9 @@ class BuildEnvironment(object):
             else:
                 os.environ[varname] = old_value
 
-        restore_var('PATH', self.save_path)
-        restore_var('PYTHONPATH', self.save_pythonpath)
-        restore_var('PYTHONNOUSERSITE', self.save_nousersite)
+        restore_var("PATH", self.save_path)
+        restore_var("PYTHONPATH", self.save_pythonpath)
+        restore_var("PYTHONNOUSERSITE", self.save_nousersite)
 
     def cleanup(self):
         self._temp_dir.cleanup()
@@ -93,30 +91,41 @@ class BuildEnvironment(object):
 
     def install_requirements(self, finder, requirements, message):
         args = [
-            sys.executable, '-m', 'pip', 'install', '--ignore-installed',
-            '--no-user', '--prefix', self.path, '--no-warn-script-location',
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--ignore-installed",
+            "--no-user",
+            "--prefix",
+            self.path,
+            "--no-warn-script-location",
         ]
         if logger.getEffectiveLevel() <= logging.DEBUG:
-            args.append('-v')
-        for format_control in ('no_binary', 'only_binary'):
+            args.append("-v")
+        for format_control in ("no_binary", "only_binary"):
             formats = getattr(finder.format_control, format_control)
-            args.extend(('--' + format_control.replace('_', '-'),
-                         ','.join(sorted(formats or {':none:'}))))
+            args.extend(
+                (
+                    "--" + format_control.replace("_", "-"),
+                    ",".join(sorted(formats or {":none:"})),
+                )
+            )
         if finder.index_urls:
-            args.extend(['-i', finder.index_urls[0]])
+            args.extend(["-i", finder.index_urls[0]])
             for extra_index in finder.index_urls[1:]:
-                args.extend(['--extra-index-url', extra_index])
+                args.extend(["--extra-index-url", extra_index])
         else:
-            args.append('--no-index')
+            args.append("--no-index")
         for link in finder.find_links:
-            args.extend(['--find-links', link])
+            args.extend(["--find-links", link])
         for _, host, _ in finder.secure_origins:
-            args.extend(['--trusted-host', host])
+            args.extend(["--trusted-host", host])
         if finder.allow_all_prereleases:
-            args.append('--pre')
+            args.append("--pre")
         if finder.process_dependency_links:
-            args.append('--process-dependency-links')
-        args.append('--')
+            args.append("--process-dependency-links")
+        args.append("--")
         args.extend(requirements)
         with open_spinner(message) as spinner:
             call_subprocess(args, show_stdout=False, spinner=spinner)

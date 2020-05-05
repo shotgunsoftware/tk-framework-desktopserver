@@ -1,11 +1,11 @@
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # pycparser: ast_transforms.py
 #
 # Some utilities used by the parser to create a friendlier AST.
 #
 # Eli Bendersky [https://eli.thegreenplace.net/]
 # License: BSD
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 from . import c_ast
 
@@ -75,7 +75,7 @@ def fix_switch_cases(switch_node):
     # Goes over the children of the Compound below the Switch, adding them
     # either directly below new_compound or below the last Case as appropriate
     # (for `switch(cond) {}`, block_items would have been None)
-    for child in (switch_node.stmt.block_items or []):
+    for child in switch_node.stmt.block_items or []:
         if isinstance(child, (c_ast.Case, c_ast.Default)):
             # If it's a Case/Default:
             # 1. Add it to the Compound and mark as "last case"
@@ -103,4 +103,3 @@ def _extract_nested_case(case_node, stmts_list):
     if isinstance(case_node.stmts[0], (c_ast.Case, c_ast.Default)):
         stmts_list.append(case_node.stmts.pop())
         _extract_nested_case(stmts_list[-1], stmts_list)
-

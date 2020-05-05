@@ -2,8 +2,8 @@
 
 # namespace: proto
 
+
 class Payload(object):
     PLAIN = 0
     CRYPTOBOX = 1
     OPAQUE = 2
-

@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class AuthScramChallenge(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsAuthScramChallenge(cls, buf, offset):
@@ -43,14 +44,18 @@ class AuthScramChallenge(object):
     def Iterations(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint32Flags, o + self._tab.Pos
+            )
         return 0
 
     # AuthScramChallenge
     def Memory(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint32Flags, o + self._tab.Pos
+            )
         return 0
 
     # AuthScramChallenge
@@ -60,11 +65,38 @@ class AuthScramChallenge(object):
             return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 0
 
-def AuthScramChallengeStart(builder): builder.StartObject(6)
-def AuthScramChallengeAddNonce(builder, nonce): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(nonce), 0)
-def AuthScramChallengeAddSalt(builder, salt): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(salt), 0)
-def AuthScramChallengeAddKdf(builder, kdf): builder.PrependUint8Slot(2, kdf, 2)
-def AuthScramChallengeAddIterations(builder, iterations): builder.PrependUint32Slot(3, iterations, 0)
-def AuthScramChallengeAddMemory(builder, memory): builder.PrependUint32Slot(4, memory, 0)
-def AuthScramChallengeAddChannelBinding(builder, channelBinding): builder.PrependUint8Slot(5, channelBinding, 0)
-def AuthScramChallengeEnd(builder): return builder.EndObject()
+
+def AuthScramChallengeStart(builder):
+    builder.StartObject(6)
+
+
+def AuthScramChallengeAddNonce(builder, nonce):
+    builder.PrependUOffsetTRelativeSlot(
+        0, flatbuffers.number_types.UOffsetTFlags.py_type(nonce), 0
+    )
+
+
+def AuthScramChallengeAddSalt(builder, salt):
+    builder.PrependUOffsetTRelativeSlot(
+        1, flatbuffers.number_types.UOffsetTFlags.py_type(salt), 0
+    )
+
+
+def AuthScramChallengeAddKdf(builder, kdf):
+    builder.PrependUint8Slot(2, kdf, 2)
+
+
+def AuthScramChallengeAddIterations(builder, iterations):
+    builder.PrependUint32Slot(3, iterations, 0)
+
+
+def AuthScramChallengeAddMemory(builder, memory):
+    builder.PrependUint32Slot(4, memory, 0)
+
+
+def AuthScramChallengeAddChannelBinding(builder, channelBinding):
+    builder.PrependUint8Slot(5, channelBinding, 0)
+
+
+def AuthScramChallengeEnd(builder):
+    return builder.EndObject()

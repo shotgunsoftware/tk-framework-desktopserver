@@ -6,9 +6,7 @@ from __future__ import absolute_import, division, print_function
 
 
 from cryptography import utils
-from cryptography.exceptions import (
-    InvalidSignature, UnsupportedAlgorithm, _Reasons
-)
+from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm, _Reasons
 from cryptography.hazmat.primitives import constant_time, hashes
 
 
@@ -27,9 +25,8 @@ class _HMACContext(object):
             evp_md = self._backend._evp_md_from_algorithm(algorithm)
             if evp_md == self._backend._ffi.NULL:
                 raise UnsupportedAlgorithm(
-                    "{} is not a supported hash on this backend".format(
-                        algorithm.name),
-                    _Reasons.UNSUPPORTED_HASH
+                    "{} is not a supported hash on this backend".format(algorithm.name),
+                    _Reasons.UNSUPPORTED_HASH,
                 )
             key_ptr = self._backend._ffi.from_buffer(key)
             res = self._backend._lib.HMAC_Init_ex(
@@ -50,9 +47,7 @@ class _HMACContext(object):
         )
         res = self._backend._lib.HMAC_CTX_copy(copied_ctx, self._ctx)
         self._backend.openssl_assert(res != 0)
-        return _HMACContext(
-            self._backend, self._key, self.algorithm, ctx=copied_ctx
-        )
+        return _HMACContext(self._backend, self._key, self.algorithm, ctx=copied_ctx)
 
     def update(self, data):
         data_ptr = self._backend._ffi.from_buffer(data)
@@ -60,13 +55,14 @@ class _HMACContext(object):
         self._backend.openssl_assert(res != 0)
 
     def finalize(self):
-        buf = self._backend._ffi.new("unsigned char[]",
-                                     self._backend._lib.EVP_MAX_MD_SIZE)
+        buf = self._backend._ffi.new(
+            "unsigned char[]", self._backend._lib.EVP_MAX_MD_SIZE
+        )
         outlen = self._backend._ffi.new("unsigned int *")
         res = self._backend._lib.HMAC_Final(self._ctx, buf, outlen)
         self._backend.openssl_assert(res != 0)
         self._backend.openssl_assert(outlen[0] == self.algorithm.digest_size)
-        return self._backend._ffi.buffer(buf)[:outlen[0]]
+        return self._backend._ffi.buffer(buf)[: outlen[0]]
 
     def verify(self, signature):
         digest = self.finalize()

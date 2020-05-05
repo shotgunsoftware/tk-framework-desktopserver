@@ -34,9 +34,9 @@ except ImportError:
     from trollius import sleep  # noqa
 
 __all = (
-    'sleep',
-    'peer2str',
-    'transport_channel_id',
+    "sleep",
+    "peer2str",
+    "transport_channel_id",
 )
 
 
@@ -52,15 +52,15 @@ def transport_channel_id(transport, is_server, channel_id_type):
     received on one TLS channel cannot be forwarded on another.
 
     """
-    if channel_id_type not in [u'tls-unique']:
+    if channel_id_type not in [u"tls-unique"]:
         raise Exception("invalid channel ID type {}".format(channel_id_type))
 
-    ssl_obj = transport.get_extra_info('ssl_object')
+    ssl_obj = transport.get_extra_info("ssl_object")
     if ssl_obj is None:
         return None
 
-    if hasattr(ssl_obj, 'get_channel_binding'):
-        return ssl_obj.get_channel_binding(cb_type='tls-unique')
+    if hasattr(ssl_obj, "get_channel_binding"):
+        return ssl_obj.get_channel_binding(cb_type="tls-unique")
     return None
 
 
@@ -77,7 +77,19 @@ def peer2str(peer):
 def get_serializers():
     from autobahn.wamp import serializer
 
-    serializers = ['CBORSerializer', 'MsgPackSerializer', 'UBJSONSerializer', 'JsonSerializer']
-    serializers = list(filter(lambda x: x, map(lambda s: getattr(serializer, s) if hasattr(serializer, s)
-                                               else None, serializers)))
+    serializers = [
+        "CBORSerializer",
+        "MsgPackSerializer",
+        "UBJSONSerializer",
+        "JsonSerializer",
+    ]
+    serializers = list(
+        filter(
+            lambda x: x,
+            map(
+                lambda s: getattr(serializer, s) if hasattr(serializer, s) else None,
+                serializers,
+            ),
+        )
+    )
     return serializers

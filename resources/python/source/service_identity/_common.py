@@ -153,9 +153,7 @@ class DNSPattern(object):
         pattern = pattern.strip()
 
         if pattern == b"" or _is_ip_address(pattern) or b"\0" in pattern:
-            raise CertificateError(
-                "Invalid DNS pattern {0!r}.".format(pattern)
-            )
+            raise CertificateError("Invalid DNS pattern {0!r}.".format(pattern))
 
         self.pattern = pattern.translate(_TRANS_TO_LOWER)
         if b"*" in self.pattern:
@@ -175,9 +173,7 @@ class IPAddressPattern(object):
         try:
             return cls(pattern=ipaddress.ip_address(bs))
         except ValueError:
-            raise CertificateError(
-                "Invalid IP address pattern {!r}.".format(bs)
-            )
+            raise CertificateError("Invalid IP address pattern {!r}.".format(bs))
 
 
 @attr.s(init=False, slots=True)
@@ -199,9 +195,7 @@ class URIPattern(object):
         pattern = pattern.strip().translate(_TRANS_TO_LOWER)
 
         if b":" not in pattern or b"*" in pattern or _is_ip_address(pattern):
-            raise CertificateError(
-                "Invalid URI pattern {0!r}.".format(pattern)
-            )
+            raise CertificateError("Invalid URI pattern {0!r}.".format(pattern))
         self.protocol_pattern, hostname = pattern.split(b":")
         self.dns_pattern = DNSPattern(hostname)
 
@@ -230,9 +224,7 @@ class SRVPattern(object):
             or b"*" in pattern
             or _is_ip_address(pattern)
         ):
-            raise CertificateError(
-                "Invalid SRV pattern {0!r}.".format(pattern)
-            )
+            raise CertificateError("Invalid SRV pattern {0!r}.".format(pattern))
         name, hostname = pattern.split(b".", 1)
         self.name_pattern = name[1:]
         self.dns_pattern = DNSPattern(hostname)
@@ -266,9 +258,7 @@ class DNS_ID(object):
             if idna:
                 ascii_id = idna.encode(hostname)
             else:
-                raise ImportError(
-                    "idna library is required for non-ASCII IDs."
-                )
+                raise ImportError("idna library is required for non-ASCII IDs.")
         else:
             ascii_id = hostname.encode("ascii")
 
@@ -337,9 +327,8 @@ class URI_ID(object):
         https://tools.ietf.org/search/rfc6125#section-6.5.2
         """
         if isinstance(pattern, self.pattern_class):
-            return (
-                pattern.protocol_pattern == self.protocol
-                and self.dns_id.verify(pattern.dns_pattern)
+            return pattern.protocol_pattern == self.protocol and self.dns_id.verify(
+                pattern.dns_pattern
             )
         else:
             return False
@@ -437,9 +426,7 @@ def _validate_pattern(cert_pattern):
         )
     if any(not len(p) for p in parts):
         raise CertificateError(
-            "Certificate's DNS-ID {0!r} contains empty parts.".format(
-                cert_pattern
-            )
+            "Certificate's DNS-ID {0!r} contains empty parts.".format(cert_pattern)
         )
 
 

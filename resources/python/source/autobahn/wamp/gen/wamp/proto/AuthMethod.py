@@ -2,6 +2,7 @@
 
 # namespace: proto
 
+
 class AuthMethod(object):
     ANONYMOUS = 0
     COOKIE = 1
@@ -10,4 +11,3 @@ class AuthMethod(object):
     CRA = 4
     SCRAM = 5
     CRYPTOSIGN = 6
-

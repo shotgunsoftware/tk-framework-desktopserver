@@ -2,6 +2,7 @@
 
 # namespace: proto
 
+
 class AnyMessage(object):
     NONE = 0
     Hello = 1
@@ -30,4 +31,3 @@ class AnyMessage(object):
     Invocation = 24
     Interrupt = 25
     Yield = 26
-

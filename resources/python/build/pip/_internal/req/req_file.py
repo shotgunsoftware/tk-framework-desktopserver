@@ -17,19 +17,20 @@ from pip._internal.cli import cmdoptions
 from pip._internal.download import get_file_content
 from pip._internal.exceptions import RequirementsFileParseError
 from pip._internal.req.constructors import (
-    install_req_from_editable, install_req_from_line,
+    install_req_from_editable,
+    install_req_from_line,
 )
 
-__all__ = ['parse_requirements']
+__all__ = ["parse_requirements"]
 
-SCHEME_RE = re.compile(r'^(http|https|file):', re.I)
-COMMENT_RE = re.compile(r'(^|\s)+#.*$')
+SCHEME_RE = re.compile(r"^(http|https|file):", re.I)
+COMMENT_RE = re.compile(r"(^|\s)+#.*$")
 
 # Matches environment variable-style values in '${MY_VARIABLE_1}' with the
 # variable name consisting of only uppercase letters, digits or the '_'
 # (underscore). This follows the POSIX standard defined in IEEE Std 1003.1,
 # 2013 Edition.
-ENV_VAR_RE = re.compile(r'(?P<var>\$\{(?P<name>[A-Z0-9_]+)\})')
+ENV_VAR_RE = re.compile(r"(?P<var>\$\{(?P<name>[A-Z0-9_]+)\})")
 
 SUPPORTED_OPTIONS = [
     cmdoptions.constraints,
@@ -59,8 +60,15 @@ SUPPORTED_OPTIONS_REQ = [
 SUPPORTED_OPTIONS_REQ_DEST = [o().dest for o in SUPPORTED_OPTIONS_REQ]
 
 
-def parse_requirements(filename, finder=None, comes_from=None, options=None,
-                       session=None, constraint=False, wheel_cache=None):
+def parse_requirements(
+    filename,
+    finder=None,
+    comes_from=None,
+    options=None,
+    session=None,
+    constraint=False,
+    wheel_cache=None,
+):
     """Parse a requirements file and yield InstallRequirement instances.
 
     :param filename:    Path or url of requirements file.
@@ -74,20 +82,25 @@ def parse_requirements(filename, finder=None, comes_from=None, options=None,
     """
     if session is None:
         raise TypeError(
-            "parse_requirements() missing 1 required keyword argument: "
-            "'session'"
+            "parse_requirements() missing 1 required keyword argument: " "'session'"
         )
 
-    _, content = get_file_content(
-        filename, comes_from=comes_from, session=session
-    )
+    _, content = get_file_content(filename, comes_from=comes_from, session=session)
 
     lines_enum = preprocess(content, options)
 
     for line_number, line in lines_enum:
-        req_iter = process_line(line, filename, line_number, finder,
-                                comes_from, options, session, wheel_cache,
-                                constraint=constraint)
+        req_iter = process_line(
+            line,
+            filename,
+            line_number,
+            finder,
+            comes_from,
+            options,
+            session,
+            wheel_cache,
+            constraint=constraint,
+        )
         for req in req_iter:
             yield req
 
@@ -106,9 +119,17 @@ def preprocess(content, options):
     return lines_enum
 
 
-def process_line(line, filename, line_number, finder=None, comes_from=None,
-                 options=None, session=None, wheel_cache=None,
-                 constraint=False):
+def process_line(
+    line,
+    filename,
+    line_number,
+    finder=None,
+    comes_from=None,
+    options=None,
+    session=None,
+    wheel_cache=None,
+    constraint=False,
+):
     """Process a single requirements line; This can result in creating/yielding
     requirements, or updating the finder.
 
@@ -135,12 +156,14 @@ def process_line(line, filename, line_number, finder=None, comes_from=None,
     args_str, options_str = break_args_options(line)
     if sys.version_info < (2, 7, 3):
         # Prior to 2.7.3, shlex cannot deal with unicode entries
-        options_str = options_str.encode('utf8')
+        options_str = options_str.encode("utf8")
     opts, _ = parser.parse_args(shlex.split(options_str), defaults)
 
     # preserve for the nested code path
-    line_comes_from = '%s %s (line %s)' % (
-        '-c' if constraint else '-r', filename, line_number,
+    line_comes_from = "%s %s (line %s)" % (
+        "-c" if constraint else "-r",
+        filename,
+        line_number,
     )
 
     # yield a line requirement
@@ -154,16 +177,23 @@ def process_line(line, filename, line_number, finder=None, comes_from=None,
             if dest in opts.__dict__ and opts.__dict__[dest]:
                 req_options[dest] = opts.__dict__[dest]
         yield install_req_from_line(
-            args_str, line_comes_from, constraint=constraint,
-            isolated=isolated, options=req_options, wheel_cache=wheel_cache
+            args_str,
+            line_comes_from,
+            constraint=constraint,
+            isolated=isolated,
+            options=req_options,
+            wheel_cache=wheel_cache,
         )
 
     # yield an editable requirement
     elif opts.editables:
         isolated = options.isolated_mode if options else False
         yield install_req_from_editable(
-            opts.editables[0], comes_from=line_comes_from,
-            constraint=constraint, isolated=isolated, wheel_cache=wheel_cache
+            opts.editables[0],
+            comes_from=line_comes_from,
+            constraint=constraint,
+            isolated=isolated,
+            wheel_cache=wheel_cache,
         )
 
     # parse a nested requirements file
@@ -184,8 +214,13 @@ def process_line(line, filename, line_number, finder=None, comes_from=None,
             req_path = os.path.join(os.path.dirname(filename), req_path)
         # TODO: Why not use `comes_from='-r {} (line {})'` here as well?
         parser = parse_requirements(
-            req_path, finder, comes_from, options, session,
-            constraint=nested_constraint, wheel_cache=wheel_cache
+            req_path,
+            finder,
+            comes_from,
+            options,
+            session,
+            constraint=nested_constraint,
+            wheel_cache=wheel_cache,
         )
         for req in parser:
             yield req
@@ -218,7 +253,8 @@ def process_line(line, filename, line_number, finder=None, comes_from=None,
             finder.process_dependency_links = True
         if opts.trusted_hosts:
             finder.secure_origins.extend(
-                ("*", host, "*") for host in opts.trusted_hosts)
+                ("*", host, "*") for host in opts.trusted_hosts
+            )
 
 
 def break_args_options(line):
@@ -226,16 +262,16 @@ def break_args_options(line):
     (and then optparse) the options, not the args.  args can contain markers
     which are corrupted by shlex.
     """
-    tokens = line.split(' ')
+    tokens = line.split(" ")
     args = []
     options = tokens[:]
     for token in tokens:
-        if token.startswith('-') or token.startswith('--'):
+        if token.startswith("-") or token.startswith("--"):
             break
         else:
             args.append(token)
             options.pop(0)
-    return ' '.join(args), ' '.join(options)
+    return " ".join(args), " ".join(options)
 
 
 def build_parser(line):
@@ -253,8 +289,9 @@ def build_parser(line):
     # that in our own exception.
     def parser_exit(self, msg):
         # add offending line
-        msg = 'Invalid requirement: %s\n%s' % (line, msg)
+        msg = "Invalid requirement: %s\n%s" % (line, msg)
         raise RequirementsFileParseError(msg)
+
     parser.exit = parser_exit
 
     return parser
@@ -267,24 +304,24 @@ def join_lines(lines_enum):
     primary_line_number = None
     new_line = []
     for line_number, line in lines_enum:
-        if not line.endswith('\\') or COMMENT_RE.match(line):
+        if not line.endswith("\\") or COMMENT_RE.match(line):
             if COMMENT_RE.match(line):
                 # this ensures comments are always matched later
-                line = ' ' + line
+                line = " " + line
             if new_line:
                 new_line.append(line)
-                yield primary_line_number, ''.join(new_line)
+                yield primary_line_number, "".join(new_line)
                 new_line = []
             else:
                 yield line_number, line
         else:
             if not new_line:
                 primary_line_number = line_number
-            new_line.append(line.strip('\\'))
+            new_line.append(line.strip("\\"))
 
     # last line contains \
     if new_line:
-        yield primary_line_number, ''.join(new_line)
+        yield primary_line_number, "".join(new_line)
 
     # TODO: handle space after '\'.
 
@@ -294,7 +331,7 @@ def ignore_comments(lines_enum):
     Strips comments and filter empty lines.
     """
     for line_number, line in lines_enum:
-        line = COMMENT_RE.sub('', line)
+        line = COMMENT_RE.sub("", line)
         line = line.strip()
         if line:
             yield line_number, line

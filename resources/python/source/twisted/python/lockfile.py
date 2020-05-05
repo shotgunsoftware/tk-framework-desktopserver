@@ -17,8 +17,10 @@ from time import time as _uniquefloat
 from twisted.python.runtime import platform
 from twisted.python.compat import _PY3
 
+
 def unique():
     return str(int(_uniquefloat() * 1000))
+
 
 from os import rename
 
@@ -27,6 +29,7 @@ if not platform.isWindows():
     from os import symlink
     from os import readlink
     from os import remove as rmlink
+
     _windows = False
 else:
     _windows = True
@@ -65,23 +68,22 @@ else:
     # For monkeypatching in tests
     _open = open
 
-
     def symlink(value, filename):
         """
         Write a file at C{filename} with the contents of C{value}. See the
         above comment block as to why this is needed.
         """
         # XXX Implement an atomic thingamajig for win32
-        newlinkname = filename + "." + unique() + '.newlink'
+        newlinkname = filename + "." + unique() + ".newlink"
         newvalname = os.path.join(newlinkname, "symlink")
         os.mkdir(newlinkname)
 
         # Python 3 does not support the 'commit' flag of fopen in the MSVCRT
         # (http://msdn.microsoft.com/en-us/library/yeby3zcb%28VS.71%29.aspx)
         if _PY3:
-            mode = 'w'
+            mode = "w"
         else:
-            mode = 'wc'
+            mode = "wc"
 
         with _open(newvalname, mode) as f:
             f.write(value)
@@ -94,14 +96,13 @@ else:
             os.rmdir(newlinkname)
             raise
 
-
     def readlink(filename):
         """
         Read the contents of C{filename}. See the above comment block as to why
         this is needed.
         """
         try:
-            fObj = _open(os.path.join(filename, 'symlink'), 'r')
+            fObj = _open(os.path.join(filename, "symlink"), "r")
         except IOError as e:
             if e.errno == errno.ENOENT or e.errno == errno.EIO:
                 raise OSError(e.errno, None)
@@ -111,11 +112,9 @@ else:
                 result = fObj.read()
             return result
 
-
     def rmlink(filename):
-        os.remove(os.path.join(filename, 'symlink'))
+        os.remove(os.path.join(filename, "symlink"))
         os.rmdir(filename)
-
 
 
 class FilesystemLock(object):
@@ -142,7 +141,6 @@ class FilesystemLock(object):
 
     def __init__(self, name):
         self.name = name
-
 
     def lock(self):
         """
@@ -205,7 +203,6 @@ class FilesystemLock(object):
             self.clean = clean
             return True
 
-
     def unlock(self):
         """
         Release this lock.
@@ -217,11 +214,9 @@ class FilesystemLock(object):
         """
         pid = readlink(self.name)
         if int(pid) != os.getpid():
-            raise ValueError(
-                "Lock %r not owned by this process" % (self.name,))
+            raise ValueError("Lock %r not owned by this process" % (self.name,))
         rmlink(self.name)
         self.locked = False
-
 
 
 def isLocked(name):
@@ -244,5 +239,4 @@ def isLocked(name):
     return not result
 
 
-
-__all__ = ['FilesystemLock', 'isLocked']
+__all__ = ["FilesystemLock", "isLocked"]

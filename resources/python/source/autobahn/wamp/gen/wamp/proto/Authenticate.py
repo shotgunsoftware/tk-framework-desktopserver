@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Authenticate(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsAuthenticate(cls, buf, offset):
@@ -31,12 +32,28 @@ class Authenticate(object):
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
             from .Map import Map
+
             obj = Map()
             obj.Init(self._tab.Bytes, x)
             return obj
         return None
 
-def AuthenticateStart(builder): builder.StartObject(2)
-def AuthenticateAddSignature(builder, signature): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(signature), 0)
-def AuthenticateAddExtra(builder, extra): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(extra), 0)
-def AuthenticateEnd(builder): return builder.EndObject()
+
+def AuthenticateStart(builder):
+    builder.StartObject(2)
+
+
+def AuthenticateAddSignature(builder, signature):
+    builder.PrependUOffsetTRelativeSlot(
+        0, flatbuffers.number_types.UOffsetTFlags.py_type(signature), 0
+    )
+
+
+def AuthenticateAddExtra(builder, extra):
+    builder.PrependUOffsetTRelativeSlot(
+        1, flatbuffers.number_types.UOffsetTFlags.py_type(extra), 0
+    )
+
+
+def AuthenticateEnd(builder):
+    return builder.EndObject()

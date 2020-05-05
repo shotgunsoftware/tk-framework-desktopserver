@@ -8,7 +8,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-from tank_test.tank_test_base import setUpModule # noqa
+from tank_test.tank_test_base import setUpModule  # noqa
 
 from base_test import TestDesktopServerFramework, MockConfigDescriptor
 
@@ -17,76 +17,47 @@ class TestUtilMethods(TestDesktopServerFramework):
     """
     Tests for various utility methods for api_v2.
     """
+
     def test_payload_parsing(self):
         """
         Tests to ensure that payload parsing to extract entities passed down from
         Shotgun works properly.
         """
-        project_entity = dict(
-            type="Project",
-            id=1,
-        )
+        project_entity = dict(type="Project", id=1,)
 
         shot_entities = [
-            dict(
-                type="Shot",
-                id=2,
-                project=project_entity,
-            ),
-            dict(
-                type="Shot",
-                id=3,
-                project=project_entity,
-            ),
-            dict(
-                type="Shot",
-                id=4,
-                project=project_entity,
-            ),
+            dict(type="Shot", id=2, project=project_entity,),
+            dict(type="Shot", id=3, project=project_entity,),
+            dict(type="Shot", id=4, project=project_entity,),
         ]
 
         self.add_to_sg_mock_db([project_entity] + shot_entities)
 
         # If a single entity is passed down.
-        test_payload = dict(
-            project_id=1,
-            entity_type="Shot",
-            entity_id=2,
-        )
+        test_payload = dict(project_id=1, entity_type="Shot", entity_id=2,)
 
         actual_return = self.api._get_entities_from_payload(test_payload)
 
         self.assertEqual(
-            project_entity["id"],
-            actual_return[0]["id"],
+            project_entity["id"], actual_return[0]["id"],
         )
         self.assertEqual(
-            shot_entities[0]["id"],
-            actual_return[1][0]["id"],
+            shot_entities[0]["id"], actual_return[1][0]["id"],
         )
 
         # If multiple entities are passed down.
         # If a single entity is passed down.
-        test_payload = dict(
-            project_id=1,
-            entity_type="Shot",
-            entity_ids=[2, 3, 4],
-        )
+        test_payload = dict(project_id=1, entity_type="Shot", entity_ids=[2, 3, 4],)
 
         actual_return = self.api._get_entities_from_payload(test_payload)
 
         # Make sure we got the Project entity.
         self.assertEqual(
-            project_entity["id"],
-            actual_return[0]["id"],
+            project_entity["id"], actual_return[0]["id"],
         )
 
         # Make sure we can query the entity project if it isn't included.
-        test_payload = dict(
-            project_id=None,
-            entity_type="Shot",
-            entity_ids=[2, 3, 4],
-        )
+        test_payload = dict(project_id=None, entity_type="Shot", entity_ids=[2, 3, 4],)
 
         # This will raise if it fails; no need to assert.
         self.api._get_entities_from_payload(test_payload)
@@ -97,32 +68,24 @@ class TestUtilMethods(TestDesktopServerFramework):
         self.assertEqual(len(shot_entities), len(actual_return[1]))
 
         for expected_entity in shot_entities:
-            self.assertEqual(1, len([e for e in actual_return[1] if e["id"] == expected_entity["id"]]))
+            self.assertEqual(
+                1,
+                len([e for e in actual_return[1] if e["id"] == expected_entity["id"]]),
+            )
 
         # Check to make sure that we get a project entity back even if what's in
         # the payload is a None value for the project_id.
-        task = dict(
-            type="Task",
-            id=9999,
-            project=project_entity,
-        )
+        task = dict(type="Task", id=9999, project=project_entity,)
 
         self.add_to_sg_mock_db([task])
 
-        test_payload = dict(
-            project_id=None,
-            entity_type="Task",
-            entity_id=9999,
-        )
+        test_payload = dict(project_id=None, entity_type="Task", entity_id=9999,)
 
         actual_return = self.api._get_entities_from_payload(test_payload)
         self.assertEqual(project_entity["id"], actual_return[0]["id"])
 
         # Also check to see if the project_id is completely omitted from the payload.
-        test_payload = dict(
-            entity_type="Task",
-            entity_id=9999,
-        )
+        test_payload = dict(entity_type="Task", entity_id=9999,)
 
         actual_return = self.api._get_entities_from_payload(test_payload)
         self.assertTrue(isinstance(actual_return[0], dict))
@@ -158,13 +121,11 @@ class TestUtilMethods(TestDesktopServerFramework):
         by the RPC API.
         """
         config_descriptor = MockConfigDescriptor(
-            path=self.config_root,
-            is_immutable=False,
+            path=self.config_root, is_immutable=False,
         )
 
         whitelist_1 = self.api._get_entity_type_whitelist(
-            project_id=None,
-            config_descriptor=config_descriptor,
+            project_id=None, config_descriptor=config_descriptor,
         )
 
         # When the config is mutable, the shotgun_foobar.yml file in our config
@@ -180,8 +141,7 @@ class TestUtilMethods(TestDesktopServerFramework):
         self.api._cache = dict()
 
         whitelist_2 = self.api._get_entity_type_whitelist(
-            project_id=None,
-            config_descriptor=config_descriptor,
+            project_id=None, config_descriptor=config_descriptor,
         )
         self.assertEqual(whitelist_1, whitelist_2)
 
@@ -190,12 +150,17 @@ class TestUtilMethods(TestDesktopServerFramework):
         Tests to ensure that we get a proper list of software entities from SG.
         """
         sw_entities = [
-            {'code': '3ds Max', 'engine': 'tk-3dsmaxplus', 'id': 1, 'type': 'Software'},
-            {'code': 'Houdini', 'engine': 'tk-houdini', 'id': 2, 'type': 'Software'},
-            {'code': 'Maya', 'engine': 'tk-maya', 'id': 3, 'type': 'Software'},
-            {'code': 'Nuke', 'engine': 'tk-nuke', 'id': 4, 'type': 'Software'},
-            {'code': 'Photoshop', 'engine': 'tk-photoshopcc', 'id': 5, 'type': 'Software'},
-            {'code': 'Flame', 'engine': 'tk-flame', 'id': 6, 'type': 'Software'}
+            {"code": "3ds Max", "engine": "tk-3dsmaxplus", "id": 1, "type": "Software"},
+            {"code": "Houdini", "engine": "tk-houdini", "id": 2, "type": "Software"},
+            {"code": "Maya", "engine": "tk-maya", "id": 3, "type": "Software"},
+            {"code": "Nuke", "engine": "tk-nuke", "id": 4, "type": "Software"},
+            {
+                "code": "Photoshop",
+                "engine": "tk-photoshopcc",
+                "id": 5,
+                "type": "Software",
+            },
+            {"code": "Flame", "engine": "tk-flame", "id": 6, "type": "Software"},
         ]
 
         self.add_to_sg_mock_db(sw_entities)
@@ -204,7 +169,9 @@ class TestUtilMethods(TestDesktopServerFramework):
         self.assertEqual(len(sw_entities), len(self.api._get_software_entities()))
 
         # Ensure that they were cached in memory.
-        self.assertEqual(len(sw_entities), len(self.api._cache[self.api.SOFTWARE_ENTITIES]))
+        self.assertEqual(
+            len(sw_entities), len(self.api._cache[self.api.SOFTWARE_ENTITIES])
+        )
 
     def test_filter_by_project(self):
         """
@@ -220,31 +187,17 @@ class TestUtilMethods(TestDesktopServerFramework):
         )
         self.add_to_sg_mock_db([sw])
 
-        sw = dict(
-            code="Nuke",
-            engine="tk-nuke",
-            id=7,
-            type="Software",
-            projects=[],
-        )
+        sw = dict(code="Nuke", engine="tk-nuke", id=7, type="Software", projects=[],)
         self.add_to_sg_mock_db([sw])
 
         actions = [
-            dict(
-                title="This one passes",
-                engine_name="tk-nuke",
-            ),
-            dict(
-                title="This one gets filtered out",
-                engine_name="tk-maya",
-            ),
+            dict(title="This one passes", engine_name="tk-nuke",),
+            dict(title="This one gets filtered out", engine_name="tk-maya",),
         ]
 
         project = dict(type="Project", id=1)
         filtered_actions = self.api._filter_by_project(
-            actions,
-            self.api._get_software_entities(),
-            project,
+            actions, self.api._get_software_entities(), project,
         )
 
         # Make sure one got filtered out, and that the one remaining is
@@ -273,38 +226,26 @@ class TestUtilMethods(TestDesktopServerFramework):
         self.add_to_sg_mock_db([sw_1, sw_2])
 
         actions = [
-            dict(
-                title="Project 999 and 1000 action.",
-                engine_name="tk-maya",
-            ),
-            dict(
-                title="Project 1000 action.",
-                engine_name="tk-nuke",
-            )
+            dict(title="Project 999 and 1000 action.", engine_name="tk-maya",),
+            dict(title="Project 1000 action.", engine_name="tk-nuke",),
         ]
 
         filtered_actions = self.api._filter_by_project(
-            actions,
-            self.api._get_software_entities(),
-            dict(type="Project", id=1),
+            actions, self.api._get_software_entities(), dict(type="Project", id=1),
         )
 
         # Project 1 shouldn't match anything.
         self.assertEqual(filtered_actions, [])
 
         filtered_actions = self.api._filter_by_project(
-            actions,
-            self.api._get_software_entities(),
-            dict(type="Project", id=999),
+            actions, self.api._get_software_entities(), dict(type="Project", id=999),
         )
 
         # Project 999 can only use the action from tk-maya.
         self.assertEqual(filtered_actions, [actions[0]])
 
         filtered_actions = self.api._filter_by_project(
-            actions,
-            self.api._get_software_entities(),
-            dict(type="Project", id=1000),
+            actions, self.api._get_software_entities(), dict(type="Project", id=1000),
         )
 
         # Project 1000 can use actions from both engines.
@@ -329,40 +270,26 @@ class TestUtilMethods(TestDesktopServerFramework):
         self.add_to_sg_mock_db([sw_1, sw_2])
 
         actions = [
-            dict(
-                title="Project 999 action.",
-                engine_name=None,
-                software_entity_id=7
-            ),
-            dict(
-                title="Project 1000 action.",
-                engine_name=None,
-                software_entity_id=8
-            )
+            dict(title="Project 999 action.", engine_name=None, software_entity_id=7),
+            dict(title="Project 1000 action.", engine_name=None, software_entity_id=8),
         ]
 
         filtered_actions = self.api._filter_by_project(
-            actions,
-            self.api._get_software_entities(),
-            dict(type="Project", id=1),
+            actions, self.api._get_software_entities(), dict(type="Project", id=1),
         )
 
         # Project 1 shouldn't match anything.
         self.assertEqual(filtered_actions, [])
 
         filtered_actions = self.api._filter_by_project(
-            actions,
-            self.api._get_software_entities(),
-            dict(type="Project", id=999),
+            actions, self.api._get_software_entities(), dict(type="Project", id=999),
         )
 
         # Project 999 can only use the Substance Painter action.
         self.assertEqual(filtered_actions, [actions[0]])
 
         filtered_actions = self.api._filter_by_project(
-            actions,
-            self.api._get_software_entities(),
-            dict(type="Project", id=1000),
+            actions, self.api._get_software_entities(), dict(type="Project", id=1000),
         )
 
         # Project 1000 can only use the After Effects action.
@@ -390,37 +317,31 @@ class TestUtilMethods(TestDesktopServerFramework):
 
         actions = [
             dict(
-                title="Project 999 action.",
-                engine_name="tk-maya",
-                software_entity_id=7
+                title="Project 999 action.", engine_name="tk-maya", software_entity_id=7
             ),
             dict(
                 title="Project 1000 action.",
                 engine_name="tk-maya",
-                software_entity_id=8
+                software_entity_id=8,
             ),
             # This last action is a legacy launch app that was registered
             # manually. These have a software_entity_id that is None.
             dict(
                 title="All projects action.",
                 engine_name="tk-maya",
-                software_entity_id=None
-            )
+                software_entity_id=None,
+            ),
         ]
 
         filtered_actions = self.api._filter_by_project(
-            actions,
-            self.api._get_software_entities(),
-            dict(type="Project", id=1),
+            actions, self.api._get_software_entities(), dict(type="Project", id=1),
         )
 
         # Project 1 shouldn only match the manually registered app.
         self.assertEqual(filtered_actions, [actions[2]])
 
         filtered_actions = self.api._filter_by_project(
-            actions,
-            self.api._get_software_entities(),
-            dict(type="Project", id=999),
+            actions, self.api._get_software_entities(), dict(type="Project", id=999),
         )
 
         # Project 999 can only use the action from tk-maya and the manually
@@ -428,9 +349,7 @@ class TestUtilMethods(TestDesktopServerFramework):
         self.assertEqual(filtered_actions, [actions[0], actions[2]])
 
         filtered_actions = self.api._filter_by_project(
-            actions,
-            self.api._get_software_entities(),
-            dict(type="Project", id=1000),
+            actions, self.api._get_software_entities(), dict(type="Project", id=1000),
         )
 
         # Project 1000 can only use the action from tk-nuke and the manually

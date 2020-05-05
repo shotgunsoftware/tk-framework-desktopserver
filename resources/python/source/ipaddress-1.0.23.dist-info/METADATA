@@ -21,5 +21,3 @@ Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
 
 Port of the 3.3+ ipaddress module to 2.6, 2.7, 3.2
-
-

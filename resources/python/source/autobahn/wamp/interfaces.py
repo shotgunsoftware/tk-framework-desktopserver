@@ -30,13 +30,13 @@ import six
 from autobahn.util import public
 
 __all__ = (
-    'IObjectSerializer',
-    'ISerializer',
-    'IMessage',
-    'ITransport',
-    'ITransportHandler',
-    'ISession',
-    'IPayloadCodec'
+    "IObjectSerializer",
+    "ISerializer",
+    "IMessage",
+    "ITransport",
+    "ITransportHandler",
+    "ISession",
+    "IPayloadCodec",
 )
 
 
@@ -289,7 +289,6 @@ class ITransport(object):
 @public
 @six.add_metaclass(abc.ABCMeta)
 class ITransportHandler(object):
-
     @public
     @abc.abstractproperty
     def transport(self):
@@ -379,15 +378,17 @@ class ISession(object):
 
     @public
     @abc.abstractmethod
-    def join(self,
-             realm,
-             authmethods=None,
-             authid=None,
-             authrole=None,
-             authextra=None,
-             resumable=None,
-             resume_session=None,
-             resume_token=None):
+    def join(
+        self,
+        realm,
+        authmethods=None,
+        authid=None,
+        authrole=None,
+        authextra=None,
+        resumable=None,
+        resume_session=None,
+        resume_token=None,
+    ):
         """
         Attach the session to the given realm. A session is open as soon as it is attached to a realm.
         """
@@ -687,7 +688,6 @@ class ISession(object):
 # experimental authentication API
 @six.add_metaclass(abc.ABCMeta)
 class IAuthenticator(object):
-
     @abc.abstractmethod
     def on_challenge(self, session, challenge):
         """

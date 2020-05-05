@@ -22,7 +22,7 @@ class DeprecatedBundleWarning(DeprecationWarning):
 def where():
     f = os.path.dirname(__file__)
 
-    return os.path.join(f, 'cacert.pem')
+    return os.path.join(f, "cacert.pem")
 
 
 def old_where():
@@ -30,9 +30,10 @@ def old_where():
         "The weak security bundle has been removed. certifi.old_where() is now an alias "
         "of certifi.where(). Please update your code to use certifi.where() instead. "
         "certifi.old_where() will be removed in 2018.",
-        DeprecatedBundleWarning
+        DeprecatedBundleWarning,
     )
     return where()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     print((where()))

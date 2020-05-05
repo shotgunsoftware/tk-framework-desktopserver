@@ -10,6 +10,7 @@
 
 import datetime
 
+
 class Message(object):
     """
     Represents a message for communication to the client.

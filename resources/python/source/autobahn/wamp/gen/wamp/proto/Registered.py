@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Registered(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsRegistered(cls, buf, offset):
@@ -22,17 +23,32 @@ class Registered(object):
     def Request(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
     # Registered
     def Registration(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
-def RegisteredStart(builder): builder.StartObject(2)
-def RegisteredAddRequest(builder, request): builder.PrependUint64Slot(0, request, 0)
-def RegisteredAddRegistration(builder, registration): builder.PrependUint64Slot(1, registration, 0)
-def RegisteredEnd(builder): return builder.EndObject()
+
+def RegisteredStart(builder):
+    builder.StartObject(2)
+
+
+def RegisteredAddRequest(builder, request):
+    builder.PrependUint64Slot(0, request, 0)
+
+
+def RegisteredAddRegistration(builder, registration):
+    builder.PrependUint64Slot(1, registration, 0)
+
+
+def RegisteredEnd(builder):
+    return builder.EndObject()

@@ -12,7 +12,7 @@ from setuptools.extern.six.moves import html_parser
 
 __metaclass__ = type
 
-OpArg = collections.namedtuple('OpArg', 'opcode arg')
+OpArg = collections.namedtuple("OpArg", "opcode arg")
 
 
 class Bytecode_compat:
@@ -22,7 +22,7 @@ class Bytecode_compat:
     def __iter__(self):
         """Yield '(op,arg)' pair for each operation in code object 'code'"""
 
-        bytes = array.array('b', self.code.co_code)
+        bytes = array.array("b", self.code.co_code)
         eof = len(self.code.co_code)
 
         ptr = 0
@@ -49,7 +49,7 @@ class Bytecode_compat:
             yield OpArg(op, arg)
 
 
-Bytecode = getattr(dis, 'Bytecode', Bytecode_compat)
+Bytecode = getattr(dis, "Bytecode", Bytecode_compat)
 
 
-unescape = getattr(html, 'unescape', html_parser.HTMLParser().unescape)
+unescape = getattr(html, "unescape", html_parser.HTMLParser().unescape)

@@ -29,7 +29,7 @@ class MessageHost(object):
         :param message: Message related to this host communication.
         """
         self._host = host
-        self._message = message         # Message context that initiated this communication
+        self._message = message  # Message context that initiated this communication
 
     def reply(self, data):
         """

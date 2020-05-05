@@ -9,9 +9,8 @@ from pip._internal.exceptions import InstallationError
 
 
 def _is_list_of_str(obj):
-    return (
-        isinstance(obj, list) and
-        all(isinstance(item, six.string_types) for item in obj)
+    return isinstance(obj, list) and all(
+        isinstance(item, six.string_types) for item in obj
     )
 
 
@@ -60,9 +59,7 @@ def load_pyproject_toml(use_pep517, pyproject_toml, setup_py, req_name):
             raise InstallationError(
                 "Disabling PEP 517 processing is invalid: "
                 "project specifies a build backend of {} "
-                "in pyproject.toml".format(
-                    build_system["build-backend"]
-                )
+                "in pyproject.toml".format(build_system["build-backend"])
             )
         use_pep517 = True
 
@@ -108,19 +105,24 @@ def load_pyproject_toml(use_pep517, pyproject_toml, setup_py, req_name):
     # Specifying the build-system table but not the requires key is invalid
     if "requires" not in build_system:
         raise InstallationError(
-            error_template.format(package=req_name, reason=(
-                "it has a 'build-system' table but not "
-                "'build-system.requires' which is mandatory in the table"
-            ))
+            error_template.format(
+                package=req_name,
+                reason=(
+                    "it has a 'build-system' table but not "
+                    "'build-system.requires' which is mandatory in the table"
+                ),
+            )
         )
 
     # Error out if requires is not a list of strings
     requires = build_system["requires"]
     if not _is_list_of_str(requires):
-        raise InstallationError(error_template.format(
-            package=req_name,
-            reason="'build-system.requires' is not a list of strings.",
-        ))
+        raise InstallationError(
+            error_template.format(
+                package=req_name,
+                reason="'build-system.requires' is not a list of strings.",
+            )
+        )
 
     backend = build_system.get("build-backend")
     check = []

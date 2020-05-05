@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Register(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsRegister(cls, buf, offset):
@@ -22,7 +23,9 @@ class Register(object):
     def Request(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
     # Register
@@ -50,21 +53,50 @@ class Register(object):
     def Concurrency(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint16Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint16Flags, o + self._tab.Pos
+            )
         return 0
 
     # Register
     def ForceReregister(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
-def RegisterStart(builder): builder.StartObject(6)
-def RegisterAddRequest(builder, request): builder.PrependUint64Slot(0, request, 0)
-def RegisterAddProcedure(builder, procedure): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(procedure), 0)
-def RegisterAddMatch(builder, match): builder.PrependUint8Slot(2, match, 0)
-def RegisterAddInvoke(builder, invoke): builder.PrependUint8Slot(3, invoke, 0)
-def RegisterAddConcurrency(builder, concurrency): builder.PrependUint16Slot(4, concurrency, 0)
-def RegisterAddForceReregister(builder, forceReregister): builder.PrependBoolSlot(5, forceReregister, 0)
-def RegisterEnd(builder): return builder.EndObject()
+
+def RegisterStart(builder):
+    builder.StartObject(6)
+
+
+def RegisterAddRequest(builder, request):
+    builder.PrependUint64Slot(0, request, 0)
+
+
+def RegisterAddProcedure(builder, procedure):
+    builder.PrependUOffsetTRelativeSlot(
+        1, flatbuffers.number_types.UOffsetTFlags.py_type(procedure), 0
+    )
+
+
+def RegisterAddMatch(builder, match):
+    builder.PrependUint8Slot(2, match, 0)
+
+
+def RegisterAddInvoke(builder, invoke):
+    builder.PrependUint8Slot(3, invoke, 0)
+
+
+def RegisterAddConcurrency(builder, concurrency):
+    builder.PrependUint16Slot(4, concurrency, 0)
+
+
+def RegisterAddForceReregister(builder, forceReregister):
+    builder.PrependBoolSlot(5, forceReregister, 0)
+
+
+def RegisterEnd(builder):
+    return builder.EndObject()

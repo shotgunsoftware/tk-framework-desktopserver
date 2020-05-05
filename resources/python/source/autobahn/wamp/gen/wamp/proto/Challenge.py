@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Challenge(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsChallenge(cls, buf, offset):
@@ -31,12 +32,26 @@ class Challenge(object):
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
             from .Map import Map
+
             obj = Map()
             obj.Init(self._tab.Bytes, x)
             return obj
         return None
 
-def ChallengeStart(builder): builder.StartObject(2)
-def ChallengeAddMethod(builder, method): builder.PrependUint8Slot(0, method, 0)
-def ChallengeAddExtra(builder, extra): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(extra), 0)
-def ChallengeEnd(builder): return builder.EndObject()
+
+def ChallengeStart(builder):
+    builder.StartObject(2)
+
+
+def ChallengeAddMethod(builder, method):
+    builder.PrependUint8Slot(0, method, 0)
+
+
+def ChallengeAddExtra(builder, extra):
+    builder.PrependUOffsetTRelativeSlot(
+        1, flatbuffers.number_types.UOffsetTFlags.py_type(extra), 0
+    )
+
+
+def ChallengeEnd(builder):
+    return builder.EndObject()

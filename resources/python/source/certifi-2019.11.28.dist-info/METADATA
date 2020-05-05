@@ -70,5 +70,3 @@ recommended in production and therefore was removed at the end of 2018.
 
 .. _`Certifi`: https://certifi.io/en/latest/
 .. _`Requests`: http://docs.python-requests.org/en/latest/
-
-

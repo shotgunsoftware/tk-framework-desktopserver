@@ -23,7 +23,10 @@ UPGRADE_CHECK_COMMAND = "__upgrade_check"
 LOGGER_NAME = "wss2.cache_commands"
 ENGINE_INIT_ERROR_EXIT_CODE = 77
 
-def bootstrap(data, base_configuration, engine_name, config_data, bundle_cache_fallback_paths):
+
+def bootstrap(
+    data, base_configuration, engine_name, config_data, bundle_cache_fallback_paths
+):
     """
     Bootstraps into sgtk and returns the resulting engine instance.
 
@@ -47,10 +50,7 @@ def bootstrap(data, base_configuration, engine_name, config_data, bundle_cache_f
     entity = dict(
         type=data["entity_type"],
         id=data["entity_id"],
-        project=dict(
-            type="Project",
-            id=data["project_id"],
-        ),
+        project=dict(type="Project", id=data["project_id"],),
     )
 
     # Setup the bootstrap manager.
@@ -68,6 +68,7 @@ def bootstrap(data, base_configuration, engine_name, config_data, bundle_cache_f
 
     return engine
 
+
 def cache(
     cache_file,
     data,
@@ -75,7 +76,7 @@ def cache(
     engine_name,
     config_data,
     config_is_mutable,
-    bundle_cache_fallback_paths
+    bundle_cache_fallback_paths,
 ):
     """
     Populates the sqlite cache with a row representing the desired pipeline
@@ -129,26 +130,28 @@ def cache(
 
     if data["entity_type"].lower() == "project" and config_is_mutable:
         engine.log_debug("Registering core and app upgrade commands...")
-        commands.extend([
-            dict(
-                name="__core_info",
-                title="Check for Core Upgrades...",
-                deny_permissions=["Artist"],
-                app_name="__builtin",
-                group=None,
-                group_default=False,
-                engine_name="tk-shotgun",
-            ),
-            dict(
-                name="__upgrade_check",
-                title="Check for App Upgrades...",
-                deny_permissions=["Artist"],
-                app_name="__builtin",
-                group=None,
-                group_default=False,
-                engine_name="tk-shotgun",
-            ),
-        ])
+        commands.extend(
+            [
+                dict(
+                    name="__core_info",
+                    title="Check for Core Upgrades...",
+                    deny_permissions=["Artist"],
+                    app_name="__builtin",
+                    group=None,
+                    group_default=False,
+                    engine_name="tk-shotgun",
+                ),
+                dict(
+                    name="__upgrade_check",
+                    title="Check for App Upgrades...",
+                    deny_permissions=["Artist"],
+                    app_name="__builtin",
+                    group=None,
+                    group_default=False,
+                    engine_name="tk-shotgun",
+                ),
+            ]
+        )
     else:
         if config_is_mutable:
             engine.log_debug(
@@ -156,7 +159,9 @@ def cache(
                 "not registering core and app update commands."
             )
         else:
-            engine.log_debug("Config is immutable: not registering core and app update commands.")
+            engine.log_debug(
+                "Config is immutable: not registering core and app update commands."
+            )
 
     for cmd_name, data in engine.commands.iteritems():
         engine.log_debug("Processing command: %s" % cmd_name)
@@ -172,13 +177,10 @@ def cache(
             name=cmd_name,
             title=props.get("title", cmd_name),
             deny_permissions=props.get("deny_permissions", []),
-            supports_multiple_selection=props.get(
-                "supports_multiple_selection",
-                False
-            ),
+            supports_multiple_selection=props.get("supports_multiple_selection", False),
             app_name=app_name,
             group=props.get("group"),
-            group_default=props.get("group_default")
+            group_default=props.get("group_default"),
         )
 
         # If the action isn't coming from the launch app, do not even bother putting the engine_name
@@ -190,9 +192,7 @@ def cache(
         if "software_entity_id" in props:
             command_data["software_entity_id"] = props["software_entity_id"]
 
-        commands.append(
-            command_data
-        )
+        commands.append(command_data)
 
     engine.log_debug("Engine commands processed.")
 
@@ -202,7 +202,7 @@ def cache(
     with sqlite3.connect(cache_file) as connection:
         engine.log_debug("Inserting commands into cache...")
 
-        # This is to handle unicode properly - make sure that sqlite returns 
+        # This is to handle unicode properly - make sure that sqlite returns
         # str objects for TEXT fields rather than unicode. Note that any unicode
         # objects that are passed into the database will be automatically
         # converted to UTF-8 strs, so this text_factory guarantees that any character
@@ -223,9 +223,11 @@ def cache(
                 engine.log_debug("Creating schema in sqlite db.")
 
                 # We have a brand new database. Create all tables and indices.
-                cursor.executescript("""
+                cursor.executescript(
+                    """
                     CREATE TABLE engine_commands (lookup_hash text, contents_hash text, commands blob);
-                """)
+                """
+                )
 
                 connection.commit()
 
@@ -239,19 +241,14 @@ def cache(
         # we move on to an insert.
         cursor.execute(
             "UPDATE engine_commands SET contents_hash=?, commands=? WHERE lookup_hash=?",
-            (contents_hash, commands_blob, lookup_hash)
+            (contents_hash, commands_blob, lookup_hash),
         )
 
         if cursor.rowcount == 0:
-            engine.log_debug(
-                "Update did not result in any rows altered, inserting..."
-            )
+            engine.log_debug("Update did not result in any rows altered, inserting...")
             cursor.execute(
-                "INSERT INTO engine_commands VALUES (?, ?, ?)", (
-                    lookup_hash,
-                    contents_hash,
-                    commands_blob,
-                )
+                "INSERT INTO engine_commands VALUES (?, ?, ?)",
+                (lookup_hash, contents_hash, commands_blob,),
             )
 
         # Tear down the engine. This is both good practice before we exit
@@ -259,6 +256,7 @@ def cache(
         # configs that we're iterating over.
         engine.log_debug("Shutting down engine...")
         engine.destroy()
+
 
 if __name__ == "__main__":
     arg_data_file = sys.argv[1]
@@ -283,8 +281,7 @@ if __name__ == "__main__":
         arg_data["engine_name"],
         arg_data["config_data"],
         arg_data["config_is_mutable"],
-        arg_data["bundle_cache_fallback_paths"]
+        arg_data["bundle_cache_fallback_paths"],
     )
 
     sys.exit(0)
-    

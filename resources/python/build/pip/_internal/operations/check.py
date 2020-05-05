@@ -12,11 +12,18 @@ from pip._internal.utils.typing import MYPY_CHECK_RUNNING
 if MYPY_CHECK_RUNNING:
     from pip._internal.req.req_install import InstallRequirement  # noqa: F401
     from typing import (  # noqa: F401
-        Any, Callable, Dict, Iterator, Optional, Set, Tuple, List
+        Any,
+        Callable,
+        Dict,
+        Iterator,
+        Optional,
+        Set,
+        Tuple,
+        List,
     )
 
     # Shorthands
-    PackageSet = Dict[str, 'PackageDetails']
+    PackageSet = Dict[str, "PackageDetails"]
     Missing = Tuple[str, Any]
     Conflicting = Tuple[str, str, Any]
 
@@ -24,7 +31,7 @@ if MYPY_CHECK_RUNNING:
     ConflictingDict = Dict[str, List[Conflicting]]
     CheckResult = Tuple[MissingDict, ConflictingDict]
 
-PackageDetails = namedtuple('PackageDetails', ['version', 'requires'])
+PackageDetails = namedtuple("PackageDetails", ["version", "requires"])
 
 
 def create_package_set_from_installed(**kwargs):
@@ -50,6 +57,7 @@ def check_package_set(package_set, should_ignore=None):
     package name and returns a boolean.
     """
     if should_ignore is None:
+
         def should_ignore(name):
             return False
 
@@ -106,7 +114,7 @@ def check_install_conflicts(to_install):
         package_set,
         check_package_set(
             package_set, should_ignore=lambda name: name not in whitelist
-        )
+        ),
     )
 
 

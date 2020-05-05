@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Map(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsMap(cls, buf, offset):
@@ -32,7 +33,22 @@ class Map(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-def MapStart(builder): builder.StartObject(2)
-def MapAddKey(builder, key): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(key), 0)
-def MapAddValue(builder, value): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(value), 0)
-def MapEnd(builder): return builder.EndObject()
+
+def MapStart(builder):
+    builder.StartObject(2)
+
+
+def MapAddKey(builder, key):
+    builder.PrependUOffsetTRelativeSlot(
+        0, flatbuffers.number_types.UOffsetTFlags.py_type(key), 0
+    )
+
+
+def MapAddValue(builder, value):
+    builder.PrependUOffsetTRelativeSlot(
+        1, flatbuffers.number_types.UOffsetTFlags.py_type(value), 0
+    )
+
+
+def MapEnd(builder):
+    return builder.EndObject()

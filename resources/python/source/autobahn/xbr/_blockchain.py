@@ -34,6 +34,7 @@ class SimpleBlockchain(object):
     """
     Simple Ethereum blockchain XBR client.
     """
+
     DomainStatus_NULL = 0
     DomainStatus_ACTIVE = 1
     DomainStatus_CLOSED = 2
@@ -76,12 +77,19 @@ class SimpleBlockchain(object):
 
         # check we are connected, and check network ID
         if not w3.isConnected():
-            emsg = 'could not connect to Web3/Ethereum at: {}'.format(self._gateway or 'auto')
+            emsg = "could not connect to Web3/Ethereum at: {}".format(
+                self._gateway or "auto"
+            )
             self.log.warn(emsg)
             raise RuntimeError(emsg)
         else:
-            print(('connected to network {} at provider "{}"'.format(w3.version.network,
-                                                                    self._gateway or 'auto')))
+            print(
+                (
+                    'connected to network {} at provider "{}"'.format(
+                        w3.version.network, self._gateway or "auto"
+                    )
+                )
+            )
 
         self._w3 = w3
 
@@ -102,14 +110,16 @@ class SimpleBlockchain(object):
         :param market_id:
         :return:
         """
+
         def _get_market_status(_market_id):
             owner = xbr.xbrnetwork.functions.getMarketOwner(_market_id).call()
-            if not owner or owner == '0x0000000000000000000000000000000000000000':
+            if not owner or owner == "0x0000000000000000000000000000000000000000":
                 return None
             else:
                 return {
-                    'owner': owner,
+                    "owner": owner,
                 }
+
         return self.backgroundCaller(_get_market_status, market_id)
 
     async def get_domain_status(self, domain_id):
@@ -121,14 +131,16 @@ class SimpleBlockchain(object):
         :return:
         :rtype: dict
         """
+
         def _get_domain_status(_domain_id):
             status = xbr.xbrnetwork.functions.getDomainStatus(_domain_id).call()
             if status == SimpleBlockchain.DomainStatus_NULL:
                 return None
             elif status == SimpleBlockchain.DomainStatus_ACTIVE:
-                return {'status': 'ACTIVE'}
+                return {"status": "ACTIVE"}
             elif status == SimpleBlockchain.DomainStatus_CLOSED:
-                return {'status': 'CLOSED'}
+                return {"status": "CLOSED"}
+
         return self.backgroundCaller(_get_domain_status, domain_id)
 
     def get_node_status(self, delegate_adr):
@@ -192,15 +204,16 @@ class SimpleBlockchain(object):
                 return None
             else:
                 eula = xbr.xbrnetwork.functions.getMemberEula(member_adr).call()
-                if not eula or eula.strip() == '':
+                if not eula or eula.strip() == "":
                     return None
                 profile = xbr.xbrnetwork.functions.getMemberProfile(member_adr).call()
-                if not profile or profile.strip() == '':
+                if not profile or profile.strip() == "":
                     profile = None
                 return {
-                    'eula': eula,
-                    'profile': profile,
+                    "eula": eula,
+                    "profile": profile,
                 }
+
         return self.backgroundCaller(_get_member_status, member_adr)
 
     async def get_balances(self, account_adr):
@@ -220,9 +233,10 @@ class SimpleBlockchain(object):
             balance_eth = self._w3.eth.getBalance(_adr)
             balance_xbr = xbr.xbrtoken.functions.balanceOf(_adr).call()
             return {
-                'ETH': balance_eth,
-                'XBR': balance_xbr,
+                "ETH": balance_eth,
+                "XBR": balance_xbr,
             }
+
         return self.backgroundCaller(_get_balances, account_adr)
 
     def get_contract_adrs(self):
@@ -234,6 +248,6 @@ class SimpleBlockchain(object):
         :rtype: dict
         """
         return {
-            'XBRToken': xbr.xbrtoken.address,
-            'XBRNetwork': xbr.xbrnetwork.address,
+            "XBRToken": xbr.xbrtoken.address,
+            "XBRNetwork": xbr.xbrnetwork.address,
         }

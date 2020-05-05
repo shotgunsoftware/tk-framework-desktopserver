@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class PublisherFeatures(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsPublisherFeatures(cls, buf, offset):
@@ -22,49 +23,86 @@ class PublisherFeatures(object):
     def PublisherIdentification(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # PublisherFeatures
     def PublisherExclusion(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # PublisherFeatures
     def SubscriberBlackwhiteListing(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # PublisherFeatures
     def AcknowledgeEventReceived(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # PublisherFeatures
     def PayloadTransparency(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # PublisherFeatures
     def PayloadEncryptionCryptobox(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
-def PublisherFeaturesStart(builder): builder.StartObject(6)
-def PublisherFeaturesAddPublisherIdentification(builder, publisherIdentification): builder.PrependBoolSlot(0, publisherIdentification, 0)
-def PublisherFeaturesAddPublisherExclusion(builder, publisherExclusion): builder.PrependBoolSlot(1, publisherExclusion, 0)
-def PublisherFeaturesAddSubscriberBlackwhiteListing(builder, subscriberBlackwhiteListing): builder.PrependBoolSlot(2, subscriberBlackwhiteListing, 0)
-def PublisherFeaturesAddAcknowledgeEventReceived(builder, acknowledgeEventReceived): builder.PrependBoolSlot(3, acknowledgeEventReceived, 0)
-def PublisherFeaturesAddPayloadTransparency(builder, payloadTransparency): builder.PrependBoolSlot(4, payloadTransparency, 0)
-def PublisherFeaturesAddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox): builder.PrependBoolSlot(5, payloadEncryptionCryptobox, 0)
-def PublisherFeaturesEnd(builder): return builder.EndObject()
+
+def PublisherFeaturesStart(builder):
+    builder.StartObject(6)
+
+
+def PublisherFeaturesAddPublisherIdentification(builder, publisherIdentification):
+    builder.PrependBoolSlot(0, publisherIdentification, 0)
+
+
+def PublisherFeaturesAddPublisherExclusion(builder, publisherExclusion):
+    builder.PrependBoolSlot(1, publisherExclusion, 0)
+
+
+def PublisherFeaturesAddSubscriberBlackwhiteListing(
+    builder, subscriberBlackwhiteListing
+):
+    builder.PrependBoolSlot(2, subscriberBlackwhiteListing, 0)
+
+
+def PublisherFeaturesAddAcknowledgeEventReceived(builder, acknowledgeEventReceived):
+    builder.PrependBoolSlot(3, acknowledgeEventReceived, 0)
+
+
+def PublisherFeaturesAddPayloadTransparency(builder, payloadTransparency):
+    builder.PrependBoolSlot(4, payloadTransparency, 0)
+
+
+def PublisherFeaturesAddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox):
+    builder.PrependBoolSlot(5, payloadEncryptionCryptobox, 0)
+
+
+def PublisherFeaturesEnd(builder):
+    return builder.EndObject()

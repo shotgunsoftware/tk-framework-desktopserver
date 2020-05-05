@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class ClientRoles(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsClientRoles(cls, buf, offset):
@@ -24,6 +25,7 @@ class ClientRoles(object):
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
             from .PublisherFeatures import PublisherFeatures
+
             obj = PublisherFeatures()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -35,6 +37,7 @@ class ClientRoles(object):
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
             from .SubscriberFeatures import SubscriberFeatures
+
             obj = SubscriberFeatures()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -46,6 +49,7 @@ class ClientRoles(object):
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
             from .CallerFeatures import CallerFeatures
+
             obj = CallerFeatures()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -57,14 +61,40 @@ class ClientRoles(object):
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
             from .CalleeFeatures import CalleeFeatures
+
             obj = CalleeFeatures()
             obj.Init(self._tab.Bytes, x)
             return obj
         return None
 
-def ClientRolesStart(builder): builder.StartObject(4)
-def ClientRolesAddPublisher(builder, publisher): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(publisher), 0)
-def ClientRolesAddSubscriber(builder, subscriber): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(subscriber), 0)
-def ClientRolesAddCaller(builder, caller): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(caller), 0)
-def ClientRolesAddCallee(builder, callee): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(callee), 0)
-def ClientRolesEnd(builder): return builder.EndObject()
+
+def ClientRolesStart(builder):
+    builder.StartObject(4)
+
+
+def ClientRolesAddPublisher(builder, publisher):
+    builder.PrependUOffsetTRelativeSlot(
+        0, flatbuffers.number_types.UOffsetTFlags.py_type(publisher), 0
+    )
+
+
+def ClientRolesAddSubscriber(builder, subscriber):
+    builder.PrependUOffsetTRelativeSlot(
+        1, flatbuffers.number_types.UOffsetTFlags.py_type(subscriber), 0
+    )
+
+
+def ClientRolesAddCaller(builder, caller):
+    builder.PrependUOffsetTRelativeSlot(
+        2, flatbuffers.number_types.UOffsetTFlags.py_type(caller), 0
+    )
+
+
+def ClientRolesAddCallee(builder, callee):
+    builder.PrependUOffsetTRelativeSlot(
+        3, flatbuffers.number_types.UOffsetTFlags.py_type(callee), 0
+    )
+
+
+def ClientRolesEnd(builder):
+    return builder.EndObject()

@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class AuthTicketChallenge(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsAuthTicketChallenge(cls, buf, offset):
@@ -18,5 +19,10 @@ class AuthTicketChallenge(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def AuthTicketChallengeStart(builder): builder.StartObject(0)
-def AuthTicketChallengeEnd(builder): return builder.EndObject()
+
+def AuthTicketChallengeStart(builder):
+    builder.StartObject(0)
+
+
+def AuthTicketChallengeEnd(builder):
+    return builder.EndObject()

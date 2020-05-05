@@ -2,6 +2,7 @@
 
 # namespace: proto
 
+
 class MessageType(object):
     NULL = 0
     HELLO = 1
@@ -30,4 +31,3 @@ class MessageType(object):
     INVOCATION = 68
     INTERRUPT = 69
     YIELD = 70
-

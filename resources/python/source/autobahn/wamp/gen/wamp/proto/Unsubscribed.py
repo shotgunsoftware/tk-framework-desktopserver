@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Unsubscribed(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsUnsubscribed(cls, buf, offset):
@@ -22,14 +23,18 @@ class Unsubscribed(object):
     def Request(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
     # Unsubscribed
     def Subscription(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
     # Unsubscribed
@@ -39,8 +44,24 @@ class Unsubscribed(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-def UnsubscribedStart(builder): builder.StartObject(3)
-def UnsubscribedAddRequest(builder, request): builder.PrependUint64Slot(0, request, 0)
-def UnsubscribedAddSubscription(builder, subscription): builder.PrependUint64Slot(1, subscription, 0)
-def UnsubscribedAddReason(builder, reason): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(reason), 0)
-def UnsubscribedEnd(builder): return builder.EndObject()
+
+def UnsubscribedStart(builder):
+    builder.StartObject(3)
+
+
+def UnsubscribedAddRequest(builder, request):
+    builder.PrependUint64Slot(0, request, 0)
+
+
+def UnsubscribedAddSubscription(builder, subscription):
+    builder.PrependUint64Slot(1, subscription, 0)
+
+
+def UnsubscribedAddReason(builder, reason):
+    builder.PrependUOffsetTRelativeSlot(
+        2, flatbuffers.number_types.UOffsetTFlags.py_type(reason), 0
+    )
+
+
+def UnsubscribedEnd(builder):
+    return builder.EndObject()

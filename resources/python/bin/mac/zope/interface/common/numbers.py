@@ -47,6 +47,7 @@ class IComplex(INumber):
         """
 
     if PY2:
+
         @optional
         def __eq__(other):
             """
@@ -54,6 +55,7 @@ class IComplex(INumber):
             """
 
         __ne__ = __eq__
+
 
 class IReal(IComplex):
     abc = abc.Real
@@ -67,6 +69,7 @@ class IReal(IComplex):
     __floor__ = __ceil__ = __complex__
 
     if PY2:
+
         @optional
         def __le__(other):
             """

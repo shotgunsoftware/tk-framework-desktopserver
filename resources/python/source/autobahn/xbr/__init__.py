@@ -35,24 +35,39 @@ try:
     # https://github.com/ethereum/eth-abi/pull/88
     from eth_abi import abi
 
-    from autobahn.xbr._abi import XBR_TOKEN_ABI, XBR_NETWORK_ABI, XBR_CHANNEL_ABI  # noqa
+    from autobahn.xbr._abi import (
+        XBR_TOKEN_ABI,
+        XBR_NETWORK_ABI,
+        XBR_CHANNEL_ABI,
+    )  # noqa
     from autobahn.xbr._abi import XBR_DEBUG_TOKEN_ADDR, XBR_DEBUG_NETWORK_ADDR  # noqa
-    from autobahn.xbr._interfaces import IMarketMaker, IProvider, IConsumer, ISeller, IBuyer  # noqa
-    from autobahn.xbr._util import sign_eip712_data, recover_eip712_signer, pack_uint256, unpack_uint256  # noqa
+    from autobahn.xbr._interfaces import (
+        IMarketMaker,
+        IProvider,
+        IConsumer,
+        ISeller,
+        IBuyer,
+    )  # noqa
+    from autobahn.xbr._util import (
+        sign_eip712_data,
+        recover_eip712_signer,
+        pack_uint256,
+        unpack_uint256,
+    )  # noqa
     from autobahn.xbr._blockchain import SimpleBlockchain  # noqa
     from autobahn.xbr._seller import SimpleSeller, KeySeries  # noqa
     from autobahn.xbr._buyer import SimpleBuyer  # noqa
 
     HAS_XBR = True
 
-    if not hasattr(abi, 'collapse_type'):
+    if not hasattr(abi, "collapse_type"):
 
         def collapse_type(base, sub, arrlist):
-            return base + sub + ''.join(map(repr, arrlist))
+            return base + sub + "".join(map(repr, arrlist))
 
         abi.collapse_type = collapse_type
 
-    if not hasattr(abi, 'process_type'):
+    if not hasattr(abi, "process_type"):
         from eth_abi.grammar import (
             TupleType,
             normalize,
@@ -65,23 +80,26 @@ try:
 
             type_str_repr = repr(type_str)
             if type_str != normalized_type_str:
-                type_str_repr = '{} (normalized to {})'.format(
-                    type_str_repr,
-                    repr(normalized_type_str),
+                type_str_repr = "{} (normalized to {})".format(
+                    type_str_repr, repr(normalized_type_str),
                 )
 
             if isinstance(abi_type, TupleType):
-                raise ValueError("Cannot process type {}: tuple types not supported".format(type_str_repr, ))
+                raise ValueError(
+                    "Cannot process type {}: tuple types not supported".format(
+                        type_str_repr,
+                    )
+                )
 
             abi_type.validate()
 
             sub = abi_type.sub
             if isinstance(sub, tuple):
-                sub = 'x'.join(map(str, sub))
+                sub = "x".join(map(str, sub))
             elif isinstance(sub, int):
                 sub = str(sub)
             else:
-                sub = ''
+                sub = ""
 
             arrlist = abi_type.arrlist
             if isinstance(arrlist, tuple):
@@ -115,12 +133,15 @@ try:
         xbrtoken = _w3.eth.contract(address=XBR_DEBUG_TOKEN_ADDR, abi=XBR_TOKEN_ABI)
 
         # print('Provider set - xbrnetwork={}'.format(XBR_DEBUG_NETWORK_ADDR))
-        xbrnetwork = _w3.eth.contract(address=XBR_DEBUG_NETWORK_ADDR, abi=XBR_NETWORK_ABI)
+        xbrnetwork = _w3.eth.contract(
+            address=XBR_DEBUG_NETWORK_ADDR, abi=XBR_NETWORK_ABI
+        )
 
     class MemberLevel(object):
         """
         XBR Network member levels.
         """
+
         NONE = 0
         ACTIVE = 1
         VERIFIED = 2
@@ -132,6 +153,7 @@ try:
         """
         XBR Cloud node types.
         """
+
         NONE = 0
         MASTER = 1
         CORE = 2
@@ -141,13 +163,14 @@ try:
         """
         XBR Market actor types.
         """
+
         NONE = 0
         NETWORK = 1
         MARKET = 2
         PROVIDER = 3
         CONSUMER = 4
 
-    def generate_seedphrase(strength=128, language='english'):
+    def generate_seedphrase(strength=128, language="english"):
         """
         Generate a new BIP-39 mnemonic seed phrase for use in Ethereum (Metamask, etc).
 
@@ -159,7 +182,7 @@ try:
         """
         return Mnemonic(language).generate(strength)
 
-    def check_seedphrase(seedphrase, language='english'):
+    def check_seedphrase(seedphrase, language="english"):
         return Mnemonic(language).check(seedphrase)
 
     def account_from_seedphrase(seephrase, index=0):
@@ -183,41 +206,35 @@ try:
     """
 
     __all__ = (
-        'HAS_XBR',
-        'setProvider',
-
-        'xbrtoken',
-        'xbrnetwork',
-        'sign_eip712_data',
-        'recover_eip712_signer',
-        'pack_uint256',
-        'unpack_uint256',
-
-        'KeySeries',
-        'SimpleBlockchain',
-        'SimpleSeller',
-        'SimpleBuyer',
-
-        'generate_seedphrase',
-        'check_seedphrase',
-        'account_from_seedphrase',
-
-        'MemberLevel',
-        'ActorType',
-        'NodeType',
-
-        'XBR_TOKEN_ABI',
-        'XBR_NETWORK_ABI',
-        'XBR_CHANNEL_ABI',
-        'ASCII_BOMB',
-
-        'IMarketMaker',
-        'IProvider',
-        'IConsumer',
-        'ISeller',
-        'IBuyer',
+        "HAS_XBR",
+        "setProvider",
+        "xbrtoken",
+        "xbrnetwork",
+        "sign_eip712_data",
+        "recover_eip712_signer",
+        "pack_uint256",
+        "unpack_uint256",
+        "KeySeries",
+        "SimpleBlockchain",
+        "SimpleSeller",
+        "SimpleBuyer",
+        "generate_seedphrase",
+        "check_seedphrase",
+        "account_from_seedphrase",
+        "MemberLevel",
+        "ActorType",
+        "NodeType",
+        "XBR_TOKEN_ABI",
+        "XBR_NETWORK_ABI",
+        "XBR_CHANNEL_ABI",
+        "ASCII_BOMB",
+        "IMarketMaker",
+        "IProvider",
+        "IConsumer",
+        "ISeller",
+        "IBuyer",
     )
 
 except ImportError:
     HAS_XBR = False
-    __all__ = ('HAS_XBR',)
+    __all__ = ("HAS_XBR",)

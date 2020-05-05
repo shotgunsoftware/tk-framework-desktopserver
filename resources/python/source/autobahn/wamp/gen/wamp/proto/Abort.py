@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Abort(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsAbort(cls, buf, offset):
@@ -32,7 +33,22 @@ class Abort(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-def AbortStart(builder): builder.StartObject(2)
-def AbortAddReason(builder, reason): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(reason), 0)
-def AbortAddMessage(builder, message): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(message), 0)
-def AbortEnd(builder): return builder.EndObject()
+
+def AbortStart(builder):
+    builder.StartObject(2)
+
+
+def AbortAddReason(builder, reason):
+    builder.PrependUOffsetTRelativeSlot(
+        0, flatbuffers.number_types.UOffsetTFlags.py_type(reason), 0
+    )
+
+
+def AbortAddMessage(builder, message):
+    builder.PrependUOffsetTRelativeSlot(
+        1, flatbuffers.number_types.UOffsetTFlags.py_type(message), 0
+    )
+
+
+def AbortEnd(builder):
+    return builder.EndObject()

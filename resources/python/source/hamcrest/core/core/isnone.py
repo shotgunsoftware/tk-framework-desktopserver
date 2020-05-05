@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+
 __author__ = "Jon Reid"
 __copyright__ = "Copyright 2011 hamcrest.org"
 __license__ = "BSD, see License.txt"
@@ -8,12 +9,11 @@ from .isnot import is_not
 
 
 class IsNone(BaseMatcher):
-
     def _matches(self, item):
         return item is None
 
     def describe_to(self, description):
-        description.append_text('None')
+        description.append_text("None")
 
 
 def none():

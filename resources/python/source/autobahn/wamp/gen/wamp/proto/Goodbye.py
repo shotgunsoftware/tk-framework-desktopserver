@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Goodbye(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsGoodbye(cls, buf, offset):
@@ -36,11 +37,31 @@ class Goodbye(object):
     def Resumable(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
-def GoodbyeStart(builder): builder.StartObject(3)
-def GoodbyeAddReason(builder, reason): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(reason), 0)
-def GoodbyeAddMessage(builder, message): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(message), 0)
-def GoodbyeAddResumable(builder, resumable): builder.PrependBoolSlot(2, resumable, 0)
-def GoodbyeEnd(builder): return builder.EndObject()
+
+def GoodbyeStart(builder):
+    builder.StartObject(3)
+
+
+def GoodbyeAddReason(builder, reason):
+    builder.PrependUOffsetTRelativeSlot(
+        0, flatbuffers.number_types.UOffsetTFlags.py_type(reason), 0
+    )
+
+
+def GoodbyeAddMessage(builder, message):
+    builder.PrependUOffsetTRelativeSlot(
+        1, flatbuffers.number_types.UOffsetTFlags.py_type(message), 0
+    )
+
+
+def GoodbyeAddResumable(builder, resumable):
+    builder.PrependBoolSlot(2, resumable, 0)
+
+
+def GoodbyeEnd(builder):
+    return builder.EndObject()

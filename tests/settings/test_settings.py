@@ -13,10 +13,11 @@ import sys
 from mock import Mock
 
 from base_test import TestDesktopServerFramework
-from tank_test.tank_test_base import setUpModule # noqa
+from tank_test.tank_test_base import setUpModule  # noqa
 from tank_test.tank_test_base import ShotgunTestBase, SealedMock
 
 import sgtk
+
 # Mock Qt since we don't have it.
 sgtk.platform.qt.QtCore = Mock()
 sgtk.platform.qt.QtGui = Mock()
@@ -50,8 +51,9 @@ class TestFrameworkWithUserSettings(ShotgunTestBase):
             BrowserIntegration={
                 "port": 9001,
                 "certificate_folder": "/a/b/c",
-                "enabled": False
-            })
+                "enabled": False,
+            }
+        )
 
         settings = Settings(None)
         self.assertEqual(settings.port, 9001)
@@ -64,9 +66,8 @@ class TestFrameworkWithUserSettings(ShotgunTestBase):
         """
         self.write_toolkit_ini_file(
             HostAliases={
-                "site.with.spaces.AND.CAPS ":
-                    " alt.site.with.spaces.AND.CAPS, another.alt.site.with.spaces.AND.CAPS ",
-                "site.without.aliases": ""
+                "site.with.spaces.AND.CAPS ": " alt.site.with.spaces.AND.CAPS, another.alt.site.with.spaces.AND.CAPS ",
+                "site.without.aliases": "",
             }
         )
 
@@ -78,10 +79,10 @@ class TestFrameworkWithUserSettings(ShotgunTestBase):
             {
                 "site.with.spaces.and.caps": [
                     "alt.site.with.spaces.and.caps",
-                    "another.alt.site.with.spaces.and.caps"
+                    "another.alt.site.with.spaces.and.caps",
                 ],
-                "site.without.aliases": [""]
-            }
+                "site.without.aliases": [""],
+            },
         )
 
 
@@ -91,20 +92,21 @@ class TestAliasesLookup(TestDesktopServerFramework):
         Tests that the aliases list generated from the alias dict is generated as intended.
         """
         self.framework._settings = SealedMock(
-            host_aliases={
-                "www.site.com": ["alt.site.com"]
-            }
+            host_aliases={"www.site.com": ["alt.site.com"]}
         )
 
-        for site in ["https://alt.site.com", "https://www.site.com",
-                     "https://alt.site.com:8888", "https://www.site.com:8888"]:
+        for site in [
+            "https://alt.site.com",
+            "https://www.site.com",
+            "https://alt.site.com:8888",
+            "https://www.site.com:8888",
+        ]:
 
             self.assertEqual(
-                self.framework._get_host_aliases(site),
-                ["www.site.com", "alt.site.com"]
+                self.framework._get_host_aliases(site), ["www.site.com", "alt.site.com"]
             )
 
         self.assertEqual(
             self.framework._get_host_aliases("https://www.unknown.site.com"),
-            ["www.unknown.site.com"]
+            ["www.unknown.site.com"],
         )

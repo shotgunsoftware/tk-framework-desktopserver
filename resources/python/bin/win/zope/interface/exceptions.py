@@ -16,15 +16,16 @@
 
 __all__ = [
     # Invalid tree
-    'Invalid',
-    'DoesNotImplement',
-    'BrokenImplementation',
-    'BrokenMethodImplementation',
-    'MultipleInvalid',
+    "Invalid",
+    "DoesNotImplement",
+    "BrokenImplementation",
+    "BrokenMethodImplementation",
+    "MultipleInvalid",
     # Other
-    'BadImplements',
-    'InvalidInterface',
+    "BadImplements",
+    "InvalidInterface",
 ]
+
 
 class Invalid(Exception):
     """A specification is violated
@@ -51,11 +52,11 @@ class _TargetInvalid(Invalid):
     # an argument was not given. If all arguments are expected,
     # a subclass should set this to ().
     _NOT_GIVEN_CATCH = IndexError
-    _NOT_GIVEN = '<Not Given>'
+    _NOT_GIVEN = "<Not Given>"
 
     def _get_arg_or_default(self, ix, default=None):
         try:
-            return self.args[ix] # pylint:disable=unsubscriptable-object
+            return self.args[ix]  # pylint:disable=unsubscriptable-object
         except self._NOT_GIVEN_CATCH:
             return default
 
@@ -96,13 +97,11 @@ class _TargetInvalid(Invalid):
 
     @property
     def _str_description(self):
-        return "has failed to implement interface %s" % (
-            self.interface or '<Unknown>'
-        )
+        return "has failed to implement interface %s" % (self.interface or "<Unknown>")
 
     _str_conjunction = ": "
     _str_details = "<unknown>"
-    _str_trailer = '.'
+    _str_trailer = "."
 
     def __str__(self):
         return "%s %s%s%s%s" % (
@@ -110,7 +109,7 @@ class _TargetInvalid(Invalid):
             self._str_description,
             self._str_conjunction,
             self._str_details,
-            self._str_trailer
+            self._str_trailer,
         )
 
 
@@ -146,7 +145,7 @@ class BrokenImplementation(_TargetInvalid):
 
     @property
     def name(self):
-        return self.args[1] # pylint:disable=unsubscriptable-object
+        return self.args[1]  # pylint:disable=unsubscriptable-object
 
     @property
     def _str_details(self):
@@ -181,24 +180,25 @@ class BrokenMethodImplementation(_TargetInvalid):
 
     @property
     def method(self):
-        return self.args[0] # pylint:disable=unsubscriptable-object
+        return self.args[0]  # pylint:disable=unsubscriptable-object
 
     @property
     def mess(self):
-        return self.args[1] # pylint:disable=unsubscriptable-object
+        return self.args[1]  # pylint:disable=unsubscriptable-object
 
     @staticmethod
     def __implementation_str(impl):
         # It could be a callable or some arbitrary object, we don't
         # know yet.
-        import inspect # Inspect is a heavy-weight dependency, lots of imports
+        import inspect  # Inspect is a heavy-weight dependency, lots of imports
+
         try:
             sig = inspect.signature
             formatsig = str
         except AttributeError:
             sig = inspect.getargspec
             f = inspect.formatargspec
-            formatsig = lambda sig: f(*sig) # pylint:disable=deprecated-method
+            formatsig = lambda sig: f(*sig)  # pylint:disable=deprecated-method
 
         try:
             sig = sig(impl)
@@ -220,11 +220,11 @@ class BrokenMethodImplementation(_TargetInvalid):
     def _str_details(self):
         impl = self._get_arg_or_default(self._IX_IMPL, self._NOT_GIVEN)
         message = self.mess
-        if impl is not self._NOT_GIVEN and 'implementation' in message:
-            message = message.replace("implementation", '%r')
+        if impl is not self._NOT_GIVEN and "implementation" in message:
+            message = message.replace("implementation", "%r")
             message = message % (self.__implementation_str(impl),)
 
-        return 'The contract of %s is violated because %s' % (
+        return "The contract of %s is violated because %s" % (
             repr(self.method) if isinstance(self.method, str) else self.method,
             message,
         )
@@ -248,24 +248,25 @@ class MultipleInvalid(_TargetInvalid):
 
     @property
     def exceptions(self):
-        return self.args[2] # pylint:disable=unsubscriptable-object
+        return self.args[2]  # pylint:disable=unsubscriptable-object
 
     @property
     def _str_details(self):
         # It would be nice to use tabs here, but that
         # is hard to represent in doctests.
-        return '\n    ' + '\n    '.join(
+        return "\n    " + "\n    ".join(
             x._str_details.strip() if isinstance(x, _TargetInvalid) else str(x)
             for x in self.exceptions
         )
 
-    _str_conjunction = ':' # We don't want a trailing space, messes up doctests
-    _str_trailer = ''
+    _str_conjunction = ":"  # We don't want a trailing space, messes up doctests
+    _str_trailer = ""
 
 
 class InvalidInterface(Exception):
     """The interface has invalid contents
     """
+
 
 class BadImplements(TypeError):
     """An implementation assertion is invalid

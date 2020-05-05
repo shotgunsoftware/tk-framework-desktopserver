@@ -34,9 +34,7 @@ class Fernet(object):
 
         key = base64.urlsafe_b64decode(key)
         if len(key) != 32:
-            raise ValueError(
-                "Fernet key must be 32 url-safe base64-encoded bytes."
-            )
+            raise ValueError("Fernet key must be 32 url-safe base64-encoded bytes.")
 
         self._signing_key = key[:16]
         self._encryption_key = key[16:]
@@ -61,9 +59,7 @@ class Fernet(object):
         ).encryptor()
         ciphertext = encryptor.update(padded_data) + encryptor.finalize()
 
-        basic_parts = (
-            b"\x80" + struct.pack(">Q", current_time) + iv + ciphertext
-        )
+        basic_parts = b"\x80" + struct.pack(">Q", current_time) + iv + ciphertext
 
         h = HMAC(self._signing_key, hashes.SHA256(), backend=self._backend)
         h.update(basic_parts)
@@ -92,7 +88,7 @@ class Fernet(object):
             raise InvalidToken
 
         try:
-            timestamp, = struct.unpack(">Q", data[1:9])
+            (timestamp,) = struct.unpack(">Q", data[1:9])
         except struct.error:
             raise InvalidToken
         return timestamp, data
@@ -140,9 +136,7 @@ class MultiFernet(object):
     def __init__(self, fernets):
         fernets = list(fernets)
         if not fernets:
-            raise ValueError(
-                "MultiFernet requires at least one Fernet instance"
-            )
+            raise ValueError("MultiFernet requires at least one Fernet instance")
         self._fernets = fernets
 
     def encrypt(self, msg):

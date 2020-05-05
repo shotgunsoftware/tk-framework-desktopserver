@@ -15,7 +15,10 @@ from collections import defaultdict
 from itertools import chain
 
 from pip._internal.exceptions import (
-    BestVersionAlreadyInstalled, DistributionNotFound, HashError, HashErrors,
+    BestVersionAlreadyInstalled,
+    DistributionNotFound,
+    HashError,
+    HashErrors,
     UnsupportedPythonVersion,
 )
 from pip._internal.req.constructors import install_req_from_req
@@ -33,9 +36,20 @@ class Resolver(object):
 
     _allowed_strategies = {"eager", "only-if-needed", "to-satisfy-only"}
 
-    def __init__(self, preparer, session, finder, wheel_cache, use_user_site,
-                 ignore_dependencies, ignore_installed, ignore_requires_python,
-                 force_reinstall, isolated, upgrade_strategy):
+    def __init__(
+        self,
+        preparer,
+        session,
+        finder,
+        wheel_cache,
+        use_user_site,
+        ignore_dependencies,
+        ignore_installed,
+        ignore_requires_python,
+        force_reinstall,
+        isolated,
+        upgrade_strategy,
+    ):
         super(Resolver, self).__init__()
         assert upgrade_strategy in self._allowed_strategies
 
@@ -76,13 +90,11 @@ class Resolver(object):
 
         # If any top-level requirement has a hash specified, enter
         # hash-checking mode, which requires hashes from all.
-        root_reqs = (
-            requirement_set.unnamed_requirements +
-            list(requirement_set.requirements.values())
+        root_reqs = requirement_set.unnamed_requirements + list(
+            requirement_set.requirements.values()
         )
-        self.require_hashes = (
-            requirement_set.require_hashes or
-            any(req.has_hash_options for req in root_reqs)
+        self.require_hashes = requirement_set.require_hashes or any(
+            req.has_hash_options for req in root_reqs
         )
 
         # Display where finder is looking for packages
@@ -98,9 +110,7 @@ class Resolver(object):
         hash_errors = HashErrors()
         for req in chain(root_reqs, discovered_reqs):
             try:
-                discovered_reqs.extend(
-                    self._resolve_one(requirement_set, req)
-                )
+                discovered_reqs.extend(self._resolve_one(requirement_set, req))
             except HashError as exc:
                 exc.req = req
                 hash_errors.append(exc)
@@ -159,8 +169,8 @@ class Resolver(object):
 
         if not self._is_upgrade_allowed(req_to_install):
             if self.upgrade_strategy == "only-if-needed":
-                return 'already satisfied, skipping upgrade'
-            return 'already satisfied'
+                return "already satisfied, skipping upgrade"
+            return "already satisfied"
 
         # Check for the possibility of an upgrade.  For link-based
         # requirements we have to pull the tree down and inspect to assess
@@ -170,7 +180,7 @@ class Resolver(object):
                 self.finder.find_requirement(req_to_install, upgrade=True)
             except BestVersionAlreadyInstalled:
                 # Then the best version is installed.
-                return 'already up-to-date'
+                return "already up-to-date"
             except DistributionNotFound:
                 # No distribution found, so we squash the error.  It will
                 # be raised later when we re-try later to do the install.
@@ -184,9 +194,9 @@ class Resolver(object):
         """Takes a InstallRequirement and returns a single AbstractDist \
         representing a prepared variant of the same.
         """
-        assert self.require_hashes is not None, (
-            "require_hashes should have been set in Resolver.resolve()"
-        )
+        assert (
+            self.require_hashes is not None
+        ), "require_hashes should have been set in Resolver.resolve()"
 
         if req.editable:
             return self.preparer.prepare_editable_requirement(
@@ -205,8 +215,7 @@ class Resolver(object):
 
         upgrade_allowed = self._is_upgrade_allowed(req)
         abstract_dist = self.preparer.prepare_linked_requirement(
-            req, self.session, self.finder, upgrade_allowed,
-            self.require_hashes
+            req, self.session, self.finder, upgrade_allowed, self.require_hashes
         )
 
         # NOTE
@@ -222,17 +231,17 @@ class Resolver(object):
 
         if req.satisfied_by:
             should_modify = (
-                self.upgrade_strategy != "to-satisfy-only" or
-                self.force_reinstall or
-                self.ignore_installed or
-                req.link.scheme == 'file'
+                self.upgrade_strategy != "to-satisfy-only"
+                or self.force_reinstall
+                or self.ignore_installed
+                or req.link.scheme == "file"
             )
             if should_modify:
                 self._set_req_to_reinstall(req)
             else:
                 logger.info(
-                    'Requirement already satisfied (use --upgrade to upgrade):'
-                    ' %s', req,
+                    "Requirement already satisfied (use --upgrade to upgrade):" " %s",
+                    req,
                 )
 
         return abstract_dist
@@ -281,9 +290,7 @@ class Resolver(object):
                 extras_requested=extras_requested,
             )
             if parent_req_name and add_to_parent:
-                self._discovered_dependencies[parent_req_name].append(
-                    add_to_parent
-                )
+                self._discovered_dependencies[parent_req_name].append(add_to_parent)
             more_reqs.extend(to_scan_again)
 
         with indent_log():
@@ -300,16 +307,13 @@ class Resolver(object):
                 if req_to_install.extras:
                     logger.debug(
                         "Installing extra requirements: %r",
-                        ','.join(req_to_install.extras),
+                        ",".join(req_to_install.extras),
                     )
                 missing_requested = sorted(
                     set(req_to_install.extras) - set(dist.extras)
                 )
                 for missing in missing_requested:
-                    logger.warning(
-                        '%s does not provide the extra \'%s\'',
-                        dist, missing
-                    )
+                    logger.warning("%s does not provide the extra '%s'", dist, missing)
 
                 available_requested = sorted(
                     set(dist.extras) & set(req_to_install.extras)

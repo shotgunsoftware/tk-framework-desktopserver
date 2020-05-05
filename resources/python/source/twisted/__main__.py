@@ -10,7 +10,5 @@ from __future__ import division, absolute_import
 import sys
 from pkg_resources import load_entry_point
 
-if __name__ == '__main__':
-    sys.exit(
-        load_entry_point('Twisted', 'console_scripts', 'twist')()
-    )
+if __name__ == "__main__":
+    sys.exit(load_entry_point("Twisted", "console_scripts", "twist")())

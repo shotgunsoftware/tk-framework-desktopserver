@@ -32,7 +32,8 @@ class ITimeDeltaClass(Interface):
     max = Attribute("The most positive timedelta object")
 
     resolution = Attribute(
-        "The smallest difference between non-equal timedelta objects")
+        "The smallest difference between non-equal timedelta objects"
+    )
 
 
 class ITimeDelta(ITimeDeltaClass):
@@ -72,8 +73,7 @@ class IDateClass(Interface):
 
     max = Attribute("The latest representable date")
 
-    resolution = Attribute(
-        "The smallest difference between non-equal date objects")
+    resolution = Attribute("The smallest difference between non-equal date objects")
 
     def today():
         """Return the current local time.
@@ -117,7 +117,8 @@ class IDate(IDateClass):
     month = Attribute("Between 1 and 12 inclusive")
 
     day = Attribute(
-        "Between 1 and the number of days in the given month of the given year.")
+        "Between 1 and the number of days in the given month of the given year."
+    )
 
     def replace(year, month, day):
         """Return a date with the same value.
@@ -220,7 +221,8 @@ class IDateTimeClass(Interface):
     max = Attribute("The latest representable datetime")
 
     resolution = Attribute(
-        "The smallest possible difference between non-equal datetime objects")
+        "The smallest possible difference between non-equal datetime objects"
+    )
 
     def today():
         """Return the current local datetime, with tzinfo None.
@@ -317,7 +319,8 @@ class IDateTime(IDate, IDateTimeClass):
     month = Attribute("Month between 1 and 12 inclusive")
 
     day = Attribute(
-        "Day between 1 and the number of days in the given month of the year")
+        "Day between 1 and the number of days in the given month of the year"
+    )
 
     hour = Attribute("Hour in range(24)")
 
@@ -329,10 +332,11 @@ class IDateTime(IDate, IDateTimeClass):
 
     tzinfo = Attribute(
         """The object passed as the tzinfo argument to the datetime constructor
-        or None if none was passed""")
+        or None if none was passed"""
+    )
 
     def date():
-         """Return date object with same year, month and day."""
+        """Return date object with same year, month and day."""
 
     def time():
         """Return time object with same hour, minute, second, microsecond.
@@ -432,7 +436,7 @@ class IDateTime(IDate, IDateTimeClass):
         The same as self.date().isocalendar().
         """
 
-    def isoformat(sep='T'):
+    def isoformat(sep="T"):
         """Return a string representing the date and time in ISO 8601 format.
 
         YYYY-MM-DDTHH:MM:SS.mmmmmm or YYYY-MM-DDTHH:MM:SS if microsecond is 0
@@ -481,7 +485,8 @@ class ITimeClass(Interface):
     max = Attribute("The latest representable time")
 
     resolution = Attribute(
-        "The smallest possible difference between non-equal time objects")
+        "The smallest possible difference between non-equal time objects"
+    )
 
 
 class ITime(ITimeClass):
@@ -505,7 +510,8 @@ class ITime(ITimeClass):
 
     tzinfo = Attribute(
         """The object passed as the tzinfo argument to the time constructor
-        or None if none was passed.""")
+        or None if none was passed."""
+    )
 
     def replace(hour, minute, second, microsecond, tzinfo):
         """Return a time with the same value.

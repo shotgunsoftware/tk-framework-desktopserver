@@ -50,41 +50,43 @@ except ImportError:
     _TLS = False
 
 
-__all__ = ("public",
-           "encode_truncate",
-           "xor",
-           "utcnow",
-           "utcstr",
-           "id",
-           "rid",
-           "newid",
-           "rtime",
-           "Stopwatch",
-           "Tracker",
-           "EqualityMixin",
-           "ObservableMixin",
-           "IdGenerator",
-           "generate_token",
-           "generate_activation_code",
-           "generate_serial_number",
-           "generate_user_password",
-           "time_ns",
-           "perf_counter_ns")
+__all__ = (
+    "public",
+    "encode_truncate",
+    "xor",
+    "utcnow",
+    "utcstr",
+    "id",
+    "rid",
+    "newid",
+    "rtime",
+    "Stopwatch",
+    "Tracker",
+    "EqualityMixin",
+    "ObservableMixin",
+    "IdGenerator",
+    "generate_token",
+    "generate_activation_code",
+    "generate_serial_number",
+    "generate_user_password",
+    "time_ns",
+    "perf_counter_ns",
+)
 
 
 # time_ns: epoch time in ns, corresponds to pandas.Timestamp or numpy.datetime64[ns]
 # perf_counter_ns: hardware time in ns, use only in relative terms
-if hasattr(time, 'time_ns'):
+if hasattr(time, "time_ns"):
     # python 3.7
     time_ns = time.time_ns
     perf_counter_ns = time.perf_counter_ns
 else:
     # python <3.7
     def time_ns():
-        return int(time.time() * 1000000000.)
+        return int(time.time() * 1000000000.0)
 
     def perf_counter_ns():
-        return int(time.perf_counter() * 1000000000.)
+        return int(time.perf_counter() * 1000000000.0)
 
 
 def public(obj):
@@ -102,7 +104,7 @@ def public(obj):
 
 
 @public
-def encode_truncate(text, limit, encoding='utf8', return_encoded=True):
+def encode_truncate(text, limit, encoding="utf8", return_encoded=True):
     """
     Given a string, return a truncated version of the string such that
     the UTF8 encoding of the string is smaller than the given limit.
@@ -124,9 +126,9 @@ def encode_truncate(text, limit, encoding='utf8', return_encoded=True):
     :returns: The truncated string.
     :rtype: str or bytes
     """
-    assert(text is None or type(text) == six.text_type)
-    assert(type(limit) in six.integer_types)
-    assert(limit >= 0)
+    assert text is None or type(text) == six.text_type
+    assert type(limit) in six.integer_types
+    assert limit >= 0
 
     if text is None:
         return
@@ -141,7 +143,7 @@ def encode_truncate(text, limit, encoding='utf8', return_encoded=True):
 
         # decode back, ignoring errors that result from truncation
         # in the middle of multi-byte encodings
-        text = s.decode(encoding, 'ignore')
+        text = s.decode(encoding, "ignore")
 
         if return_encoded:
             s = text.encode(encoding)
@@ -170,10 +172,14 @@ def xor(d1, d2):
     if type(d2) != six.binary_type:
         raise Exception("invalid type {} for d2 - must be binary".format(type(d2)))
     if len(d1) != len(d2):
-        raise Exception("cannot XOR binary string of differing length ({} != {})".format(len(d1), len(d2)))
+        raise Exception(
+            "cannot XOR binary string of differing length ({} != {})".format(
+                len(d1), len(d2)
+            )
+        )
 
-    d1 = array('B', d1)
-    d2 = array('B', d2)
+    d1 = array("B", d1)
+    d2 = array("B", d2)
 
     for i in range(len(d1)):
         d1[i] ^= d2[i]
@@ -198,7 +204,7 @@ def utcstr(ts=None):
     :returns: Timestamp formatted in ISO 8601 format.
     :rtype: str
     """
-    assert(ts is None or isinstance(ts, datetime))
+    assert ts is None or isinstance(ts, datetime)
     if ts is None:
         ts = datetime.utcnow()
     return u"{0}Z".format(ts.strftime(u"%Y-%m-%dT%H:%M:%S.%f")[:-3])
@@ -341,8 +347,8 @@ def newid(length=16):
     :returns: A random string ID.
     :rtype: str
     """
-    l = int(math.ceil(float(length) * 6. / 8.))
-    return base64.b64encode(os.urandom(l))[:length].decode('ascii')
+    l = int(math.ceil(float(length) * 6.0 / 8.0))
+    return base64.b64encode(os.urandom(l))[:length].decode("ascii")
 
 
 # a standard base36 character set
@@ -350,12 +356,12 @@ def newid(length=16):
 
 # we take out the following 9 chars (leaving 27), because there
 # is visual ambiguity: 0/O/D, 1/I, 8/B, 2/Z
-DEFAULT_TOKEN_CHARS = u'345679ACEFGHJKLMNPQRSTUVWXY'
+DEFAULT_TOKEN_CHARS = u"345679ACEFGHJKLMNPQRSTUVWXY"
 """
 Default set of characters to create rtokens from.
 """
 
-DEFAULT_ZBASE32_CHARS = u'13456789abcdefghijkmnopqrstuwxyz'
+DEFAULT_ZBASE32_CHARS = u"13456789abcdefghijkmnopqrstuwxyz"
 """
 Our choice of confusing characters to eliminate is: `0', `l', `v', and `2'.  Our
 reasoning is that `0' is potentially mistaken for `o', that `l' is potentially
@@ -373,7 +379,9 @@ Delta" and telephone operators' "Is that 'd' as in 'dog'?".
 
 
 @public
-def generate_token(char_groups, chars_per_group, chars=None, sep=None, lower_case=False):
+def generate_token(
+    char_groups, chars_per_group, chars=None, sep=None, lower_case=False
+):
     """
     Generate cryptographically strong tokens, which are strings like `M6X5-YO5W-T5IK`.
     These can be used e.g. for used-only-once activation tokens or the like.
@@ -421,17 +429,19 @@ def generate_token(char_groups, chars_per_group, chars=None, sep=None, lower_cas
     :returns: The generated token.
     :rtype: str
     """
-    assert(type(char_groups) in six.integer_types)
-    assert(type(chars_per_group) in six.integer_types)
-    assert(chars is None or type(chars) == six.text_type)
+    assert type(char_groups) in six.integer_types
+    assert type(chars_per_group) in six.integer_types
+    assert chars is None or type(chars) == six.text_type
     chars = chars or DEFAULT_TOKEN_CHARS
     if lower_case:
         chars = chars.lower()
-    sep = sep or u'-'
+    sep = sep or u"-"
     rng = random.SystemRandom()
-    token_value = u''.join(rng.choice(chars) for _ in range(char_groups * chars_per_group))
+    token_value = u"".join(
+        rng.choice(chars) for _ in range(char_groups * chars_per_group)
+    )
     if chars_per_group > 1:
-        return sep.join(map(u''.join, zip(*[iter(token_value)] * chars_per_group)))
+        return sep.join(map(u"".join, zip(*[iter(token_value)] * chars_per_group)))
     else:
         return token_value
 
@@ -445,7 +455,13 @@ def generate_activation_code():
     :returns: The generated activation code.
     :rtype: str
     """
-    return generate_token(char_groups=3, chars_per_group=4, chars=DEFAULT_TOKEN_CHARS, sep=u'-', lower_case=False)
+    return generate_token(
+        char_groups=3,
+        chars_per_group=4,
+        chars=DEFAULT_TOKEN_CHARS,
+        sep=u"-",
+        lower_case=False,
+    )
 
 
 @public
@@ -457,7 +473,13 @@ def generate_user_password():
     :returns: The generated password.
     :rtype: str
     """
-    return generate_token(char_groups=16, chars_per_group=1, chars=DEFAULT_ZBASE32_CHARS, sep=u'-', lower_case=True)
+    return generate_token(
+        char_groups=16,
+        chars_per_group=1,
+        chars=DEFAULT_ZBASE32_CHARS,
+        sep=u"-",
+        lower_case=True,
+    )
 
 
 @public
@@ -469,13 +491,19 @@ def generate_serial_number():
     :returns: The generated serial number / product code.
     :rtype: str
     """
-    return generate_token(char_groups=6, chars_per_group=4, chars=DEFAULT_TOKEN_CHARS, sep=u'-', lower_case=False)
+    return generate_token(
+        char_groups=6,
+        chars_per_group=4,
+        chars=DEFAULT_TOKEN_CHARS,
+        sep=u"-",
+        lower_case=False,
+    )
 
 
 # Select the most precise walltime measurement function available
 # on the platform
 #
-if sys.platform.startswith('win'):
+if sys.platform.startswith("win"):
     # On Windows, this function returns wall-clock seconds elapsed since the
     # first call to this function, as a floating point number, based on the
     # Win32 function QueryPerformanceCounter(). The resolution is typically
@@ -629,11 +657,11 @@ class Tracker(object):
             d = self._timings[end_key] - self._timings[start_key]
             if formatted:
                 if d < 0.00001:  # 10us
-                    s = "%d ns" % round(d * 1000000000.)
+                    s = "%d ns" % round(d * 1000000000.0)
                 elif d < 0.01:  # 10ms
-                    s = "%d us" % round(d * 1000000.)
+                    s = "%d us" % round(d * 1000000.0)
                 elif d < 10:  # 10s
-                    s = "%d ms" % round(d * 1000.)
+                    s = "%d ms" % round(d * 1000.0)
                 else:
                     s = "%d s" % round(d)
                 return s.rjust(8)
@@ -657,7 +685,7 @@ class Tracker(object):
         """
         elapsed = self[key]
         if elapsed is None:
-            raise KeyError("No such key \"%s\"." % elapsed)
+            raise KeyError('No such key "%s".' % elapsed)
         return self._dt_offset + timedelta(seconds=elapsed)
 
     def __getitem__(self, key):
@@ -697,7 +725,7 @@ class EqualityMixin(object):
             return False
         # we only want the actual message data attributes (not eg _serialize)
         for k in self.__dict__:
-            if not k.startswith('_'):
+            if not k.startswith("_"):
                 if not self.__dict__[k] == other.__dict__[k]:
                     return False
         return True
@@ -732,7 +760,10 @@ def wildcards2patterns(wildcards):
     # match. Without this, e.g. a prefix will match:
     # re.match('.*good\\.com', 'good.com.evil.com')  # match!
     # re.match('.*good\\.com$', 'good.com.evil.com') # no match!
-    return [re.compile('^' + wc.replace('.', r'\.').replace('*', '.*') + '$') for wc in wildcards]
+    return [
+        re.compile("^" + wc.replace(".", r"\.").replace("*", ".*") + "$")
+        for wc in wildcards
+    ]
 
 
 class ObservableMixin(object):
@@ -769,8 +800,7 @@ class ObservableMixin(object):
         if self._valid_events and event not in self._valid_events:
             raise RuntimeError(
                 "Invalid event '{event}'. Expected one of: {events}".format(
-                    event=event,
-                    events=', '.join(self._valid_events),
+                    event=event, events=", ".join(self._valid_events),
                 )
             )
 
@@ -854,13 +884,14 @@ class _LazyHexFormatter(object):
             octets=_LazyHexFormatter(os.urandom(32)),
         )
     """
-    __slots__ = ('obj',)
+
+    __slots__ = ("obj",)
 
     def __init__(self, obj):
         self.obj = obj
 
     def __str__(self):
-        return binascii.hexlify(self.obj).decode('ascii')
+        return binascii.hexlify(self.obj).decode("ascii")
 
 
 def _is_tls_error(instance):
@@ -881,7 +912,6 @@ def _maybe_tls_reason(instance):
     if _is_tls_error(instance):
         ssl_error = instance.args[0][0]
         return u"SSL error: {msg} (in {func})".format(
-            func=ssl_error[1],
-            msg=ssl_error[2],
+            func=ssl_error[1], msg=ssl_error[2],
         )
     return u""

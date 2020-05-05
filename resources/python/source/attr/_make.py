@@ -31,9 +31,7 @@ from .exceptions import (
 _obj_setattr = object.__setattr__
 _init_converter_pat = "__attr_converter_{}"
 _init_factory_pat = "__attr_factory_{}"
-_tuple_property_pat = (
-    "    {attr_name} = _attrs_property(_attrs_itemgetter({index}))"
-)
+_tuple_property_pat = "    {attr_name} = _attrs_property(_attrs_itemgetter({index}))"
 _classvar_prefixes = ("typing.ClassVar", "t.ClassVar", "ClassVar")
 # we don't use a double-underscore prefix because that triggers
 # name mangling when trying to create a slot for the field
@@ -195,15 +193,12 @@ def attrib(
     eq, order = _determine_eq_order(cmp, eq, order)
 
     if hash is not None and hash is not True and hash is not False:
-        raise TypeError(
-            "Invalid value for hash.  Must be True, False, or None."
-        )
+        raise TypeError("Invalid value for hash.  Must be True, False, or None.")
 
     if factory is not None:
         if default is not NOTHING:
             raise ValueError(
-                "The `default` and `factory` arguments are mutually "
-                "exclusive."
+                "The `default` and `factory` arguments are mutually " "exclusive."
             )
         if not callable(factory):
             raise ValueError("The `factory` argument must be a callable.")
@@ -323,9 +318,7 @@ def _transform_attrs(cls, these, auto_attribs, kw_only):
             ca_list.sort(key=_counter_getter)
     elif auto_attribs is True:
         ca_names = {
-            name
-            for name, attr in cd.items()
-            if isinstance(attr, _CountingAttr)
+            name for name, attr in cd.items() if isinstance(attr, _CountingAttr)
         }
         ca_list = []
         annot_names = set()
@@ -345,9 +338,7 @@ def _transform_attrs(cls, these, auto_attribs, kw_only):
         if len(unannotated) > 0:
             raise UnannotatedAttributeError(
                 "The following `attr.ib`s lack a type annotation: "
-                + ", ".join(
-                    sorted(unannotated, key=lambda n: cd.get(n).counter)
-                )
+                + ", ".join(sorted(unannotated, key=lambda n: cd.get(n).counter))
                 + "."
             )
     else:
@@ -361,9 +352,7 @@ def _transform_attrs(cls, these, auto_attribs, kw_only):
         )
 
     own_attrs = [
-        Attribute.from_counting_attr(
-            name=attr_name, ca=ca, type=anns.get(attr_name)
-        )
+        Attribute.from_counting_attr(name=attr_name, ca=ca, type=anns.get(attr_name))
         for attr_name, ca in ca_list
     ]
 
@@ -585,9 +574,7 @@ class _ClassBuilder(object):
             cd["__qualname__"] = qualname
 
         # __weakref__ is not writable.
-        state_attr_names = tuple(
-            an for an in self._attr_names if an != "__weakref__"
-        )
+        state_attr_names = tuple(an for an in self._attr_names if an != "__weakref__")
 
         def slots_getstate(self):
             """
@@ -650,9 +637,7 @@ class _ClassBuilder(object):
     def add_str(self):
         repr = self._cls_dict.get("__repr__")
         if repr is None:
-            raise ValueError(
-                "__str__ can only be generated if a __repr__ exists."
-            )
+            raise ValueError("__str__ can only be generated if a __repr__ exists.")
 
         def __str__(self):
             return self.__repr__()
@@ -696,8 +681,7 @@ class _ClassBuilder(object):
         cd = self._cls_dict
 
         cd["__eq__"], cd["__ne__"] = (
-            self._add_method_dunders(meth)
-            for meth in _make_eq(self._cls, self._attrs)
+            self._add_method_dunders(meth) for meth in _make_eq(self._cls, self._attrs)
         )
 
         return self
@@ -722,9 +706,7 @@ class _ClassBuilder(object):
             pass
 
         try:
-            method.__qualname__ = ".".join(
-                (self._cls.__qualname__, method.__name__)
-            )
+            method.__qualname__ = ".".join((self._cls.__qualname__, method.__name__))
         except AttributeError:
             pass
 
@@ -973,9 +955,7 @@ def attrs(
 
         if hash is not True and hash is not False and hash is not None:
             # Can't use `hash in` because 1 == True for example.
-            raise TypeError(
-                "Invalid value for hash.  Must be True, False, or None."
-            )
+            raise TypeError("Invalid value for hash.  Must be True, False, or None.")
         elif hash is False or (hash is None and eq is False) or is_exc:
             # Don't do anything. Should fall back to __object__'s __hash__
             # which is by id.
@@ -1032,8 +1012,7 @@ if PY2:
         __setattr__.
         """
         return (
-            getattr(cls.__setattr__, "__module__", None)
-            == _frozen_setattrs.__module__
+            getattr(cls.__setattr__, "__module__", None) == _frozen_setattrs.__module__
             and cls.__setattr__.__name__ == _frozen_setattrs.__name__
         )
 
@@ -1074,10 +1053,7 @@ def _generate_unique_filename(cls, func_name):
         # the linecache with a dummy line.  The caller can then
         # set this value correctly.
         cache_line = (1, None, (str(unique_id),), unique_filename)
-        if (
-            linecache.cache.setdefault(unique_filename, cache_line)
-            == cache_line
-        ):
+        if linecache.cache.setdefault(unique_filename, cache_line) == cache_line:
             return unique_filename
 
         # Looks like this spot is taken. Try again.
@@ -1120,9 +1096,7 @@ def _make_hash(cls, attrs, frozen, cache_hash):
             )
             method_lines.append(tab * 2 + ")")  # close __setattr__
         else:
-            append_hash_computation_lines(
-                "self.%s = " % _hash_cache_field, tab * 2
-            )
+            append_hash_computation_lines("self.%s = " % _hash_cache_field, tab * 2)
         method_lines.append(tab + "return self.%s" % _hash_cache_field)
     else:
         append_hash_computation_lines("return ", tab)
@@ -1316,9 +1290,7 @@ def _make_repr(attrs, ns):
                     first = False
                 else:
                     result.append(", ")
-                result.extend(
-                    (name, "=", attr_repr(getattr(self, name, NOTHING)))
-                )
+                result.extend((name, "=", attr_repr(getattr(self, name, NOTHING))))
             return "".join(result) + ")"
         finally:
             working_set.remove(id(self))
@@ -1337,9 +1309,7 @@ def _add_repr(cls, ns=None, attrs=None):
     return cls
 
 
-def _make_init(
-    cls, attrs, post_init, frozen, slots, cache_hash, base_attr_map, is_exc
-):
+def _make_init(cls, attrs, post_init, frozen, slots, cache_hash, base_attr_map, is_exc):
     attrs = [a for a in attrs if a.init or a.default is not NOTHING]
 
     unique_filename = _generate_unique_filename(cls, "init")
@@ -1470,9 +1440,7 @@ def _attrs_to_init_script(
     a cached ``object.__setattr__``.
     """
     lines = []
-    any_slot_ancestors = any(
-        _is_slot_attr(a.name, base_attr_map) for a in attrs
-    )
+    any_slot_ancestors = any(_is_slot_attr(a.name, base_attr_map) for a in attrs)
     if frozen is True:
         if slots is True:
             lines.append(
@@ -1575,8 +1543,7 @@ def _attrs_to_init_script(
                 if a.converter is not None:
                     lines.append(
                         fmt_setter_with_converter(
-                            attr_name,
-                            init_factory_name + "({0})".format(maybe_self),
+                            attr_name, init_factory_name + "({0})".format(maybe_self),
                         )
                     )
                     conv_name = _init_converter_pat.format(a.name)
@@ -1584,8 +1551,7 @@ def _attrs_to_init_script(
                 else:
                     lines.append(
                         fmt_setter(
-                            attr_name,
-                            init_factory_name + "({0})".format(maybe_self),
+                            attr_name, init_factory_name + "({0})".format(maybe_self),
                         )
                     )
                 names_for_globals[init_factory_name] = a.default.factory
@@ -1620,9 +1586,7 @@ def _attrs_to_init_script(
                 args.append(arg)
             if a.converter is not None:
                 lines.append(fmt_setter_with_converter(attr_name, arg_name))
-                names_for_globals[
-                    _init_converter_pat.format(a.name)
-                ] = a.converter
+                names_for_globals[_init_converter_pat.format(a.name)] = a.converter
             else:
                 lines.append(fmt_setter(attr_name, arg_name))
         elif has_factory:
@@ -1631,33 +1595,25 @@ def _attrs_to_init_script(
                 kw_only_args.append(arg)
             else:
                 args.append(arg)
-            lines.append(
-                "if {arg_name} is not NOTHING:".format(arg_name=arg_name)
-            )
+            lines.append("if {arg_name} is not NOTHING:".format(arg_name=arg_name))
             init_factory_name = _init_factory_pat.format(a.name)
             if a.converter is not None:
-                lines.append(
-                    "    " + fmt_setter_with_converter(attr_name, arg_name)
-                )
+                lines.append("    " + fmt_setter_with_converter(attr_name, arg_name))
                 lines.append("else:")
                 lines.append(
                     "    "
                     + fmt_setter_with_converter(
-                        attr_name,
-                        init_factory_name + "({0})".format(maybe_self),
+                        attr_name, init_factory_name + "({0})".format(maybe_self),
                     )
                 )
-                names_for_globals[
-                    _init_converter_pat.format(a.name)
-                ] = a.converter
+                names_for_globals[_init_converter_pat.format(a.name)] = a.converter
             else:
                 lines.append("    " + fmt_setter(attr_name, arg_name))
                 lines.append("else:")
                 lines.append(
                     "    "
                     + fmt_setter(
-                        attr_name,
-                        init_factory_name + "({0})".format(maybe_self),
+                        attr_name, init_factory_name + "({0})".format(maybe_self),
                     )
                 )
             names_for_globals[init_factory_name] = a.default.factory
@@ -1668,9 +1624,7 @@ def _attrs_to_init_script(
                 args.append(arg_name)
             if a.converter is not None:
                 lines.append(fmt_setter_with_converter(attr_name, arg_name))
-                names_for_globals[
-                    _init_converter_pat.format(a.name)
-                ] = a.converter
+                names_for_globals[_init_converter_pat.format(a.name)] = a.converter
             else:
                 lines.append(fmt_setter(attr_name, arg_name))
 
@@ -1723,8 +1677,7 @@ def _attrs_to_init_script(
             )
 
         args += "{leading_comma}*, {kw_only_args}".format(
-            leading_comma=", " if args else "",
-            kw_only_args=", ".join(kw_only_args),
+            leading_comma=", " if args else "", kw_only_args=", ".join(kw_only_args),
         )
     return (
         """\
@@ -1799,11 +1752,7 @@ class Attribute(object):
         bound_setattr("converter", converter)
         bound_setattr(
             "metadata",
-            (
-                metadata_proxy(metadata)
-                if metadata
-                else _empty_metadata_singleton
-            ),
+            (metadata_proxy(metadata) if metadata else _empty_metadata_singleton),
         )
         bound_setattr("type", type)
         bound_setattr("kw_only", kw_only)
@@ -1817,9 +1766,7 @@ class Attribute(object):
         if type is None:
             type = ca.type
         elif ca.type is not None:
-            raise ValueError(
-                "Type annotation and type argument cannot both be present"
-            )
+            raise ValueError("Type annotation and type argument cannot both be present")
         inst_dict = {
             k: getattr(ca, k)
             for k in Attribute.__slots__
@@ -1883,10 +1830,7 @@ class Attribute(object):
                 bound_setattr(name, value)
             else:
                 bound_setattr(
-                    name,
-                    metadata_proxy(value)
-                    if value
-                    else _empty_metadata_singleton,
+                    name, metadata_proxy(value) if value else _empty_metadata_singleton,
                 )
 
 
@@ -1906,8 +1850,7 @@ _a = [
 ]
 
 Attribute = _add_hash(
-    _add_eq(_add_repr(Attribute, attrs=_a), attrs=_a),
-    attrs=[a for a in _a if a.hash],
+    _add_eq(_add_repr(Attribute, attrs=_a), attrs=_a), attrs=[a for a in _a if a.hash],
 )
 
 
@@ -1947,15 +1890,7 @@ class _CountingAttr(object):
             eq=True,
             order=False,
         )
-        for name in (
-            "counter",
-            "_default",
-            "repr",
-            "eq",
-            "order",
-            "hash",
-            "init",
-        )
+        for name in ("counter", "_default", "repr", "eq", "order", "hash", "init",)
     ) + (
         Attribute(
             name="metadata",
@@ -2103,26 +2038,20 @@ def make_class(name, attrs, bases=(object,), **attributes_arguments):
 
     post_init = cls_dict.pop("__attrs_post_init__", None)
     type_ = type(
-        name,
-        bases,
-        {} if post_init is None else {"__attrs_post_init__": post_init},
+        name, bases, {} if post_init is None else {"__attrs_post_init__": post_init},
     )
     # For pickling to work, the __module__ variable needs to be set to the
     # frame where the class is created.  Bypass this step in environments where
     # sys._getframe is not defined (Jython for example) or sys._getframe is not
     # defined for arguments greater than 0 (IronPython).
     try:
-        type_.__module__ = sys._getframe(1).f_globals.get(
-            "__name__", "__main__"
-        )
+        type_.__module__ = sys._getframe(1).f_globals.get("__name__", "__main__")
     except (AttributeError, ValueError):
         pass
 
     # We do it here for proper warnings with meaningful stacklevel.
     cmp = attributes_arguments.pop("cmp", None)
-    attributes_arguments["eq"], attributes_arguments[
-        "order"
-    ] = _determine_eq_order(
+    attributes_arguments["eq"], attributes_arguments["order"] = _determine_eq_order(
         cmp, attributes_arguments.get("eq"), attributes_arguments.get("order")
     )
 

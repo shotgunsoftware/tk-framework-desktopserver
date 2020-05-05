@@ -28,6 +28,7 @@ __all__ = [
 # pylint:disable=no-self-argument,no-method-argument
 # pylint:disable=unexpected-special-method-signature
 
+
 class optional(object):
     # Apply this decorator to a method definition to make it
     # optional (remove it from the list of required names), overriding
@@ -120,10 +121,10 @@ class ABCInterfaceClass(InterfaceClass):
     def __init__(self, name, bases, attrs):
         # go ahead and give us a name to ease debugging.
         self.__name__ = name
-        extra_classes = attrs.pop('extra_classes', ())
-        ignored_classes = attrs.pop('ignored_classes', ())
+        extra_classes = attrs.pop("extra_classes", ())
+        ignored_classes = attrs.pop("ignored_classes", ())
 
-        if 'abc' not in attrs:
+        if "abc" not in attrs:
             # Something like ``IList(ISequence)``: We're extending
             # abc interfaces but not an ABC interface ourself.
             InterfaceClass.__init__(self, name, bases, attrs)
@@ -131,7 +132,7 @@ class ABCInterfaceClass(InterfaceClass):
             self.__class__ = InterfaceClass
             return
 
-        based_on = attrs.pop('abc')
+        based_on = attrs.pop("abc")
         self.__abc = based_on
         self.__extra_classes = tuple(extra_classes)
         self.__ignored_classes = tuple(ignored_classes)
@@ -142,11 +143,12 @@ class ABCInterfaceClass(InterfaceClass):
             # e.g., ``__ror__ = __or__``.
             k: self.__method_from_function(v, k)
             for k, v in vars(based_on).items()
-            if isinstance(v, FunctionType) and not self.__is_private_name(k)
+            if isinstance(v, FunctionType)
+            and not self.__is_private_name(k)
             and not self.__is_reverse_protocol_name(k)
         }
 
-        methods['__doc__'] = self.__create_class_doc(attrs)
+        methods["__doc__"] = self.__create_class_doc(attrs)
         # Anything specified in the body takes precedence.
         methods.update(attrs)
         InterfaceClass.__init__(self, name, bases, methods)
@@ -159,7 +161,7 @@ class ABCInterfaceClass(InterfaceClass):
             attrs[k] = _decorator_non_return
 
         if not optionals:
-            return ''
+            return ""
 
         docs = "\n\nThe following methods are optional:\n - " + "\n-".join(
             "%s\n%s" % (k, v.__doc__) for k, v in optionals.items()
@@ -168,39 +170,42 @@ class ABCInterfaceClass(InterfaceClass):
 
     def __create_class_doc(self, attrs):
         based_on = self.__abc
+
         def ref(c):
             mod = c.__module__
             name = c.__name__
             if mod == str.__module__:
                 return "`%s`" % name
-            if mod == '_io':
-                mod = 'io'
+            if mod == "_io":
+                mod = "io"
             return "`%s.%s`" % (mod, name)
+
         implementations_doc = "\n - ".join(
-            ref(c)
-            for c in sorted(self.getRegisteredConformers(), key=ref)
+            ref(c) for c in sorted(self.getRegisteredConformers(), key=ref)
         )
         if implementations_doc:
-            implementations_doc = "\n\nKnown implementations are:\n\n - " + implementations_doc
+            implementations_doc = (
+                "\n\nKnown implementations are:\n\n - " + implementations_doc
+            )
 
-        based_on_doc = (based_on.__doc__ or '')
+        based_on_doc = based_on.__doc__ or ""
         based_on_doc = based_on_doc.splitlines()
-        based_on_doc = based_on_doc[0] if based_on_doc else ''
+        based_on_doc = based_on_doc[0] if based_on_doc else ""
 
         doc = """Interface for the ABC `%s.%s`.\n\n%s%s%s""" % (
-            based_on.__module__, based_on.__name__,
-            attrs.get('__doc__', based_on_doc),
+            based_on.__module__,
+            based_on.__name__,
+            attrs.get("__doc__", based_on_doc),
             self.__optional_methods_to_docs(attrs),
-            implementations_doc
+            implementations_doc,
         )
         return doc
 
-
     @staticmethod
     def __is_private_name(name):
-        if name.startswith('__') and name.endswith('__'):
+        if name.startswith("__") and name.endswith("__"):
             return False
-        return name.startswith('_')
+        return name.startswith("_")
 
     @staticmethod
     def __is_reverse_protocol_name(name):
@@ -208,7 +213,7 @@ class ABCInterfaceClass(InterfaceClass):
         # aren't really part of the protocol. The interpreter has
         # very complex behaviour around invoking those. PyPy
         # doesn't always even expose them as attributes.
-        return name.startswith('__r') and name.endswith('__')
+        return name.startswith("__r") and name.endswith("__")
 
     def __method_from_function(self, function, name):
         method = fromFunction(function, self, name=name)
@@ -220,8 +225,12 @@ class ABCInterfaceClass(InterfaceClass):
     def __register_classes(self, conformers=None, ignored_classes=None):
         # Make the concrete classes already present in our ABC's registry
         # declare that they implement this interface.
-        conformers = conformers if conformers is not None else self.getRegisteredConformers()
-        ignored = ignored_classes if ignored_classes is not None else self.__ignored_classes
+        conformers = (
+            conformers if conformers is not None else self.getRegisteredConformers()
+        )
+        ignored = (
+            ignored_classes if ignored_classes is not None else self.__ignored_classes
+        )
         for cls in conformers:
             if cls in ignored:
                 continue
@@ -250,6 +259,7 @@ class ABCInterfaceClass(InterfaceClass):
             # Rewritten in C in CPython 3.7.
             # These expose the underlying weakref.
             from abc import _get_dump
+
             data = _get_dump(based_on)
             registry = data[0]
             cache = data[1]
@@ -260,4 +270,4 @@ class ABCInterfaceClass(InterfaceClass):
 
 
 ABCInterface = ABCInterfaceClass.__new__(ABCInterfaceClass, None, None, None)
-InterfaceClass.__init__(ABCInterface, 'ABCInterface', (Interface,), {})
+InterfaceClass.__init__(ABCInterface, "ABCInterface", (Interface,), {})

@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Subscribed(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsSubscribed(cls, buf, offset):
@@ -22,17 +23,32 @@ class Subscribed(object):
     def Request(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
     # Subscribed
     def Subscription(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
-def SubscribedStart(builder): builder.StartObject(2)
-def SubscribedAddRequest(builder, request): builder.PrependUint64Slot(0, request, 0)
-def SubscribedAddSubscription(builder, subscription): builder.PrependUint64Slot(1, subscription, 0)
-def SubscribedEnd(builder): return builder.EndObject()
+
+def SubscribedStart(builder):
+    builder.StartObject(2)
+
+
+def SubscribedAddRequest(builder, request):
+    builder.PrependUint64Slot(0, request, 0)
+
+
+def SubscribedAddSubscription(builder, subscription):
+    builder.PrependUint64Slot(1, subscription, 0)
+
+
+def SubscribedEnd(builder):
+    return builder.EndObject()

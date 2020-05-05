@@ -17,16 +17,17 @@ class ConchUser:
         self.channelLookup = {}
         self.subsystemLookup = {}
 
-
     def lookupChannel(self, channelType, windowSize, maxPacket, data):
         klass = self.channelLookup.get(channelType, None)
         if not klass:
             raise ConchError(OPEN_UNKNOWN_CHANNEL_TYPE, "unknown channel")
         else:
-            return klass(remoteWindow=windowSize,
-                         remoteMaxPacket=maxPacket,
-                         data=data, avatar=self)
-
+            return klass(
+                remoteWindow=windowSize,
+                remoteMaxPacket=maxPacket,
+                data=data,
+                avatar=self,
+            )
 
     def lookupSubsystem(self, subsystem, data):
         log.msg(repr(self.subsystemLookup))
@@ -35,10 +36,9 @@ class ConchUser:
             return False
         return klass(data, avatar=self)
 
-
     def gotGlobalRequest(self, requestType, data):
         # XXX should this use method dispatch?
-        requestType = nativeString(requestType.replace(b'-', b'_'))
+        requestType = nativeString(requestType.replace(b"-", b"_"))
         f = getattr(self, "global_%s" % requestType, None)
         if not f:
             return 0

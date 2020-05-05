@@ -304,5 +304,3 @@ example::
   $ wsdump.py ws://echo.websocket.org/
   $ wsdump.py ws://echo.websocket.org/ -v
   $ wsdump.py ws://echo.websocket.org/ -vv
-
-

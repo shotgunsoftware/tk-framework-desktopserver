@@ -50,6 +50,7 @@ class Settings(object):
         self._default_certificate_folder = default_certificate_folder
 
         from sgtk.util import UserSettings
+
         user_settings = UserSettings()
         port = user_settings.get_integer_setting(
             self._BROWSER_INTEGRATION, self._PORT_SETTING
@@ -57,19 +58,21 @@ class Settings(object):
         certificate_folder = user_settings.get_setting(
             self._BROWSER_INTEGRATION, self._CERTIFICATE_FOLDER_SETTING
         )
-        integration_enabled = UserSettings().get_boolean_setting(self._BROWSER_INTEGRATION, self._ENABLED)
+        integration_enabled = UserSettings().get_boolean_setting(
+            self._BROWSER_INTEGRATION, self._ENABLED
+        )
 
         raw_host_aliases = {}
         if UserSettings().get_section_settings(self._HOST_ALIASES):
             raw_host_aliases = {
-                name: UserSettings().get_setting(
-                    self._HOST_ALIASES, name
-                )
+                name: UserSettings().get_setting(self._HOST_ALIASES, name)
                 for name in UserSettings().get_section_settings(self._HOST_ALIASES)
             }
 
         self._port = port or self._DEFAULT_PORT
-        self._certificate_folder = certificate_folder or self._default_certificate_folder
+        self._certificate_folder = (
+            certificate_folder or self._default_certificate_folder
+        )
         self._integration_enabled = integration_enabled
 
         # Keep the raw aliases for support, but filter the settings for API users.
@@ -101,7 +104,9 @@ class Settings(object):
         """
         Flag indicating if the browser integration is enabled. ``True`` if enabled, ``False`` if not.
         """
-        return self._integration_enabled if self._integration_enabled is not None else True
+        return (
+            self._integration_enabled if self._integration_enabled is not None else True
+        )
 
     @property
     def certificate_folder(self):

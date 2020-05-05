@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Invocation(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsInvocation(cls, buf, offset):
@@ -22,14 +23,18 @@ class Invocation(object):
     def Request(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
     # Invocation
     def Registration(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
     # Invocation
@@ -37,7 +42,10 @@ class Invocation(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.Uint8Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+            return self._tab.Get(
+                flatbuffers.number_types.Uint8Flags,
+                a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1),
+            )
         return 0
 
     # Invocation
@@ -73,7 +81,10 @@ class Invocation(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
             a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.Uint8Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+            return self._tab.Get(
+                flatbuffers.number_types.Uint8Flags,
+                a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1),
+            )
         return 0
 
     # Invocation
@@ -101,21 +112,27 @@ class Invocation(object):
     def Timeout(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint32Flags, o + self._tab.Pos
+            )
         return 0
 
     # Invocation
     def ReceiveProgress(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # Invocation
     def Caller(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
     # Invocation
@@ -132,19 +149,76 @@ class Invocation(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-def InvocationStart(builder): builder.StartObject(12)
-def InvocationAddRequest(builder, request): builder.PrependUint64Slot(0, request, 0)
-def InvocationAddRegistration(builder, registration): builder.PrependUint64Slot(1, registration, 0)
-def InvocationAddPayload(builder, payload): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(payload), 0)
-def InvocationStartPayloadVector(builder, numElems): return builder.StartVector(1, numElems, 1)
-def InvocationAddEncAlgo(builder, encAlgo): builder.PrependUint8Slot(3, encAlgo, 0)
-def InvocationAddEncSerializer(builder, encSerializer): builder.PrependUint8Slot(4, encSerializer, 0)
-def InvocationAddEncKey(builder, encKey): builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(encKey), 0)
-def InvocationStartEncKeyVector(builder, numElems): return builder.StartVector(1, numElems, 1)
-def InvocationAddProcedure(builder, procedure): builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(procedure), 0)
-def InvocationAddTimeout(builder, timeout): builder.PrependUint32Slot(7, timeout, 0)
-def InvocationAddReceiveProgress(builder, receiveProgress): builder.PrependBoolSlot(8, receiveProgress, 0)
-def InvocationAddCaller(builder, caller): builder.PrependUint64Slot(9, caller, 0)
-def InvocationAddCallerAuthid(builder, callerAuthid): builder.PrependUOffsetTRelativeSlot(10, flatbuffers.number_types.UOffsetTFlags.py_type(callerAuthid), 0)
-def InvocationAddCallerAuthrole(builder, callerAuthrole): builder.PrependUOffsetTRelativeSlot(11, flatbuffers.number_types.UOffsetTFlags.py_type(callerAuthrole), 0)
-def InvocationEnd(builder): return builder.EndObject()
+
+def InvocationStart(builder):
+    builder.StartObject(12)
+
+
+def InvocationAddRequest(builder, request):
+    builder.PrependUint64Slot(0, request, 0)
+
+
+def InvocationAddRegistration(builder, registration):
+    builder.PrependUint64Slot(1, registration, 0)
+
+
+def InvocationAddPayload(builder, payload):
+    builder.PrependUOffsetTRelativeSlot(
+        2, flatbuffers.number_types.UOffsetTFlags.py_type(payload), 0
+    )
+
+
+def InvocationStartPayloadVector(builder, numElems):
+    return builder.StartVector(1, numElems, 1)
+
+
+def InvocationAddEncAlgo(builder, encAlgo):
+    builder.PrependUint8Slot(3, encAlgo, 0)
+
+
+def InvocationAddEncSerializer(builder, encSerializer):
+    builder.PrependUint8Slot(4, encSerializer, 0)
+
+
+def InvocationAddEncKey(builder, encKey):
+    builder.PrependUOffsetTRelativeSlot(
+        5, flatbuffers.number_types.UOffsetTFlags.py_type(encKey), 0
+    )
+
+
+def InvocationStartEncKeyVector(builder, numElems):
+    return builder.StartVector(1, numElems, 1)
+
+
+def InvocationAddProcedure(builder, procedure):
+    builder.PrependUOffsetTRelativeSlot(
+        6, flatbuffers.number_types.UOffsetTFlags.py_type(procedure), 0
+    )
+
+
+def InvocationAddTimeout(builder, timeout):
+    builder.PrependUint32Slot(7, timeout, 0)
+
+
+def InvocationAddReceiveProgress(builder, receiveProgress):
+    builder.PrependBoolSlot(8, receiveProgress, 0)
+
+
+def InvocationAddCaller(builder, caller):
+    builder.PrependUint64Slot(9, caller, 0)
+
+
+def InvocationAddCallerAuthid(builder, callerAuthid):
+    builder.PrependUOffsetTRelativeSlot(
+        10, flatbuffers.number_types.UOffsetTFlags.py_type(callerAuthid), 0
+    )
+
+
+def InvocationAddCallerAuthrole(builder, callerAuthrole):
+    builder.PrependUOffsetTRelativeSlot(
+        11, flatbuffers.number_types.UOffsetTFlags.py_type(callerAuthrole), 0
+    )
+
+
+def InvocationEnd(builder):
+    return builder.EndObject()

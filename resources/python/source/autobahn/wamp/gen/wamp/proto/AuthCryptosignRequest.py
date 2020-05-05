@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class AuthCryptosignRequest(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsAuthCryptosignRequest(cls, buf, offset):
@@ -32,7 +33,20 @@ class AuthCryptosignRequest(object):
             return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 0
 
-def AuthCryptosignRequestStart(builder): builder.StartObject(2)
-def AuthCryptosignRequestAddPubkey(builder, pubkey): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(pubkey), 0)
-def AuthCryptosignRequestAddChannelBinding(builder, channelBinding): builder.PrependUint8Slot(1, channelBinding, 0)
-def AuthCryptosignRequestEnd(builder): return builder.EndObject()
+
+def AuthCryptosignRequestStart(builder):
+    builder.StartObject(2)
+
+
+def AuthCryptosignRequestAddPubkey(builder, pubkey):
+    builder.PrependUOffsetTRelativeSlot(
+        0, flatbuffers.number_types.UOffsetTFlags.py_type(pubkey), 0
+    )
+
+
+def AuthCryptosignRequestAddChannelBinding(builder, channelBinding):
+    builder.PrependUint8Slot(1, channelBinding, 0)
+
+
+def AuthCryptosignRequestEnd(builder):
+    return builder.EndObject()

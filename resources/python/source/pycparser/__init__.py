@@ -1,4 +1,4 @@
-#-----------------------------------------------------------------
+# -----------------------------------------------------------------
 # pycparser: __init__.py
 #
 # This package file exports some convenience functions for
@@ -6,16 +6,16 @@
 #
 # Eli Bendersky [https://eli.thegreenplace.net/]
 # License: BSD
-#-----------------------------------------------------------------
-__all__ = ['c_lexer', 'c_parser', 'c_ast']
-__version__ = '2.20'
+# -----------------------------------------------------------------
+__all__ = ["c_lexer", "c_parser", "c_ast"]
+__version__ = "2.20"
 
 import io
 from subprocess import check_output
 from .c_parser import CParser
 
 
-def preprocess_file(filename, cpp_path='cpp', cpp_args=''):
+def preprocess_file(filename, cpp_path="cpp", cpp_args=""):
     """ Preprocess a file using cpp.
 
         filename:
@@ -32,7 +32,7 @@ def preprocess_file(filename, cpp_path='cpp', cpp_args=''):
     path_list = [cpp_path]
     if isinstance(cpp_args, list):
         path_list += cpp_args
-    elif cpp_args != '':
+    elif cpp_args != "":
         path_list += [cpp_args]
     path_list += [filename]
 
@@ -41,15 +41,16 @@ def preprocess_file(filename, cpp_path='cpp', cpp_args=''):
         # as \n for Python's purpose
         text = check_output(path_list, universal_newlines=True)
     except OSError as e:
-        raise RuntimeError("Unable to invoke 'cpp'.  " +
-            'Make sure its path was passed correctly\n' +
-            ('Original error: %s' % e))
+        raise RuntimeError(
+            "Unable to invoke 'cpp'.  "
+            + "Make sure its path was passed correctly\n"
+            + ("Original error: %s" % e)
+        )
 
     return text
 
 
-def parse_file(filename, use_cpp=False, cpp_path='cpp', cpp_args='',
-               parser=None):
+def parse_file(filename, use_cpp=False, cpp_path="cpp", cpp_args="", parser=None):
     """ Parse a C file using pycparser.
 
         filename:

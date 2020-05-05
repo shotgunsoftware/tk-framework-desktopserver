@@ -2,10 +2,10 @@
 
 # namespace: proto
 
+
 class InvocationPolicy(object):
     SINGLE = 0
     FIRST = 1
     LAST = 2
     ROUNDROBIN = 3
     RANDOM = 4
-

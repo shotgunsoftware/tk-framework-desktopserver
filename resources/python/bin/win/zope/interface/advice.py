@@ -26,6 +26,7 @@ Visit the PEAK home page at http://peak.telecommunity.com for more information.
 """
 
 from types import FunctionType
+
 try:
     from types import ClassType
 except ImportError:
@@ -34,14 +35,15 @@ else:
     __python3 = False
 
 __all__ = [
-    'addClassAdvisor',
-    'determineMetaclass',
-    'getFrameInfo',
-    'isClassAdvisor',
-    'minimalBases',
+    "addClassAdvisor",
+    "determineMetaclass",
+    "getFrameInfo",
+    "isClassAdvisor",
+    "minimalBases",
 ]
 
 import sys
+
 
 def getFrameInfo(frame):
     """Return (kind,module,locals,globals) for a frame
@@ -53,13 +55,13 @@ def getFrameInfo(frame):
     f_globals = frame.f_globals
 
     sameNamespace = f_locals is f_globals
-    hasModule = '__module__' in f_locals
-    hasName = '__name__' in f_globals
+    hasModule = "__module__" in f_locals
+    hasName = "__name__" in f_globals
 
     sameName = hasModule and hasName
-    sameName = sameName and f_globals['__name__']==f_locals['__module__']
+    sameName = sameName and f_globals["__name__"] == f_locals["__module__"]
 
-    module = hasName and sys.modules.get(f_globals['__name__']) or None
+    module = hasName and sys.modules.get(f_globals["__name__"]) or None
 
     namespaceIsModule = module and module.__dict__ is f_globals
 
@@ -72,7 +74,7 @@ def getFrameInfo(frame):
         kind = "class"
     elif not sameNamespace:
         kind = "function call"
-    else: # pragma: no cover
+    else:  # pragma: no cover
         # How can you have f_locals is f_globals, and have '__module__' set?
         # This is probably module-level code, but with a '__module__' variable.
         kind = "unknown"
@@ -104,8 +106,8 @@ def addClassAdvisor(callback, depth=2):
     declare any '__metaclass__' *first*, to ensure all callbacks are run."""
     # This entire approach is invalid under Py3K.  Don't even try to fix
     # the coverage for this block there. :(
-    if __python3: # pragma: no cover
-        raise TypeError('Class advice impossible in Python3')
+    if __python3:  # pragma: no cover
+        raise TypeError("Class advice impossible in Python3")
 
     frame = sys._getframe(depth)
     kind, module, caller_locals, caller_globals = getFrameInfo(frame)
@@ -113,22 +115,21 @@ def addClassAdvisor(callback, depth=2):
     # This causes a problem when zope interfaces are used from doctest.
     # In these cases, kind == "exec".
     #
-    #if kind != "class":
+    # if kind != "class":
     #    raise SyntaxError(
     #        "Advice must be in the body of a class statement"
     #    )
 
-    previousMetaclass = caller_locals.get('__metaclass__')
-    if __python3:   # pragma: no cover
-        defaultMetaclass  = caller_globals.get('__metaclass__', type)
+    previousMetaclass = caller_locals.get("__metaclass__")
+    if __python3:  # pragma: no cover
+        defaultMetaclass = caller_globals.get("__metaclass__", type)
     else:
-        defaultMetaclass  = caller_globals.get('__metaclass__', ClassType)
-
+        defaultMetaclass = caller_globals.get("__metaclass__", ClassType)
 
     def advise(name, bases, cdict):
 
-        if '__metaclass__' in cdict:
-            del cdict['__metaclass__']
+        if "__metaclass__" in cdict:
+            del cdict["__metaclass__"]
 
         if previousMetaclass is None:
             if bases:
@@ -146,7 +147,7 @@ def addClassAdvisor(callback, depth=2):
         else:
             meta = determineMetaclass(bases, previousMetaclass)
 
-        newClass = meta(name,bases,cdict)
+        newClass = meta(name, bases, cdict)
 
         # this lets the callback replace the class completely, if it wants to
         return callback(newClass)
@@ -156,38 +157,38 @@ def addClassAdvisor(callback, depth=2):
     advise.callback = callback
 
     # install the advisor
-    caller_locals['__metaclass__'] = advise
+    caller_locals["__metaclass__"] = advise
 
 
 def isClassAdvisor(ob):
     """True if 'ob' is a class advisor function"""
-    return isinstance(ob,FunctionType) and hasattr(ob,'previousMetaclass')
+    return isinstance(ob, FunctionType) and hasattr(ob, "previousMetaclass")
 
 
 def determineMetaclass(bases, explicit_mc=None):
     """Determine metaclass from 1+ bases and optional explicit __metaclass__"""
 
-    meta = [getattr(b,'__class__',type(b)) for b in bases]
+    meta = [getattr(b, "__class__", type(b)) for b in bases]
 
     if explicit_mc is not None:
         # The explicit metaclass needs to be verified for compatibility
         # as well, and allowed to resolve the incompatible bases, if any
         meta.append(explicit_mc)
 
-    if len(meta)==1:
+    if len(meta) == 1:
         # easy case
         return meta[0]
 
-    candidates = minimalBases(meta) # minimal set of metaclasses
+    candidates = minimalBases(meta)  # minimal set of metaclasses
 
-    if not candidates: # pragma: no cover
+    if not candidates:  # pragma: no cover
         # they're all "classic" classes
-        assert(not __python3) # This should not happen under Python 3
+        assert not __python3  # This should not happen under Python 3
         return ClassType
 
-    elif len(candidates)>1:
+    elif len(candidates) > 1:
         # We could auto-combine, but for now we won't...
-        raise TypeError("Incompatible metatypes",bases)
+        raise TypeError("Incompatible metatypes", bases)
 
     # Just one, return it
     return candidates[0]
@@ -196,18 +197,18 @@ def determineMetaclass(bases, explicit_mc=None):
 def minimalBases(classes):
     """Reduce a list of base classes to its ordered minimum equivalent"""
 
-    if not __python3: # pragma: no cover
+    if not __python3:  # pragma: no cover
         classes = [c for c in classes if c is not ClassType]
     candidates = []
 
     for m in classes:
         for n in classes:
-            if issubclass(n,m) and m is not n:
+            if issubclass(n, m) and m is not n:
                 break
         else:
             # m has no subclasses in 'classes'
             if m in candidates:
-                candidates.remove(m)    # ensure that we're later in the list
+                candidates.remove(m)  # ensure that we're later in the list
             candidates.append(m)
 
     return candidates

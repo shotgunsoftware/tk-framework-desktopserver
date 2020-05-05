@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class CalleeFeatures(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsCalleeFeatures(cls, buf, offset):
@@ -22,81 +23,136 @@ class CalleeFeatures(object):
     def CallerIdentification(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CalleeFeatures
     def CallTrustlevels(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CalleeFeatures
     def CallTimeout(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CalleeFeatures
     def CallCanceling(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CalleeFeatures
     def ProgressiveCallResults(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CalleeFeatures
     def RegistrationRevocation(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CalleeFeatures
     def PatternBasedRegistration(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CalleeFeatures
     def SharedRegistration(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CalleeFeatures
     def PayloadTransparency(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
     # CalleeFeatures
     def PayloadEncryptionCryptobox(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+            return bool(
+                self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos)
+            )
         return False
 
-def CalleeFeaturesStart(builder): builder.StartObject(10)
-def CalleeFeaturesAddCallerIdentification(builder, callerIdentification): builder.PrependBoolSlot(0, callerIdentification, 0)
-def CalleeFeaturesAddCallTrustlevels(builder, callTrustlevels): builder.PrependBoolSlot(1, callTrustlevels, 0)
-def CalleeFeaturesAddCallTimeout(builder, callTimeout): builder.PrependBoolSlot(2, callTimeout, 0)
-def CalleeFeaturesAddCallCanceling(builder, callCanceling): builder.PrependBoolSlot(3, callCanceling, 0)
-def CalleeFeaturesAddProgressiveCallResults(builder, progressiveCallResults): builder.PrependBoolSlot(4, progressiveCallResults, 0)
-def CalleeFeaturesAddRegistrationRevocation(builder, registrationRevocation): builder.PrependBoolSlot(5, registrationRevocation, 0)
-def CalleeFeaturesAddPatternBasedRegistration(builder, patternBasedRegistration): builder.PrependBoolSlot(6, patternBasedRegistration, 0)
-def CalleeFeaturesAddSharedRegistration(builder, sharedRegistration): builder.PrependBoolSlot(7, sharedRegistration, 0)
-def CalleeFeaturesAddPayloadTransparency(builder, payloadTransparency): builder.PrependBoolSlot(8, payloadTransparency, 0)
-def CalleeFeaturesAddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox): builder.PrependBoolSlot(9, payloadEncryptionCryptobox, 0)
-def CalleeFeaturesEnd(builder): return builder.EndObject()
+
+def CalleeFeaturesStart(builder):
+    builder.StartObject(10)
+
+
+def CalleeFeaturesAddCallerIdentification(builder, callerIdentification):
+    builder.PrependBoolSlot(0, callerIdentification, 0)
+
+
+def CalleeFeaturesAddCallTrustlevels(builder, callTrustlevels):
+    builder.PrependBoolSlot(1, callTrustlevels, 0)
+
+
+def CalleeFeaturesAddCallTimeout(builder, callTimeout):
+    builder.PrependBoolSlot(2, callTimeout, 0)
+
+
+def CalleeFeaturesAddCallCanceling(builder, callCanceling):
+    builder.PrependBoolSlot(3, callCanceling, 0)
+
+
+def CalleeFeaturesAddProgressiveCallResults(builder, progressiveCallResults):
+    builder.PrependBoolSlot(4, progressiveCallResults, 0)
+
+
+def CalleeFeaturesAddRegistrationRevocation(builder, registrationRevocation):
+    builder.PrependBoolSlot(5, registrationRevocation, 0)
+
+
+def CalleeFeaturesAddPatternBasedRegistration(builder, patternBasedRegistration):
+    builder.PrependBoolSlot(6, patternBasedRegistration, 0)
+
+
+def CalleeFeaturesAddSharedRegistration(builder, sharedRegistration):
+    builder.PrependBoolSlot(7, sharedRegistration, 0)
+
+
+def CalleeFeaturesAddPayloadTransparency(builder, payloadTransparency):
+    builder.PrependBoolSlot(8, payloadTransparency, 0)
+
+
+def CalleeFeaturesAddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox):
+    builder.PrependBoolSlot(9, payloadEncryptionCryptobox, 0)
+
+
+def CalleeFeaturesEnd(builder):
+    return builder.EndObject()

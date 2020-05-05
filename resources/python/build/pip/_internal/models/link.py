@@ -26,37 +26,34 @@ class Link(KeyBasedCompareMixin):
         """
 
         # url can be a UNC windows share
-        if url.startswith('\\\\'):
+        if url.startswith("\\\\"):
             url = path_to_url(url)
 
         self.url = url
         self.comes_from = comes_from
         self.requires_python = requires_python if requires_python else None
 
-        super(Link, self).__init__(
-            key=(self.url),
-            defining_class=Link
-        )
+        super(Link, self).__init__(key=(self.url), defining_class=Link)
 
     def __str__(self):
         if self.requires_python:
-            rp = ' (requires-python:%s)' % self.requires_python
+            rp = " (requires-python:%s)" % self.requires_python
         else:
-            rp = ''
+            rp = ""
         if self.comes_from:
-            return '%s (from %s)%s' % (self.url, self.comes_from, rp)
+            return "%s (from %s)%s" % (self.url, self.comes_from, rp)
         else:
             return str(self.url)
 
     def __repr__(self):
-        return '<Link %s>' % self
+        return "<Link %s>" % self
 
     @property
     def filename(self):
         _, netloc, path, _, _ = urllib_parse.urlsplit(self.url)
-        name = posixpath.basename(path.rstrip('/')) or netloc
+        name = posixpath.basename(path.rstrip("/")) or netloc
         name = urllib_parse.unquote(name)
-        assert name, ('URL %r produced no filename' % self.url)
+        assert name, "URL %r produced no filename" % self.url
         return name
 
     @property
@@ -72,7 +69,7 @@ class Link(KeyBasedCompareMixin):
         return urllib_parse.unquote(urllib_parse.urlsplit(self.url)[2])
 
     def splitext(self):
-        return splitext(posixpath.basename(self.path.rstrip('/')))
+        return splitext(posixpath.basename(self.path.rstrip("/")))
 
     @property
     def ext(self):
@@ -83,7 +80,7 @@ class Link(KeyBasedCompareMixin):
         scheme, netloc, path, query, fragment = urllib_parse.urlsplit(self.url)
         return urllib_parse.urlunsplit((scheme, netloc, path, query, None))
 
-    _egg_fragment_re = re.compile(r'[#&]egg=([^&]*)')
+    _egg_fragment_re = re.compile(r"[#&]egg=([^&]*)")
 
     @property
     def egg_fragment(self):
@@ -92,7 +89,7 @@ class Link(KeyBasedCompareMixin):
             return None
         return match.group(1)
 
-    _subdirectory_fragment_re = re.compile(r'[#&]subdirectory=([^&]*)')
+    _subdirectory_fragment_re = re.compile(r"[#&]subdirectory=([^&]*)")
 
     @property
     def subdirectory_fragment(self):
@@ -101,9 +98,7 @@ class Link(KeyBasedCompareMixin):
             return None
         return match.group(1)
 
-    _hash_re = re.compile(
-        r'(sha1|sha224|sha384|sha256|sha512|md5)=([a-f0-9]+)'
-    )
+    _hash_re = re.compile(r"(sha1|sha224|sha384|sha256|sha512|md5)=([a-f0-9]+)")
 
     @property
     def hash(self):
@@ -121,7 +116,7 @@ class Link(KeyBasedCompareMixin):
 
     @property
     def show_url(self):
-        return posixpath.basename(self.url.split('#', 1)[0].split('?', 1)[0])
+        return posixpath.basename(self.url.split("#", 1)[0].split("?", 1)[0])
 
     @property
     def is_wheel(self):

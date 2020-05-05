@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class AuthCraChallenge(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsAuthCraChallenge(cls, buf, offset):
@@ -36,7 +37,9 @@ class AuthCraChallenge(object):
     def Iterations(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint32Flags, o + self._tab.Pos
+            )
         return 1000
 
     # AuthCraChallenge
@@ -46,9 +49,30 @@ class AuthCraChallenge(object):
             return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 32
 
-def AuthCraChallengeStart(builder): builder.StartObject(4)
-def AuthCraChallengeAddChallenge(builder, challenge): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(challenge), 0)
-def AuthCraChallengeAddSalt(builder, salt): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(salt), 0)
-def AuthCraChallengeAddIterations(builder, iterations): builder.PrependUint32Slot(2, iterations, 1000)
-def AuthCraChallengeAddKeylen(builder, keylen): builder.PrependUint8Slot(3, keylen, 32)
-def AuthCraChallengeEnd(builder): return builder.EndObject()
+
+def AuthCraChallengeStart(builder):
+    builder.StartObject(4)
+
+
+def AuthCraChallengeAddChallenge(builder, challenge):
+    builder.PrependUOffsetTRelativeSlot(
+        0, flatbuffers.number_types.UOffsetTFlags.py_type(challenge), 0
+    )
+
+
+def AuthCraChallengeAddSalt(builder, salt):
+    builder.PrependUOffsetTRelativeSlot(
+        1, flatbuffers.number_types.UOffsetTFlags.py_type(salt), 0
+    )
+
+
+def AuthCraChallengeAddIterations(builder, iterations):
+    builder.PrependUint32Slot(2, iterations, 1000)
+
+
+def AuthCraChallengeAddKeylen(builder, keylen):
+    builder.PrependUint8Slot(3, keylen, 32)
+
+
+def AuthCraChallengeEnd(builder):
+    return builder.EndObject()

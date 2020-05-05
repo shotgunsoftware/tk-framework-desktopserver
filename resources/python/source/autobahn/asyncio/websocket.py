@@ -29,6 +29,7 @@ from __future__ import absolute_import
 from collections import deque
 
 import txaio
+
 txaio.use_asyncio()
 
 from autobahn.util import public
@@ -48,20 +49,20 @@ except ImportError:
     from trollius import iscoroutine
     from trollius import Future
 
-if hasattr(asyncio, 'ensure_future'):
+if hasattr(asyncio, "ensure_future"):
     ensure_future = asyncio.ensure_future
 else:  # Deprecated since Python 3.4.4
-    ensure_future = getattr(asyncio, 'async')
+    ensure_future = getattr(asyncio, "async")
 
 __all__ = (
-    'WebSocketServerProtocol',
-    'WebSocketClientProtocol',
-    'WebSocketServerFactory',
-    'WebSocketClientFactory',
-    'WampWebSocketServerProtocol',
-    'WampWebSocketClientProtocol',
-    'WampWebSocketServerFactory',
-    'WampWebSocketClientFactory',
+    "WebSocketServerProtocol",
+    "WebSocketClientProtocol",
+    "WebSocketServerFactory",
+    "WebSocketClientFactory",
+    "WampWebSocketServerProtocol",
+    "WampWebSocketClientProtocol",
+    "WampWebSocketServerFactory",
+    "WampWebSocketClientFactory",
 )
 
 
@@ -86,7 +87,7 @@ class WebSocketAdapterProtocol(asyncio.Protocol):
         self._consume()
 
         try:
-            self.peer = peer2str(transport.get_extra_info('peername'))
+            self.peer = peer2str(transport.get_extra_info("peername"))
         except:
             self.peer = u"?"
 
@@ -118,7 +119,7 @@ class WebSocketAdapterProtocol(asyncio.Protocol):
             self.waiter.set_result(None)
 
     def _closeConnection(self, abort=False):
-        if abort and hasattr(self.transport, 'abort'):
+        if abort and hasattr(self.transport, "abort"):
             self.transport.abort()
         else:
             self.transport.close()
@@ -191,7 +192,9 @@ class WebSocketAdapterProtocol(asyncio.Protocol):
 
 
 @public
-class WebSocketServerProtocol(WebSocketAdapterProtocol, protocol.WebSocketServerProtocol):
+class WebSocketServerProtocol(
+    WebSocketAdapterProtocol, protocol.WebSocketServerProtocol
+):
     """
     Base class for asyncio-based WebSocket server protocols.
 
@@ -202,7 +205,7 @@ class WebSocketServerProtocol(WebSocketAdapterProtocol, protocol.WebSocketServer
 
     log = txaio.make_logger()
 
-    def get_channel_id(self, channel_id_type=u'tls-unique'):
+    def get_channel_id(self, channel_id_type=u"tls-unique"):
         """
         Implements :func:`autobahn.wamp.interfaces.ITransport.get_channel_id`
         """
@@ -210,7 +213,9 @@ class WebSocketServerProtocol(WebSocketAdapterProtocol, protocol.WebSocketServer
 
 
 @public
-class WebSocketClientProtocol(WebSocketAdapterProtocol, protocol.WebSocketClientProtocol):
+class WebSocketClientProtocol(
+    WebSocketAdapterProtocol, protocol.WebSocketClientProtocol
+):
     """
     Base class for asyncio-based WebSocket client protocols.
 
@@ -229,7 +234,7 @@ class WebSocketClientProtocol(WebSocketAdapterProtocol, protocol.WebSocketClient
     def startTLS(self):
         raise Exception("WSS over explicit proxies not implemented")
 
-    def get_channel_id(self, channel_id_type=u'tls-unique'):
+    def get_channel_id(self, channel_id_type=u"tls-unique"):
         """
         Implements :func:`autobahn.wamp.interfaces.ITransport.get_channel_id`
         """
@@ -240,20 +245,25 @@ class WebSocketClientProtocol(WebSocketAdapterProtocol, protocol.WebSocketClient
         Internal helper.
         Base class calls this to create a TransportDetails
         """
-        is_secure = self.transport.get_extra_info('peercert', None) is not None
+        is_secure = self.transport.get_extra_info("peercert", None) is not None
         if is_secure:
             secure_channel_id = {
-                u'tls-unique': transport_channel_id(self.transport, False, 'tls-unique'),
+                u"tls-unique": transport_channel_id(
+                    self.transport, False, "tls-unique"
+                ),
             }
         else:
             secure_channel_id = {}
-        return TransportDetails(peer=self.peer, is_secure=is_secure, secure_channel_id=secure_channel_id)
+        return TransportDetails(
+            peer=self.peer, is_secure=is_secure, secure_channel_id=secure_channel_id
+        )
 
 
 class WebSocketAdapterFactory(object):
     """
     Adapter class for asyncio-based WebSocket client and server factories.
     """
+
     log = txaio.make_logger()
 
     def __call__(self):
@@ -282,7 +292,7 @@ class WebSocketServerFactory(WebSocketAdapterFactory, protocol.WebSocketServerFa
             you can supply a ``loop`` keyword argument to specify the
             asyncio event loop to be used.
         """
-        loop = kwargs.pop('loop', None)
+        loop = kwargs.pop("loop", None)
         self.loop = loop or asyncio.get_event_loop()
 
         protocol.WebSocketServerFactory.__init__(self, *args, **kwargs)
@@ -307,14 +317,16 @@ class WebSocketClientFactory(WebSocketAdapterFactory, protocol.WebSocketClientFa
             you can supply a ``loop`` keyword argument to specify the
             asyncio event loop to be used.
         """
-        loop = kwargs.pop('loop', None)
+        loop = kwargs.pop("loop", None)
         self.loop = loop or asyncio.get_event_loop()
 
         protocol.WebSocketClientFactory.__init__(self, *args, **kwargs)
 
 
 @public
-class WampWebSocketServerProtocol(websocket.WampWebSocketServerProtocol, WebSocketServerProtocol):
+class WampWebSocketServerProtocol(
+    websocket.WampWebSocketServerProtocol, WebSocketServerProtocol
+):
     """
     asyncio-based WAMP-over-WebSocket server protocol.
 
@@ -325,7 +337,9 @@ class WampWebSocketServerProtocol(websocket.WampWebSocketServerProtocol, WebSock
 
 
 @public
-class WampWebSocketServerFactory(websocket.WampWebSocketServerFactory, WebSocketServerFactory):
+class WampWebSocketServerFactory(
+    websocket.WampWebSocketServerFactory, WebSocketServerFactory
+):
     """
     asyncio-based WAMP-over-WebSocket server factory.
     """
@@ -345,18 +359,20 @@ class WampWebSocketServerFactory(websocket.WampWebSocketServerFactory, WebSocket
             :class:`autobahn.wamp.interfaces.ISerializer`
         """
 
-        serializers = kwargs.pop('serializers', None)
+        serializers = kwargs.pop("serializers", None)
 
         websocket.WampWebSocketServerFactory.__init__(self, factory, serializers)
 
-        kwargs['protocols'] = self._protocols
+        kwargs["protocols"] = self._protocols
 
         # noinspection PyCallByClass
         WebSocketServerFactory.__init__(self, *args, **kwargs)
 
 
 @public
-class WampWebSocketClientProtocol(websocket.WampWebSocketClientProtocol, WebSocketClientProtocol):
+class WampWebSocketClientProtocol(
+    websocket.WampWebSocketClientProtocol, WebSocketClientProtocol
+):
     """
     asyncio-based WAMP-over-WebSocket client protocols.
 
@@ -367,7 +383,9 @@ class WampWebSocketClientProtocol(websocket.WampWebSocketClientProtocol, WebSock
 
 
 @public
-class WampWebSocketClientFactory(websocket.WampWebSocketClientFactory, WebSocketClientFactory):
+class WampWebSocketClientFactory(
+    websocket.WampWebSocketClientFactory, WebSocketClientFactory
+):
     """
     asyncio-based WAMP-over-WebSocket client factory.
     """
@@ -387,10 +405,10 @@ class WampWebSocketClientFactory(websocket.WampWebSocketClientFactory, WebSocket
         :type serializer: object implementing :class:`autobahn.wamp.interfaces.ISerializer`
         """
 
-        serializers = kwargs.pop('serializers', None)
+        serializers = kwargs.pop("serializers", None)
 
         websocket.WampWebSocketClientFactory.__init__(self, factory, serializers)
 
-        kwargs['protocols'] = self._protocols
+        kwargs["protocols"] = self._protocols
 
         WebSocketClientFactory.__init__(self, *args, **kwargs)

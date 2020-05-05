@@ -86,8 +86,7 @@ class PBKDF2HMACBackend(object):
         """
 
     @abc.abstractmethod
-    def derive_pbkdf2_hmac(self, algorithm, length, salt, iterations,
-                           key_material):
+    def derive_pbkdf2_hmac(self, algorithm, length, salt, iterations, key_material):
         """
         Return length bytes derived from provided PBKDF2 parameters.
         """
@@ -183,9 +182,7 @@ class DSABackend(object):
 @six.add_metaclass(abc.ABCMeta)
 class EllipticCurveBackend(object):
     @abc.abstractmethod
-    def elliptic_curve_signature_algorithm_supported(
-        self, signature_algorithm, curve
-    ):
+    def elliptic_curve_signature_algorithm_supported(self, signature_algorithm, curve):
         """
         Returns True if the backend supports the named elliptic curve with the
         specified signature algorithm.

@@ -8,7 +8,7 @@ Very basic functionality for a Reactor implementation.
 
 from __future__ import division, absolute_import
 
-import socket # needed only for sync-dns
+import socket  # needed only for sync-dns
 from zope.interface import implementer, classImplements
 
 import sys
@@ -18,9 +18,15 @@ from heapq import heappush, heappop, heapify
 import traceback
 
 from twisted.internet.interfaces import (
-    IReactorCore, IReactorTime, IReactorThreads, IResolverSimple,
-    IReactorPluggableResolver, IReactorPluggableNameResolver, IConnector,
-    IDelayedCall, _ISupportsExitSignalCapturing
+    IReactorCore,
+    IReactorTime,
+    IReactorThreads,
+    IResolverSimple,
+    IReactorPluggableResolver,
+    IReactorPluggableNameResolver,
+    IConnector,
+    IDelayedCall,
+    _ISupportsExitSignalCapturing,
 )
 
 from twisted.internet import fdesc, main, error, abstract, defer, threads
@@ -49,8 +55,7 @@ class DelayedCall:
     debug = False
     _repr = None
 
-    def __init__(self, time, func, args, kw, cancel, reset,
-                 seconds=runtimeSeconds):
+    def __init__(self, time, func, args, kw, cancel, reset, seconds=runtimeSeconds):
         """
         @param time: Seconds from the epoch at which to call C{func}.
         @param func: The callable to call.
@@ -160,7 +165,6 @@ class DelayedCall:
         """
         return not (self.cancelled or self.called)
 
-
     def __le__(self, other):
         """
         Implement C{<=} operator between two L{DelayedCall} instances.
@@ -169,7 +173,6 @@ class DelayedCall:
         delayed time).
         """
         return self.time <= other.time
-
 
     def __lt__(self, other):
         """
@@ -180,7 +183,6 @@ class DelayedCall:
         """
         return self.time < other.time
 
-
     def __repr__(self):
         """
         Implement C{repr()} for L{DelayedCall} instances.
@@ -190,24 +192,25 @@ class DelayedCall:
         """
         if self._repr is not None:
             return self._repr
-        if hasattr(self, 'func'):
+        if hasattr(self, "func"):
             # This code should be replaced by a utility function in reflect;
             # see ticket #6066:
-            if hasattr(self.func, '__qualname__'):
+            if hasattr(self.func, "__qualname__"):
                 func = self.func.__qualname__
-            elif hasattr(self.func, '__name__'):
+            elif hasattr(self.func, "__name__"):
                 func = self.func.func_name
-                if hasattr(self.func, 'im_class'):
-                    func = self.func.im_class.__name__ + '.' + func
+                if hasattr(self.func, "im_class"):
+                    func = self.func.im_class.__name__ + "." + func
             else:
                 func = reflect.safe_repr(self.func)
         else:
             func = None
 
         now = self.seconds()
-        L = ["<DelayedCall 0x%x [%ss] called=%s cancelled=%s" % (
-                id(self), self.time - now, self.called,
-                self.cancelled)]
+        L = [
+            "<DelayedCall 0x%x [%ss] called=%s cancelled=%s"
+            % (id(self), self.time - now, self.called, self.cancelled)
+        ]
         if func is not None:
             L.extend((" ", func, "("))
             if self.args:
@@ -215,15 +218,21 @@ class DelayedCall:
                 if self.kw:
                     L.append(", ")
             if self.kw:
-                L.append(", ".join(['%s=%s' % (k, reflect.safe_repr(v)) for (k, v) in self.kw.items()]))
+                L.append(
+                    ", ".join(
+                        [
+                            "%s=%s" % (k, reflect.safe_repr(v))
+                            for (k, v) in self.kw.items()
+                        ]
+                    )
+                )
             L.append(")")
 
         if self.debug:
-            L.append("\n\ntraceback at creation: \n\n%s" % ('    '.join(self.creator)))
-        L.append('>')
+            L.append("\n\ntraceback at creation: \n\n%s" % ("    ".join(self.creator)))
+        L.append(">")
 
         return "".join(L)
-
 
 
 @implementer(IResolverSimple)
@@ -243,17 +252,14 @@ class ThreadedResolver(object):
         self.reactor = reactor
         self._runningQueries = {}
 
-
     def _fail(self, name, err):
         err = error.DNSLookupError("address %r not found: %s" % (name, err))
         return failure.Failure(err)
-
 
     def _cleanup(self, name, lookupDeferred):
         userDeferred, cancelCall = self._runningQueries[lookupDeferred]
         del self._runningQueries[lookupDeferred]
         userDeferred.errback(self._fail(name, "timeout error"))
-
 
     def _checkTimeout(self, result, name, lookupDeferred):
         try:
@@ -269,8 +275,7 @@ class ThreadedResolver(object):
             else:
                 userDeferred.callback(result)
 
-
-    def getHostByName(self, name, timeout = (1, 3, 11, 45)):
+    def getHostByName(self, name, timeout=(1, 3, 11, 45)):
         """
         See L{twisted.internet.interfaces.IResolverSimple.getHostByName}.
 
@@ -284,21 +289,20 @@ class ThreadedResolver(object):
             timeoutDelay = 60
         userDeferred = defer.Deferred()
         lookupDeferred = threads.deferToThreadPool(
-            self.reactor, self.reactor.getThreadPool(),
-            socket.gethostbyname, name)
+            self.reactor, self.reactor.getThreadPool(), socket.gethostbyname, name
+        )
         cancelCall = self.reactor.callLater(
-            timeoutDelay, self._cleanup, name, lookupDeferred)
+            timeoutDelay, self._cleanup, name, lookupDeferred
+        )
         self._runningQueries[lookupDeferred] = (userDeferred, cancelCall)
         lookupDeferred.addBoth(self._checkTimeout, name, lookupDeferred)
         return userDeferred
 
 
-
 @implementer(IResolverSimple)
 @_oldStyle
 class BlockingResolver:
-
-    def getHostByName(self, name, timeout = (1, 3, 11, 45)):
+    def getHostByName(self, name, timeout=(1, 3, 11, 45)):
         try:
             address = socket.gethostbyname(name)
         except socket.error:
@@ -338,12 +342,12 @@ class _ThreePhaseEvent(object):
         this is the initial value), C{'BEFORE'} (when the before-phase triggers
         are in the process of being executed).
     """
+
     def __init__(self):
         self.before = []
         self.during = []
         self.after = []
-        self.state = 'BASE'
-
+        self.state = "BASE"
 
     def addTrigger(self, phase, callable, *args, **kwargs):
         """
@@ -358,11 +362,10 @@ class _ThreePhaseEvent(object):
         @return: An opaque handle which may be passed to L{removeTrigger} to
             reverse the effects of calling this method.
         """
-        if phase not in ('before', 'during', 'after'):
+        if phase not in ("before", "during", "after"):
             raise KeyError("invalid phase")
         getattr(self, phase).append((callable, args, kwargs))
         return phase, callable, args, kwargs
-
 
     def removeTrigger(self, handle):
         """
@@ -374,8 +377,7 @@ class _ThreePhaseEvent(object):
         @raise ValueError: If the trigger associated with C{handle} has already
             been removed or if C{handle} is not a valid handle.
         """
-        return getattr(self, 'removeTrigger_' + self.state)(handle)
-
+        return getattr(self, "removeTrigger_" + self.state)(handle)
 
     def removeTrigger_BASE(self, handle):
         """
@@ -388,10 +390,9 @@ class _ThreePhaseEvent(object):
         except (TypeError, ValueError):
             raise ValueError("invalid trigger handle")
         else:
-            if phase not in ('before', 'during', 'after'):
+            if phase not in ("before", "during", "after"):
                 raise KeyError("invalid phase")
             getattr(self, phase).remove((callable, args, kwargs))
-
 
     def removeTrigger_BEFORE(self, handle):
         """
@@ -402,23 +403,23 @@ class _ThreePhaseEvent(object):
         @see: removeTrigger
         """
         phase, callable, args, kwargs = handle
-        if phase != 'before':
+        if phase != "before":
             return self.removeTrigger_BASE(handle)
         if (callable, args, kwargs) in self.finishedBefore:
             warnings.warn(
                 "Removing already-fired system event triggers will raise an "
                 "exception in a future version of Twisted.",
                 category=DeprecationWarning,
-                stacklevel=3)
+                stacklevel=3,
+            )
         else:
             self.removeTrigger_BASE(handle)
-
 
     def fireEvent(self):
         """
         Call the triggers added to this event.
         """
-        self.state = 'BEFORE'
+        self.state = "BEFORE"
         self.finishedBefore = []
         beforeResults = []
         while self.before:
@@ -433,12 +434,11 @@ class _ThreePhaseEvent(object):
                     beforeResults.append(result)
         DeferredList(beforeResults).addCallback(self._continueFiring)
 
-
     def _continueFiring(self, ignored):
         """
         Call the during and after phase triggers for this event.
         """
-        self.state = 'BASE'
+        self.state = "BASE"
         self.finishedBefore = []
         for phase in self.during, self.after:
             while phase:
@@ -449,7 +449,6 @@ class _ThreePhaseEvent(object):
                     log.err()
 
 
-
 @implementer(IReactorPluggableNameResolver, IReactorPluggableResolver)
 class PluggableResolverMixin(object):
     """
@@ -458,6 +457,7 @@ class PluggableResolverMixin(object):
     @ivar resolver: The installed L{IResolverSimple}.
     @ivar _nameResolver: The installed L{IHostnameResolver}.
     """
+
     resolver = BlockingResolver()
     _nameResolver = _SimpleResolverComplexifier(resolver)
 
@@ -476,7 +476,6 @@ class PluggableResolverMixin(object):
         self._nameResolver = _SimpleResolverComplexifier(resolver)
         return oldResolver
 
-
     # IReactorPluggableNameResolver
     def installNameResolver(self, resolver):
         """
@@ -491,7 +490,6 @@ class PluggableResolverMixin(object):
         self.resolver = _ComplexResolverSimplifier(resolver)
         return previousNameResolver
 
-
     @property
     def nameResolver(self):
         """
@@ -499,7 +497,6 @@ class PluggableResolverMixin(object):
         L{IReactorPluggableNameResolver.nameResolver}.
         """
         return self._nameResolver
-
 
 
 @implementer(IReactorCore, IReactorTime, _ISupportsExitSignalCapturing)
@@ -561,10 +558,9 @@ class ReactorBase(PluggableResolverMixin):
         # Arrange for the running attribute to change to True at the right time
         # and let a subclass possibly do other things at that time (eg install
         # signal handlers).
-        self.addSystemEventTrigger(
-            'during', 'startup', self._reallyStartRunning)
-        self.addSystemEventTrigger('during', 'shutdown', self.crash)
-        self.addSystemEventTrigger('during', 'shutdown', self.disconnectAll)
+        self.addSystemEventTrigger("during", "startup", self._reallyStartRunning)
+        self.addSystemEventTrigger("during", "shutdown", self.crash)
+        self.addSystemEventTrigger("during", "shutdown", self.disconnectAll)
 
         if platform.supportsThreads():
             self._initThreads()
@@ -576,8 +572,8 @@ class ReactorBase(PluggableResolverMixin):
 
     def installWaker(self):
         raise NotImplementedError(
-            reflect.qual(self.__class__) + " did not implement installWaker")
-
+            reflect.qual(self.__class__) + " did not implement installWaker"
+        )
 
     def wakeUp(self):
         """
@@ -593,38 +589,43 @@ class ReactorBase(PluggableResolverMixin):
         Do one iteration over the readers and writers which have been added.
         """
         raise NotImplementedError(
-            reflect.qual(self.__class__) + " did not implement doIteration")
+            reflect.qual(self.__class__) + " did not implement doIteration"
+        )
 
     def addReader(self, reader):
         raise NotImplementedError(
-            reflect.qual(self.__class__) + " did not implement addReader")
+            reflect.qual(self.__class__) + " did not implement addReader"
+        )
 
     def addWriter(self, writer):
         raise NotImplementedError(
-            reflect.qual(self.__class__) + " did not implement addWriter")
+            reflect.qual(self.__class__) + " did not implement addWriter"
+        )
 
     def removeReader(self, reader):
         raise NotImplementedError(
-            reflect.qual(self.__class__) + " did not implement removeReader")
+            reflect.qual(self.__class__) + " did not implement removeReader"
+        )
 
     def removeWriter(self, writer):
         raise NotImplementedError(
-            reflect.qual(self.__class__) + " did not implement removeWriter")
+            reflect.qual(self.__class__) + " did not implement removeWriter"
+        )
 
     def removeAll(self):
         raise NotImplementedError(
-            reflect.qual(self.__class__) + " did not implement removeAll")
-
+            reflect.qual(self.__class__) + " did not implement removeAll"
+        )
 
     def getReaders(self):
         raise NotImplementedError(
-            reflect.qual(self.__class__) + " did not implement getReaders")
-
+            reflect.qual(self.__class__) + " did not implement getReaders"
+        )
 
     def getWriters(self):
         raise NotImplementedError(
-            reflect.qual(self.__class__) + " did not implement getWriters")
-
+            reflect.qual(self.__class__) + " did not implement getWriters"
+        )
 
     # IReactorCore
     def resolve(self, name, timeout=(1, 3, 11, 45)):
@@ -632,23 +633,20 @@ class ReactorBase(PluggableResolverMixin):
         """
         if not name:
             # XXX - This is *less than* '::', and will screw up IPv6 servers
-            return defer.succeed('0.0.0.0')
+            return defer.succeed("0.0.0.0")
         if abstract.isIPAddress(name):
             return defer.succeed(name)
         return self.resolver.getHostByName(name, timeout)
-
 
     def stop(self):
         """
         See twisted.internet.interfaces.IReactorCore.stop.
         """
         if self._stopped:
-            raise error.ReactorNotRunning(
-                "Can't stop reactor that isn't running.")
+            raise error.ReactorNotRunning("Can't stop reactor that isn't running.")
         self._stopped = True
         self._justStopped = True
         self._startedBefore = True
-
 
     def crash(self):
         """
@@ -660,8 +658,7 @@ class ReactorBase(PluggableResolverMixin):
         """
         self._started = False
         self.running = False
-        self.addSystemEventTrigger(
-            'during', 'startup', self._reallyStartRunning)
+        self.addSystemEventTrigger("during", "startup", self._reallyStartRunning)
 
     def sigInt(self, *args):
         """
@@ -673,7 +670,6 @@ class ReactorBase(PluggableResolverMixin):
         self.callFromThread(self.stop)
         self._exitSignal = args[0]
 
-
     def sigBreak(self, *args):
         """
         Handle a SIGBREAK interrupt.
@@ -683,7 +679,6 @@ class ReactorBase(PluggableResolverMixin):
         log.msg("Received SIGBREAK, shutting down.")
         self.callFromThread(self.stop)
         self._exitSignal = args[0]
-
 
     def sigTerm(self, *args):
         """
@@ -695,23 +690,20 @@ class ReactorBase(PluggableResolverMixin):
         self.callFromThread(self.stop)
         self._exitSignal = args[0]
 
-
     def disconnectAll(self):
         """Disconnect every reader, and writer in the system.
         """
         selectables = self.removeAll()
         for reader in selectables:
-            log.callWithLogger(reader,
-                               reader.connectionLost,
-                               failure.Failure(main.CONNECTION_LOST))
-
+            log.callWithLogger(
+                reader, reader.connectionLost, failure.Failure(main.CONNECTION_LOST)
+            )
 
     def iterate(self, delay=0):
         """See twisted.internet.interfaces.IReactorCore.iterate.
         """
         self.runUntilCurrent()
         self.doIteration(delay)
-
 
     def fireSystemEvent(self, eventType):
         """See twisted.internet.interfaces.IReactorCore.fireSystemEvent.
@@ -720,16 +712,16 @@ class ReactorBase(PluggableResolverMixin):
         if event is not None:
             event.fireEvent()
 
-
     def addSystemEventTrigger(self, _phase, _eventType, _f, *args, **kw):
         """See twisted.internet.interfaces.IReactorCore.addSystemEventTrigger.
         """
         assert callable(_f), "%s is not callable" % _f
         if _eventType not in self._eventTriggers:
             self._eventTriggers[_eventType] = _ThreePhaseEvent()
-        return (_eventType, self._eventTriggers[_eventType].addTrigger(
-            _phase, _f, *args, **kw))
-
+        return (
+            _eventType,
+            self._eventTriggers[_eventType].addTrigger(_phase, _f, *args, **kw),
+        )
 
     def removeSystemEventTrigger(self, triggerID):
         """See twisted.internet.interfaces.IReactorCore.removeSystemEventTrigger.
@@ -737,15 +729,15 @@ class ReactorBase(PluggableResolverMixin):
         eventType, handle = triggerID
         self._eventTriggers[eventType].removeTrigger(handle)
 
-
     def callWhenRunning(self, _callable, *args, **kw):
         """See twisted.internet.interfaces.IReactorCore.callWhenRunning.
         """
         if self.running:
             _callable(*args, **kw)
         else:
-            return self.addSystemEventTrigger('after', 'startup',
-                                              _callable, *args, **kw)
+            return self.addSystemEventTrigger(
+                "after", "startup", _callable, *args, **kw
+            )
 
     def startRunning(self):
         """
@@ -767,8 +759,7 @@ class ReactorBase(PluggableResolverMixin):
         self._stopped = False
         if self._registerAsIOThread:
             threadable.registerAsIOThread()
-        self.fireSystemEvent('startup')
-
+        self.fireSystemEvent("startup")
 
     def _reallyStartRunning(self):
         """
@@ -785,12 +776,18 @@ class ReactorBase(PluggableResolverMixin):
         """See twisted.internet.interfaces.IReactorTime.callLater.
         """
         assert callable(_f), "%s is not callable" % _f
-        assert _seconds >= 0, \
-               "%s is not greater than or equal to 0 seconds" % (_seconds,)
-        tple = DelayedCall(self.seconds() + _seconds, _f, args, kw,
-                           self._cancelCallLater,
-                           self._moveCallLaterSooner,
-                           seconds=self.seconds)
+        assert _seconds >= 0, "%s is not greater than or equal to 0 seconds" % (
+            _seconds,
+        )
+        tple = DelayedCall(
+            self.seconds() + _seconds,
+            _f,
+            args,
+            kw,
+            self._cancelCallLater,
+            self._moveCallLaterSooner,
+            seconds=self.seconds,
+        )
         self._newTimedCalls.append(tple)
         return tple
 
@@ -803,7 +800,7 @@ class ReactorBase(PluggableResolverMixin):
             # Move elt up the heap until it rests at the right place.
             elt = heap[pos]
             while pos != 0:
-                parent = (pos-1) // 2
+                parent = (pos - 1) // 2
                 if heap[parent] <= elt:
                     break
                 # move parent down
@@ -815,8 +812,7 @@ class ReactorBase(PluggableResolverMixin):
             pass
 
     def _cancelCallLater(self, tple):
-        self._cancellations+=1
-
+        self._cancellations += 1
 
     def getDelayedCalls(self):
         """
@@ -828,18 +824,20 @@ class ReactorBase(PluggableResolverMixin):
         @return: A list of outstanding delayed calls.
         @type: L{list} of L{DelayedCall}
         """
-        return [x for x in (self._pendingTimedCalls + self._newTimedCalls) if not x.cancelled]
-
+        return [
+            x
+            for x in (self._pendingTimedCalls + self._newTimedCalls)
+            if not x.cancelled
+        ]
 
     def _insertNewDelayedCalls(self):
         for call in self._newTimedCalls:
             if call.cancelled:
-                self._cancellations-=1
+                self._cancellations -= 1
             else:
                 call.activate_delay()
                 heappush(self._pendingTimedCalls, call)
         self._newTimedCalls = []
-
 
     def timeout(self):
         """
@@ -870,7 +868,6 @@ class ReactorBase(PluggableResolverMixin):
         # maximum (platform-imposed) interval.
         return max(0, min(longest, delay))
 
-
     def runUntilCurrent(self):
         """
         Run all pending timed calls.
@@ -900,7 +897,7 @@ class ReactorBase(PluggableResolverMixin):
         while self._pendingTimedCalls and (self._pendingTimedCalls[0].time <= now):
             call = heappop(self._pendingTimedCalls)
             if call.cancelled:
-                self._cancellations-=1
+                self._cancellations -= 1
                 continue
 
             if call.delayed_time > 0:
@@ -915,19 +912,23 @@ class ReactorBase(PluggableResolverMixin):
                 log.deferr()
                 if hasattr(call, "creator"):
                     e = "\n"
-                    e += " C: previous exception occurred in " + \
-                         "a DelayedCall created here:\n"
+                    e += (
+                        " C: previous exception occurred in "
+                        + "a DelayedCall created here:\n"
+                    )
                     e += " C:"
-                    e += "".join(call.creator).rstrip().replace("\n","\n C:")
+                    e += "".join(call.creator).rstrip().replace("\n", "\n C:")
                     e += "\n"
                     log.msg(e)
 
-
-        if (self._cancellations > 50 and
-             self._cancellations > len(self._pendingTimedCalls) >> 1):
+        if (
+            self._cancellations > 50
+            and self._cancellations > len(self._pendingTimedCalls) >> 1
+        ):
             self._cancellations = 0
-            self._pendingTimedCalls = [x for x in self._pendingTimedCalls
-                                       if not x.cancelled]
+            self._pendingTimedCalls = [
+                x for x in self._pendingTimedCalls if not x.cancelled
+            ]
             heapify(self._pendingTimedCalls)
 
         if self._justStopped:
@@ -976,7 +977,7 @@ class ReactorBase(PluggableResolverMixin):
                     arg = arg.encode(defaultEncoding)
                 except UnicodeEncodeError:
                     return None
-            if isinstance(arg, bytes) and b'\0' not in arg:
+            if isinstance(arg, bytes) and b"\0" not in arg:
                 return arg
 
             return None
@@ -1018,7 +1019,6 @@ class ReactorBase(PluggableResolverMixin):
             self.installNameResolver(_GAIResolver(self, self.getThreadPool))
             self.usingThreads = True
 
-
         def callFromThread(self, f, *args, **kw):
             """
             See
@@ -1036,12 +1036,12 @@ class ReactorBase(PluggableResolverMixin):
             Create the threadpool accessible with callFromThread.
             """
             from twisted.python import threadpool
-            self.threadpool = threadpool.ThreadPool(
-                0, 10, 'twisted.internet.reactor')
-            self._threadpoolStartupID = self.callWhenRunning(
-                self.threadpool.start)
+
+            self.threadpool = threadpool.ThreadPool(0, 10, "twisted.internet.reactor")
+            self._threadpoolStartupID = self.callWhenRunning(self.threadpool.start)
             self.threadpoolShutdownID = self.addSystemEventTrigger(
-                'during', 'shutdown', self._stopThreadPool)
+                "during", "shutdown", self._stopThreadPool
+            )
 
         def _uninstallHandler(self):
             pass
@@ -1064,7 +1064,6 @@ class ReactorBase(PluggableResolverMixin):
             self.threadpool.stop()
             self.threadpool = None
 
-
         def getThreadPool(self):
             """
             See L{twisted.internet.interfaces.IReactorThreads.getThreadPool}.
@@ -1073,25 +1072,25 @@ class ReactorBase(PluggableResolverMixin):
                 self._initThreadPool()
             return self.threadpool
 
-
         def callInThread(self, _callable, *args, **kwargs):
             """
             See L{twisted.internet.interfaces.IReactorInThreads.callInThread}.
             """
             self.getThreadPool().callInThread(_callable, *args, **kwargs)
 
-
         def suggestThreadPoolSize(self, size):
             """
             See L{twisted.internet.interfaces.IReactorThreads.suggestThreadPoolSize}.
             """
             self.getThreadPool().adjustPoolsize(maxthreads=size)
+
     else:
         # This is for signal handlers.
         def callFromThread(self, f, *args, **kw):
             assert callable(f), "%s is not callable" % (f,)
             # See comment in the other callFromThread implementation.
             self.threadCallQueue.append((f, args, kw))
+
 
 if platform.supportsThreads():
     classImplements(ReactorBase, IReactorThreads)
@@ -1104,6 +1103,7 @@ class BaseConnector:
 
     State can be: "connecting", "connected", "disconnected"
     """
+
     timeoutID = None
     factoryStarted = 0
 
@@ -1115,9 +1115,9 @@ class BaseConnector:
 
     def disconnect(self):
         """Disconnect whatever our state is."""
-        if self.state == 'connecting':
+        if self.state == "connecting":
             self.stopConnecting()
-        elif self.state == 'connected':
+        elif self.state == "connected":
             self.transport.loseConnection()
 
     def connect(self):
@@ -1131,7 +1131,9 @@ class BaseConnector:
             self.factoryStarted = 1
         self.transport = transport = self._makeTransport()
         if self.timeout is not None:
-            self.timeoutID = self.reactor.callLater(self.timeout, transport.failIfNotConnected, error.TimeoutError())
+            self.timeoutID = self.reactor.callLater(
+                self.timeout, transport.failIfNotConnected, error.TimeoutError()
+            )
         self.factory.startedConnecting(self)
 
     def stopConnecting(self):
@@ -1176,14 +1178,16 @@ class BaseConnector:
 
     def getDestination(self):
         raise NotImplementedError(
-            reflect.qual(self.__class__) + " did not implement "
-            "getDestination")
+            reflect.qual(self.__class__) + " did not implement " "getDestination"
+        )
 
     def __repr__(self):
         return "<%s instance at 0x%x %s %s>" % (
-            reflect.qual(self.__class__), id(self), self.state,
-            self.getDestination())
-
+            reflect.qual(self.__class__),
+            id(self),
+            self.state,
+            self.getDestination(),
+        )
 
 
 class BasePort(abstract.FileDescriptor):
@@ -1201,12 +1205,9 @@ class BasePort(abstract.FileDescriptor):
         fdesc._setCloseOnExec(s.fileno())
         return s
 
-
     def doWrite(self):
         """Raises a RuntimeError"""
-        raise RuntimeError(
-            "doWrite called on a %s" % reflect.qual(self.__class__))
-
+        raise RuntimeError("doWrite called on a %s" % reflect.qual(self.__class__))
 
 
 class _SignalReactorMixin(object):
@@ -1234,8 +1235,10 @@ class _SignalReactorMixin(object):
         try:
             import signal
         except ImportError:
-            log.msg("Warning: signal module unavailable -- "
-                    "not installing signal handlers.")
+            log.msg(
+                "Warning: signal module unavailable -- "
+                "not installing signal handlers."
+            )
             return
 
         if signal.getsignal(signal.SIGINT) == signal.default_int_handler:
@@ -1246,7 +1249,6 @@ class _SignalReactorMixin(object):
         # Catch Ctrl-Break in windows
         if hasattr(signal, "SIGBREAK"):
             signal.signal(signal.SIGBREAK, self.sigBreak)
-
 
     def startRunning(self, installSignalHandlers=True):
         """
@@ -1260,7 +1262,6 @@ class _SignalReactorMixin(object):
         """
         self._installSignalHandlers = installSignalHandlers
         ReactorBase.startRunning(self)
-
 
     def _reallyStartRunning(self):
         """
@@ -1277,11 +1278,9 @@ class _SignalReactorMixin(object):
             # some blocking api).
             self._handleSignals()
 
-
     def run(self, installSignalHandlers=True):
         self.startRunning(installSignalHandlers=installSignalHandlers)
         self.mainLoop()
-
 
     def mainLoop(self):
         while self._started:
@@ -1297,8 +1296,7 @@ class _SignalReactorMixin(object):
                 log.msg("Unexpected error in main loop.")
                 log.err()
             else:
-                log.msg('Main loop terminated.')
-
+                log.msg("Main loop terminated.")
 
 
 __all__ = []

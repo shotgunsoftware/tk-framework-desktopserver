@@ -34,9 +34,13 @@ _EIP712_SIG_LEN = 32 + 32 + 1
 
 
 def unpack_uint128(data):
-    assert data is None or type(data) == bytes, 'data must by bytes, was {}'.format(type(data))
+    assert data is None or type(data) == bytes, "data must by bytes, was {}".format(
+        type(data)
+    )
     if data and type(data) == bytes:
-        assert len(data) == 16, 'data must be bytes[16], but was bytes[{}]'.format(len(data))
+        assert len(data) == 16, "data must be bytes[16], but was bytes[{}]".format(
+            len(data)
+        )
 
     if data:
         return web3.Web3.toInt(data)
@@ -45,21 +49,26 @@ def unpack_uint128(data):
 
 
 def pack_uint128(value):
-    assert value is None or (type(value) == int and value >= 0 and value < 2**128)
+    assert value is None or (type(value) == int and value >= 0 and value < 2 ** 128)
 
     if value:
         data = web3.Web3.toBytes(value)
-        return b'\x00' * (16 - len(data)) + data
+        return b"\x00" * (16 - len(data)) + data
     else:
-        return b'\x00' * 16
+        return b"\x00" * 16
 
 
 # FIXME: possibly use https://eth-abi.readthedocs.io/en/stable/decoding.html
 
+
 def unpack_uint256(data):
-    assert data is None or type(data) == bytes, 'data must by bytes, was {}'.format(type(data))
+    assert data is None or type(data) == bytes, "data must by bytes, was {}".format(
+        type(data)
+    )
     if data and type(data) == bytes:
-        assert len(data) == 32, 'data must be bytes[32], but was bytes[{}]'.format(len(data))
+        assert len(data) == 32, "data must be bytes[32], but was bytes[{}]".format(
+            len(data)
+        )
 
     if data:
         return int(web3.Web3.toInt(data))
@@ -68,18 +77,20 @@ def unpack_uint256(data):
 
 
 def pack_uint256(value):
-    assert value is None or (type(value) == int and value >= 0 and value < 2**256), 'value must be uint256, but was {}'.format(value)
+    assert value is None or (
+        type(value) == int and value >= 0 and value < 2 ** 256
+    ), "value must be uint256, but was {}".format(value)
 
     if value:
         data = web3.Web3.toBytes(value)
-        return b'\x00' * (32 - len(data)) + data
+        return b"\x00" * (32 - len(data)) + data
     else:
-        return b'\x00' * 32
+        return b"\x00" * 32
 
 
-def hl(text, bold=True, color='yellow'):
+def hl(text, bold=True, color="yellow"):
     if not isinstance(text, str):
-        text = '{}'.format(text)
+        text = "{}".format(text)
     return click.style(text, fg=color, bold=bold)
 
 
@@ -91,39 +102,36 @@ def _create_eip712_data(verifying_adr, channel_adr, channel_seq, balance, is_fin
     assert type(is_final) == bool
 
     data = {
-        'types': {
-            'EIP712Domain': [
-                {'name': 'name', 'type': 'string'},
-                {'name': 'version', 'type': 'string'},
-                {'name': 'chainId', 'type': 'uint256'},
-                {'name': 'verifyingContract', 'type': 'address'},
+        "types": {
+            "EIP712Domain": [
+                {"name": "name", "type": "string"},
+                {"name": "version", "type": "string"},
+                {"name": "chainId", "type": "uint256"},
+                {"name": "verifyingContract", "type": "address"},
             ],
-            'ChannelClose': [
+            "ChannelClose": [
                 # The channel contract address.
-                {'name': 'channel_adr', 'type': 'address'},
-
+                {"name": "channel_adr", "type": "address"},
                 # Channel off-chain transaction sequence number.
-                {'name': 'channel_seq', 'type': 'uint32'},
-
+                {"name": "channel_seq", "type": "uint32"},
                 # Balance remaining in after the transaction.
-                {'name': 'balance', 'type': 'uint256'},
-
+                {"name": "balance", "type": "uint256"},
                 # Transaction is marked as final.
-                {'name': 'is_final', 'type': 'bool'},
+                {"name": "is_final", "type": "bool"},
             ],
         },
-        'primaryType': 'ChannelClose',
-        'domain': {
-            'name': 'XBR',
-            'version': '1',
-            'chainId': 1,
-            'verifyingContract': verifying_adr,
+        "primaryType": "ChannelClose",
+        "domain": {
+            "name": "XBR",
+            "version": "1",
+            "chainId": 1,
+            "verifyingContract": verifying_adr,
         },
-        'message': {
-            'channel_adr': channel_adr,
-            'channel_seq': channel_seq,
-            'balance': balance,
-            'is_final': is_final
+        "message": {
+            "channel_adr": channel_adr,
+            "channel_seq": channel_seq,
+            "balance": balance,
+            "is_final": is_final,
         },
     }
 
@@ -157,7 +165,7 @@ def sign_eip712_data(eth_privkey, channel_adr, channel_seq, balance, is_final=Fa
     assert type(balance) == int and balance >= 0
     assert type(is_final) == bool
 
-    verifying_adr = a2b_hex('0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B'[2:])
+    verifying_adr = a2b_hex("0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B"[2:])
 
     # make a private key object from the raw private key bytes
     # pkey = eth_keys.keys.PrivateKey(eth_privkey)
@@ -167,7 +175,9 @@ def sign_eip712_data(eth_privkey, channel_adr, channel_seq, balance, is_final=Fa
     # eth_adr = pkey.public_key.to_canonical_address()
 
     # create EIP712 typed data object
-    data = _create_eip712_data(verifying_adr, channel_adr, channel_seq, balance, is_final)
+    data = _create_eip712_data(
+        verifying_adr, channel_adr, channel_seq, balance, is_final
+    )
 
     # FIXME: this fails on PyPy (but ot on CPy!) with
     #  Unknown format b'%M\xff\xcd2w\xc0\xb1f\x0fmB\xef\xbbuN\xda\xba\xbc+', attempted to normalize to 0x254dffcd3277c0b1660f6d42efbb754edababc2b
@@ -207,12 +217,16 @@ def recover_eip712_signer(channel_adr, channel_seq, balance, is_final, signature
     assert type(is_final) == bool
     assert type(signature) == bytes and len(signature) == _EIP712_SIG_LEN
 
-    verifying_adr = a2b_hex('0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B'[2:])
+    verifying_adr = a2b_hex("0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B"[2:])
 
     # recreate EIP712 typed data object
-    data = _create_eip712_data(verifying_adr, channel_adr, channel_seq, balance, is_final)
+    data = _create_eip712_data(
+        verifying_adr, channel_adr, channel_seq, balance, is_final
+    )
 
     # this returns the signer (checksummed) address as a string, eg "0xE11BA2b4D45Eaed5996Cd0823791E0C93114882d"
-    signer_address = signing.recover_typed_data(data, *signing.signature_to_v_r_s(signature))
+    signer_address = signing.recover_typed_data(
+        data, *signing.signature_to_v_r_s(signature)
+    )
 
     return a2b_hex(signer_address[2:])

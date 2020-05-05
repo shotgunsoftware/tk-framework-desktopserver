@@ -14,5 +14,3 @@ To run tests::
     $ tox
 
 This will run tests on Python 2.7, 3.3, 3.4, and PyPy, as well as doing coverage and pyflakes checks.
-
-

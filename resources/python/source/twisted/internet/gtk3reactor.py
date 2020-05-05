@@ -32,10 +32,12 @@ from twisted.python import runtime
 # approximation of availability of X11. This is somewhat over-aggressive,
 # since some older versions of gtk3/pygobject do work with missing $DISPLAY,
 # but it's too hard to figure out which, so we always require it.
-if (runtime.platform.getType() == 'posix' and
-    not runtime.platform.isMacOSX() and not os.environ.get("DISPLAY")):
-    raise ImportError(
-        "Gtk3 requires X11, and no DISPLAY environment variable is set")
+if (
+    runtime.platform.getType() == "posix"
+    and not runtime.platform.isMacOSX()
+    and not os.environ.get("DISPLAY")
+):
+    raise ImportError("Gtk3 requires X11, and no DISPLAY environment variable is set")
 
 
 class Gtk3Reactor(gireactor.GIReactor):
@@ -50,11 +52,11 @@ class Gtk3Reactor(gireactor.GIReactor):
         gireactor.GIReactor.__init__(self, useGtk=True)
 
 
-
 class PortableGtk3Reactor(gireactor.PortableGIReactor):
     """
     Portable GTK+ 3.x reactor.
     """
+
     def __init__(self):
         """
         Override init to set the C{useGtk} flag.
@@ -62,19 +64,19 @@ class PortableGtk3Reactor(gireactor.PortableGIReactor):
         gireactor.PortableGIReactor.__init__(self, useGtk=True)
 
 
-
 def install():
     """
     Configure the Twisted mainloop to be run inside the gtk3+ mainloop.
     """
-    if runtime.platform.getType() == 'posix':
+    if runtime.platform.getType() == "posix":
         reactor = Gtk3Reactor()
     else:
         reactor = PortableGtk3Reactor()
 
     from twisted.internet.main import installReactor
+
     installReactor(reactor)
     return reactor
 
 
-__all__ = ['install']
+__all__ = ["install"]

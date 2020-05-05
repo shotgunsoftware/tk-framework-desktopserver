@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Error(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsError(cls, buf, offset):
@@ -22,14 +23,18 @@ class Error(object):
     def RequestType(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint16Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint16Flags, o + self._tab.Pos
+            )
         return 0
 
     # Error
     def Request(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
     # Error
@@ -44,7 +49,10 @@ class Error(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.Uint8Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+            return self._tab.Get(
+                flatbuffers.number_types.Uint8Flags,
+                a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1),
+            )
         return 0
 
     # Error
@@ -80,7 +88,10 @@ class Error(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
         if o != 0:
             a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.Uint8Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+            return self._tab.Get(
+                flatbuffers.number_types.Uint8Flags,
+                a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1),
+            )
         return 0
 
     # Error
@@ -97,14 +108,52 @@ class Error(object):
             return self._tab.VectorLen(o)
         return 0
 
-def ErrorStart(builder): builder.StartObject(7)
-def ErrorAddRequestType(builder, requestType): builder.PrependUint16Slot(0, requestType, 0)
-def ErrorAddRequest(builder, request): builder.PrependUint64Slot(1, request, 0)
-def ErrorAddError(builder, error): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(error), 0)
-def ErrorAddPayload(builder, payload): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(payload), 0)
-def ErrorStartPayloadVector(builder, numElems): return builder.StartVector(1, numElems, 1)
-def ErrorAddEncAlgo(builder, encAlgo): builder.PrependUint8Slot(4, encAlgo, 0)
-def ErrorAddEncSerializer(builder, encSerializer): builder.PrependUint8Slot(5, encSerializer, 0)
-def ErrorAddEncKey(builder, encKey): builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(encKey), 0)
-def ErrorStartEncKeyVector(builder, numElems): return builder.StartVector(1, numElems, 1)
-def ErrorEnd(builder): return builder.EndObject()
+
+def ErrorStart(builder):
+    builder.StartObject(7)
+
+
+def ErrorAddRequestType(builder, requestType):
+    builder.PrependUint16Slot(0, requestType, 0)
+
+
+def ErrorAddRequest(builder, request):
+    builder.PrependUint64Slot(1, request, 0)
+
+
+def ErrorAddError(builder, error):
+    builder.PrependUOffsetTRelativeSlot(
+        2, flatbuffers.number_types.UOffsetTFlags.py_type(error), 0
+    )
+
+
+def ErrorAddPayload(builder, payload):
+    builder.PrependUOffsetTRelativeSlot(
+        3, flatbuffers.number_types.UOffsetTFlags.py_type(payload), 0
+    )
+
+
+def ErrorStartPayloadVector(builder, numElems):
+    return builder.StartVector(1, numElems, 1)
+
+
+def ErrorAddEncAlgo(builder, encAlgo):
+    builder.PrependUint8Slot(4, encAlgo, 0)
+
+
+def ErrorAddEncSerializer(builder, encSerializer):
+    builder.PrependUint8Slot(5, encSerializer, 0)
+
+
+def ErrorAddEncKey(builder, encKey):
+    builder.PrependUOffsetTRelativeSlot(
+        6, flatbuffers.number_types.UOffsetTFlags.py_type(encKey), 0
+    )
+
+
+def ErrorStartEncKeyVector(builder, numElems):
+    return builder.StartVector(1, numElems, 1)
+
+
+def ErrorEnd(builder):
+    return builder.EndObject()

@@ -28,14 +28,16 @@ import sys
 
 try:
     from autobahn import xbr  # noqa
+
     HAS_XBR = True
 except ImportError as e:
-    sys.stderr.write('WARNING: could not import autobahn.xbr - {}\n'.format(e))
+    sys.stderr.write("WARNING: could not import autobahn.xbr - {}\n".format(e))
     HAS_XBR = False
 
 
 if HAS_XBR:
     import txaio
+
     txaio.use_twisted()
     from twisted.internet.threads import deferToThread
     from twisted.internet.task import LoopingCall
@@ -66,8 +68,11 @@ if HAS_XBR:
             """
             assert self._run_loop is None
 
-            self.log.info('Starting key rotation every {interval} seconds for api_id="{api_id}" ..',
-                          interval=hl(self._interval), api_id=hl(uuid.UUID(bytes=self._api_id)))
+            self.log.info(
+                'Starting key rotation every {interval} seconds for api_id="{api_id}" ..',
+                interval=hl(self._interval),
+                api_id=hl(uuid.UUID(bytes=self._api_id)),
+            )
 
             self.running = True
 
@@ -81,7 +86,11 @@ if HAS_XBR:
             Stop offering/selling data encryption keys.
             """
             if not self._run_loop:
-                raise RuntimeError('cannot stop {} - not currently running'.format(self.__class__.__name__))
+                raise RuntimeError(
+                    "cannot stop {} - not currently running".format(
+                        self.__class__.__name__
+                    )
+                )
 
             self._run_loop.stop()
             self._run_loop = None
@@ -93,6 +102,7 @@ if HAS_XBR:
         Simple XBR seller component. This component can be used by a XBR seller delegate to
         handle the automated selling of data encryption keys to the XBR market maker.
         """
+
         log = txaio.make_logger()
         KeySeries = KeySeries
 

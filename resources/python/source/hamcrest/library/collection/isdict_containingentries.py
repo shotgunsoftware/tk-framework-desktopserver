@@ -8,14 +8,14 @@ __license__ = "BSD, see License.txt"
 
 
 class IsDictContainingEntries(BaseMatcher):
-
     def __init__(self, value_matchers):
         self.value_matchers = sorted(value_matchers.items())
 
     def _not_a_dictionary(self, dictionary, mismatch_description):
         if mismatch_description:
-            mismatch_description.append_description_of(dictionary) \
-                                .append_text(' is not a mapping object')
+            mismatch_description.append_description_of(dictionary).append_text(
+                " is not a mapping object"
+            )
         return False
 
     def matches(self, dictionary, mismatch_description=None):
@@ -24,10 +24,9 @@ class IsDictContainingEntries(BaseMatcher):
             try:
                 if not key in dictionary:
                     if mismatch_description:
-                        mismatch_description.append_text('no ')             \
-                                            .append_description_of(key)     \
-                                            .append_text(' key in ')        \
-                                            .append_description_of(dictionary)
+                        mismatch_description.append_text("no ").append_description_of(
+                            key
+                        ).append_text(" key in ").append_description_of(dictionary)
                     return False
             except TypeError:
                 return self._not_a_dictionary(dictionary, mismatch_description)
@@ -39,9 +38,9 @@ class IsDictContainingEntries(BaseMatcher):
 
             if not value_matcher.matches(actual_value):
                 if mismatch_description:
-                    mismatch_description.append_text('value for ')  \
-                                        .append_description_of(key) \
-                                        .append_text(' ')
+                    mismatch_description.append_text(
+                        "value for "
+                    ).append_description_of(key).append_text(" ")
                     value_matcher.describe_mismatch(actual_value, mismatch_description)
                 return False
 
@@ -52,19 +51,19 @@ class IsDictContainingEntries(BaseMatcher):
 
     def describe_keyvalue(self, index, value, description):
         """Describes key-value pair at given index."""
-        description.append_description_of(index)                        \
-                   .append_text(': ')                                   \
-                   .append_description_of(value)
+        description.append_description_of(index).append_text(
+            ": "
+        ).append_description_of(value)
 
     def describe_to(self, description):
-        description.append_text('a dictionary containing {')
+        description.append_text("a dictionary containing {")
         first = True
         for key, value in self.value_matchers:
             if not first:
-                description.append_text(', ')
+                description.append_text(", ")
             self.describe_keyvalue(key, value, description)
             first = False
-        description.append_text('}')
+        description.append_text("}")
 
 
 def has_entries(*keys_valuematchers, **kv_args):
@@ -119,13 +118,17 @@ def has_entries(*keys_valuematchers, **kv_args):
             for key in base_dict:
                 base_dict[key] = wrap_matcher(base_dict[key])
         except AttributeError:
-            raise ValueError('single-argument calls to has_entries must pass a dict as the argument')
+            raise ValueError(
+                "single-argument calls to has_entries must pass a dict as the argument"
+            )
     else:
         if len(keys_valuematchers) % 2:
-            raise ValueError('has_entries requires key-value pairs')
+            raise ValueError("has_entries requires key-value pairs")
         base_dict = {}
         for index in range(int(len(keys_valuematchers) / 2)):
-            base_dict[keys_valuematchers[2 * index]] = wrap_matcher(keys_valuematchers[2 * index + 1])
+            base_dict[keys_valuematchers[2 * index]] = wrap_matcher(
+                keys_valuematchers[2 * index + 1]
+            )
 
     for key, value in kv_args.items():
         base_dict[key] = wrap_matcher(value)

@@ -18,4 +18,6 @@ def get_logger(child_logger):
     try:
         return sgtk.platform.get_logger(child_logger)
     except Exception:
-        return sgtk.LogManager.get_logger("tk-framework.desktopserver.%s" % child_logger)
+        return sgtk.LogManager.get_logger(
+            "tk-framework.desktopserver.%s" % child_logger
+        )

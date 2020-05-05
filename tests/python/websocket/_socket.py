@@ -42,12 +42,18 @@ if hasattr(socket, "TCP_KEEPCNT"):
 
 _default_timeout = None
 
-__all__ = ["DEFAULT_SOCKET_OPTION", "sock_opt", "setdefaulttimeout", "getdefaulttimeout",
-           "recv", "recv_line", "send"]
+__all__ = [
+    "DEFAULT_SOCKET_OPTION",
+    "sock_opt",
+    "setdefaulttimeout",
+    "getdefaulttimeout",
+    "recv",
+    "recv_line",
+    "send",
+]
 
 
 class sock_opt(object):
-
     def __init__(self, sockopt, sslopt):
         if sockopt is None:
             sockopt = []
@@ -91,7 +97,7 @@ def recv(sock, bufsize):
             if error_code != errno.EAGAIN or error_code != errno.EWOULDBLOCK:
                 raise
 
-        r, w, e = select.select((sock, ), (), (), sock.gettimeout())
+        r, w, e = select.select((sock,), (), (), sock.gettimeout())
         if r:
             return sock.recv(bufsize)
 
@@ -105,14 +111,13 @@ def recv(sock, bufsize):
         raise WebSocketTimeoutException(message)
     except SSLError as e:
         message = extract_err_message(e)
-        if isinstance(message, str) and 'timed out' in message:
+        if isinstance(message, str) and "timed out" in message:
             raise WebSocketTimeoutException(message)
         else:
             raise
 
     if not bytes_:
-        raise WebSocketConnectionClosedException(
-            "Connection is already closed.")
+        raise WebSocketConnectionClosedException("Connection is already closed.")
 
     return bytes_
 
@@ -129,7 +134,7 @@ def recv_line(sock):
 
 def send(sock, data):
     if isinstance(data, six.text_type):
-        data = data.encode('utf-8')
+        data = data.encode("utf-8")
 
     if not sock:
         raise WebSocketConnectionClosedException("socket is already closed.")
@@ -146,7 +151,7 @@ def send(sock, data):
             if error_code != errno.EAGAIN or error_code != errno.EWOULDBLOCK:
                 raise
 
-        r, w, e = select.select((), (sock, ), (), sock.gettimeout())
+        r, w, e = select.select((), (sock,), (), sock.gettimeout())
         if w:
             return sock.send(data)
 

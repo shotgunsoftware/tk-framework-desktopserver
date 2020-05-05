@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class AuthScramRequest(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsAuthScramRequest(cls, buf, offset):
@@ -32,7 +33,20 @@ class AuthScramRequest(object):
             return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 0
 
-def AuthScramRequestStart(builder): builder.StartObject(2)
-def AuthScramRequestAddNonce(builder, nonce): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(nonce), 0)
-def AuthScramRequestAddChannelBinding(builder, channelBinding): builder.PrependUint8Slot(1, channelBinding, 0)
-def AuthScramRequestEnd(builder): return builder.EndObject()
+
+def AuthScramRequestStart(builder):
+    builder.StartObject(2)
+
+
+def AuthScramRequestAddNonce(builder, nonce):
+    builder.PrependUOffsetTRelativeSlot(
+        0, flatbuffers.number_types.UOffsetTFlags.py_type(nonce), 0
+    )
+
+
+def AuthScramRequestAddChannelBinding(builder, channelBinding):
+    builder.PrependUint8Slot(1, channelBinding, 0)
+
+
+def AuthScramRequestEnd(builder):
+    return builder.EndObject()

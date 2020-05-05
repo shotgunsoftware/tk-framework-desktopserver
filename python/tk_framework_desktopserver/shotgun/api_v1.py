@@ -133,7 +133,9 @@ class ShotgunAPI(object):
             self.host.report_error(message)
 
         try:
-            (out, err, returncode) = self.process_manager.execute_toolkit_command(pipeline_config_path, command, args)
+            (out, err, returncode) = self.process_manager.execute_toolkit_command(
+                pipeline_config_path, command, args
+            )
             self._handle_toolkit_output(out, err, returncode)
         except Exception as e:
             self.host.report_error(e.message)

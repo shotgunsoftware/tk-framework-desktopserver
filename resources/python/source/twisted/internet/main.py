@@ -14,9 +14,8 @@ from __future__ import division, absolute_import
 
 from twisted.internet import error
 
-CONNECTION_DONE = error.ConnectionDone('Connection done')
-CONNECTION_LOST = error.ConnectionLost('Connection lost')
-
+CONNECTION_DONE = error.ConnectionDone("Connection done")
+CONNECTION_LOST = error.ConnectionLost("Connection lost")
 
 
 def installReactor(reactor):
@@ -28,10 +27,11 @@ def installReactor(reactor):
     # this stuff should be common to all reactors.
     import twisted.internet
     import sys
-    if 'twisted.internet.reactor' in sys.modules:
+
+    if "twisted.internet.reactor" in sys.modules:
         raise error.ReactorAlreadyInstalledError("reactor already installed")
     twisted.internet.reactor = reactor
-    sys.modules['twisted.internet.reactor'] = reactor
+    sys.modules["twisted.internet.reactor"] = reactor
 
 
 __all__ = ["CONNECTION_LOST", "CONNECTION_DONE", "installReactor"]

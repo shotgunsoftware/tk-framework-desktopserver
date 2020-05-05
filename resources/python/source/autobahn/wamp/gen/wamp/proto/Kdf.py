@@ -2,8 +2,8 @@
 
 # namespace: proto
 
+
 class Kdf(object):
     NONE = 0
     PBKDF2 = 1
     ARGON2 = 2
-

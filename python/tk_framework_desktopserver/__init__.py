@@ -11,7 +11,9 @@
 import os
 import sys
 
-python_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../resources/python"))
+python_path = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "../../resources/python")
+)
 
 binaries_path = os.path.join(python_path, "bin")
 if sys.platform == "darwin":
@@ -30,4 +32,9 @@ from .process_manager import ProcessManager
 from .certificates import get_certificate_handler
 from .logger import get_logger
 from .shotgun import get_shotgun_api
-from .errors import MissingCertificateError, PortBusyError, MissingConfigurationFileError, BrowserIntegrationError
+from .errors import (
+    MissingCertificateError,
+    PortBusyError,
+    MissingConfigurationFileError,
+    BrowserIntegrationError,
+)

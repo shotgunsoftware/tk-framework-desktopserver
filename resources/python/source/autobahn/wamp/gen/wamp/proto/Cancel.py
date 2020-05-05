@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class Cancel(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsCancel(cls, buf, offset):
@@ -22,7 +23,9 @@ class Cancel(object):
     def Request(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+            return self._tab.Get(
+                flatbuffers.number_types.Uint64Flags, o + self._tab.Pos
+            )
         return 0
 
     # Cancel
@@ -32,7 +35,18 @@ class Cancel(object):
             return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 0
 
-def CancelStart(builder): builder.StartObject(2)
-def CancelAddRequest(builder, request): builder.PrependUint64Slot(0, request, 0)
-def CancelAddMode(builder, mode): builder.PrependUint8Slot(1, mode, 0)
-def CancelEnd(builder): return builder.EndObject()
+
+def CancelStart(builder):
+    builder.StartObject(2)
+
+
+def CancelAddRequest(builder, request):
+    builder.PrependUint64Slot(0, request, 0)
+
+
+def CancelAddMode(builder, mode):
+    builder.PrependUint8Slot(1, mode, 0)
+
+
+def CancelEnd(builder):
+    return builder.EndObject()

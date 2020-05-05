@@ -15,40 +15,39 @@ from cryptography.hazmat.primitives.asymmetric import dsa, ec, ed25519, rsa
 
 
 def load_ssh_public_key(data, backend):
-    key_parts = data.split(b' ', 2)
+    key_parts = data.split(b" ", 2)
 
     if len(key_parts) < 2:
-        raise ValueError(
-            'Key is not in the proper format or contains extra data.')
+        raise ValueError("Key is not in the proper format or contains extra data.")
 
     key_type = key_parts[0]
 
-    if key_type == b'ssh-rsa':
+    if key_type == b"ssh-rsa":
         loader = _load_ssh_rsa_public_key
-    elif key_type == b'ssh-dss':
+    elif key_type == b"ssh-dss":
         loader = _load_ssh_dss_public_key
     elif key_type in [
-        b'ecdsa-sha2-nistp256', b'ecdsa-sha2-nistp384', b'ecdsa-sha2-nistp521',
+        b"ecdsa-sha2-nistp256",
+        b"ecdsa-sha2-nistp384",
+        b"ecdsa-sha2-nistp521",
     ]:
         loader = _load_ssh_ecdsa_public_key
-    elif key_type == b'ssh-ed25519':
+    elif key_type == b"ssh-ed25519":
         loader = _load_ssh_ed25519_public_key
     else:
-        raise UnsupportedAlgorithm('Key type is not supported.')
+        raise UnsupportedAlgorithm("Key type is not supported.")
 
     key_body = key_parts[1]
 
     try:
         decoded_data = base64.b64decode(key_body)
     except TypeError:
-        raise ValueError('Key is not in the proper format.')
+        raise ValueError("Key is not in the proper format.")
 
     inner_key_type, rest = _ssh_read_next_string(decoded_data)
 
     if inner_key_type != key_type:
-        raise ValueError(
-            'Key header and key body contain different key type values.'
-        )
+        raise ValueError("Key header and key body contain different key type values.")
 
     return loader(key_type, rest, backend)
 
@@ -58,7 +57,7 @@ def _load_ssh_rsa_public_key(key_type, decoded_data, backend):
     n, rest = _ssh_read_next_mpint(rest)
 
     if rest:
-        raise ValueError('Key body contains extra bytes.')
+        raise ValueError("Key body contains extra bytes.")
 
     return rsa.RSAPublicNumbers(e, n).public_key(backend)
 
@@ -70,7 +69,7 @@ def _load_ssh_dss_public_key(key_type, decoded_data, backend):
     y, rest = _ssh_read_next_mpint(rest)
 
     if rest:
-        raise ValueError('Key body contains extra bytes.')
+        raise ValueError("Key body contains extra bytes.")
 
     parameter_numbers = dsa.DSAParameterNumbers(p, q, g)
     public_numbers = dsa.DSAPublicNumbers(y, parameter_numbers)
@@ -83,12 +82,10 @@ def _load_ssh_ecdsa_public_key(expected_key_type, decoded_data, backend):
     data, rest = _ssh_read_next_string(rest)
 
     if expected_key_type != b"ecdsa-sha2-" + curve_name:
-        raise ValueError(
-            'Key header and key body contain different key type values.'
-        )
+        raise ValueError("Key header and key body contain different key type values.")
 
     if rest:
-        raise ValueError('Key body contains extra bytes.')
+        raise ValueError("Key body contains extra bytes.")
 
     curve = {
         b"nistp256": ec.SECP256R1,
@@ -97,9 +94,7 @@ def _load_ssh_ecdsa_public_key(expected_key_type, decoded_data, backend):
     }[curve_name]()
 
     if six.indexbytes(data, 0) != 4:
-        raise NotImplementedError(
-            "Compressed elliptic curve points are not supported"
-        )
+        raise NotImplementedError("Compressed elliptic curve points are not supported")
 
     return ec.EllipticCurvePublicKey.from_encoded_point(curve, data)
 
@@ -108,7 +103,7 @@ def _load_ssh_ed25519_public_key(expected_key_type, decoded_data, backend):
     data, rest = _ssh_read_next_string(decoded_data)
 
     if rest:
-        raise ValueError('Key body contains extra bytes.')
+        raise ValueError("Key body contains extra bytes.")
 
     return ed25519.Ed25519PublicKey.from_public_bytes(data)
 
@@ -122,11 +117,11 @@ def _ssh_read_next_string(data):
     if len(data) < 4:
         raise ValueError("Key is not in the proper format")
 
-    str_len, = struct.unpack('>I', data[:4])
+    (str_len,) = struct.unpack(">I", data[:4])
     if len(data) < str_len + 4:
         raise ValueError("Key is not in the proper format")
 
-    return data[4:4 + str_len], data[4 + str_len:]
+    return data[4 : 4 + str_len], data[4 + str_len :]
 
 
 def _ssh_read_next_mpint(data):
@@ -137,9 +132,7 @@ def _ssh_read_next_mpint(data):
     """
     mpint_data, rest = _ssh_read_next_string(data)
 
-    return (
-        utils.int_from_bytes(mpint_data, byteorder='big', signed=False), rest
-    )
+    return (utils.int_from_bytes(mpint_data, byteorder="big", signed=False), rest)
 
 
 def _ssh_write_string(data):

@@ -18,7 +18,6 @@ from twisted.internet.interfaces import IAddress
 from twisted.python import util
 
 
-
 @implementer(IAddress)
 class SSHTransportAddress(util.FancyEqMixin, object):
     """
@@ -33,15 +32,13 @@ class SSHTransportAddress(util.FancyEqMixin, object):
         which this transport address is connected.
     """
 
-    compareAttributes = ('address',)
+    compareAttributes = ("address",)
 
     def __init__(self, address):
         self.address = address
 
-
     def __repr__(self):
-        return 'SSHTransportAddress(%r)' % (self.address,)
-
+        return "SSHTransportAddress(%r)" % (self.address,)
 
     def __hash__(self):
-        return hash(('SSH', self.address))
+        return hash(("SSH", self.address))

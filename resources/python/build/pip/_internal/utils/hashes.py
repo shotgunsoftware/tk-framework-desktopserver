@@ -5,18 +5,20 @@ import hashlib
 from pip._vendor.six import iteritems, iterkeys, itervalues
 
 from pip._internal.exceptions import (
-    HashMismatch, HashMissing, InstallationError,
+    HashMismatch,
+    HashMissing,
+    InstallationError,
 )
 from pip._internal.utils.misc import read_chunks
 
 # The recommended hash algo of the moment. Change this whenever the state of
 # the art changes; it won't hurt backward compatibility.
-FAVORITE_HASH = 'sha256'
+FAVORITE_HASH = "sha256"
 
 
 # Names of hashlib algorithms allowed by the --hash option and ``pip hash``
 # Currently, those are the ones at least as collision-resistant as sha256.
-STRONG_HASHES = ['sha256', 'sha384', 'sha512']
+STRONG_HASHES = ["sha256", "sha384", "sha512"]
 
 
 class Hashes(object):
@@ -24,6 +26,7 @@ class Hashes(object):
     known-good values
 
     """
+
     def __init__(self, hashes=None):
         """
         :param hashes: A dict of algorithm names pointing to lists of allowed
@@ -43,7 +46,7 @@ class Hashes(object):
             try:
                 gots[hash_name] = hashlib.new(hash_name)
             except (ValueError, TypeError):
-                raise InstallationError('Unknown hash name: %s' % hash_name)
+                raise InstallationError("Unknown hash name: %s" % hash_name)
 
         for chunk in chunks:
             for hash in itervalues(gots):
@@ -66,7 +69,7 @@ class Hashes(object):
         return self.check_against_chunks(read_chunks(file))
 
     def check_against_path(self, path):
-        with open(path, 'rb') as file:
+        with open(path, "rb") as file:
             return self.check_against_file(file)
 
     def __nonzero__(self):
@@ -84,6 +87,7 @@ class MissingHashes(Hashes):
     exception showing it to the user.
 
     """
+
     def __init__(self):
         """Don't offer the ``hashes`` kwarg."""
         # Pass our favorite hash in to generate a "gotten hash". With the

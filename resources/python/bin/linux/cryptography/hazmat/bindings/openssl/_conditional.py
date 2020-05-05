@@ -26,9 +26,7 @@ def cryptography_has_set_ecdh_auto():
 
 
 def cryptography_has_rsa_r_pkcs_decoding_error():
-    return [
-        "RSA_R_PKCS_DECODING_ERROR"
-    ]
+    return ["RSA_R_PKCS_DECODING_ERROR"]
 
 
 def cryptography_has_rsa_oaep_md():
@@ -76,15 +74,15 @@ def cryptography_has_get_server_tmp_key():
 
 def cryptography_has_102_verification_error_codes():
     return [
-        'X509_V_ERR_SUITE_B_INVALID_VERSION',
-        'X509_V_ERR_SUITE_B_INVALID_ALGORITHM',
-        'X509_V_ERR_SUITE_B_INVALID_CURVE',
-        'X509_V_ERR_SUITE_B_INVALID_SIGNATURE_ALGORITHM',
-        'X509_V_ERR_SUITE_B_LOS_NOT_ALLOWED',
-        'X509_V_ERR_SUITE_B_CANNOT_SIGN_P_384_WITH_P_256',
-        'X509_V_ERR_HOSTNAME_MISMATCH',
-        'X509_V_ERR_EMAIL_MISMATCH',
-        'X509_V_ERR_IP_ADDRESS_MISMATCH'
+        "X509_V_ERR_SUITE_B_INVALID_VERSION",
+        "X509_V_ERR_SUITE_B_INVALID_ALGORITHM",
+        "X509_V_ERR_SUITE_B_INVALID_CURVE",
+        "X509_V_ERR_SUITE_B_INVALID_SIGNATURE_ALGORITHM",
+        "X509_V_ERR_SUITE_B_LOS_NOT_ALLOWED",
+        "X509_V_ERR_SUITE_B_CANNOT_SIGN_P_384_WITH_P_256",
+        "X509_V_ERR_HOSTNAME_MISMATCH",
+        "X509_V_ERR_EMAIL_MISMATCH",
+        "X509_V_ERR_IP_ADDRESS_MISMATCH",
     ]
 
 
@@ -104,14 +102,12 @@ def cryptography_has_102_verification_params():
         "X509_CHECK_FLAG_NO_WILDCARDS",
         "X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS",
         "X509_CHECK_FLAG_MULTI_LABEL_WILDCARDS",
-        "X509_CHECK_FLAG_SINGLE_LABEL_SUBDOMAINS"
+        "X509_CHECK_FLAG_SINGLE_LABEL_SUBDOMAINS",
     ]
 
 
 def cryptography_has_110_verification_params():
-    return [
-        "X509_CHECK_FLAG_NEVER_CHECK_SUBJECT"
-    ]
+    return ["X509_CHECK_FLAG_NEVER_CHECK_SUBJECT"]
 
 
 def cryptography_has_x509_v_flag_trusted_first():
@@ -403,9 +399,7 @@ CONDITIONAL_NAMES = {
     "Cryptography_HAS_TLS_ST": cryptography_has_tls_st,
     "Cryptography_HAS_LOCKING_CALLBACKS": cryptography_has_locking_callbacks,
     "Cryptography_HAS_SCRYPT": cryptography_has_scrypt,
-    "Cryptography_HAS_GENERIC_DTLS_METHOD": (
-        cryptography_has_generic_dtls_method
-    ),
+    "Cryptography_HAS_GENERIC_DTLS_METHOD": (cryptography_has_generic_dtls_method),
     "Cryptography_HAS_EVP_PKEY_DHX": cryptography_has_evp_pkey_dhx,
     "Cryptography_HAS_MEM_FUNCTIONS": cryptography_has_mem_functions,
     "Cryptography_HAS_SCT": cryptography_has_sct,
@@ -431,9 +425,7 @@ CONDITIONAL_NAMES = {
     "Cryptography_HAS_CIPHER_DETAILS": cryptography_has_cipher_details,
     "Cryptography_HAS_TLSv1_3": cryptography_has_tlsv13,
     "Cryptography_HAS_RAW_KEY": cryptography_has_raw_key,
-    "Cryptography_HAS_EVP_DIGESTFINAL_XOF": (
-        cryptography_has_evp_digestfinal_xof
-    ),
+    "Cryptography_HAS_EVP_DIGESTFINAL_XOF": (cryptography_has_evp_digestfinal_xof),
     "Cryptography_HAS_EVP_R_MEMORY_LIMIT_EXCEEDED": (
         cryptography_has_evp_r_memory_limit_exceeded
     ),

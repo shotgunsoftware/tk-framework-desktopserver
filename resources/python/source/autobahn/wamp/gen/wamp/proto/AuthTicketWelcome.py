@@ -4,8 +4,9 @@
 
 import flatbuffers
 
+
 class AuthTicketWelcome(object):
-    __slots__ = ['_tab']
+    __slots__ = ["_tab"]
 
     @classmethod
     def GetRootAsAuthTicketWelcome(cls, buf, offset):
@@ -18,5 +19,10 @@ class AuthTicketWelcome(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def AuthTicketWelcomeStart(builder): builder.StartObject(0)
-def AuthTicketWelcomeEnd(builder): return builder.EndObject()
+
+def AuthTicketWelcomeStart(builder):
+    builder.StartObject(0)
+
+
+def AuthTicketWelcomeEnd(builder):
+    return builder.EndObject()

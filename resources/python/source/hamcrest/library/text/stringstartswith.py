@@ -7,17 +7,16 @@ from hamcrest.core.helpers.hasmethod import hasmethod
 
 
 class StringStartsWith(SubstringMatcher):
-
     def __init__(self, substring):
         super(StringStartsWith, self).__init__(substring)
 
     def _matches(self, item):
-        if not hasmethod(item, 'startswith'):
+        if not hasmethod(item, "startswith"):
             return False
         return item.startswith(self.substring)
 
     def relationship(self):
-        return 'starting with'
+        return "starting with"
 
 
 def starts_with(substring):

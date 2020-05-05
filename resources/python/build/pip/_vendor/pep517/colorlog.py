@@ -24,9 +24,10 @@ try:
 except ImportError:
     curses = None
 
+
 def _stderr_supports_color():
     color = False
-    if curses and hasattr(sys.stderr, 'isatty') and sys.stderr.isatty():
+    if curses and hasattr(sys.stderr, "isatty") and sys.stderr.isatty():
         try:
             curses.setupterm()
             if curses.tigetnum("colors") > 0:
@@ -35,13 +36,15 @@ def _stderr_supports_color():
             pass
     return color
 
+
 class LogFormatter(logging.Formatter):
     """Log formatter with colour support
     """
+
     DEFAULT_COLORS = {
-        logging.INFO: 2, # Green
-        logging.WARNING: 3, # Yellow
-        logging.ERROR: 1, # Red
+        logging.INFO: 2,  # Green
+        logging.WARNING: 3,  # Yellow
+        logging.ERROR: 1,  # Red
         logging.CRITICAL: 1,
     }
 
@@ -69,8 +72,7 @@ class LogFormatter(logging.Formatter):
             # works with unicode strings. The explicit calls to
             # unicode() below are harmless in python2 but will do the
             # right conversion in python 3.
-            fg_color = (curses.tigetstr("setaf") or
-                        curses.tigetstr("setf") or "")
+            fg_color = curses.tigetstr("setaf") or curses.tigetstr("setf") or ""
             if (3, 0) < sys.version_info < (3, 2, 3):
                 fg_color = str(fg_color, "ascii")
 
@@ -82,26 +84,28 @@ class LogFormatter(logging.Formatter):
             self.termwidth = scr.getmaxyx()[1]
             curses.endwin()
         else:
-            self._normal = ''
+            self._normal = ""
             # Default width is usually 80, but too wide is worse than too narrow
             self.termwidth = 70
 
     def formatMessage(self, record):
         l = len(record.message)
-        right_text = '{initial}-{name}'.format(initial=record.levelname[0],
-                                               name=record.name)
+        right_text = "{initial}-{name}".format(
+            initial=record.levelname[0], name=record.name
+        )
         if l + len(right_text) < self.termwidth:
-            space = ' ' * (self.termwidth - (l + len(right_text)))
+            space = " " * (self.termwidth - (l + len(right_text)))
         else:
-            space = '  '
+            space = "  "
 
         if record.levelno in self._colors:
             start_color = self._colors[record.levelno]
             end_color = self._normal
         else:
-            start_color = end_color = ''
+            start_color = end_color = ""
 
         return record.message + space + start_color + right_text + end_color
+
 
 def enable_colourful_output(level=logging.INFO):
     handler = logging.StreamHandler()

@@ -24,7 +24,7 @@ There are three flavors of declarations:
     provided by objects.
 
 """
-__docformat__ = 'restructuredtext'
+__docformat__ = "restructuredtext"
 
 import sys
 from types import FunctionType
@@ -51,11 +51,15 @@ __all__ = [
 # Registry of class-implementation specifications
 BuiltinImplementationSpecifications = {}
 
-_ADVICE_ERROR = ('Class advice impossible in Python3.  '
-                 'Use the @%s class decorator instead.')
+_ADVICE_ERROR = (
+    "Class advice impossible in Python3.  " "Use the @%s class decorator instead."
+)
 
-_ADVICE_WARNING = ('The %s API is deprecated, and will not work in Python3  '
-                   'Use the @%s class decorator instead.')
+_ADVICE_WARNING = (
+    "The %s API is deprecated, and will not work in Python3  "
+    "Use the @%s class decorator instead."
+)
+
 
 def _next_super_class(ob):
     # When ``ob`` is an instance of ``super``, return
@@ -67,8 +71,8 @@ def _next_super_class(ob):
     next_class = complete_mro[complete_mro.index(class_that_invoked_super) + 1]
     return next_class
 
-class named(object):
 
+class named(object):
     def __init__(self, name):
         self.name = name
 
@@ -104,14 +108,17 @@ class Declaration(Specification):
     def __sub__(self, other):
         """Remove interfaces from a specification
         """
-        return Declaration(*[
-            i for i in self.interfaces()
-            if not [
-                j
-                for j in other.interfaces()
-                if i.extends(j, 0) # non-strict extends
+        return Declaration(
+            *[
+                i
+                for i in self.interfaces()
+                if not [
+                    j
+                    for j in other.interfaces()
+                    if i.extends(j, 0)  # non-strict extends
+                ]
             ]
-        ])
+        )
 
     def __add__(self, other):
         """Add two specifications or a specification and an interface
@@ -202,8 +209,8 @@ class _ImmutableDeclaration(Declaration):
 #
 # These specify interfaces implemented by instances of classes
 
-class Implements(NameAndModuleComparisonMixin,
-                 Declaration):
+
+class Implements(NameAndModuleComparisonMixin, Declaration):
     # Inherit from NameAndModuleComparisonMixin to be
     # mutually comparable with InterfaceClass objects.
     # (The two must be mutually comparable to be able to work in e.g., BTrees.)
@@ -238,7 +245,7 @@ class Implements(NameAndModuleComparisonMixin,
     # another place to store this without taking space unless needed.
     _super_cache = None
 
-    __name__ = '?'
+    __name__ = "?"
 
     @classmethod
     def named(cls, name, *bases):
@@ -260,10 +267,10 @@ class Implements(NameAndModuleComparisonMixin,
         return super(Implements, self).changed(originally_changed)
 
     def __repr__(self):
-        return '<implementedBy %s>' % (self.__name__)
+        return "<implementedBy %s>" % (self.__name__)
 
     def __reduce__(self):
-        return implementedBy, (self.inherit, )
+        return implementedBy, (self.inherit,)
 
 
 def _implements_name(ob):
@@ -275,8 +282,11 @@ def _implements_name(ob):
     # equality and hashing is still based on identity.
     # It might be nice to use __qualname__ on Python 3, but that would produce
     # different values between Py2 and Py3.
-    return (getattr(ob, '__module__', '?') or '?') + \
-        '.' + (getattr(ob, '__name__', '?') or '?')
+    return (
+        (getattr(ob, "__module__", "?") or "?")
+        + "."
+        + (getattr(ob, "__name__", "?") or "?")
+    )
 
 
 def _implementedBy_super(sup):
@@ -292,7 +302,7 @@ def _implementedBy_super(sup):
     # that excludes the classes being skipped over but
     # includes everything else.
     implemented_by_self = implementedBy(sup.__self_class__)
-    cache = implemented_by_self._super_cache # pylint:disable=protected-access
+    cache = implemented_by_self._super_cache  # pylint:disable=protected-access
     if cache is None:
         cache = implemented_by_self._super_cache = weakref.WeakKeyDictionary()
 
@@ -314,8 +324,7 @@ def _implementedBy_super(sup):
     new_bases = [implementedBy(c) for c in classes_to_keep]
 
     new = Implements.named(
-        implemented_by_self.__name__ + ':' + implemented_by_next.__name__,
-        *new_bases
+        implemented_by_self.__name__ + ":" + implemented_by_next.__name__, *new_bases
     )
     new.inherit = implemented_by_next.inherit
     new.declared = implemented_by_next.declared
@@ -327,7 +336,7 @@ def _implementedBy_super(sup):
 
 
 @_use_c_impl
-def implementedBy(cls): # pylint:disable=too-many-return-statements,too-many-branches
+def implementedBy(cls):  # pylint:disable=too-many-return-statements,too-many-branches
     """Return the interfaces implemented for a class' instances
 
       The value returned is an `~zope.interface.interfaces.IDeclaration`.
@@ -338,7 +347,7 @@ def implementedBy(cls): # pylint:disable=too-many-return-statements,too-many-bra
             # like security proxies even break isinstance.
             return _implementedBy_super(cls)
 
-        spec = cls.__dict__.get('__implemented__')
+        spec = cls.__dict__.get("__implemented__")
     except AttributeError:
 
         # we can't get the class dict. This is probably due to a
@@ -351,7 +360,7 @@ def implementedBy(cls): # pylint:disable=too-many-return-statements,too-many-bra
 
         # We'll check to see if there's an implements:
 
-        spec = getattr(cls, '__implemented__', None)
+        spec = getattr(cls, "__implemented__", None)
         if spec is None:
             # There's no spec stred in the class. Maybe its a builtin:
             spec = BuiltinImplementationSpecifications.get(cls)
@@ -367,7 +376,7 @@ def implementedBy(cls): # pylint:disable=too-many-return-statements,too-many-bra
         # TODO: need old style __implements__ compatibility?
         # Hm, there's an __implemented__, but it's not a spec. Must be
         # an old-style declaration. Just compute a spec for it
-        return Declaration(*_normalizeargs((spec, )))
+        return Declaration(*_normalizeargs((spec,)))
 
     if isinstance(spec, Implements):
         return spec
@@ -381,10 +390,10 @@ def implementedBy(cls): # pylint:disable=too-many-return-statements,too-many-bra
     spec_name = _implements_name(cls)
     if spec is not None:
         # old-style __implemented__ = foo declaration
-        spec = (spec, ) # tuplefy, as it might be just an int
+        spec = (spec,)  # tuplefy, as it might be just an int
         spec = Implements.named(spec_name, *_normalizeargs(spec))
-        spec.inherit = None    # old-style implies no inherit
-        del cls.__implemented__ # get rid of the old-style declaration
+        spec.inherit = None  # old-style implies no inherit
+        del cls.__implemented__  # get rid of the old-style declaration
     else:
         try:
             bases = cls.__bases__
@@ -398,16 +407,15 @@ def implementedBy(cls): # pylint:disable=too-many-return-statements,too-many-bra
 
     try:
         cls.__implemented__ = spec
-        if not hasattr(cls, '__providedBy__'):
+        if not hasattr(cls, "__providedBy__"):
             cls.__providedBy__ = objectSpecificationDescriptor
 
-        if (isinstance(cls, DescriptorAwareMetaClasses)
-                and '__provides__' not in cls.__dict__):
+        if (
+            isinstance(cls, DescriptorAwareMetaClasses)
+            and "__provides__" not in cls.__dict__
+        ):
             # Make sure we get a __provides__ descriptor
-            cls.__provides__ = ClassProvides(
-                cls,
-                getattr(cls, '__class__', type(cls)),
-                )
+            cls.__provides__ = ClassProvides(cls, getattr(cls, "__class__", type(cls)),)
 
     except TypeError:
         if not isinstance(cls, type):
@@ -494,7 +502,7 @@ def _classImplements_ordered(spec, before=(), after=()):
     spec.declared = tuple(new_declared)
 
     # compute the bases
-    bases = new_declared # guaranteed no dupes
+    bases = new_declared  # guaranteed no dupes
 
     if spec.inherit is not None:
         for c in spec.inherit.__bases__:
@@ -507,7 +515,7 @@ def _classImplements_ordered(spec, before=(), after=()):
 
 
 def _implements_advice(cls):
-    interfaces, do_classImplements = cls.__dict__['__implements_advice_data__']
+    interfaces, do_classImplements = cls.__dict__["__implements_advice_data__"]
     del cls.__implements_advice_data__
     do_classImplements(cls, *interfaces)
     return cls
@@ -541,7 +549,8 @@ class implementer(object):
 
       after the class has been created.
       """
-    __slots__ = ('interfaces',)
+
+    __slots__ = ("interfaces",)
 
     def __init__(self, *interfaces):
         self.interfaces = interfaces
@@ -560,6 +569,7 @@ class implementer(object):
         except AttributeError:
             raise TypeError("Can't declare implements", ob)
         return ob
+
 
 class implementer_only(object):
     """Declare the only interfaces implemented by instances of a class
@@ -593,30 +603,34 @@ class implementer_only(object):
             # XXX Does this decorator make sense for anything but classes?
             # I don't think so. There can be no inheritance of interfaces
             # on a method or function....
-            raise ValueError('The implementer_only decorator is not '
-                             'supported for methods or functions.')
+            raise ValueError(
+                "The implementer_only decorator is not "
+                "supported for methods or functions."
+            )
         else:
             # Assume it's a class:
             classImplementsOnly(ob, *self.interfaces)
             return ob
 
+
 def _implements(name, interfaces, do_classImplements):
     # This entire approach is invalid under Py3K.  Don't even try to fix
     # the coverage for this block there. :(
-    frame = sys._getframe(2) # pylint:disable=protected-access
-    locals = frame.f_locals # pylint:disable=redefined-builtin
+    frame = sys._getframe(2)  # pylint:disable=protected-access
+    locals = frame.f_locals  # pylint:disable=redefined-builtin
 
     # Try to make sure we were called from a class def. In 2.2.0 we can't
     # check for __module__ since it doesn't seem to be added to the locals
     # until later on.
-    if locals is frame.f_globals or '__module__' not in locals:
-        raise TypeError(name+" can be used only from a class definition.")
+    if locals is frame.f_globals or "__module__" not in locals:
+        raise TypeError(name + " can be used only from a class definition.")
 
-    if '__implements_advice_data__' in locals:
-        raise TypeError(name+" can be used only once in a class definition.")
+    if "__implements_advice_data__" in locals:
+        raise TypeError(name + " can be used only once in a class definition.")
 
-    locals['__implements_advice_data__'] = interfaces, do_classImplements
+    locals["__implements_advice_data__"] = interfaces, do_classImplements
     addClassAdvisor(_implements_advice, depth=3)
+
 
 def implements(*interfaces):
     """Declare interfaces implemented by instances of a class
@@ -647,8 +661,9 @@ def implements(*interfaces):
     # This entire approach is invalid under Py3K.  Don't even try to fix
     # the coverage for this block there. :(
     if PYTHON3:
-        raise TypeError(_ADVICE_ERROR % 'implementer')
+        raise TypeError(_ADVICE_ERROR % "implementer")
     _implements("implements", interfaces, classImplements)
+
 
 def implementsOnly(*interfaces):
     """Declare the only interfaces implemented by instances of a class
@@ -675,12 +690,14 @@ def implementsOnly(*interfaces):
     # This entire approach is invalid under Py3K.  Don't even try to fix
     # the coverage for this block there. :(
     if PYTHON3:
-        raise TypeError(_ADVICE_ERROR % 'implementer_only')
+        raise TypeError(_ADVICE_ERROR % "implementer_only")
     _implements("implementsOnly", interfaces, classImplementsOnly)
+
 
 ##############################################################################
 #
 # Instance declarations
+
 
 class Provides(Declaration):  # Really named ProvidesClass
     """Implement ``__provides__``, the instance-specific specification
@@ -689,9 +706,9 @@ class Provides(Declaration):  # Really named ProvidesClass
     """
 
     def __init__(self, cls, *interfaces):
-        self.__args = (cls, ) + interfaces
+        self.__args = (cls,) + interfaces
         self._cls = cls
-        Declaration.__init__(self, *(interfaces + (implementedBy(cls), )))
+        Declaration.__init__(self, *(interfaces + (implementedBy(cls),)))
 
     def __repr__(self):
         return "<%s.%s for %s>" % (
@@ -703,7 +720,7 @@ class Provides(Declaration):  # Really named ProvidesClass
     def __reduce__(self):
         return Provides, self.__args
 
-    __module__ = 'zope.interface'
+    __module__ = "zope.interface"
 
     def __get__(self, inst, cls):
         """Make sure that a class __provides__ doesn't leak to an instance
@@ -714,7 +731,8 @@ class Provides(Declaration):  # Really named ProvidesClass
             # being called on the same class that we were defined for:
             return self
 
-        raise AttributeError('__provides__')
+        raise AttributeError("__provides__")
+
 
 ProvidesClass = Provides
 
@@ -722,7 +740,8 @@ ProvidesClass = Provides
 # This is a memory optimization to allow objects to share specifications.
 InstanceDeclarations = weakref.WeakValueDictionary()
 
-def Provides(*interfaces): # pylint:disable=function-redefined
+
+def Provides(*interfaces):  # pylint:disable=function-redefined
     """Cache instance declarations
 
       Instance declarations are shared among instances that have the same
@@ -735,10 +754,11 @@ def Provides(*interfaces): # pylint:disable=function-redefined
 
     return spec
 
+
 Provides.__safe_for_unpickling__ = True
 
 
-def directlyProvides(object, *interfaces): # pylint:disable=redefined-builtin
+def directlyProvides(object, *interfaces):  # pylint:disable=redefined-builtin
     """Declare interfaces declared directly for an object
 
       The arguments after the object are one or more interfaces or interface
@@ -747,15 +767,16 @@ def directlyProvides(object, *interfaces): # pylint:disable=redefined-builtin
       The interfaces given (including the interfaces in the specifications)
       replace interfaces previously declared for the object.
     """
-    cls = getattr(object, '__class__', None)
-    if cls is not None and getattr(cls, '__class__', None) is cls:
+    cls = getattr(object, "__class__", None)
+    if cls is not None and getattr(cls, "__class__", None) is cls:
         # It's a meta class (well, at least it it could be an extension class)
         # Note that we can't get here from Py3k tests:  there is no normal
         # class which isn't descriptor aware.
-        if not isinstance(object,
-                          DescriptorAwareMetaClasses):
-            raise TypeError("Attempt to make an interface declaration on a "
-                            "non-descriptor-aware class")
+        if not isinstance(object, DescriptorAwareMetaClasses):
+            raise TypeError(
+                "Attempt to make an interface declaration on a "
+                "non-descriptor-aware class"
+            )
 
     interfaces = _normalizeargs(interfaces)
     if cls is None:
@@ -774,7 +795,7 @@ def directlyProvides(object, *interfaces): # pylint:disable=redefined-builtin
         object.__provides__ = Provides(cls, *interfaces)
 
 
-def alsoProvides(object, *interfaces): # pylint:disable=redefined-builtin
+def alsoProvides(object, *interfaces):  # pylint:disable=redefined-builtin
     """Declare interfaces declared directly for an object
 
     The arguments after the object are one or more interfaces or interface
@@ -786,7 +807,7 @@ def alsoProvides(object, *interfaces): # pylint:disable=redefined-builtin
     directlyProvides(object, directlyProvidedBy(object), *interfaces)
 
 
-def noLongerProvides(object, interface): # pylint:disable=redefined-builtin
+def noLongerProvides(object, interface):  # pylint:disable=redefined-builtin
     """ Removes a directly provided interface from an object.
     """
     directlyProvides(object, directlyProvidedBy(object) - interface)
@@ -798,8 +819,8 @@ def noLongerProvides(object, interface): # pylint:disable=redefined-builtin
 class ClassProvidesBase(SpecificationBase):
 
     __slots__ = (
-        '_cls',
-        '_implements',
+        "_cls",
+        "_implements",
     )
 
     def __get__(self, inst, cls):
@@ -815,7 +836,7 @@ class ClassProvidesBase(SpecificationBase):
 
             return self._implements
 
-        raise AttributeError('__provides__')
+        raise AttributeError("__provides__")
 
 
 class ClassProvides(Declaration, ClassProvidesBase):
@@ -826,15 +847,13 @@ class ClassProvides(Declaration, ClassProvidesBase):
     interfaces a bit quicker.
     """
 
-    __slots__ = (
-        '__args',
-    )
+    __slots__ = ("__args",)
 
     def __init__(self, cls, metacls, *interfaces):
         self._cls = cls
         self._implements = implementedBy(cls)
-        self.__args = (cls, metacls, ) + interfaces
-        Declaration.__init__(self, *(interfaces + (implementedBy(metacls), )))
+        self.__args = (cls, metacls,) + interfaces
+        Declaration.__init__(self, *(interfaces + (implementedBy(metacls),)))
 
     def __repr__(self):
         return "<%s.%s for %s>" % (
@@ -850,18 +869,18 @@ class ClassProvides(Declaration, ClassProvidesBase):
     __get__ = ClassProvidesBase.__get__
 
 
-def directlyProvidedBy(object): # pylint:disable=redefined-builtin
+def directlyProvidedBy(object):  # pylint:disable=redefined-builtin
     """Return the interfaces directly provided by the given object
 
     The value returned is an `~zope.interface.interfaces.IDeclaration`.
     """
     provides = getattr(object, "__provides__", None)
     if (
-            provides is None # no spec
-            # We might have gotten the implements spec, as an
-            # optimization. If so, it's like having only one base, that we
-            # lop off to exclude class-supplied declarations:
-            or isinstance(provides, Implements)
+        provides is None  # no spec
+        # We might have gotten the implements spec, as an
+        # optimization. If so, it's like having only one base, that we
+        # lop off to exclude class-supplied declarations:
+        or isinstance(provides, Implements)
     ):
         return _empty
 
@@ -901,28 +920,27 @@ def classProvides(*interfaces):
     # the coverage for this block there. :(
 
     if PYTHON3:
-        raise TypeError(_ADVICE_ERROR % 'provider')
+        raise TypeError(_ADVICE_ERROR % "provider")
 
-    frame = sys._getframe(1) # pylint:disable=protected-access
-    locals = frame.f_locals # pylint:disable=redefined-builtin
+    frame = sys._getframe(1)  # pylint:disable=protected-access
+    locals = frame.f_locals  # pylint:disable=redefined-builtin
 
     # Try to make sure we were called from a class def
-    if (locals is frame.f_globals) or ('__module__' not in locals):
-        raise TypeError("classProvides can be used only from a "
-                        "class definition.")
+    if (locals is frame.f_globals) or ("__module__" not in locals):
+        raise TypeError("classProvides can be used only from a " "class definition.")
 
-    if '__provides__' in locals:
-        raise TypeError(
-            "classProvides can only be used once in a class definition.")
+    if "__provides__" in locals:
+        raise TypeError("classProvides can only be used once in a class definition.")
 
     locals["__provides__"] = _normalizeargs(interfaces)
 
     addClassAdvisor(_classProvides_advice, depth=2)
 
+
 def _classProvides_advice(cls):
     # This entire approach is invalid under Py3K.  Don't even try to fix
     # the coverage for this block there. :(
-    interfaces = cls.__dict__['__provides__']
+    interfaces = cls.__dict__["__provides__"]
     del cls.__provides__
     directlyProvides(cls, *interfaces)
     return cls
@@ -962,20 +980,17 @@ def moduleProvides(*interfaces):
 
       directlyProvides(sys.modules[__name__], I1)
     """
-    frame = sys._getframe(1) # pylint:disable=protected-access
-    locals = frame.f_locals # pylint:disable=redefined-builtin
+    frame = sys._getframe(1)  # pylint:disable=protected-access
+    locals = frame.f_locals  # pylint:disable=redefined-builtin
 
     # Try to make sure we were called from a class def
-    if (locals is not frame.f_globals) or ('__name__' not in locals):
-        raise TypeError(
-            "moduleProvides can only be used from a module definition.")
+    if (locals is not frame.f_globals) or ("__name__" not in locals):
+        raise TypeError("moduleProvides can only be used from a module definition.")
 
-    if '__provides__' in locals:
-        raise TypeError(
-            "moduleProvides can only be used once in a module definition.")
+    if "__provides__" in locals:
+        raise TypeError("moduleProvides can only be used once in a module definition.")
 
-    locals["__provides__"] = Provides(ModuleType,
-                                      *_normalizeargs(interfaces))
+    locals["__provides__"] = Provides(ModuleType, *_normalizeargs(interfaces))
 
 
 ##############################################################################
@@ -989,12 +1004,13 @@ def ObjectSpecification(direct, cls):
 
     These combine information for the object and for it's classes.
     """
-    return Provides(cls, direct) # pragma: no cover fossil
+    return Provides(cls, direct)  # pragma: no cover fossil
+
 
 @_use_c_impl
 def getObjectSpecification(ob):
     try:
-        provides = getattr(ob, '__provides__', None)
+        provides = getattr(ob, "__provides__", None)
     except:
         provides = None
     if provides is not None:
@@ -1024,7 +1040,7 @@ def providedBy(ob):
 
     # Try to get __providedBy__
     try:
-        if isinstance(ob, super): # Some objects raise errors on isinstance()
+        if isinstance(ob, super):  # Some objects raise errors on isinstance()
             return implementedBy(ob)
 
         r = ob.__providedBy__
@@ -1084,7 +1100,7 @@ class ObjectSpecificationDescriptor(object):
         if inst is None:
             return getObjectSpecification(cls)
 
-        provides = getattr(inst, '__provides__', None)
+        provides = getattr(inst, "__provides__", None)
         if provides is not None:
             return provides
 
@@ -1092,6 +1108,7 @@ class ObjectSpecificationDescriptor(object):
 
 
 ##############################################################################
+
 
 def _normalizeargs(sequence, output=None):
     """Normalize declaration arguments
@@ -1112,6 +1129,7 @@ def _normalizeargs(sequence, output=None):
             _normalizeargs(v, output)
 
     return output
+
 
 _empty = _ImmutableDeclaration()
 
