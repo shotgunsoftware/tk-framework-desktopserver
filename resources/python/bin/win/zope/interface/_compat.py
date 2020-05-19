@@ -32,7 +32,7 @@ if sys.version_info[0] < 3:
     CLASS_TYPES = (type, types.ClassType)
     STRING_TYPES = (basestring,)
 
-    _BUILTINS = "__builtin__"
+    _BUILTINS = '__builtin__'
 
     PYTHON3 = False
     PYTHON2 = True
@@ -41,7 +41,7 @@ else:
 
     def _normalize_name(name):
         if isinstance(name, bytes):
-            name = str(name, "ascii")
+            name = str(name, 'ascii')
         if isinstance(name, str):
             return name
         raise TypeError("name must be a string or ASCII-only bytes")
@@ -49,24 +49,21 @@ else:
     CLASS_TYPES = (type,)
     STRING_TYPES = (str,)
 
-    _BUILTINS = "builtins"
+    _BUILTINS = 'builtins'
 
     PYTHON3 = True
     PYTHON2 = False
 
-PYPY = hasattr(sys, "pypy_version_info")
+PYPY = hasattr(sys, 'pypy_version_info')
 PYPY2 = PYTHON2 and PYPY
-
 
 def _skip_under_py3k(test_method):
     import unittest
-
     return unittest.skipIf(sys.version_info[0] >= 3, "Only on Python 2")(test_method)
 
 
 def _skip_under_py2(test_method):
     import unittest
-
     return unittest.skipIf(sys.version_info[0] < 3, "Only on Python 3")(test_method)
 
 
@@ -76,7 +73,7 @@ def _c_optimizations_required():
 
     This uses the ``PURE_PYTHON`` variable as documented in `_use_c_impl`.
     """
-    pure_env = os.environ.get("PURE_PYTHON")
+    pure_env = os.environ.get('PURE_PYTHON')
     require_c = pure_env == "0"
     return require_c
 
@@ -94,9 +91,8 @@ def _c_optimizations_available():
     catch = () if _c_optimizations_required() else (ImportError,)
     try:
         from zope.interface import _zope_interface_coptimizations as c_opt
-
         return c_opt
-    except catch:  # pragma: no cover (only Jython doesn't build extensions)
+    except catch: # pragma: no cover (only Jython doesn't build extensions)
         return False
 
 
@@ -104,7 +100,7 @@ def _c_optimizations_ignored():
     """
     The opposite of `_c_optimizations_required`.
     """
-    pure_env = os.environ.get("PURE_PYTHON")
+    pure_env = os.environ.get('PURE_PYTHON')
     return pure_env is not None and pure_env != "0"
 
 
@@ -115,7 +111,7 @@ def _should_attempt_c_optimizations():
     This takes into account whether we're on PyPy and the value of the
     ``PURE_PYTHON`` environment variable, as defined in `_use_c_impl`.
     """
-    is_pypy = hasattr(sys, "pypy_version_info")
+    is_pypy = hasattr(sys, 'pypy_version_info')
 
     if _c_optimizations_required():
         return True
@@ -159,7 +155,7 @@ def _use_c_impl(py_impl, name=None, globs=None):
             return py_impl
 
         c_opt = _c_optimizations_available()
-        if not c_opt:  # pragma: no cover (only Jython doesn't build extensions)
+        if not c_opt: # pragma: no cover (only Jython doesn't build extensions)
             return py_impl
 
         __traceback_info__ = c_opt
@@ -168,7 +164,7 @@ def _use_c_impl(py_impl, name=None, globs=None):
     c_impl = find_impl()
     # Always make available by the FooPy name and FooFallback
     # name (for testing and documentation)
-    globs[name + "Py"] = py_impl
-    globs[name + "Fallback"] = py_impl
+    globs[name + 'Py'] = py_impl
+    globs[name + 'Fallback'] = py_impl
 
     return c_impl

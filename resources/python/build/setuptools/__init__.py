@@ -21,17 +21,12 @@ __metaclass__ = type
 
 
 __all__ = [
-    "setup",
-    "Distribution",
-    "Feature",
-    "Command",
-    "Extension",
-    "Require",
-    "find_packages",
+    'setup', 'Distribution', 'Feature', 'Command', 'Extension', 'Require',
+    'find_packages'
 ]
 
 if PY3:
-    __all__.append("find_namespace_packages")
+  __all__.append('find_namespace_packages')
 
 __version__ = setuptools.version.__version__
 
@@ -41,7 +36,7 @@ bootstrap_install_from = None
 # Default: yes; assume that we can detect doctests reliably
 run_2to3_on_doctests = True
 # Standard package names for fixer packages
-lib2to3_fixer_packages = ["lib2to3.fixes"]
+lib2to3_fixer_packages = ['lib2to3.fixes']
 
 
 class PackageFinder:
@@ -50,7 +45,7 @@ class PackageFinder:
     """
 
     @classmethod
-    def find(cls, where=".", exclude=(), include=("*",)):
+    def find(cls, where='.', exclude=(), include=('*',)):
         """Return a list all Python packages found within directory 'where'
 
         'where' is the root directory which will be searched for packages.  It
@@ -67,13 +62,10 @@ class PackageFinder:
         shell style wildcard patterns just like 'exclude'.
         """
 
-        return list(
-            cls._find_packages_iter(
-                convert_path(where),
-                cls._build_filter("ez_setup", "*__pycache__", *exclude),
-                cls._build_filter(*include),
-            )
-        )
+        return list(cls._find_packages_iter(
+            convert_path(where),
+            cls._build_filter('ez_setup', '*__pycache__', *exclude),
+            cls._build_filter(*include)))
 
     @classmethod
     def _find_packages_iter(cls, where, exclude, include):
@@ -89,10 +81,10 @@ class PackageFinder:
             for dir in all_dirs:
                 full_path = os.path.join(root, dir)
                 rel_path = os.path.relpath(full_path, where)
-                package = rel_path.replace(os.path.sep, ".")
+                package = rel_path.replace(os.path.sep, '.')
 
                 # Skip directory trees that are not valid packages
-                if "." in dir or not cls._looks_like_package(full_path):
+                if ('.' in dir or not cls._looks_like_package(full_path)):
                     continue
 
                 # Should this package be included?
@@ -106,7 +98,7 @@ class PackageFinder:
     @staticmethod
     def _looks_like_package(path):
         """Does a directory look like a package?"""
-        return os.path.isfile(os.path.join(path, "__init__.py"))
+        return os.path.isfile(os.path.join(path, '__init__.py'))
 
     @staticmethod
     def _build_filter(*patterns):
@@ -126,19 +118,16 @@ class PEP420PackageFinder(PackageFinder):
 find_packages = PackageFinder.find
 
 if PY3:
-    find_namespace_packages = PEP420PackageFinder.find
+  find_namespace_packages = PEP420PackageFinder.find
 
 
 def _install_setup_requires(attrs):
     # Note: do not use `setuptools.Distribution` directly, as
     # our PEP 517 backend patch `distutils.core.Distribution`.
-    dist = distutils.core.Distribution(
-        dict(
-            (k, v)
-            for k, v in attrs.items()
-            if k in ("dependency_links", "setup_requires")
-        )
-    )
+    dist = distutils.core.Distribution(dict(
+        (k, v) for k, v in attrs.items()
+        if k in ('dependency_links', 'setup_requires')
+    ))
     # Honor setup.cfg's options.
     dist.parse_config_files(ignore_option_errors=True)
     if dist.setup_requires:
@@ -149,7 +138,6 @@ def setup(**attrs):
     # Make sure we have any requirements needed to interpret 'attrs'.
     _install_setup_requires(attrs)
     return distutils.core.setup(**attrs)
-
 
 setup.__doc__ = distutils.core.setup.__doc__
 

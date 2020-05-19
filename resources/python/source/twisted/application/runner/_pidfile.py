@@ -14,6 +14,7 @@ from zope.interface import Interface, implementer
 from twisted.logger import Logger
 
 
+
 class IPIDFile(Interface):
     """
     Manages a file that remembers a process ID.
@@ -31,6 +32,7 @@ class IPIDFile(Interface):
         @raise ValueError: If this PID file's content is invalid.
         """
 
+
     def writeRunningPID():
         """
         Store the PID of the current process in this PID file.
@@ -38,12 +40,14 @@ class IPIDFile(Interface):
         @raise EnvironmentError: If this PID file cannot be written.
         """
 
+
     def remove():
         """
         Remove this PID file.
 
         @raise EnvironmentError: If this PID file cannot be removed.
         """
+
 
     def isRunning():
         """
@@ -60,6 +64,7 @@ class IPIDFile(Interface):
             for which there is no corresponding running process.
         """
 
+
     def __enter__():
         """
         Enter a context using this PIDFile.
@@ -70,12 +75,14 @@ class IPIDFile(Interface):
             PID file is already running.
         """
 
+
     def __exit__(excType, excValue, traceback):
         """
         Exit a context using this PIDFile.
 
         Removes the PID file.
         """
+
 
 
 @implementer(IPIDFile)
@@ -90,6 +97,7 @@ class PIDFile(object):
 
     _log = Logger()
 
+
     @staticmethod
     def _format(pid):
         """
@@ -103,12 +111,14 @@ class PIDFile(object):
         """
         return u"{}\n".format(int(pid)).encode("utf-8")
 
+
     def __init__(self, filePath):
         """
         @param filePath: The path to the PID file on disk.
         @type filePath: L{IFilePath}
         """
         self.filePath = filePath
+
 
     def read(self):
         pidString = b""
@@ -128,6 +138,7 @@ class PIDFile(object):
                 "non-integer PID value in PID file: {!r}".format(pidString)
             )
 
+
     def _write(self, pid):
         """
         Store a PID in this PID file.
@@ -139,11 +150,14 @@ class PIDFile(object):
         """
         self.filePath.setContent(self._format(pid=pid))
 
+
     def writeRunningPID(self):
         self._write(getpid())
 
+
     def remove(self):
         self.filePath.remove()
+
 
     def isRunning(self):
         try:
@@ -157,6 +171,7 @@ class PIDFile(object):
             raise NotImplementedError(
                 "isRunning is not implemented on {}".format(SYSTEM_NAME)
             )
+
 
     @staticmethod
     def _pidIsRunningPOSIX(pid):
@@ -178,13 +193,16 @@ class PIDFile(object):
             kill(pid, 0)
         except OSError as e:
             if e.errno == errno.ESRCH:  # No such process
-                raise StalePIDFileError("PID file refers to non-existing process")
+                raise StalePIDFileError(
+                    "PID file refers to non-existing process"
+                )
             elif e.errno == errno.EPERM:  # Not permitted to kill
                 return True
             else:
                 raise
         else:
             return True
+
 
     def __enter__(self):
         try:
@@ -195,8 +213,10 @@ class PIDFile(object):
         self.writeRunningPID()
         return self
 
+
     def __exit__(self, excType, excValue, traceback):
         self.remove()
+
 
 
 @implementer(IPIDFile)
@@ -211,8 +231,10 @@ class NonePIDFile(object):
     def __init__(self):
         pass
 
+
     def read(self):
         raise NoPIDFound("PID file does not exist")
+
 
     def _write(self, pid):
         """
@@ -227,23 +249,30 @@ class NonePIDFile(object):
         """
         raise OSError(errno.EPERM, "Operation not permitted")
 
+
     def writeRunningPID(self):
         self._write(0)
+
 
     def remove(self):
         raise OSError(errno.ENOENT, "No such file or directory")
 
+
     def isRunning(self):
         return False
 
+
     def __enter__(self):
         return self
+
 
     def __exit__(self, excType, excValue, traceback):
         pass
 
 
+
 nonePIDFile = NonePIDFile()
+
 
 
 class AlreadyRunningError(Exception):
@@ -252,10 +281,12 @@ class AlreadyRunningError(Exception):
     """
 
 
+
 class InvalidPIDFileError(Exception):
     """
     PID file contents are invalid.
     """
+
 
 
 class StalePIDFileError(Exception):
@@ -263,6 +294,7 @@ class StalePIDFileError(Exception):
     PID file contents are valid, but there is no process with the referenced
     PID.
     """
+
 
 
 class NoPIDFound(Exception):

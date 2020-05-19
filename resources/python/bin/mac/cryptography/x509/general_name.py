@@ -35,7 +35,6 @@ def _lazy_import_idna():
     # we're only using it in deprecated paths.
     try:
         import idna
-
         return idna
     except ImportError:
         raise ImportError(
@@ -120,9 +119,9 @@ class RFC822Name(object):
 def _idna_encode(value):
     idna = _lazy_import_idna()
     # Retain prefixes '*.' for common/alt names and '.' for name constraints
-    for prefix in ["*.", "."]:
+    for prefix in ['*.', '.']:
         if value.startswith(prefix):
-            value = value[len(prefix) :]
+            value = value[len(prefix):]
             return prefix + idna.encode(value).decode("ascii")
     return idna.encode(value).decode("ascii")
 
@@ -206,7 +205,8 @@ class UniformResourceIdentifier(object):
         parsed = urllib_parse.urlparse(value)
         if parsed.port:
             netloc = (
-                idna.encode(parsed.hostname) + ":{}".format(parsed.port).encode("ascii")
+                idna.encode(parsed.hostname) +
+                ":{}".format(parsed.port).encode("ascii")
             ).decode("ascii")
         else:
             netloc = idna.encode(parsed.hostname).decode("ascii")
@@ -214,16 +214,14 @@ class UniformResourceIdentifier(object):
         # Note that building a URL in this fashion means it should be
         # semantically indistinguishable from the original but is not
         # guaranteed to be exactly the same.
-        return urllib_parse.urlunparse(
-            (
-                parsed.scheme,
-                netloc,
-                parsed.path,
-                parsed.params,
-                parsed.query,
-                parsed.fragment,
-            )
-        )
+        return urllib_parse.urlunparse((
+            parsed.scheme,
+            netloc,
+            parsed.path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment
+        ))
 
     def __repr__(self):
         return "<UniformResourceIdentifier(value={0!r})>".format(self.value)
@@ -302,8 +300,8 @@ class IPAddress(object):
                 ipaddress.IPv4Address,
                 ipaddress.IPv6Address,
                 ipaddress.IPv4Network,
-                ipaddress.IPv6Network,
-            ),
+                ipaddress.IPv6Network
+            )
         ):
             raise TypeError(
                 "value must be an instance of ipaddress.IPv4Address, "
@@ -346,7 +344,8 @@ class OtherName(object):
     value = utils.read_only_property("_value")
 
     def __repr__(self):
-        return "<OtherName(type_id={}, value={!r})>".format(self.type_id, self.value)
+        return "<OtherName(type_id={}, value={!r})>".format(
+            self.type_id, self.value)
 
     def __eq__(self, other):
         if not isinstance(other, OtherName):

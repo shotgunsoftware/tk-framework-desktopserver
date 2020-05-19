@@ -12,10 +12,8 @@ from textwrap import dedent
 from twisted.copyright import version
 from twisted.python.usage import Options, UsageError
 from twisted.logger import (
-    LogLevel,
-    InvalidLogLevelError,
-    textFileLogObserver,
-    jsonFileLogObserver,
+    LogLevel, InvalidLogLevelError,
+    textFileLogObserver, jsonFileLogObserver,
 )
 from twisted.plugin import getPlugins
 
@@ -26,6 +24,7 @@ from ..service import IServiceMaker
 openFile = open
 
 
+
 class TwistOptions(Options):
     """
     Command line options for C{twist}.
@@ -34,6 +33,7 @@ class TwistOptions(Options):
     defaultReactorName = "default"
     defaultLogLevel = LogLevel.info
 
+
     def __init__(self):
         Options.__init__(self)
 
@@ -41,14 +41,19 @@ class TwistOptions(Options):
         self["logLevel"] = self.defaultLogLevel
         self["logFile"] = stdout
 
+
     def getSynopsis(self):
-        return "{} plugin [plugin_options]".format(Options.getSynopsis(self))
+        return "{} plugin [plugin_options]".format(
+            Options.getSynopsis(self)
+        )
+
 
     def opt_version(self):
         """
         Print version and exit.
         """
         exit(ExitStatus.EX_OK, "{}".format(version))
+
 
     def opt_reactor(self, name):
         """
@@ -66,8 +71,11 @@ class TwistOptions(Options):
             self["reactorName"] = name
 
     opt_reactor.__doc__ = dedent(opt_reactor.__doc__).format(
-        options=", ".join('"{}"'.format(rt.shortName) for rt in getReactorTypes()),
+        options=", ".join(
+            '"{}"'.format(rt.shortName) for rt in getReactorTypes()
+        ),
     )
+
 
     def installReactor(self, name):
         """
@@ -75,10 +83,10 @@ class TwistOptions(Options):
         """
         if name == self.defaultReactorName:
             from twisted.internet import reactor
-
             return reactor
         else:
             return installReactor(name)
+
 
     def opt_log_level(self, levelName):
         """
@@ -91,9 +99,12 @@ class TwistOptions(Options):
             raise UsageError("Invalid log level: {}".format(levelName))
 
     opt_log_level.__doc__ = dedent(opt_log_level.__doc__).format(
-        options=", ".join('"{}"'.format(l.name) for l in LogLevel.iterconstants()),
+        options=", ".join(
+            '"{}"'.format(l.name) for l in LogLevel.iterconstants()
+        ),
         default=defaultLogLevel.name,
     )
+
 
     def opt_log_file(self, fileName):
         """
@@ -112,8 +123,9 @@ class TwistOptions(Options):
         except EnvironmentError as e:
             exit(
                 ExitStatus.EX_IOERR,
-                "Unable to open log file {!r}: {}".format(fileName, e),
+                "Unable to open log file {!r}: {}".format(fileName, e)
             )
+
 
     def opt_log_format(self, format):
         """
@@ -133,6 +145,7 @@ class TwistOptions(Options):
 
     opt_log_format.__doc__ = dedent(opt_log_format.__doc__)
 
+
     def selectDefaultLogObserver(self):
         """
         Set C{fileLogObserverFactory} to the default appropriate for the
@@ -148,6 +161,7 @@ class TwistOptions(Options):
                 self["fileLogObserverFactory"] = jsonFileLogObserver
                 self["logFormat"] = "json"
 
+
     def parseOptions(self, options=None):
         self.selectDefaultLogObserver()
 
@@ -155,6 +169,7 @@ class TwistOptions(Options):
 
         if "reactor" not in self:
             self["reactor"] = self.installReactor(self["reactorName"])
+
 
     @property
     def plugins(self):
@@ -165,6 +180,7 @@ class TwistOptions(Options):
             self["plugins"] = plugins
 
         return self["plugins"]
+
 
     @property
     def subCommands(self):
@@ -180,6 +196,7 @@ class TwistOptions(Options):
                 lambda plugin=plugin: plugin.options(),
                 plugin.description,
             )
+
 
     def postOptions(self):
         Options.postOptions(self)

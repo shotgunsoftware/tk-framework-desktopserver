@@ -13,15 +13,17 @@ from twisted.python import deprecate
 from incremental import Version
 
 
+
 class BindError(Exception):
     """An error occurred binding to an interface"""
 
     def __str__(self):
         s = self.__doc__
         if self.args:
-            s = "%s: %s" % (s, " ".join(self.args))
-        s = "%s." % s
+            s = '%s: %s' % (s, ' '.join(self.args))
+        s = '%s.' % s
         return s
+
 
 
 class CannotListenError(BindError):
@@ -34,7 +36,6 @@ class CannotListenError(BindError):
     @ivar socketError: the exception I got when I tried to listen
     @type socketError: L{socket.error}
     """
-
     def __init__(self, interface, port, socketError):
         BindError.__init__(self, interface, port, socketError)
         self.interface = interface
@@ -42,8 +43,10 @@ class CannotListenError(BindError):
         self.socketError = socketError
 
     def __str__(self):
-        iface = self.interface or "any"
-        return "Couldn't listen on %s:%s: %s." % (iface, self.port, self.socketError)
+        iface = self.interface or 'any'
+        return "Couldn't listen on %s:%s: %s." % (iface, self.port,
+                                                 self.socketError)
+
 
 
 class MulticastJoinError(Exception):
@@ -52,15 +55,17 @@ class MulticastJoinError(Exception):
     """
 
 
+
 class MessageLengthError(Exception):
     """Message is too long to send"""
 
     def __str__(self):
         s = self.__doc__
         if self.args:
-            s = "%s: %s" % (s, " ".join(self.args))
-        s = "%s." % s
+            s = '%s: %s' % (s, ' '.join(self.args))
+        s = '%s.' % s
         return s
+
 
 
 class DNSLookupError(IOError):
@@ -69,9 +74,10 @@ class DNSLookupError(IOError):
     def __str__(self):
         s = self.__doc__
         if self.args:
-            s = "%s: %s" % (s, " ".join(self.args))
-        s = "%s." % s
+            s = '%s: %s' % (s, ' '.join(self.args))
+        s = '%s.' % s
         return s
+
 
 
 class ConnectInProgressError(Exception):
@@ -79,7 +85,6 @@ class ConnectInProgressError(Exception):
 
 
 # connection errors
-
 
 class ConnectError(Exception):
     """An error occurred while connecting"""
@@ -91,51 +96,62 @@ class ConnectError(Exception):
     def __str__(self):
         s = self.__doc__ or self.__class__.__name__
         if self.osError:
-            s = "%s: %s" % (s, self.osError)
+            s = '%s: %s' % (s, self.osError)
         if self.args[0]:
-            s = "%s: %s" % (s, self.args[0])
-        s = "%s." % s
+            s = '%s: %s' % (s, self.args[0])
+        s = '%s.' % s
         return s
+
 
 
 class ConnectBindError(ConnectError):
     """Couldn't bind"""
 
 
+
 class UnknownHostError(ConnectError):
     """Hostname couldn't be looked up"""
+
 
 
 class NoRouteError(ConnectError):
     """No route to host"""
 
 
+
 class ConnectionRefusedError(ConnectError):
     """Connection was refused by other side"""
+
 
 
 class TCPTimedOutError(ConnectError):
     """TCP connection timed out"""
 
 
+
 class BadFileError(ConnectError):
     """File used for UNIX socket is no good"""
+
 
 
 class ServiceNameUnknownError(ConnectError):
     """Service name given as port is unknown"""
 
 
+
 class UserError(ConnectError):
     """User aborted connection"""
+
 
 
 class TimeoutError(UserError):
     """User timeout caused connection failure"""
 
 
+
 class SSLError(ConnectError):
     """An SSL error occurred"""
+
 
 
 class VerifyError(Exception):
@@ -143,9 +159,11 @@ class VerifyError(Exception):
     """
 
 
+
 class PeerVerifyError(VerifyError):
     """The peer rejected our verify error.
     """
+
 
 
 class CertificateError(Exception):
@@ -154,9 +172,9 @@ class CertificateError(Exception):
     """
 
 
+
 try:
     import errno
-
     errnoMapping = {
         errno.ENETUNREACH: NoRouteError,
         errno.ECONNREFUSED: ConnectionRefusedError,
@@ -167,6 +185,7 @@ try:
         errnoMapping[errno.WSAENETUNREACH] = NoRouteError
 except ImportError:
     errnoMapping = {}
+
 
 
 def getConnectError(e):
@@ -180,7 +199,7 @@ def getConnectError(e):
     except ValueError:
         return ConnectError(string=e)
 
-    if hasattr(socket, "gaierror") and isinstance(e, socket.gaierror):
+    if hasattr(socket, 'gaierror') and isinstance(e, socket.gaierror):
         # Only works in 2.2 in newer. Really that means always; #5978 covers
         # this and other weirdnesses in this function.
         klass = UnknownHostError
@@ -189,10 +208,12 @@ def getConnectError(e):
     return klass(number, string)
 
 
+
 class ConnectionClosed(Exception):
     """
     Connection was closed, whether cleanly or non-cleanly.
     """
+
 
 
 class ConnectionLost(ConnectionClosed):
@@ -201,9 +222,10 @@ class ConnectionLost(ConnectionClosed):
     def __str__(self):
         s = self.__doc__.strip().splitlines()[0]
         if self.args:
-            s = "%s: %s" % (s, " ".join(self.args))
-        s = "%s." % s
+            s = '%s: %s' % (s, ' '.join(self.args))
+        s = '%s.' % s
         return s
+
 
 
 class ConnectionAborted(ConnectionLost):
@@ -215,12 +237,16 @@ class ConnectionAborted(ConnectionLost):
     """
 
     def __str__(self):
-        s = [("Connection was aborted locally using" " ITCPTransport.abortConnection")]
+        s = [(
+            "Connection was aborted locally using"
+            " ITCPTransport.abortConnection"
+        )]
         if self.args:
-            s.append(": ")
-            s.append(" ".join(self.args))
-        s.append(".")
-        return "".join(s)
+            s.append(': ')
+            s.append(' '.join(self.args))
+        s.append('.')
+        return ''.join(s)
+
 
 
 class ConnectionDone(ConnectionClosed):
@@ -229,9 +255,10 @@ class ConnectionDone(ConnectionClosed):
     def __str__(self):
         s = self.__doc__
         if self.args:
-            s = "%s: %s" % (s, " ".join(self.args))
-        s = "%s." % s
+            s = '%s: %s' % (s, ' '.join(self.args))
+        s = '%s.' % s
         return s
+
 
 
 class FileDescriptorOverrun(ConnectionLost):
@@ -246,8 +273,10 @@ class FileDescriptorOverrun(ConnectionLost):
     """
 
 
+
 class ConnectionFdescWentAway(ConnectionLost):
-    """Uh"""  # TODO
+    """Uh""" #TODO
+
 
 
 class AlreadyCalled(ValueError):
@@ -256,9 +285,10 @@ class AlreadyCalled(ValueError):
     def __str__(self):
         s = self.__doc__
         if self.args:
-            s = "%s: %s" % (s, " ".join(self.args))
-        s = "%s." % s
+            s = '%s: %s' % (s, ' '.join(self.args))
+        s = '%s.' % s
         return s
+
 
 
 class AlreadyCancelled(ValueError):
@@ -267,9 +297,10 @@ class AlreadyCancelled(ValueError):
     def __str__(self):
         s = self.__doc__
         if self.args:
-            s = "%s: %s" % (s, " ".join(self.args))
-        s = "%s." % s
+            s = '%s: %s' % (s, ' '.join(self.args))
+        s = '%s.' % s
         return s
+
 
 
 class PotentialZombieWarning(Warning):
@@ -279,23 +310,20 @@ class PotentialZombieWarning(Warning):
 
     Deprecated in Twisted 10.0.
     """
-
     MESSAGE = (
         "spawnProcess called, but the SIGCHLD handler is not "
         "installed. This probably means you have not yet "
         "called reactor.run, or called "
         "reactor.run(installSignalHandler=0). You will probably "
         "never see this process finish, and it may become a "
-        "zombie process."
-    )
-
+        "zombie process.")
 
 deprecate.deprecatedModuleAttribute(
     Version("Twisted", 10, 0, 0),
     "There is no longer any potential for zombie process.",
     __name__,
-    "PotentialZombieWarning",
-)
+    "PotentialZombieWarning")
+
 
 
 class ProcessDone(ConnectionDone):
@@ -308,6 +336,7 @@ class ProcessDone(ConnectionDone):
         self.status = status
 
 
+
 class ProcessTerminated(ConnectionLost):
     """
     A process has ended with a probable error condition
@@ -316,7 +345,6 @@ class ProcessTerminated(ConnectionLost):
     @ivar signal: See L{__init__}
     @ivar status: See L{__init__}
     """
-
     def __init__(self, exitCode=None, signal=None, status=None):
         """
         @param exitCode: The exit status of the process.  This is roughly like
@@ -337,11 +365,10 @@ class ProcessTerminated(ConnectionLost):
         self.signal = signal
         self.status = status
         s = "process ended"
-        if exitCode is not None:
-            s = s + " with exit code %s" % exitCode
-        if signal is not None:
-            s = s + " by signal %s" % signal
+        if exitCode is not None: s = s + " with exit code %s" % exitCode
+        if signal is not None: s = s + " by signal %s" % signal
         Exception.__init__(self, s)
+
 
 
 class ProcessExitedAlready(Exception):
@@ -351,15 +378,17 @@ class ProcessExitedAlready(Exception):
     """
 
 
+
 class NotConnectingError(RuntimeError):
     """The Connector was not connecting when it was asked to stop connecting"""
 
     def __str__(self):
         s = self.__doc__
         if self.args:
-            s = "%s: %s" % (s, " ".join(self.args))
-        s = "%s." % s
+            s = '%s: %s' % (s, ' '.join(self.args))
+        s = '%s.' % s
         return s
+
 
 
 class NotListeningError(RuntimeError):
@@ -368,9 +397,10 @@ class NotListeningError(RuntimeError):
     def __str__(self):
         s = self.__doc__
         if self.args:
-            s = "%s: %s" % (s, " ".join(self.args))
-        s = "%s." % s
+            s = '%s: %s' % (s, ' '.join(self.args))
+        s = '%s.' % s
         return s
+
 
 
 class ReactorNotRunning(RuntimeError):
@@ -385,6 +415,7 @@ class ReactorNotRestartable(RuntimeError):
     """
 
 
+
 class ReactorAlreadyRunning(RuntimeError):
     """
     Error raised when trying to start the reactor multiple times.
@@ -395,6 +426,7 @@ class ReactorAlreadyInstalledError(AssertionError):
     """
     Could not install reactor because one is already installed.
     """
+
 
 
 class ConnectingCancelledError(Exception):
@@ -415,6 +447,7 @@ class ConnectingCancelledError(Exception):
         self.address = address
 
 
+
 class NoProtocol(Exception):
     """
     An C{Exception} that will be raised when the factory given to a
@@ -422,11 +455,13 @@ class NoProtocol(Exception):
     """
 
 
+
 class UnsupportedAddressFamily(Exception):
     """
     An attempt was made to use a socket with an address family (eg I{AF_INET},
     I{AF_INET6}, etc) which is not supported by the reactor.
     """
+
 
 
 class UnsupportedSocketType(Exception):
@@ -441,6 +476,7 @@ class AlreadyListened(Exception):
     An attempt was made to listen on a file descriptor which can only be
     listened on once.
     """
+
 
 
 class InvalidAddressError(ValueError):
@@ -464,45 +500,18 @@ class InvalidAddressError(ValueError):
         self.message = message
 
 
+
 __all__ = [
-    "BindError",
-    "CannotListenError",
-    "MulticastJoinError",
-    "MessageLengthError",
-    "DNSLookupError",
-    "ConnectInProgressError",
-    "ConnectError",
-    "ConnectBindError",
-    "UnknownHostError",
-    "NoRouteError",
-    "ConnectionRefusedError",
-    "TCPTimedOutError",
-    "BadFileError",
-    "ServiceNameUnknownError",
-    "UserError",
-    "TimeoutError",
-    "SSLError",
-    "VerifyError",
-    "PeerVerifyError",
-    "CertificateError",
-    "getConnectError",
-    "ConnectionClosed",
-    "ConnectionLost",
-    "ConnectionDone",
-    "ConnectionFdescWentAway",
-    "AlreadyCalled",
-    "AlreadyCancelled",
-    "PotentialZombieWarning",
-    "ProcessDone",
-    "ProcessTerminated",
-    "ProcessExitedAlready",
-    "NotConnectingError",
-    "NotListeningError",
-    "ReactorNotRunning",
-    "ReactorAlreadyRunning",
-    "ReactorAlreadyInstalledError",
-    "ConnectingCancelledError",
-    "UnsupportedAddressFamily",
-    "UnsupportedSocketType",
-    "InvalidAddressError",
-]
+    'BindError', 'CannotListenError', 'MulticastJoinError',
+    'MessageLengthError', 'DNSLookupError', 'ConnectInProgressError',
+    'ConnectError', 'ConnectBindError', 'UnknownHostError', 'NoRouteError',
+    'ConnectionRefusedError', 'TCPTimedOutError', 'BadFileError',
+    'ServiceNameUnknownError', 'UserError', 'TimeoutError', 'SSLError',
+    'VerifyError', 'PeerVerifyError', 'CertificateError',
+    'getConnectError', 'ConnectionClosed', 'ConnectionLost',
+    'ConnectionDone', 'ConnectionFdescWentAway', 'AlreadyCalled',
+    'AlreadyCancelled', 'PotentialZombieWarning', 'ProcessDone',
+    'ProcessTerminated', 'ProcessExitedAlready', 'NotConnectingError',
+    'NotListeningError', 'ReactorNotRunning', 'ReactorAlreadyRunning',
+    'ReactorAlreadyInstalledError', 'ConnectingCancelledError',
+    'UnsupportedAddressFamily', 'UnsupportedSocketType', 'InvalidAddressError']

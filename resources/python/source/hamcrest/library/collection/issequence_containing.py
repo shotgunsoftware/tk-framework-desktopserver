@@ -9,6 +9,7 @@ from hamcrest.core.helpers.wrap_matcher import wrap_matcher
 
 
 class IsSequenceContaining(BaseMatcher):
+
     def __init__(self, element_matcher):
         self.element_matcher = element_matcher
 
@@ -17,13 +18,12 @@ class IsSequenceContaining(BaseMatcher):
             for item in sequence:
                 if self.element_matcher.matches(item):
                     return True
-        except TypeError:  # not a sequence
+        except TypeError: # not a sequence
             return False
 
     def describe_to(self, description):
-        description.append_text("a sequence containing ").append_description_of(
-            self.element_matcher
-        )
+        description.append_text('a sequence containing ')           \
+                    .append_description_of(self.element_matcher)
 
 
 # It'd be great to make use of all_of, but we can't be sure we won't
@@ -31,6 +31,7 @@ class IsSequenceContaining(BaseMatcher):
 # Instead, we wrap it inside a class that will convert the sequence into
 # a concrete list and then hand it off to the all_of matcher.
 class IsSequenceContainingEvery(BaseMatcher):
+
     def __init__(self, *element_matchers):
         delegates = [has_item(e) for e in element_matchers]
         self.matcher = all_of(*delegates)
@@ -46,6 +47,7 @@ class IsSequenceContainingEvery(BaseMatcher):
 
     def describe_to(self, description):
         self.matcher.describe_to(description)
+
 
 
 def has_item(match):

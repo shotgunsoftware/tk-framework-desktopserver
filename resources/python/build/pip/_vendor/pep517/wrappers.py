@@ -8,8 +8,7 @@ from tempfile import mkdtemp
 
 from . import compat
 
-_in_proc_script = pjoin(dirname(abspath(__file__)), "_in_process.py")
-
+_in_proc_script = pjoin(dirname(abspath(__file__)), '_in_process.py')
 
 @contextmanager
 def tempdir():
@@ -19,10 +18,8 @@ def tempdir():
     finally:
         shutil.rmtree(td)
 
-
 class UnsupportedOperation(Exception):
     """May be raised by build_sdist if the backend indicates that it can't."""
-
 
 class Pep517HookCaller(object):
     """A wrapper around a source directory to be built with a PEP 517 backend.
@@ -30,7 +27,6 @@ class Pep517HookCaller(object):
     source_dir : The path to the source directory, containing pyproject.toml.
     backend : The build backend spec, as per PEP 517, from pyproject.toml.
     """
-
     def __init__(self, source_dir, build_backend):
         self.source_dir = abspath(source_dir)
         self.build_backend = build_backend
@@ -45,13 +41,11 @@ class Pep517HookCaller(object):
         It returns the result of calling the equivalently named hook in a
         subprocess.
         """
-        return self._call_hook(
-            "get_requires_for_build_wheel", {"config_settings": config_settings}
-        )
+        return self._call_hook('get_requires_for_build_wheel', {
+            'config_settings': config_settings
+        })
 
-    def prepare_metadata_for_build_wheel(
-        self, metadata_directory, config_settings=None
-    ):
+    def prepare_metadata_for_build_wheel(self, metadata_directory, config_settings=None):
         """Prepare a *.dist-info folder with metadata for this project.
 
         Returns the name of the newly created folder.
@@ -60,17 +54,12 @@ class Pep517HookCaller(object):
         in a subprocess. If not, the backend will be asked to build a wheel,
         and the dist-info extracted from that.
         """
-        return self._call_hook(
-            "prepare_metadata_for_build_wheel",
-            {
-                "metadata_directory": abspath(metadata_directory),
-                "config_settings": config_settings,
-            },
-        )
+        return self._call_hook('prepare_metadata_for_build_wheel', {
+            'metadata_directory': abspath(metadata_directory),
+            'config_settings': config_settings,
+        })
 
-    def build_wheel(
-        self, wheel_directory, config_settings=None, metadata_directory=None
-    ):
+    def build_wheel(self, wheel_directory, config_settings=None, metadata_directory=None):
         """Build a wheel from this project.
 
         Returns the name of the newly created file.
@@ -82,14 +71,11 @@ class Pep517HookCaller(object):
         """
         if metadata_directory is not None:
             metadata_directory = abspath(metadata_directory)
-        return self._call_hook(
-            "build_wheel",
-            {
-                "wheel_directory": abspath(wheel_directory),
-                "config_settings": config_settings,
-                "metadata_directory": metadata_directory,
-            },
-        )
+        return self._call_hook('build_wheel', {
+            'wheel_directory': abspath(wheel_directory),
+            'config_settings': config_settings,
+            'metadata_directory': metadata_directory,
+        })
 
     def get_requires_for_build_sdist(self, config_settings=None):
         """Identify packages required for building a wheel
@@ -101,9 +87,9 @@ class Pep517HookCaller(object):
         It returns the result of calling the equivalently named hook in a
         subprocess.
         """
-        return self._call_hook(
-            "get_requires_for_build_sdist", {"config_settings": config_settings}
-        )
+        return self._call_hook('get_requires_for_build_sdist', {
+            'config_settings': config_settings
+        })
 
     def build_sdist(self, sdist_directory, config_settings=None):
         """Build an sdist from this project.
@@ -112,13 +98,11 @@ class Pep517HookCaller(object):
 
         This calls the 'build_sdist' backend hook in a subprocess.
         """
-        return self._call_hook(
-            "build_sdist",
-            {
-                "sdist_directory": abspath(sdist_directory),
-                "config_settings": config_settings,
-            },
-        )
+        return self._call_hook('build_sdist', {
+            'sdist_directory': abspath(sdist_directory),
+            'config_settings': config_settings,
+        })
+
 
     def _call_hook(self, hook_name, kwargs):
         env = os.environ.copy()
@@ -130,22 +114,21 @@ class Pep517HookCaller(object):
         # Python identifier, so non-ASCII content is wrong on Python 2 in
         # any case).
         if sys.version_info[0] == 2:
-            build_backend = self.build_backend.encode("ASCII")
+            build_backend = self.build_backend.encode('ASCII')
         else:
             build_backend = self.build_backend
 
-        env["PEP517_BUILD_BACKEND"] = build_backend
+        env['PEP517_BUILD_BACKEND'] = build_backend
         with tempdir() as td:
-            compat.write_json({"kwargs": kwargs}, pjoin(td, "input.json"), indent=2)
+            compat.write_json({'kwargs': kwargs}, pjoin(td, 'input.json'),
+                              indent=2)
 
             # Run the hook in a subprocess
-            check_call(
-                [sys.executable, _in_proc_script, hook_name, td],
-                cwd=self.source_dir,
-                env=env,
-            )
+            check_call([sys.executable, _in_proc_script, hook_name, td],
+                       cwd=self.source_dir, env=env)
 
-            data = compat.read_json(pjoin(td, "output.json"))
-            if data.get("unsupported"):
+            data = compat.read_json(pjoin(td, 'output.json'))
+            if data.get('unsupported'):
                 raise UnsupportedOperation
-            return data["return_val"]
+            return data['return_val']
+

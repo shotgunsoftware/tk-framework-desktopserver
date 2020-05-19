@@ -58,26 +58,22 @@ ZOPE_INTERFACE_USE_LEGACY_IRO
     It implies ``ZOPE_INTERFACE_LOG_CHANGED_IRO``.
 """
 from __future__ import print_function
-
-__docformat__ = "restructuredtext"
+__docformat__ = 'restructuredtext'
 
 __all__ = [
-    "ro",
-    "InconsistentResolutionOrderError",
-    "InconsistentResolutionOrderWarning",
+    'ro',
+    'InconsistentResolutionOrderError',
+    'InconsistentResolutionOrderWarning',
 ]
 
 __logger = None
 
-
 def _logger():
-    global __logger  # pylint:disable=global-statement
+    global __logger # pylint:disable=global-statement
     if __logger is None:
         import logging
-
         __logger = logging.getLogger(__name__)
     return __logger
-
 
 def _legacy_mergeOrderings(orderings):
     """Merge multiple orderings so that within-ordering order is preserved
@@ -108,7 +104,6 @@ def _legacy_mergeOrderings(orderings):
 
     return result
 
-
 def _legacy_flatten(begin):
     result = [begin]
     i = 0
@@ -122,10 +117,8 @@ def _legacy_flatten(begin):
         result[i:i] = ob.__bases__
     return result
 
-
 def _legacy_ro(ob):
     return _legacy_mergeOrderings([_legacy_flatten(ob)])
-
 
 ###
 # Compare base objects using identity, not equality. This matches what
@@ -141,7 +134,6 @@ class InconsistentResolutionOrderWarning(PendingDeprecationWarning):
     The warning issued when an invalid IRO is requested.
     """
 
-
 class InconsistentResolutionOrderError(TypeError):
     """
     The error raised when an invalid IRO is requested in strict mode.
@@ -151,7 +143,8 @@ class InconsistentResolutionOrderError(TypeError):
         self.C = c3.leaf
         base_tree = c3.base_tree
         self.base_ros = {
-            base: base_tree[i + 1] for i, base in enumerate(self.C.__bases__)
+            base: base_tree[i + 1]
+            for i, base in enumerate(self.C.__bases__)
         }
         # Unfortunately, this doesn't necessarily directly match
         # up to any transformation on C.__bases__, because
@@ -162,7 +155,6 @@ class InconsistentResolutionOrderError(TypeError):
 
     def __str__(self):
         import pprint
-
         return "%s: For object %r.\nBase ROs:\n%s\nConflict Location:\n%s" % (
             self.__class__.__name__,
             self.C,
@@ -171,7 +163,8 @@ class InconsistentResolutionOrderError(TypeError):
         )
 
 
-class _NamedBool(int):  # cannot actually inherit bool
+class _NamedBool(int): # cannot actually inherit bool
+
     def __new__(cls, val, name):
         inst = super(cls, _NamedBool).__new__(cls, val)
         inst.__name__ = name
@@ -186,7 +179,6 @@ class _ClassBoolFromEnv(object):
 
     def __get__(self, inst, klass):
         import os
-
         for cls in klass.__mro__:
             my_name = None
             for k in dir(klass):
@@ -195,14 +187,14 @@ class _ClassBoolFromEnv(object):
                     break
             if my_name is not None:
                 break
-        else:  # pragma: no cover
+        else: # pragma: no cover
             raise RuntimeError("Unable to find self")
 
-        env_name = "ZOPE_INTERFACE_" + my_name
-        val = os.environ.get(env_name, "") == "1"
+        env_name = 'ZOPE_INTERFACE_' + my_name
+        val = os.environ.get(env_name, '') == '1'
         val = _NamedBool(val, my_name)
         setattr(klass, my_name, val)
-        setattr(klass, "ORIG_" + my_name, self)
+        setattr(klass, 'ORIG_' + my_name, self)
         return val
 
 
@@ -210,7 +202,7 @@ class _StaticMRO(object):
     # A previously resolved MRO, supplied by the caller.
     # Used in place of calculating it.
 
-    had_inconsistency = None  # We don't know...
+    had_inconsistency = None # We don't know...
 
     def __init__(self, C, mro):
         self.leaf = C
@@ -256,13 +248,15 @@ class C3(object):
                 memo[base] = resolver
             base_resolvers.append(memo[base])
 
-        self.base_tree = (
-            [[C]] + [memo[base].mro() for base in C.__bases__] + [list(C.__bases__)]
-        )
+        self.base_tree = [
+            [C]
+        ] + [
+            memo[base].mro() for base in C.__bases__
+        ] + [
+            list(C.__bases__)
+        ]
 
-        self.bases_had_inconsistency = any(
-            base.had_inconsistency for base in base_resolvers
-        )
+        self.bases_had_inconsistency = any(base.had_inconsistency for base in base_resolvers)
 
         if len(C.__bases__) == 1:
             self.__mro = [C] + memo[C.__bases__[0]].mro()
@@ -291,7 +285,6 @@ class C3(object):
             # be the default
             return
         import warnings
-
         warnings.warn(
             "An inconsistent resolution order is being requested. "
             "(Interfaces should follow the Python class rules known as C3.) "
@@ -318,11 +311,11 @@ class C3(object):
 
     @staticmethod
     def _nonempty_bases_ignoring(base_tree, ignoring):
-        return list(
-            filter(
-                None, [[b for b in bases if b is not ignoring] for bases in base_tree]
-            )
-        )
+        return list(filter(None, [
+            [b for b in bases if b is not ignoring]
+            for bases
+            in base_tree
+        ]))
 
     def _choose_next_base(self, base_tree_remaining):
         """
@@ -394,9 +387,7 @@ class C3(object):
         #
         # So now, we fall back to the old linearization (fast to compute).
         self._warn_iro()
-        self.direct_inconsistency = InconsistentResolutionOrderError(
-            self, base_tree_remaining
-        )
+        self.direct_inconsistency = InconsistentResolutionOrderError(self, base_tree_remaining)
         raise self._UseLegacyRO
 
     def _merge(self):
@@ -409,9 +400,7 @@ class C3(object):
             # This differs slightly from the standard Python MRO and is needed
             # because we have no other step that prevents duplicates
             # from coming in (e.g., in the inconsistent fallback path)
-            base_tree_remaining = self._nonempty_bases_ignoring(
-                base_tree_remaining, base
-            )
+            base_tree_remaining = self._nonempty_bases_ignoring(base_tree_remaining, base)
 
             if not base_tree_remaining:
                 return result
@@ -431,27 +420,23 @@ class C3(object):
 
 class _StrictC3(C3):
     __slots__ = ()
-
     def _guess_next_base(self, base_tree_remaining):
         raise InconsistentResolutionOrderError(self, base_tree_remaining)
 
 
 class _TrackingC3(C3):
     __slots__ = ()
-
     def _guess_next_base(self, base_tree_remaining):
         import traceback
-
         bad_iros = C3.BAD_IROS
         if self.leaf not in bad_iros:
             if bad_iros == ():
                 import weakref
-
                 # This is a race condition, but it doesn't matter much.
                 bad_iros = C3.BAD_IROS = weakref.WeakKeyDictionary()
             bad_iros[self.leaf] = t = (
                 InconsistentResolutionOrderError(self, base_tree_remaining),
-                traceback.format_stack(),
+                traceback.format_stack()
             )
             _logger().warning("Tracking inconsistent IRO: %s", t[0])
         return C3._guess_next_base(self, base_tree_remaining)
@@ -465,40 +450,44 @@ class _ROComparison(object):
 
     # Components we use to build up the comparison report
     class Item(object):
-        prefix = "  "
-
+        prefix = '  '
         def __init__(self, item):
             self.item = item
-
         def __str__(self):
-            return "%s%s" % (self.prefix, self.item,)
+            return "%s%s" % (
+                self.prefix,
+                self.item,
+            )
 
     class Deleted(Item):
-        prefix = "- "
+        prefix = '- '
 
     class Inserted(Item):
-        prefix = "+ "
+        prefix = '+ '
 
     Empty = str
 
-    class ReplacedBy(object):  # pragma: no cover
-        prefix = "- "
-        suffix = ""
-
+    class ReplacedBy(object): # pragma: no cover
+        prefix = '- '
+        suffix = ''
         def __init__(self, chunk, total_count):
             self.chunk = chunk
             self.total_count = total_count
 
         def __iter__(self):
-            lines = [self.prefix + str(item) + self.suffix for item in self.chunk]
+            lines = [
+                self.prefix + str(item) + self.suffix
+                for item in self.chunk
+            ]
             while len(lines) < self.total_count:
-                lines.append("")
+                lines.append('')
 
             return iter(lines)
 
     class Replacing(ReplacedBy):
         prefix = "+ "
-        suffix = ""
+        suffix = ''
+
 
     _c3_report = None
     _legacy_report = None
@@ -516,7 +505,6 @@ class _ROComparison(object):
     def _generate_report(self):
         if self._c3_report is None:
             import difflib
-
             # The opcodes we get describe how to turn 'a' into 'b'. So
             # the old one (legacy) needs to be first ('a')
             matcher = difflib.SequenceMatcher(None, self.legacy_ro, self.c3_ro)
@@ -528,21 +516,19 @@ class _ROComparison(object):
                 c3_chunk = self.c3_ro[c31:c32]
                 legacy_chunk = self.legacy_ro[leg1:leg2]
 
-                if opcode == "equal":
+                if opcode == 'equal':
                     # Guaranteed same length
                     c3_report.extend((self.Item(x) for x in c3_chunk))
                     legacy_report.extend(self.Item(x) for x in legacy_chunk)
-                if opcode == "delete":
+                if opcode == 'delete':
                     # Guaranteed same length
                     assert not c3_chunk
                     self.__move(c3_report, legacy_report, legacy_chunk, self.Deleted)
-                if opcode == "insert":
+                if opcode == 'insert':
                     # Guaranteed same length
                     assert not legacy_chunk
                     self.__move(legacy_report, c3_report, c3_chunk, self.Inserted)
-                if (
-                    opcode == "replace"
-                ):  # pragma: no cover (How do you make it output this?)
+                if opcode == 'replace': # pragma: no cover (How do you make it output this?)
                     # Either side could be longer.
                     chunk_size = max(len(c3_chunk), len(legacy_chunk))
                     c3_report.extend(self.Replacing(c3_chunk, chunk_size))
@@ -554,10 +540,10 @@ class _ROComparison(object):
     def _inconsistent_label(self):
         inconsistent = []
         if self.c3.direct_inconsistency:
-            inconsistent.append("direct")
+            inconsistent.append('direct')
         if self.c3.bases_had_inconsistency:
-            inconsistent.append("bases")
-        return "+".join(inconsistent) if inconsistent else "no"
+            inconsistent.append('bases')
+        return '+'.join(inconsistent) if inconsistent else 'no'
 
     def __str__(self):
         c3_report, legacy_report = self._generate_report()
@@ -570,37 +556,31 @@ class _ROComparison(object):
         # necessarily the same as the number of items in either RO.
         assert len(left_lines) == len(right_lines)
 
-        padding = " " * 2
+        padding = ' ' * 2
         max_left = max(len(x) for x in left_lines)
         max_right = max(len(x) for x in right_lines)
 
-        left_title = "Legacy RO (len=%s)" % (len(self.legacy_ro),)
+        left_title = 'Legacy RO (len=%s)' % (len(self.legacy_ro),)
 
-        right_title = "C3 RO (len=%s; inconsistent=%s)" % (
+        right_title = 'C3 RO (len=%s; inconsistent=%s)' % (
             len(self.c3_ro),
             self._inconsistent_label,
         )
         lines = [
-            (
-                padding
-                + left_title.ljust(max_left)
-                + padding
-                + right_title.ljust(max_right)
-            ),
-            padding + "=" * (max_left + len(padding) + max_right),
+            (padding + left_title.ljust(max_left) + padding + right_title.ljust(max_right)),
+            padding + '=' * (max_left + len(padding) + max_right)
         ]
         lines += [
             padding + left.ljust(max_left) + padding + right
             for left, right in zip(left_lines, right_lines)
         ]
 
-        return "\n".join(lines)
+        return '\n'.join(lines)
 
 
 # Set to `Interface` once it is defined. This is used to
 # avoid logging false positives about changed ROs.
 _ROOT = None
-
 
 def ro(C, strict=None, base_mros=None, log_changed_ro=None, use_legacy_ro=None):
     """
@@ -620,9 +600,7 @@ def ro(C, strict=None, base_mros=None, log_changed_ro=None, use_legacy_ro=None):
     resolver = C3.resolver(C, strict, base_mros)
     mro = resolver.mro()
 
-    log_changed = (
-        log_changed_ro if log_changed_ro is not None else resolver.LOG_CHANGED_IRO
-    )
+    log_changed = log_changed_ro if log_changed_ro is not None else resolver.LOG_CHANGED_IRO
     use_legacy = use_legacy_ro if use_legacy_ro is not None else resolver.USE_LEGACY_IRO
 
     if log_changed or use_legacy:
@@ -641,16 +619,15 @@ def ro(C, strict=None, base_mros=None, log_changed_ro=None, use_legacy_ro=None):
         if changed:
             comparison = _ROComparison(resolver, mro, legacy_ro)
             _logger().warning(
-                "Object %r has different legacy and C3 MROs:\n%s", C, comparison
+                "Object %r has different legacy and C3 MROs:\n%s",
+                C, comparison
             )
         if resolver.had_inconsistency and legacy_ro == mro:
             comparison = _ROComparison(resolver, mro, legacy_ro)
             _logger().warning(
                 "Object %r had inconsistent IRO and used the legacy RO:\n%s"
                 "\nInconsistency entered at:\n%s",
-                C,
-                comparison,
-                resolver.direct_inconsistency,
+                C, comparison, resolver.direct_inconsistency
             )
         if use_legacy:
             return legacy_ro

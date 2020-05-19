@@ -4,9 +4,8 @@
 
 import flatbuffers
 
-
 class AuthScramWelcome(object):
-    __slots__ = ["_tab"]
+    __slots__ = ['_tab']
 
     @classmethod
     def GetRootAsAuthScramWelcome(cls, buf, offset):
@@ -26,16 +25,6 @@ class AuthScramWelcome(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-
-def AuthScramWelcomeStart(builder):
-    builder.StartObject(1)
-
-
-def AuthScramWelcomeAddVerifier(builder, verifier):
-    builder.PrependUOffsetTRelativeSlot(
-        0, flatbuffers.number_types.UOffsetTFlags.py_type(verifier), 0
-    )
-
-
-def AuthScramWelcomeEnd(builder):
-    return builder.EndObject()
+def AuthScramWelcomeStart(builder): builder.StartObject(1)
+def AuthScramWelcomeAddVerifier(builder, verifier): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(verifier), 0)
+def AuthScramWelcomeEnd(builder): return builder.EndObject()

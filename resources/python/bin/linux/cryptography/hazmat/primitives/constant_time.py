@@ -12,13 +12,11 @@ from cryptography.hazmat.bindings._constant_time import lib
 
 
 if hasattr(hmac, "compare_digest"):
-
     def bytes_eq(a, b):
         if not isinstance(a, bytes) or not isinstance(b, bytes):
             raise TypeError("a and b must be bytes.")
 
         return hmac.compare_digest(a, b)
-
 
 else:
     warnings.warn(
@@ -32,4 +30,6 @@ else:
         if not isinstance(a, bytes) or not isinstance(b, bytes):
             raise TypeError("a and b must be bytes.")
 
-        return lib.Cryptography_constant_time_bytes_eq(a, len(a), b, len(b)) == 1
+        return lib.Cryptography_constant_time_bytes_eq(
+            a, len(a), b, len(b)
+        ) == 1

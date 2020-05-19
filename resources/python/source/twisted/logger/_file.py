@@ -15,12 +15,12 @@ from ._format import timeFormatRFC3339
 from ._format import formatEventAsClassicLogText
 
 
+
 @implementer(ILogObserver)
 class FileLogObserver(object):
     """
     Log observer that writes to a file-like object.
     """
-
     def __init__(self, outFile, formatEvent):
         """
         @param outFile: A file-like object.  Ideally one should be passed which
@@ -38,6 +38,7 @@ class FileLogObserver(object):
 
         self._outFile = outFile
         self.formatEvent = formatEvent
+
 
     def __call__(self, event):
         """
@@ -59,6 +60,7 @@ class FileLogObserver(object):
             self._outFile.flush()
 
 
+
 def textFileLogObserver(outFile, timeFormat=timeFormatRFC3339):
     """
     Create a L{FileLogObserver} that emits text to a specified (writable)
@@ -76,7 +78,6 @@ def textFileLogObserver(outFile, timeFormat=timeFormatRFC3339):
     @return: A file log observer.
     @rtype: L{FileLogObserver}
     """
-
     def formatEvent(event):
         return formatEventAsClassicLogText(
             event, formatTime=lambda e: formatTime(e, timeFormat)

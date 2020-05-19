@@ -7,11 +7,10 @@ from pip._internal.exceptions import CommandError
 
 class HelpCommand(Command):
     """Show help for commands"""
-
-    name = "help"
+    name = 'help'
     usage = """
       %prog <command>"""
-    summary = "Show help for commands."
+    summary = 'Show help for commands.'
     ignore_require_venv = True
 
     def run(self, options, args):
@@ -30,7 +29,7 @@ class HelpCommand(Command):
             if guess:
                 msg.append('maybe you meant "%s"' % guess)
 
-            raise CommandError(" - ".join(msg))
+            raise CommandError(' - '.join(msg))
 
         command = commands_dict[cmd_name]()
         command.parser.print_help()

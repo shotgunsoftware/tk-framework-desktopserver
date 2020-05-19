@@ -28,4 +28,4 @@ from __future__ import absolute_import
 
 from autobahn.nvx._utf8validator import Utf8Validator  # noqa
 
-__all__ = ("Utf8Validator",)
+__all__ = ('Utf8Validator',)

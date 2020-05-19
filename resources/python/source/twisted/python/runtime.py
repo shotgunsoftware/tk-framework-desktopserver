@@ -12,6 +12,7 @@ import warnings
 from twisted.python._oldstyle import _oldStyle
 
 
+
 def shortPythonVersion():
     """
     Returns the Python version as a dot-separated string.
@@ -19,19 +20,22 @@ def shortPythonVersion():
     return "%s.%s.%s" % sys.version_info[:3]
 
 
+
 knownPlatforms = {
-    "nt": "win32",
-    "ce": "win32",
-    "posix": "posix",
-    "java": "java",
-    "org.python.modules.os": "java",
-}
+    'nt': 'win32',
+    'ce': 'win32',
+    'posix': 'posix',
+    'java': 'java',
+    'org.python.modules.os': 'java',
+    }
+
 
 
 _timeFunctions = {
     #'win32': time.clock,
-    "win32": time.time,
-}
+    'win32': time.time,
+    }
+
 
 
 @_oldStyle
@@ -51,6 +55,7 @@ class Platform:
         if platform is not None:
             self._platform = platform
 
+
     def isKnown(self):
         """
         Do we know about this platform?
@@ -59,6 +64,7 @@ class Platform:
         @rtype: C{bool}
         """
         return self.type != None
+
 
     def getType(self):
         """
@@ -69,6 +75,7 @@ class Platform:
         """
         return self.type
 
+
     def isMacOSX(self):
         """
         Check if current platform is macOS.
@@ -77,6 +84,7 @@ class Platform:
         @rtype: C{bool}
         """
         return self._platform == "darwin"
+
 
     def isWinNT(self):
         """
@@ -90,12 +98,11 @@ class Platform:
         @rtype: C{bool}
         """
         warnings.warn(
-            "twisted.python.runtime.Platform.isWinNT was deprecated in "
-            "Twisted 13.0. Use Platform.isWindows instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+                "twisted.python.runtime.Platform.isWinNT was deprecated in "
+                "Twisted 13.0. Use Platform.isWindows instead.",
+                DeprecationWarning, stacklevel=2)
         return self.isWindows()
+
 
     def isWindows(self):
         """
@@ -105,7 +112,8 @@ class Platform:
             Windows.
         @rtype: C{bool}
         """
-        return self.getType() == "win32"
+        return self.getType() == 'win32'
+
 
     def isVista(self):
         """
@@ -119,6 +127,7 @@ class Platform:
         else:
             return False
 
+
     def isLinux(self):
         """
         Check if current platform is Linux.
@@ -127,6 +136,7 @@ class Platform:
         @rtype: C{bool}
         """
         return self._platform.startswith("linux")
+
 
     def isDocker(self, _initCGroupLocation="/proc/1/cgroup"):
         """
@@ -146,9 +156,8 @@ class Platform:
         if initCGroups.exists():
             # The cgroups file looks like "2:cpu:/". The third element will
             # begin with /docker if it is inside a Docker container.
-            controlGroups = [
-                x.split(b":") for x in initCGroups.getContent().split(b"\n")
-            ]
+            controlGroups = [x.split(b":")
+                             for x in initCGroups.getContent().split(b"\n")]
 
             for group in controlGroups:
                 if len(group) == 3 and group[2].startswith(b"/docker/"):
@@ -156,6 +165,7 @@ class Platform:
                     return True
 
         return False
+
 
     def _supportsSymlinks(self):
         """
@@ -183,6 +193,7 @@ class Platform:
             else:
                 return True
 
+
     def supportsThreads(self):
         """
         Can threads be created?
@@ -192,10 +203,10 @@ class Platform:
         """
         try:
             import threading
-
-            return threading is not None  # shh pyflakes
+            return threading is not None # shh pyflakes
         except ImportError:
             return False
+
 
     def supportsINotify(self):
         """

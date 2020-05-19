@@ -30,7 +30,6 @@ import hashlib
 
 from twisted.internet.defer import Deferred
 from twisted.internet.address import IPv4Address, UNIXAddress
-
 try:
     from twisted.internet.stdio import PipeAddress
 except ImportError:
@@ -39,12 +38,15 @@ except ImportError:
 
 try:
     from twisted.internet.address import IPv6Address
-
     _HAS_IPV6 = True
 except ImportError:
     _HAS_IPV6 = False
 
-__all = ("sleep", "peer2str", "transport_channel_id")
+__all = (
+    'sleep',
+    'peer2str',
+    'transport_channel_id'
+)
 
 
 def sleep(delay, reactor=None):
@@ -101,10 +103,10 @@ def transport_channel_id(transport, is_server, channel_id_type):
     received on one TLS channel cannot be forwarded on another.
 
     """
-    if channel_id_type not in [u"tls-unique"]:
+    if channel_id_type not in [u'tls-unique']:
         raise Exception("invalid channel ID type {}".format(channel_id_type))
 
-    if hasattr(transport, "_tlsConnection"):
+    if hasattr(transport, '_tlsConnection'):
         # Obtain latest TLS Finished message that we expected from peer, or None if handshake is not completed.
         # http://www.pyopenssl.org/en/stable/api/ssl.html#OpenSSL.SSL.Connection.get_peer_finished
 

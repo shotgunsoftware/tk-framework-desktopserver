@@ -13,7 +13,6 @@ def default_backend():
 
     if _default_backend is None:
         from cryptography.hazmat.backends.openssl.backend import backend
-
         _default_backend = backend
 
     return _default_backend

@@ -9,7 +9,9 @@ numeric, and bit flag values.
 
 from __future__ import division, absolute_import
 
-__all__ = ["NamedConstant", "ValueConstant", "FlagConstant", "Names", "Values", "Flags"]
+__all__ = [
+    'NamedConstant', 'ValueConstant', 'FlagConstant',
+    'Names', 'Values', 'Flags']
 
 from functools import partial
 from itertools import count
@@ -30,10 +32,10 @@ class _Constant(object):
     @ivar _container: The L{_ConstantsContainer} subclass this constant belongs
         to; C{None} until the constant is initialized by that subclass.
     """
-
     def __init__(self):
         self._container = None
         self._index = _constantOrder()
+
 
     def __repr__(self):
         """
@@ -41,6 +43,7 @@ class _Constant(object):
         collection it belongs to.
         """
         return "<%s=%s>" % (self._container.__name__, self.name)
+
 
     def __lt__(self, other):
         """
@@ -53,11 +56,12 @@ class _Constant(object):
             defined before C{other}, otherwise C{False}.
         """
         if (
-            not isinstance(other, self.__class__)
-            or not self._container == other._container
+            not isinstance(other, self.__class__) or
+            not self._container == other._container
         ):
             return NotImplemented
         return self._index < other._index
+
 
     def __le__(self, other):
         """
@@ -70,11 +74,12 @@ class _Constant(object):
             defined before or equal to C{other}, otherwise C{False}.
         """
         if (
-            not isinstance(other, self.__class__)
-            or not self._container == other._container
+            not isinstance(other, self.__class__) or
+            not self._container == other._container
         ):
             return NotImplemented
         return self is other or self._index < other._index
+
 
     def __gt__(self, other):
         """
@@ -87,11 +92,12 @@ class _Constant(object):
             defined after C{other}, otherwise C{False}.
         """
         if (
-            not isinstance(other, self.__class__)
-            or not self._container == other._container
+            not isinstance(other, self.__class__) or
+            not self._container == other._container
         ):
             return NotImplemented
         return self._index > other._index
+
 
     def __ge__(self, other):
         """
@@ -104,11 +110,12 @@ class _Constant(object):
             defined after or equal to C{other}, otherwise C{False}.
         """
         if (
-            not isinstance(other, self.__class__)
-            or not self._container == other._container
+            not isinstance(other, self.__class__) or
+            not self._container == other._container
         ):
             return NotImplemented
         return self is other or self._index > other._index
+
 
     def _realize(self, container, name, value):
         """
@@ -126,12 +133,12 @@ class _Constant(object):
         self.name = name
 
 
+
 class _ConstantsContainerType(type):
     """
     L{_ConstantsContainerType} is a metaclass for creating constants container
     classes.
     """
-
     def __new__(self, name, bases, attributes):
         """
         Create a new constants container class.
@@ -151,12 +158,11 @@ class _ConstantsContainerType(type):
         @type attributes: L{dict}
         """
         cls = super(_ConstantsContainerType, self).__new__(
-            self, name, bases, attributes
-        )
+            self, name, bases, attributes)
 
         # Only realize constants in concrete _ConstantsContainer subclasses.
         # Ignore intermediate base classes.
-        constantType = getattr(cls, "_constantType", None)
+        constantType = getattr(cls, '_constantType', None)
         if constantType is None:
             return cls
 
@@ -165,9 +171,8 @@ class _ConstantsContainerType(type):
             if isinstance(descriptor, cls._constantType):
                 if descriptor._container is not None:
                     raise ValueError(
-                        "Cannot use %s as the value of an attribute on %s"
-                        % (descriptor, cls.__name__)
-                    )
+                        "Cannot use %s as the value of an attribute on %s" % (
+                            descriptor, cls.__name__))
                 constants.append((descriptor._index, name, descriptor))
 
         enumerants = {}
@@ -184,6 +189,7 @@ class _ConstantsContainerType(type):
         return cls
 
 
+
 # In Python3 metaclasses are defined using a C{metaclass} keyword argument in
 # the class definition. This would cause a syntax error in Python2.
 # So we use L{type} to introduce an intermediate base class with the desired
@@ -191,7 +197,7 @@ class _ConstantsContainerType(type):
 # See:
 # * http://docs.python.org/2/library/functions.html#type
 # * http://docs.python.org/3/reference/datamodel.html#customizing-class-creation
-class _ConstantsContainer(_ConstantsContainerType("", (object,), {})):
+class _ConstantsContainer(_ConstantsContainerType('', (object,), {})):
     """
     L{_ConstantsContainer} is a class with attributes used as symbolic
     constants.  It is up to subclasses to specify what kind of constants are
@@ -216,6 +222,7 @@ class _ConstantsContainer(_ConstantsContainerType("", (object,), {})):
         """
         raise TypeError("%s may not be instantiated." % (cls.__name__,))
 
+
     @classmethod
     def _constantFactory(cls, name, descriptor):
         """
@@ -230,6 +237,7 @@ class _ConstantsContainer(_ConstantsContainerType("", (object,), {})):
             so return a meaningless dummy value.
         """
         return _unspecified
+
 
     @classmethod
     def lookupByName(cls, name):
@@ -249,6 +257,7 @@ class _ConstantsContainer(_ConstantsContainerType("", (object,), {})):
             return getattr(cls, name)
         raise ValueError(name)
 
+
     @classmethod
     def iterconstants(cls):
         """
@@ -260,7 +269,9 @@ class _ConstantsContainer(_ConstantsContainerType("", (object,), {})):
         """
         constants = cls._enumerants.values()
 
-        return iter(sorted(constants, key=lambda descriptor: descriptor._index))
+        return iter(
+            sorted(constants, key=lambda descriptor: descriptor._index))
+
 
 
 class NamedConstant(_Constant):
@@ -274,13 +285,14 @@ class NamedConstant(_Constant):
     """
 
 
+
 class Names(_ConstantsContainer):
     """
     A L{Names} subclass contains constants which differ only in their names and
     identities.
     """
-
     _constantType = NamedConstant
+
 
 
 class ValueConstant(_Constant):
@@ -291,10 +303,10 @@ class ValueConstant(_Constant):
     L{ValueConstant} is only for use in the definition of L{Values} subclasses.
     Do not instantiate L{ValueConstant} elsewhere and do not subclass it.
     """
-
     def __init__(self, value):
         _Constant.__init__(self)
         self.value = value
+
 
 
 class Values(_ConstantsContainer):
@@ -302,7 +314,6 @@ class Values(_ConstantsContainer):
     A L{Values} subclass contains constants which are associated with arbitrary
     values.
     """
-
     _constantType = ValueConstant
 
     @classmethod
@@ -322,6 +333,7 @@ class Values(_ConstantsContainer):
             if constant.value == value:
                 return constant
         raise ValueError(value)
+
 
 
 def _flagOp(op, left, right):
@@ -344,6 +356,7 @@ def _flagOp(op, left, right):
     return result
 
 
+
 class FlagConstant(_Constant):
     """
     L{FlagConstant} defines an attribute to be a flag constant within a
@@ -352,10 +365,10 @@ class FlagConstant(_Constant):
     L{FlagConstant} is only for use in the definition of L{Flags} subclasses.
     Do not instantiate L{FlagConstant} elsewhere and do not subclass it.
     """
-
     def __init__(self, value=_unspecified):
         _Constant.__init__(self)
         self.value = value
+
 
     def _realize(self, container, names, value):
         """
@@ -386,12 +399,14 @@ class FlagConstant(_Constant):
         self.value = value
         self.names = names
 
+
     def __or__(self, other):
         """
         Define C{|} on two L{FlagConstant} instances to create a new
         L{FlagConstant} instance with all flags set in either instance set.
         """
         return _flagOp(or_, self, other)
+
 
     def __and__(self, other):
         """
@@ -400,6 +415,7 @@ class FlagConstant(_Constant):
         """
         return _flagOp(and_, self, other)
 
+
     def __xor__(self, other):
         """
         Define C{^} on two L{FlagConstant} instances to create a new
@@ -407,6 +423,7 @@ class FlagConstant(_Constant):
         set.
         """
         return _flagOp(xor, self, other)
+
 
     def __invert__(self):
         """
@@ -420,11 +437,13 @@ class FlagConstant(_Constant):
                 result |= flag
         return result
 
+
     def __iter__(self):
         """
         @return: An iterator of flags set on this instance set.
         """
         return (self._container.lookupByName(name) for name in self.names)
+
 
     def __contains__(self, flag):
         """
@@ -437,13 +456,14 @@ class FlagConstant(_Constant):
         # Optimization for testing membership without iteration.
         return bool(flag & self)
 
+
     def __nonzero__(self):
         """
         @return: C{False} if this flag's value is 0, else C{True}.
         """
         return bool(self.value)
-
     __bool__ = __nonzero__
+
 
 
 class Flags(Values):
@@ -452,7 +472,6 @@ class Flags(Values):
     common bitwise operators (C{|}, C{&}, etc) similar to a I{bitvector} from a
     language like C.
     """
-
     _constantType = FlagConstant
 
     _value = 1

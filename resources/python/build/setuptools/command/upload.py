@@ -16,18 +16,21 @@ class upload(orig.upload):
             self.announce(
                 "WARNING: Uploading via this command is deprecated, use twine "
                 "to upload instead (https://pypi.org/p/twine/)",
-                log.WARN,
+                log.WARN
             )
 
     def finalize_options(self):
         orig.upload.finalize_options(self)
-        self.username = self.username or getpass.getuser()
+        self.username = (
+            self.username or
+            getpass.getuser()
+        )
         # Attempt to obtain password. Short circuit evaluation at the first
         # sign of success.
         self.password = (
-            self.password
-            or self._load_password_from_keyring()
-            or self._prompt_for_password()
+            self.password or
+            self._load_password_from_keyring() or
+            self._prompt_for_password()
         )
 
     def _load_password_from_keyring(self):
@@ -35,7 +38,7 @@ class upload(orig.upload):
         Attempt to load password from keyring. Suppress Exceptions.
         """
         try:
-            keyring = __import__("keyring")
+            keyring = __import__('keyring')
             return keyring.get_password(self.repository, self.username)
         except Exception:
             pass

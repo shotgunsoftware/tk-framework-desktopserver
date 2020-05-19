@@ -18,7 +18,8 @@ from twisted.python.compat import execfile, nativeString, _PY3
 from twisted.python.filepath import FilePath
 
 
-def getSerial(filename="/tmp/twisted-names.serial"):
+
+def getSerial(filename='/tmp/twisted-names.serial'):
     """
     Return a monotonically increasing (across program runs) integer.
 
@@ -35,26 +36,27 @@ def getSerial(filename="/tmp/twisted-names.serial"):
     @return: a monotonically increasing number
     @rtype: L{str}
     """
-    serial = time.strftime("%Y%m%d")
+    serial = time.strftime('%Y%m%d')
 
     o = os.umask(0o177)
     try:
         if not os.path.exists(filename):
-            with open(filename, "w") as f:
-                f.write(serial + " 0")
+            with open(filename, 'w') as f:
+                f.write(serial + ' 0')
     finally:
         os.umask(o)
 
-    with open(filename, "r") as serialFile:
+    with open(filename, 'r') as serialFile:
         lastSerial, zoneID = serialFile.readline().split()
 
     zoneID = (lastSerial == serial) and (int(zoneID) + 1) or 0
 
-    with open(filename, "w") as serialFile:
-        serialFile.write("%s %d" % (serial, zoneID))
+    with open(filename, 'w') as serialFile:
+        serialFile.write('%s %d' % (serial, zoneID))
 
-    serial = serial + ("%02d" % (zoneID,))
+    serial = serial + ('%02d' % (zoneID,))
     return serial
+
 
 
 class FileAuthority(common.ResolverBase):
@@ -76,7 +78,6 @@ class FileAuthority(common.ResolverBase):
     @ivar records: A mapping of domains (as lowercased L{bytes}) to records.
     @type records: L{dict} with L{byte} keys
     """
-
     # See https://twistedmatrix.com/trac/ticket/6650
     _ADDITIONAL_PROCESSING_TYPES = (dns.CNAME, dns.MX, dns.NS)
     _ADDRESS_TYPES = (dns.A, dns.AAAA)
@@ -89,8 +90,10 @@ class FileAuthority(common.ResolverBase):
         self.loadFile(filename)
         self._cache = {}
 
+
     def __setstate__(self, state):
         self.__dict__ = state
+
 
     def loadFile(self, filename):
         """
@@ -104,6 +107,7 @@ class FileAuthority(common.ResolverBase):
 
         @returns: L{None} -- the return value is ignored
         """
+
 
     def _additionalRecords(self, answer, authority, ttl):
         """
@@ -132,8 +136,9 @@ class FileAuthority(common.ResolverBase):
                 for rec in self.records.get(name.lower(), ()):
                     if rec.TYPE in self._ADDRESS_TYPES:
                         yield dns.RRHeader(
-                            name, rec.TYPE, dns.IN, rec.ttl or ttl, rec, auth=True
-                        )
+                            name, rec.TYPE, dns.IN,
+                            rec.ttl or ttl, rec, auth=True)
+
 
     def _lookup(self, name, cls, type, timeout=None):
         """
@@ -174,20 +179,27 @@ class FileAuthority(common.ResolverBase):
                 else:
                     ttl = default_ttl
 
-                if record.TYPE == dns.NS and name.lower() != self.soa[0].lower():
+                if (record.TYPE == dns.NS and
+                        name.lower() != self.soa[0].lower()):
                     # NS record belong to a child zone: this is a referral.  As
                     # NS records are authoritative in the child zone, ours here
                     # are not.  RFC 2181, section 6.1.
                     authority.append(
-                        dns.RRHeader(name, record.TYPE, dns.IN, ttl, record, auth=False)
+                        dns.RRHeader(
+                            name, record.TYPE, dns.IN, ttl, record, auth=False
+                        )
                     )
                 elif record.TYPE == type or type == dns.ALL_RECORDS:
                     results.append(
-                        dns.RRHeader(name, record.TYPE, dns.IN, ttl, record, auth=True)
+                        dns.RRHeader(
+                            name, record.TYPE, dns.IN, ttl, record, auth=True
+                        )
                     )
                 if record.TYPE == dns.CNAME:
                     cnames.append(
-                        dns.RRHeader(name, record.TYPE, dns.IN, ttl, record, auth=True)
+                        dns.RRHeader(
+                            name, record.TYPE, dns.IN, ttl, record, auth=True
+                        )
                     )
             if not results:
                 results = cnames
@@ -195,8 +207,7 @@ class FileAuthority(common.ResolverBase):
             # Sort of https://tools.ietf.org/html/rfc1034#section-4.3.2 .
             # See https://twistedmatrix.com/trac/ticket/6732
             additionalInformation = self._additionalRecords(
-                results, authority, default_ttl
-            )
+                results, authority, default_ttl)
             if cnames:
                 results.extend(additionalInformation)
             else:
@@ -208,7 +219,8 @@ class FileAuthority(common.ResolverBase):
                 # section 7.1.
                 authority.append(
                     dns.RRHeader(
-                        self.soa[0], dns.SOA, dns.IN, ttl, self.soa[1], auth=True
+                        self.soa[0], dns.SOA, dns.IN, ttl, self.soa[1],
+                        auth=True
                     )
                 )
             return defer.succeed((results, authority, additional))
@@ -217,12 +229,15 @@ class FileAuthority(common.ResolverBase):
                 # We may be the authority and we didn't find it.
                 # XXX: The QNAME may also be in a delegated child zone. See
                 # #6581 and #6580
-                return defer.fail(failure.Failure(dns.AuthoritativeDomainError(name)))
+                return defer.fail(
+                    failure.Failure(dns.AuthoritativeDomainError(name))
+                )
             else:
                 # The QNAME is not a descendant of this zone. Fail with
                 # DomainError so that the next chained authority or
                 # resolver will be queried.
                 return defer.fail(failure.Failure(error.DomainError(name)))
+
 
     def lookupZone(self, name, timeout=10):
         name = dns.domainString(name)
@@ -235,7 +250,8 @@ class FileAuthority(common.ResolverBase):
                 soa_ttl = default_ttl
             results = [
                 dns.RRHeader(
-                    self.soa[0], dns.SOA, dns.IN, soa_ttl, self.soa[1], auth=True
+                    self.soa[0], dns.SOA, dns.IN, soa_ttl, self.soa[1],
+                    auth=True
                 )
             ]
             for (k, r) in self.records.items():
@@ -246,11 +262,14 @@ class FileAuthority(common.ResolverBase):
                         ttl = default_ttl
                     if rec.TYPE != dns.SOA:
                         results.append(
-                            dns.RRHeader(k, rec.TYPE, dns.IN, ttl, rec, auth=True)
+                            dns.RRHeader(
+                                k, rec.TYPE, dns.IN, ttl, rec, auth=True
+                            )
                         )
             results.append(results[0])
             return defer.succeed((results, (), ()))
         return defer.fail(failure.Failure(dns.DomainError(name)))
+
 
     def _cbAllRecords(self, results):
         ans, auth, add = [], [], []
@@ -262,34 +281,37 @@ class FileAuthority(common.ResolverBase):
         return ans, auth, add
 
 
+
 class PySourceAuthority(FileAuthority):
     """
     A FileAuthority that is built up from Python source code.
     """
-
     def loadFile(self, filename):
         g, l = self.setupConfigNamespace(), {}
         execfile(filename, g, l)
-        if "zone" not in l:
+        if 'zone' not in l:
             raise ValueError("No zone defined in " + filename)
 
         self.records = {}
-        for rr in l["zone"]:
+        for rr in l['zone']:
             if isinstance(rr[1], dns.Record_SOA):
                 self.soa = rr
             self.records.setdefault(rr[0].lower(), []).append(rr[1])
 
+
     def wrapRecord(self, type):
         return lambda name, *arg, **kw: (name, type(*arg, **kw))
+
 
     def setupConfigNamespace(self):
         r = {}
         items = dns.__dict__.iterkeys()
-        for record in [x for x in items if x.startswith("Record_")]:
+        for record in [x for x in items if x.startswith('Record_')]:
             type = getattr(dns, record)
             f = self.wrapRecord(type)
-            r[record[len("Record_") :]] = f
+            r[record[len('Record_'):]] = f
         return r
+
 
 
 class BindAuthority(FileAuthority):
@@ -299,7 +321,6 @@ class BindAuthority(FileAuthority):
 
     Supports only C{$ORIGIN} and C{$TTL} directives.
     """
-
     def loadFile(self, filename):
         """
         Load records from C{filename}.
@@ -310,12 +331,13 @@ class BindAuthority(FileAuthority):
         fp = FilePath(filename)
         # Not the best way to set an origin. It can be set using $ORIGIN
         # though.
-        self.origin = nativeString(fp.basename() + b".")
+        self.origin = nativeString(fp.basename() + b'.')
 
         lines = fp.getContent().splitlines(True)
         lines = self.stripComments(lines)
         lines = self.collapseContinuations(lines)
         self.parseLines(lines)
+
 
     def stripComments(self, lines):
         """
@@ -327,9 +349,11 @@ class BindAuthority(FileAuthority):
         @return: C{lines} sans comments.
         """
         return (
-            a.find(b";") == -1 and a or a[: a.find(b";")]
-            for a in [b.strip() for b in lines]
+            a.find(b';') == -1 and a or a[:a.find(b';')] for a in [
+                b.strip() for b in lines
+            ]
         )
+
 
     def collapseContinuations(self, lines):
         """
@@ -344,18 +368,19 @@ class BindAuthority(FileAuthority):
         state = 0
         for line in lines:
             if state == 0:
-                if line.find(b"(") == -1:
+                if line.find(b'(') == -1:
                     l.append(line)
                 else:
-                    l.append(line[: line.find(b"(")])
+                    l.append(line[:line.find(b'(')])
                     state = 1
             else:
-                if line.find(b")") != -1:
-                    l[-1] += b" " + line[: line.find(b")")]
+                if line.find(b')') != -1:
+                    l[-1] += b' ' + line[:line.find(b')')]
                     state = 0
                 else:
-                    l[-1] += b" " + line
+                    l[-1] += b' ' + line
         return filter(None, (line.split() for line in l))
+
 
     def parseLines(self, lines):
         """
@@ -370,19 +395,22 @@ class BindAuthority(FileAuthority):
         self.records = {}
 
         for line in lines:
-            if line[0] == b"$TTL":
+            if line[0] == b'$TTL':
                 ttl = dns.str2time(line[1])
-            elif line[0] == b"$ORIGIN":
+            elif line[0] == b'$ORIGIN':
                 origin = line[1]
-            elif line[0] == b"$INCLUDE":
-                raise NotImplementedError("$INCLUDE directive not implemented")
-            elif line[0] == b"$GENERATE":
-                raise NotImplementedError("$GENERATE directive not implemented")
+            elif line[0] == b'$INCLUDE':
+                raise NotImplementedError('$INCLUDE directive not implemented')
+            elif line[0] == b'$GENERATE':
+                raise NotImplementedError(
+                    '$GENERATE directive not implemented'
+                )
             else:
                 self.parseRecordLine(origin, ttl, line)
 
         # If the origin changed, reflect that within the instance.
         self.origin = origin
+
 
     def addRecord(self, owner, ttl, type, domain, cls, rdata):
         """
@@ -406,15 +434,18 @@ class BindAuthority(FileAuthority):
         @param rdata: record data
         @type rdata: L{list} of L{bytes}
         """
-        if not domain.endswith(b"."):
-            domain = domain + b"." + owner[:-1]
+        if not domain.endswith(b'.'):
+            domain = domain + b'.' + owner[:-1]
         else:
             domain = domain[:-1]
-        f = getattr(self, "class_%s" % (cls,), None)
+        f = getattr(self, 'class_%s' % (cls,), None)
         if f:
             f(ttl, type, domain, rdata)
         else:
-            raise NotImplementedError("Record class %r not supported" % (cls,))
+            raise NotImplementedError(
+                "Record class %r not supported" % (cls,)
+            )
+
 
     def class_IN(self, ttl, type, domain, rdata):
         """
@@ -432,18 +463,19 @@ class BindAuthority(FileAuthority):
         @param rdata:
         @type rdate: bytes
         """
-        record = getattr(dns, "Record_%s" % (nativeString(type),), None)
+        record = getattr(dns, 'Record_%s' % (nativeString(type),), None)
         if record:
             r = record(*rdata)
             r.ttl = ttl
             self.records.setdefault(domain.lower(), []).append(r)
 
-            if type == "SOA":
+            if type == 'SOA':
                 self.soa = (domain, r)
         else:
             raise NotImplementedError(
                 "Record type %r not supported" % (nativeString(type),)
             )
+
 
     def parseRecordLine(self, origin, ttl, line):
         """
@@ -461,18 +493,22 @@ class BindAuthority(FileAuthority):
         @type line: L{list} of L{bytes}
         """
         if _PY3:
-            queryClasses = set(qc.encode("ascii") for qc in dns.QUERY_CLASSES.values())
-            queryTypes = set(qt.encode("ascii") for qt in dns.QUERY_TYPES.values())
+            queryClasses = set(
+                qc.encode("ascii") for qc in dns.QUERY_CLASSES.values()
+            )
+            queryTypes = set(
+                qt.encode("ascii") for qt in dns.QUERY_TYPES.values()
+            )
         else:
             queryClasses = set(dns.QUERY_CLASSES.values())
             queryTypes = set(dns.QUERY_TYPES.values())
 
         markers = queryClasses | queryTypes
 
-        cls = b"IN"
+        cls = b'IN'
         owner = origin
 
-        if line[0] == b"@":
+        if line[0] == b'@':
             line = line[1:]
             owner = origin
         elif not line[0].isdigit() and line[0] not in markers:
@@ -502,4 +538,6 @@ class BindAuthority(FileAuthority):
         type = line[0]
         rdata = line[1:]
 
-        self.addRecord(owner, ttl, nativeString(type), domain, nativeString(cls), rdata)
+        self.addRecord(
+            owner, ttl, nativeString(type), domain, nativeString(cls), rdata
+        )

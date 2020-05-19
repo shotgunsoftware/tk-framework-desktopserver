@@ -21,7 +21,8 @@ class _Poly1305Context(object):
         # This function copies the key into OpenSSL-owned memory so we don't
         # need to retain it ourselves
         evp_pkey = self._backend._lib.EVP_PKEY_new_raw_private_key(
-            self._backend._lib.NID_poly1305, self._backend._ffi.NULL, key_ptr, len(key)
+            self._backend._lib.NID_poly1305,
+            self._backend._ffi.NULL, key_ptr, len(key)
         )
         self._backend.openssl_assert(evp_pkey != self._backend._ffi.NULL)
         self._evp_pkey = self._backend._ffi.gc(
@@ -33,17 +34,16 @@ class _Poly1305Context(object):
             ctx, self._backend._lib.Cryptography_EVP_MD_CTX_free
         )
         res = self._backend._lib.EVP_DigestSignInit(
-            self._ctx,
-            self._backend._ffi.NULL,
-            self._backend._ffi.NULL,
-            self._backend._ffi.NULL,
-            self._evp_pkey,
+            self._ctx, self._backend._ffi.NULL, self._backend._ffi.NULL,
+            self._backend._ffi.NULL, self._evp_pkey
         )
         self._backend.openssl_assert(res == 1)
 
     def update(self, data):
         data_ptr = self._backend._ffi.from_buffer(data)
-        res = self._backend._lib.EVP_DigestSignUpdate(self._ctx, data_ptr, len(data))
+        res = self._backend._lib.EVP_DigestSignUpdate(
+            self._ctx, data_ptr, len(data)
+        )
         self._backend.openssl_assert(res != 0)
 
     def finalize(self):
@@ -52,7 +52,7 @@ class _Poly1305Context(object):
         res = self._backend._lib.EVP_DigestSignFinal(self._ctx, buf, outlen)
         self._backend.openssl_assert(res != 0)
         self._backend.openssl_assert(outlen[0] == _POLY1305_TAG_SIZE)
-        return self._backend._ffi.buffer(buf)[: outlen[0]]
+        return self._backend._ffi.buffer(buf)[:outlen[0]]
 
     def verify(self, tag):
         mac = self.finalize()

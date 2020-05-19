@@ -37,7 +37,7 @@ from autobahn import util
 from autobahn.wamp.types import Challenge
 
 __all__ = [
-    "HAS_CRYPTOSIGN",
+    'HAS_CRYPTOSIGN',
 ]
 
 try:
@@ -47,7 +47,7 @@ except ImportError:
     HAS_CRYPTOSIGN = False
 else:
     HAS_CRYPTOSIGN = True
-    __all__.append("SigningKey")
+    __all__.append('SigningKey')
 
 
 def _unpack(keydata):
@@ -59,10 +59,10 @@ def _unpack(keydata):
     parts = []
     while keydata:
         # read the length of the data
-        dlen = struct.unpack(">I", keydata[:4])[0]
+        dlen = struct.unpack('>I', keydata[:4])[0]
 
         # read in <length> bytes
-        data, keydata = keydata[4 : dlen + 4], keydata[4 + dlen :]
+        data, keydata = keydata[4:dlen + 4], keydata[4 + dlen:]
         parts.append(data)
     return parts
 
@@ -73,9 +73,9 @@ def _pack(keyparts):
     """
     parts = []
     for part in keyparts:
-        parts.append(struct.pack(">I", len(part)))
+        parts.append(struct.pack('>I', len(part)))
         parts.append(part)
-    return b"".join(parts)
+    return b''.join(parts)
 
 
 def _read_ssh_ed25519_pubkey(keydata):
@@ -97,23 +97,21 @@ def _read_ssh_ed25519_pubkey(keydata):
 
     parts = keydata.strip().split()
     if len(parts) != 3:
-        raise Exception("invalid SSH Ed25519 public key")
+        raise Exception('invalid SSH Ed25519 public key')
     algo, keydata, comment = parts
 
-    if algo != u"ssh-ed25519":
-        raise Exception("not a Ed25519 SSH public key (but {})".format(algo))
+    if algo != u'ssh-ed25519':
+        raise Exception('not a Ed25519 SSH public key (but {})'.format(algo))
 
     blob = binascii.a2b_base64(keydata)
 
     try:
         key = _unpack(blob)[1]
     except Exception as e:
-        raise Exception("could not parse key ({})".format(e))
+        raise Exception('could not parse key ({})'.format(e))
 
     if len(key) != 32:
-        raise Exception(
-            "invalid length {} for embedded raw key (must be 32 bytes)".format(len(key))
-        )
+        raise Exception('invalid length {} for embedded raw key (must be 32 bytes)'.format(len(key)))
 
     return key, comment
 
@@ -129,25 +127,25 @@ class _SSHPacketReader:
         self._len = len(packet)
 
     def get_remaining_payload(self):
-        return self._packet[self._idx :]
+        return self._packet[self._idx:]
 
     def get_bytes(self, size):
         if self._idx + size > self._len:
-            raise Exception("incomplete packet")
+            raise Exception('incomplete packet')
 
-        value = self._packet[self._idx : self._idx + size]
+        value = self._packet[self._idx:self._idx + size]
         self._idx += size
         return value
 
     def get_uint32(self):
-        return struct.unpack(">I", self.get_bytes(4))[0]
+        return struct.unpack('>I', self.get_bytes(4))[0]
 
     def get_string(self):
         return self.get_bytes(self.get_uint32())
 
 
 def _makepad(size):
-    return "".join(chr(x) for x in range(1, size + 1))
+    return ''.join(chr(x) for x in range(1, size + 1))
 
 
 def _read_ssh_ed25519_privkey(keydata):
@@ -180,21 +178,19 @@ def _read_ssh_ed25519_privkey(keydata):
     # https://tools.ietf.org/html/draft-bjh21-ssh-ed25519-02
     # http://blog.oddbit.com/2011/05/08/converting-openssh-public-keys/
 
-    SSH_BEGIN = u"-----BEGIN OPENSSH PRIVATE KEY-----"
-    SSH_END = u"-----END OPENSSH PRIVATE KEY-----"
-    OPENSSH_KEY_V1 = b"openssh-key-v1\0"
+    SSH_BEGIN = u'-----BEGIN OPENSSH PRIVATE KEY-----'
+    SSH_END = u'-----END OPENSSH PRIVATE KEY-----'
+    OPENSSH_KEY_V1 = b'openssh-key-v1\0'
 
     if not (keydata.startswith(SSH_BEGIN) and keydata.endswith(SSH_END)):
-        raise Exception(
-            "invalid OpenSSH private key (does not start/end with OPENSSH preamble)"
-        )
+        raise Exception('invalid OpenSSH private key (does not start/end with OPENSSH preamble)')
 
     ssh_end = keydata.find(SSH_END)
-    keydata = keydata[len(SSH_BEGIN) : ssh_end]
-    keydata = u"".join([x.strip() for x in keydata.split()])
+    keydata = keydata[len(SSH_BEGIN):ssh_end]
+    keydata = u''.join([x.strip() for x in keydata.split()])
     blob = binascii.a2b_base64(keydata)
 
-    blob = blob[len(OPENSSH_KEY_V1) :]
+    blob = blob[len(OPENSSH_KEY_V1):]
     packet = _SSHPacketReader(blob)
 
     cipher_name = packet.get_string()
@@ -207,23 +203,17 @@ def _read_ssh_ed25519_privkey(keydata):
 
     block_size = 8
 
-    if cipher_name != b"none":
-        raise Exception(
-            "encrypted private keys not supported (please remove the passphrase from your private key or use SSH agent)"
-        )
+    if cipher_name != b'none':
+        raise Exception('encrypted private keys not supported (please remove the passphrase from your private key or use SSH agent)')
 
-    if kdf != b"none":
-        raise Exception("passphrase encrypted private keys not supported")
+    if kdf != b'none':
+        raise Exception('passphrase encrypted private keys not supported')
 
     if nkeys != 1:
-        raise Exception(
-            "multiple private keys in a key file not supported (found {} keys)".format(
-                nkeys
-            )
-        )
+        raise Exception('multiple private keys in a key file not supported (found {} keys)'.format(nkeys))
 
     if mac:
-        raise Exception("invalid OpenSSH private key (found remaining payload for mac)")
+        raise Exception('invalid OpenSSH private key (found remaining payload for mac)')
 
     packet = _SSHPacketReader(key_data)
 
@@ -232,36 +222,28 @@ def _read_ssh_ed25519_privkey(keydata):
 
     alg = packet.get_string()
 
-    if alg != b"ssh-ed25519":
-        raise Exception(
-            'invalid key type: we only support Ed25519 (found "{}")'.format(
-                alg.decode("ascii")
-            )
-        )
+    if alg != b'ssh-ed25519':
+        raise Exception('invalid key type: we only support Ed25519 (found "{}")'.format(alg.decode('ascii')))
 
     vk = packet.get_string()
     sk = packet.get_string()
 
     if len(vk) != bindings.crypto_sign_PUBLICKEYBYTES:
-        raise Exception("invalid public key length")
+        raise Exception('invalid public key length')
 
     if len(sk) != bindings.crypto_sign_SECRETKEYBYTES:
-        raise Exception("invalid public key length")
+        raise Exception('invalid public key length')
 
-    comment = packet.get_string()  # comment
+    comment = packet.get_string()                             # comment
     pad = packet.get_remaining_payload()
 
     if len(pad) and (len(pad) >= block_size or pad != _makepad(len(pad))):
-        raise Exception(
-            "invalid OpenSSH private key (padlen={}, actual_pad={}, expected_pad={})".format(
-                len(pad), pad, _makepad(len(pad))
-            )
-        )
+        raise Exception('invalid OpenSSH private key (padlen={}, actual_pad={}, expected_pad={})'.format(len(pad), pad, _makepad(len(pad))))
 
     # secret key (64 octets) = 32 octets seed || 32 octets secret key derived of seed
-    seed = sk[: bindings.crypto_sign_SEEDBYTES]
+    seed = sk[:bindings.crypto_sign_SEEDBYTES]
 
-    comment = comment.decode("ascii")
+    comment = comment.decode('ascii')
 
     return seed, comment
 
@@ -276,11 +258,7 @@ def _read_signify_ed25519_signature(signature_file):
         # signature file format: 2nd line is base64 of 'Ed' || 8 random octets || 64 octets Ed25519 signature
         sig = binascii.a2b_base64(f.read().splitlines()[1])[10:]
         if len(sig) != 64:
-            raise Exception(
-                "bogus Ed25519 signature: raw signature length was {}, but expected 64".format(
-                    len(sig)
-                )
-            )
+            raise Exception('bogus Ed25519 signature: raw signature length was {}, but expected 64'.format(len(sig)))
         return sig
 
 
@@ -294,15 +272,11 @@ def _read_signify_ed25519_pubkey(pubkey_file):
         # signature file format: 2nd line is base64 of 'Ed' || 8 random octets || 32 octets Ed25519 public key
         pubkey = binascii.a2b_base64(f.read().splitlines()[1])[10:]
         if len(pubkey) != 32:
-            raise Exception(
-                "bogus Ed25519 public key: raw key length was {}, but expected 32".format(
-                    len(pubkey)
-                )
-            )
+            raise Exception('bogus Ed25519 public key: raw key length was {}, but expected 32'.format(len(pubkey)))
         return pubkey
 
 
-def _qrcode_from_signify_ed25519_pubkey(pubkey_file, mode="text"):
+def _qrcode_from_signify_ed25519_pubkey(pubkey_file, mode='text'):
     """
 
     Usage:
@@ -319,21 +293,20 @@ def _qrcode_from_signify_ed25519_pubkey(pubkey_file, mode="text"):
 
         https://www.openbsd.org/papers/bsdcan-signify.html
     """
-    assert mode in ["text", "svg"]
+    assert(mode in ['text', 'svg'])
 
     import pyqrcode
 
     with open(pubkey_file) as f:
         pubkey = f.read().splitlines()[1]
 
-        qr = pyqrcode.create(pubkey, error="L", mode="binary")
+        qr = pyqrcode.create(pubkey, error='L', mode='binary')
 
-        if mode == "text":
+        if mode == 'text':
             return qr.terminal()
 
-        elif mode == "svg":
+        elif mode == 'svg':
             import io
-
             data_buffer = io.BytesIO()
 
             qr.svg(data_buffer, omithw=True)
@@ -341,7 +314,7 @@ def _qrcode_from_signify_ed25519_pubkey(pubkey_file, mode="text"):
             return data_buffer.getvalue()
 
         else:
-            raise Exception("logic error")
+            raise Exception('logic error')
 
 
 def _verify_signify_ed25519_signature(pubkey_file, signature_file, message):
@@ -397,10 +370,7 @@ if HAS_CRYPTOSIGN:
             :param key: A Ed25519 private signing key or a Ed25519 public verification key.
             :type key: instance of nacl.signing.VerifyKey or instance of nacl.signing.SigningKey
             """
-            if not (
-                isinstance(key, signing.VerifyKey)
-                or isinstance(key, signing.SigningKey)
-            ):
+            if not (isinstance(key, signing.VerifyKey) or isinstance(key, signing.SigningKey)):
                 raise Exception("invalid type {} for key".format(type(key)))
 
             if not (comment is None or type(comment) == six.text_type):
@@ -412,9 +382,7 @@ if HAS_CRYPTOSIGN:
 
         def __str__(self):
             comment = u'"{}"'.format(self.comment()) if self.comment() else None
-            return u"Key(can_sign={}, comment={}, public_key={})".format(
-                self.can_sign(), comment, self.public_key()
-            )
+            return u'Key(can_sign={}, comment={}, public_key={})'.format(self.can_sign(), comment, self.public_key())
 
         @util.public
         def can_sign(self):
@@ -452,7 +420,7 @@ if HAS_CRYPTOSIGN:
             if binary:
                 return key.encode()
             else:
-                return key.encode(encoder=encoding.HexEncoder).decode("ascii")
+                return key.encode(encoder=encoding.HexEncoder).decode('ascii')
 
         @util.public
         def sign(self, data):
@@ -495,31 +463,19 @@ if HAS_CRYPTOSIGN:
             :rtype: str
             """
             if not isinstance(challenge, Challenge):
-                raise Exception(
-                    u"challenge must be instance of autobahn.wamp.types.Challenge, not {}".format(
-                        type(challenge)
-                    )
-                )
+                raise Exception(u"challenge must be instance of autobahn.wamp.types.Challenge, not {}".format(type(challenge)))
 
-            if u"challenge" not in challenge.extra:
+            if u'challenge' not in challenge.extra:
                 raise Exception(u"missing challenge value in challenge.extra")
 
             # the challenge sent by the router (a 32 bytes random value)
-            challenge_hex = challenge.extra[u"challenge"]
+            challenge_hex = challenge.extra[u'challenge']
 
             if type(challenge_hex) != six.text_type:
-                raise Exception(
-                    u"invalid type {} for challenge (expected a hex string)".format(
-                        type(challenge_hex)
-                    )
-                )
+                raise Exception(u"invalid type {} for challenge (expected a hex string)".format(type(challenge_hex)))
 
             if len(challenge_hex) != 64:
-                raise Exception(
-                    u"unexpected challenge (hex) length: was {}, but expected 64".format(
-                        len(challenge_hex)
-                    )
-                )
+                raise Exception(u"unexpected challenge (hex) length: was {}, but expected 64".format(len(challenge_hex)))
 
             # the challenge for WAMP-cryptosign is a 32 bytes random value in Hex encoding (that is, a unicode string)
             challenge_raw = binascii.a2b_hex(challenge_hex)
@@ -528,11 +484,7 @@ if HAS_CRYPTOSIGN:
             # is the XOR of the challenge and the channel ID
             channel_id_raw = session._transport.get_channel_id()
             if channel_id_raw:
-                assert (
-                    len(channel_id_raw) == 32
-                ), "unexpected TLS transport channel ID length: was {}, but expected 32".format(
-                    len(channel_id_raw)
-                )
+                assert len(channel_id_raw) == 32, 'unexpected TLS transport channel ID length: was {}, but expected 32'.format(len(channel_id_raw))
                 data = util.xor(challenge_raw, channel_id_raw)
             else:
                 data = challenge_raw
@@ -546,10 +498,10 @@ if HAS_CRYPTOSIGN:
 
             def process(signature_raw):
                 # convert the raw signature into a hex encode value (unicode string)
-                signature_hex = binascii.b2a_hex(signature_raw).decode("ascii")
+                signature_hex = binascii.b2a_hex(signature_raw).decode('ascii')
 
                 # we return the concatenation of the signature and the message signed (96 bytes)
-                data_hex = binascii.b2a_hex(data).decode("ascii")
+                data_hex = binascii.b2a_hex(data).decode('ascii')
 
                 sig = signature_hex + data_hex
                 txaio.resolve(d2, sig)
@@ -565,14 +517,10 @@ if HAS_CRYPTOSIGN:
                 raise ValueError("invalid type {} for comment".format(type(comment)))
 
             if type(keydata) != six.binary_type:
-                raise ValueError(
-                    "invalid key type {} (expected binary)".format(type(keydata))
-                )
+                raise ValueError("invalid key type {} (expected binary)".format(type(keydata)))
 
             if len(keydata) != 32:
-                raise ValueError(
-                    "invalid key length {} (expected 32)".format(len(keydata))
-                )
+                raise ValueError("invalid key length {} (expected 32)".format(len(keydata)))
 
             key = signing.SigningKey(keydata)
             return cls(key, comment)
@@ -600,7 +548,7 @@ if HAS_CRYPTOSIGN:
             if type(filename) != six.text_type:
                 raise Exception("invalid type {} for filename".format(filename))
 
-            with open(filename, "rb") as f:
+            with open(filename, 'rb') as f:
                 keydata = f.read()
 
             return cls.from_key_bytes(keydata, comment=comment)
@@ -614,8 +562,8 @@ if HAS_CRYPTOSIGN:
             public key file). A private key file must be passphrase-less.
             """
 
-            with open(filename, "rb") as f:
-                keydata = f.read().decode("utf-8").strip()
+            with open(filename, 'rb') as f:
+                keydata = f.read().decode('utf-8').strip()
             return cls.from_ssh_data(keydata)
 
         @util.public
@@ -626,7 +574,7 @@ if HAS_CRYPTOSIGN:
             key (from a SSH private key file) or a (public) verification key (from a SSH
             public key file). A private key file must be passphrase-less.
             """
-            SSH_BEGIN = u"-----BEGIN OPENSSH PRIVATE KEY-----"
+            SSH_BEGIN = u'-----BEGIN OPENSSH PRIVATE KEY-----'
             if keydata.startswith(SSH_BEGIN):
                 # OpenSSH private key
                 keydata, comment = _read_ssh_ed25519_privkey(keydata)
@@ -638,25 +586,19 @@ if HAS_CRYPTOSIGN:
 
             return cls(key, comment)
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     import sys
-
     if not HAS_CRYPTOSIGN:
-        print("NaCl library must be installed for this to function.", file=sys.stderr)
+        print('NaCl library must be installed for this to function.', file=sys.stderr)
         sys.exit(1)
 
     from optparse import OptionParser
 
     parser = OptionParser()
-    parser.add_option("-f", "--file", dest="keyfile", help="file containing ssh key")
-    parser.add_option(
-        "-p",
-        action="store_true",
-        dest="printpub",
-        default=False,
-        help="print public key information",
-    )
+    parser.add_option('-f', '--file', dest='keyfile',
+                      help='file containing ssh key')
+    parser.add_option('-p', action='store_true', dest='printpub', default=False,
+                      help='print public key information')
 
     options, args = parser.parse_args()
 

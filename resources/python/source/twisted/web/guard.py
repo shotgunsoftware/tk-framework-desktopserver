@@ -16,6 +16,5 @@ from twisted.web._auth.digest import DigestCredentialFactory
 
 __all__ = [
     "HTTPAuthSessionWrapper",
-    "BasicCredentialFactory",
-    "DigestCredentialFactory",
-]
+
+    "BasicCredentialFactory", "DigestCredentialFactory"]

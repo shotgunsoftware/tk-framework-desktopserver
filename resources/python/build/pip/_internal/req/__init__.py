@@ -9,16 +9,15 @@ from pip._internal.utils.logging import indent_log
 
 
 __all__ = [
-    "RequirementSet",
-    "InstallRequirement",
-    "parse_requirements",
-    "install_given_reqs",
+    "RequirementSet", "InstallRequirement",
+    "parse_requirements", "install_given_reqs",
 ]
 
 logger = logging.getLogger(__name__)
 
 
-def install_given_reqs(to_install, install_options, global_options=(), *args, **kwargs):
+def install_given_reqs(to_install, install_options, global_options=(),
+                       *args, **kwargs):
     """
     Install everything in the given list.
 
@@ -27,23 +26,32 @@ def install_given_reqs(to_install, install_options, global_options=(), *args, **
 
     if to_install:
         logger.info(
-            "Installing collected packages: %s",
-            ", ".join([req.name for req in to_install]),
+            'Installing collected packages: %s',
+            ', '.join([req.name for req in to_install]),
         )
 
     with indent_log():
         for requirement in to_install:
             if requirement.conflicts_with:
                 logger.info(
-                    "Found existing installation: %s", requirement.conflicts_with,
+                    'Found existing installation: %s',
+                    requirement.conflicts_with,
                 )
                 with indent_log():
-                    uninstalled_pathset = requirement.uninstall(auto_confirm=True)
+                    uninstalled_pathset = requirement.uninstall(
+                        auto_confirm=True
+                    )
             try:
-                requirement.install(install_options, global_options, *args, **kwargs)
+                requirement.install(
+                    install_options,
+                    global_options,
+                    *args,
+                    **kwargs
+                )
             except Exception:
                 should_rollback = (
-                    requirement.conflicts_with and not requirement.install_succeeded
+                    requirement.conflicts_with and
+                    not requirement.install_succeeded
                 )
                 # if install did not succeed, rollback previous uninstall
                 if should_rollback:
@@ -51,7 +59,8 @@ def install_given_reqs(to_install, install_options, global_options=(), *args, **
                 raise
             else:
                 should_commit = (
-                    requirement.conflicts_with and requirement.install_succeeded
+                    requirement.conflicts_with and
+                    requirement.install_succeeded
                 )
                 if should_commit:
                     uninstalled_pathset.commit()

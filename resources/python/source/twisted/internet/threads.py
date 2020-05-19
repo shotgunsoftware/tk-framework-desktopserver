@@ -10,7 +10,6 @@ For basic support see reactor threading API docs.
 from __future__ import division, absolute_import
 
 from twisted.python.compat import _PY3
-
 if not _PY3:
     import Queue
 else:
@@ -69,8 +68,8 @@ def deferToThread(f, *args, **kwargs):
     an exception.
     """
     from twisted.internet import reactor
-
-    return deferToThreadPool(reactor, reactor.getThreadPool(), f, *args, **kwargs)
+    return deferToThreadPool(reactor, reactor.getThreadPool(),
+                             f, *args, **kwargs)
 
 
 def _runMultiple(tupleList):
@@ -88,7 +87,6 @@ def callMultipleInThread(tupleList):
     tupleList should be a list of (function, argsList, kwargsDict) tuples.
     """
     from twisted.internet import reactor
-
     reactor.callInThread(_runMultiple, tupleList)
 
 
@@ -115,11 +113,9 @@ def blockingCallFromThread(reactor, f, *a, **kw):
         L{Failure.raiseException}).
     """
     queue = Queue.Queue()
-
     def _callFromThread():
         result = defer.maybeDeferred(f, *a, **kw)
         result.addBoth(queue.put)
-
     reactor.callFromThread(_callFromThread)
     result = queue.get()
     if isinstance(result, failure.Failure):
@@ -127,9 +123,5 @@ def blockingCallFromThread(reactor, f, *a, **kw):
     return result
 
 
-__all__ = [
-    "deferToThread",
-    "deferToThreadPool",
-    "callMultipleInThread",
-    "blockingCallFromThread",
-]
+__all__ = ["deferToThread", "deferToThreadPool", "callMultipleInThread",
+           "blockingCallFromThread"]

@@ -71,17 +71,7 @@ class IMarketMaker(object):
         """
 
     @abc.abstractmethod
-    def buy(
-        self,
-        channel_id,
-        channel_seq,
-        buyer_pubkey,
-        datakey_id,
-        amount,
-        balance,
-        signature,
-        details,
-    ):
+    def buy(self, channel_id, channel_seq, buyer_pubkey, datakey_id, amount, balance, signature, details):
         """
 
         :param channel_id:

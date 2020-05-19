@@ -4,9 +4,8 @@
 
 import flatbuffers
 
-
 class AuthCryptosignWelcome(object):
-    __slots__ = ["_tab"]
+    __slots__ = ['_tab']
 
     @classmethod
     def GetRootAsAuthCryptosignWelcome(cls, buf, offset):
@@ -19,10 +18,5 @@ class AuthCryptosignWelcome(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-
-def AuthCryptosignWelcomeStart(builder):
-    builder.StartObject(0)
-
-
-def AuthCryptosignWelcomeEnd(builder):
-    return builder.EndObject()
+def AuthCryptosignWelcomeStart(builder): builder.StartObject(0)
+def AuthCryptosignWelcomeEnd(builder): return builder.EndObject()

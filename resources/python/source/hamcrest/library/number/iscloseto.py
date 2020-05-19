@@ -24,11 +24,12 @@ def isnumeric(value):
 
 
 class IsCloseTo(BaseMatcher):
+
     def __init__(self, value, delta):
         if not isnumeric(value):
-            raise TypeError("IsCloseTo value must be numeric")
+            raise TypeError('IsCloseTo value must be numeric')
         if not isnumeric(delta):
-            raise TypeError("IsCloseTo delta must be numeric")
+            raise TypeError('IsCloseTo delta must be numeric')
 
         self.value = value
         self.delta = delta
@@ -43,14 +44,15 @@ class IsCloseTo(BaseMatcher):
             super(IsCloseTo, self).describe_mismatch(item, mismatch_description)
         else:
             actual_delta = fabs(item - self.value)
-            mismatch_description.append_description_of(item).append_text(
-                " differed by "
-            ).append_description_of(actual_delta)
+            mismatch_description.append_description_of(item)            \
+                                .append_text(' differed by ')           \
+                                .append_description_of(actual_delta)
 
     def describe_to(self, description):
-        description.append_text("a numeric value within ").append_description_of(
-            self.delta
-        ).append_text(" of ").append_description_of(self.value)
+        description.append_text('a numeric value within ')  \
+                   .append_description_of(self.delta)       \
+                   .append_text(' of ')                     \
+                   .append_description_of(self.value)
 
 
 def close_to(value, delta):

@@ -30,7 +30,6 @@ class LocalAsRemote:
     """
     A class useful for emulating the effects of remote behavior locally.
     """
-
     reportAllTracebacks = 1
 
     def callRemote(self, name, *args, **kw):
@@ -43,8 +42,8 @@ class LocalAsRemote:
         which will be called and then have its result (or Failure)
         automatically wrapped in a Deferred.
         """
-        if hasattr(self, "sync_" + name):
-            return getattr(self, "sync_" + name)(*args, **kw)
+        if hasattr(self, 'sync_'+name):
+            return getattr(self, 'sync_'+name)(*args, **kw)
         try:
             method = getattr(self, "async_" + name)
             return defer.succeed(method(*args, **kw))
@@ -78,8 +77,8 @@ class LocalAsyncForwarder:
             return result
         elif self.failWhenNotImplemented:
             return defer.fail(
-                Failure(NotImplementedError, "No Such Method in Interface: %s" % method)
-            )
+                Failure(NotImplementedError,
+                        "No Such Method in Interface: %s" % method))
         else:
             return defer.succeed(None)
 
@@ -88,7 +87,6 @@ class Pager:
     """
     I am an object which pages out information.
     """
-
     def __init__(self, collector, callback=None, *args, **kw):
         """
         Create a pager with a Reference to a remote collector and
@@ -137,7 +135,6 @@ class StringPager(Pager):
     """
     A simple pager that splits a string into chunks.
     """
-
     def __init__(self, collector, st, chunkSize=8192, callback=None, *args, **kw):
         self.string = st
         self.pointer = 0
@@ -145,7 +142,7 @@ class StringPager(Pager):
         Pager.__init__(self, collector, callback, *args, **kw)
 
     def nextPage(self):
-        val = self.string[self.pointer : self.pointer + self.chunkSize]
+        val = self.string[self.pointer:self.pointer+self.chunkSize]
         self.pointer += self.chunkSize
         if self.pointer >= len(self.string):
             self.stopPaging()
@@ -165,7 +162,7 @@ class FilePager(Pager):
 
     def startProducing(self, fd):
         self.deferred = basic.FileSender().beginFileTransfer(fd, self)
-        self.deferred.addBoth(lambda x: self.stopPaging())
+        self.deferred.addBoth(lambda x : self.stopPaging())
 
     def registerProducer(self, producer, streaming):
         self.producer = producer
@@ -196,7 +193,6 @@ class CallbackPageCollector(pb.Referenceable):
     remote reference to me. I will call the callback with a list of pages
     once they are all received.
     """
-
     def __init__(self, callback):
         self.pages = []
         self.callback = callback
@@ -216,3 +212,4 @@ def getAllPages(referenceable, methodName, *args, **kw):
     d = defer.Deferred()
     referenceable.callRemote(methodName, CallbackPageCollector(d.callback), *args, **kw)
     return d
+

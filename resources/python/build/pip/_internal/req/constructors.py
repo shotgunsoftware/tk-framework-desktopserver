@@ -19,10 +19,7 @@ from pip._vendor.packaging.specifiers import Specifier
 from pip._vendor.pkg_resources import RequirementParseError, parse_requirements
 
 from pip._internal.download import (
-    is_archive_file,
-    is_url,
-    path_to_url,
-    url_to_path,
+    is_archive_file, is_url, path_to_url, url_to_path,
 )
 from pip._internal.exceptions import InstallationError
 from pip._internal.models.index import PyPI, TestPyPI
@@ -32,14 +29,17 @@ from pip._internal.utils.misc import is_installable_dir
 from pip._internal.vcs import vcs
 from pip._internal.wheel import Wheel
 
-__all__ = ["install_req_from_editable", "install_req_from_line", "parse_editable"]
+__all__ = [
+    "install_req_from_editable", "install_req_from_line",
+    "parse_editable"
+]
 
 logger = logging.getLogger(__name__)
 operators = Specifier._operators.keys()
 
 
 def _strip_extras(path):
-    m = re.match(r"^(.+)(\[[^\]]+\])$", path)
+    m = re.match(r'^(.+)(\[[^\]]+\])$', path)
     extras = None
     if m:
         path_no_extras = m.group(1)
@@ -67,15 +67,15 @@ def parse_editable(editable_req):
     url_no_extras, extras = _strip_extras(url)
 
     if os.path.isdir(url_no_extras):
-        if not os.path.exists(os.path.join(url_no_extras, "setup.py")):
+        if not os.path.exists(os.path.join(url_no_extras, 'setup.py')):
             raise InstallationError(
-                "Directory %r is not installable. File 'setup.py' not found."
-                % url_no_extras
+                "Directory %r is not installable. File 'setup.py' not found." %
+                url_no_extras
             )
         # Treating it as code that has already been checked out
         url_no_extras = path_to_url(url_no_extras)
 
-    if url_no_extras.lower().startswith("file:"):
+    if url_no_extras.lower().startswith('file:'):
         package_name = Link(url_no_extras).egg_fragment
         if extras:
             return (
@@ -87,24 +87,23 @@ def parse_editable(editable_req):
             return package_name, url_no_extras, None
 
     for version_control in vcs:
-        if url.lower().startswith("%s:" % version_control):
-            url = "%s+%s" % (version_control, url)
+        if url.lower().startswith('%s:' % version_control):
+            url = '%s+%s' % (version_control, url)
             break
 
-    if "+" not in url:
+    if '+' not in url:
         raise InstallationError(
-            "%s should either be a path to a local project or a VCS url "
-            "beginning with svn+, git+, hg+, or bzr+" % editable_req
+            '%s should either be a path to a local project or a VCS url '
+            'beginning with svn+, git+, hg+, or bzr+' %
+            editable_req
         )
 
-    vc_type = url.split("+", 1)[0].lower()
+    vc_type = url.split('+', 1)[0].lower()
 
     if not vcs.get_backend(vc_type):
-        error_message = (
-            "For --editable=%s only " % editable_req
-            + ", ".join([backend.name + "+URL" for backend in vcs.backends])
-            + " is currently supported"
-        )
+        error_message = 'For --editable=%s only ' % editable_req + \
+            ', '.join([backend.name + '+URL' for backend in vcs.backends]) + \
+            ' is currently supported'
         raise InstallationError(error_message)
 
     package_name = Link(url).egg_fragment
@@ -127,23 +126,17 @@ def deduce_helpful_msg(req):
         msg = " It does exist."
         # Try to parse and check if it is a requirements file.
         try:
-            with open(req, "r") as fp:
+            with open(req, 'r') as fp:
                 # parse first line only
                 next(parse_requirements(fp.read()))
-                msg += (
-                    " The argument you provided "
-                    + "(%s) appears to be a" % (req)
-                    + " requirements file. If that is the"
-                    + " case, use the '-r' flag to install"
-                    + " the packages specified within it."
-                )
+                msg += " The argument you provided " + \
+                    "(%s) appears to be a" % (req) + \
+                    " requirements file. If that is the" + \
+                    " case, use the '-r' flag to install" + \
+                    " the packages specified within it."
         except RequirementParseError:
-            logger.debug(
-                "Cannot parse '%s' as requirements \
-            file"
-                % (req),
-                exc_info=1,
-            )
+            logger.debug("Cannot parse '%s' as requirements \
+            file" % (req), exc_info=1)
     else:
         msg += " File '%s' does not exist." % (req)
     return msg
@@ -153,15 +146,11 @@ def deduce_helpful_msg(req):
 
 
 def install_req_from_editable(
-    editable_req,
-    comes_from=None,
-    isolated=False,
-    options=None,
-    wheel_cache=None,
-    constraint=False,
+    editable_req, comes_from=None, isolated=False, options=None,
+    wheel_cache=None, constraint=False
 ):
     name, url, extras_override = parse_editable(editable_req)
-    if url.startswith("file:"):
+    if url.startswith('file:'):
         source_dir = url_to_path(url)
     else:
         source_dir = None
@@ -174,9 +163,7 @@ def install_req_from_editable(
     else:
         req = None
     return InstallRequirement(
-        req,
-        comes_from,
-        source_dir=source_dir,
+        req, comes_from, source_dir=source_dir,
         editable=True,
         link=Link(url),
         constraint=constraint,
@@ -188,20 +175,16 @@ def install_req_from_editable(
 
 
 def install_req_from_line(
-    name,
-    comes_from=None,
-    isolated=False,
-    options=None,
-    wheel_cache=None,
-    constraint=False,
+    name, comes_from=None, isolated=False, options=None, wheel_cache=None,
+    constraint=False
 ):
     """Creates an InstallRequirement from a name, which might be a
     requirement, directory containing 'setup.py', filename, or URL.
     """
     if is_url(name):
-        marker_sep = "; "
+        marker_sep = '; '
     else:
-        marker_sep = ";"
+        marker_sep = ';'
     if marker_sep in name:
         name, markers = name.split(marker_sep, 1)
         markers = markers.strip()
@@ -222,9 +205,9 @@ def install_req_from_line(
     else:
         p, extras = _strip_extras(path)
         looks_like_dir = os.path.isdir(p) and (
-            os.path.sep in name
-            or (os.path.altsep is not None and os.path.altsep in name)
-            or name.startswith(".")
+            os.path.sep in name or
+            (os.path.altsep is not None and os.path.altsep in name) or
+            name.startswith('.')
         )
         if looks_like_dir:
             if not is_installable_dir(p):
@@ -236,17 +219,18 @@ def install_req_from_line(
         elif is_archive_file(p):
             if not os.path.isfile(p):
                 logger.warning(
-                    "Requirement %r looks like a filename, but the "
-                    "file does not exist",
-                    name,
+                    'Requirement %r looks like a filename, but the '
+                    'file does not exist',
+                    name
                 )
             link = Link(path_to_url(p))
 
     # it's a local file, dir, or url
     if link:
         # Handle relative file URLs
-        if link.scheme == "file" and re.search(r"\.\./", link.url):
-            link = Link(path_to_url(os.path.normpath(os.path.abspath(link.path))))
+        if link.scheme == 'file' and re.search(r'\.\./', link.url):
+            link = Link(
+                path_to_url(os.path.normpath(os.path.abspath(link.path))))
         # wheel file
         if link.is_wheel:
             wheel = Wheel(link.filename)  # can raise InvalidWheelFilename
@@ -271,17 +255,16 @@ def install_req_from_line(
             if os.path.sep in req:
                 add_msg = "It looks like a path."
                 add_msg += deduce_helpful_msg(req)
-            elif "=" in req and not any(op in req for op in operators):
+            elif '=' in req and not any(op in req for op in operators):
                 add_msg = "= is not a valid operator. Did you mean == ?"
             else:
                 add_msg = traceback.format_exc()
-            raise InstallationError("Invalid requirement: '%s'\n%s" % (req, add_msg))
+            raise InstallationError(
+                "Invalid requirement: '%s'\n%s" % (req, add_msg)
+            )
 
     return InstallRequirement(
-        req,
-        comes_from,
-        link=link,
-        markers=markers,
+        req, comes_from, link=link, markers=markers,
         isolated=isolated,
         options=options if options else {},
         wheel_cache=wheel_cache,
@@ -290,7 +273,9 @@ def install_req_from_line(
     )
 
 
-def install_req_from_req(req, comes_from=None, isolated=False, wheel_cache=None):
+def install_req_from_req(
+    req, comes_from=None, isolated=False, wheel_cache=None
+):
     try:
         req = Requirement(req)
     except InvalidRequirement:

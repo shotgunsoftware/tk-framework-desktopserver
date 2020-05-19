@@ -4,9 +4,8 @@
 
 import flatbuffers
 
-
 class AuthCraRequest(object):
-    __slots__ = ["_tab"]
+    __slots__ = ['_tab']
 
     @classmethod
     def GetRootAsAuthCraRequest(cls, buf, offset):
@@ -19,10 +18,5 @@ class AuthCraRequest(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-
-def AuthCraRequestStart(builder):
-    builder.StartObject(0)
-
-
-def AuthCraRequestEnd(builder):
-    return builder.EndObject()
+def AuthCraRequestStart(builder): builder.StartObject(0)
+def AuthCraRequestEnd(builder): return builder.EndObject()

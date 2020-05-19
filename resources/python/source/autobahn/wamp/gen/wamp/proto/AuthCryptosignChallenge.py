@@ -4,9 +4,8 @@
 
 import flatbuffers
 
-
 class AuthCryptosignChallenge(object):
-    __slots__ = ["_tab"]
+    __slots__ = ['_tab']
 
     @classmethod
     def GetRootAsAuthCryptosignChallenge(cls, buf, offset):
@@ -26,14 +25,6 @@ class AuthCryptosignChallenge(object):
             return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 0
 
-
-def AuthCryptosignChallengeStart(builder):
-    builder.StartObject(1)
-
-
-def AuthCryptosignChallengeAddChannelBinding(builder, channelBinding):
-    builder.PrependUint8Slot(0, channelBinding, 0)
-
-
-def AuthCryptosignChallengeEnd(builder):
-    return builder.EndObject()
+def AuthCryptosignChallengeStart(builder): builder.StartObject(1)
+def AuthCryptosignChallengeAddChannelBinding(builder, channelBinding): builder.PrependUint8Slot(0, channelBinding, 0)
+def AuthCryptosignChallengeEnd(builder): return builder.EndObject()

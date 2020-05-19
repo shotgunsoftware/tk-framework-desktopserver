@@ -20,6 +20,7 @@ from twisted.internet import defer
 from twisted.python.compat import StringType
 
 
+
 def verifyCryptedPassword(crypted, pw):
     """
     Use L{crypt.crypt} to Verify that an unencrypted
@@ -40,10 +41,11 @@ def verifyCryptedPassword(crypted, pw):
     if crypt is None:
         raise NotImplementedError("cred_unix not supported on this platform")
     if not isinstance(pw, StringType):
-        pw = pw.decode("utf-8")
+        pw = pw.decode('utf-8')
     if not isinstance(crypted, StringType):
-        crypted = crypted.decode("utf-8")
+        crypted = crypted.decode('utf-8')
     return crypt.crypt(pw, crypted) == crypted
+
 
 
 @implementer(ICredentialsChecker)
@@ -57,8 +59,8 @@ class UNIXChecker(object):
     Right now this supports Python's pwd and spwd modules, if they are
     installed. It does not support PAM.
     """
-
     credentialInterfaces = (IUsernamePassword,)
+
 
     def checkPwd(self, pwd, username, password):
         """
@@ -76,16 +78,17 @@ class UNIXChecker(object):
         """
         try:
             if not isinstance(username, StringType):
-                username = username.decode("utf-8")
+                username = username.decode('utf-8')
             cryptedPass = pwd.getpwnam(username).pw_passwd
         except KeyError:
             return defer.fail(UnauthorizedLogin())
         else:
-            if cryptedPass in ("*", "x"):
+            if cryptedPass in ('*', 'x'):
                 # Allow checkSpwd to take over
                 return None
             elif verifyCryptedPassword(cryptedPass, password):
                 return defer.succeed(username)
+
 
     def checkSpwd(self, spwd, username, password):
         """
@@ -103,7 +106,7 @@ class UNIXChecker(object):
         """
         try:
             if not isinstance(username, StringType):
-                username = username.decode("utf-8")
+                username = username.decode('utf-8')
             if getattr(spwd.struct_spwd, "sp_pwdp", None):
                 # Python 3
                 cryptedPass = spwd.getspnam(username).sp_pwdp
@@ -115,6 +118,7 @@ class UNIXChecker(object):
         else:
             if verifyCryptedPassword(cryptedPass, password):
                 return defer.succeed(username)
+
 
     def requestAvatarId(self, credentials):
         username, password = credentials.username, credentials.password
@@ -143,6 +147,7 @@ class UNIXChecker(object):
         return defer.fail(UnauthorizedLogin())
 
 
+
 unixCheckerFactoryHelp = """
 This checker will attempt to use every resource available to
 authenticate against the list of users on the local UNIX system.
@@ -162,10 +167,9 @@ class UNIXCheckerFactory(object):
     """
     A factory for L{UNIXChecker}.
     """
-
-    authType = "unix"
+    authType = 'unix'
     authHelp = unixCheckerFactoryHelp
-    argStringFormat = "No argstring required."
+    argStringFormat = 'No argstring required.'
     credentialInterfaces = UNIXChecker.credentialInterfaces
 
     def generateChecker(self, argstring):
@@ -175,6 +179,7 @@ class UNIXCheckerFactory(object):
         UNIX environment.
         """
         return UNIXChecker()
+
 
 
 theUnixCheckerFactory = UNIXCheckerFactory()

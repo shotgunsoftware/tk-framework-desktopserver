@@ -32,24 +32,20 @@ from twisted.python.compat import unicode, _PY3, _constructMethod
 # Abstract Object Classes #
 ###########################
 
-# "\0" in a getSource means "insert variable-width indention here".
-# see `indentify'.
-
+#"\0" in a getSource means "insert variable-width indention here".
+#see `indentify'.
 
 class Named:
     def __init__(self, name):
         self.name = name
 
-
 class Class(Named):
     def getSource(self):
         return "Class(%r)" % self.name
 
-
 class Function(Named):
     def getSource(self):
         return "Function(%r)" % self.name
-
 
 class Module(Named):
     def getSource(self):
@@ -58,47 +54,29 @@ class Module(Named):
 
 class InstanceMethod:
     def __init__(self, name, klass, inst):
-        if not (
-            isinstance(inst, Ref)
-            or isinstance(inst, Instance)
-            or isinstance(inst, Deref)
-        ):
+        if not (isinstance(inst, Ref) or isinstance(inst, Instance) or isinstance(inst, Deref)):
             raise TypeError("%s isn't an Instance, Ref, or Deref!" % inst)
         self.name = name
         self.klass = klass
         self.instance = inst
 
     def getSource(self):
-        return "InstanceMethod(%r, %r, \n\0%s)" % (
-            self.name,
-            self.klass,
-            prettify(self.instance),
-        )
+        return "InstanceMethod(%r, %r, \n\0%s)" % (self.name, self.klass, prettify(self.instance))
 
 
 class _NoStateObj:
     pass
-
-
 NoStateObj = _NoStateObj()
 
 _SIMPLE_BUILTINS = [
-    bool,
-    bytes,
-    unicode,
-    int,
-    float,
-    complex,
-    type(None),
-    slice,
-    type(Ellipsis),
+    bool, bytes, unicode, int, float, complex, type(None),
+    slice, type(Ellipsis)
 ]
 
 try:
     _SIMPLE_BUILTINS.append(long)
 except NameError:
     pass
-
 
 class Instance:
     def __init__(self, className, __stateObj__=NoStateObj, **state):
@@ -113,7 +91,7 @@ class Instance:
             self.stateIsDict = 1
 
     def getSource(self):
-        # XXX make state be foo=bar instead of a dict.
+        #XXX make state be foo=bar instead of a dict.
         if self.stateIsDict:
             stateDict = self.state
         elif isinstance(self.state, Ref) and isinstance(self.state.obj, dict):
@@ -127,10 +105,10 @@ class Instance:
                 return "Instance(%r, %s)" % (self.klass, prettify(stateDict))
         return "Instance(%r, %s)" % (self.klass, prettify(self.state))
 
-
 class Ref:
+
     def __init__(self, *args):
-        # blargh, lame.
+        #blargh, lame.
         if len(args) == 2:
             self.refnum = args[0]
             self.obj = args[1]
@@ -140,23 +118,17 @@ class Ref:
 
     def setRef(self, num):
         if self.refnum:
-            raise ValueError(
-                "Error setting id %s, I already have %s" % (num, self.refnum)
-            )
+            raise ValueError("Error setting id %s, I already have %s" % (num, self.refnum))
         self.refnum = num
 
     def setObj(self, obj):
         if self.obj:
-            raise ValueError(
-                "Error setting obj %s, I already have %s" % (obj, self.obj)
-            )
+            raise ValueError("Error setting obj %s, I already have %s" % (obj, self.obj))
         self.obj = obj
 
     def getSource(self):
         if self.obj is None:
-            raise RuntimeError(
-                "Don't try to display me before setting an object on me!"
-            )
+            raise RuntimeError("Don't try to display me before setting an object on me!")
         if self.refnum:
             return "Ref(%d, \n\0%s)" % (self.refnum, prettify(self.obj))
         return prettify(self.obj)
@@ -181,6 +153,7 @@ class Copyreg:
         return "Copyreg(%r, %s)" % (self.loadfunc, prettify(self.state))
 
 
+
 ###############
 # Marshalling #
 ###############
@@ -195,9 +168,7 @@ class NonFormattableDict(Exception):
     """A dictionary was not formattable.
     """
 
-
-r = re.compile("[a-zA-Z_][a-zA-Z0-9_]*$")
-
+r = re.compile('[a-zA-Z_][a-zA-Z0-9_]*$')
 
 def dictToKW(d):
     out = []
@@ -208,79 +179,72 @@ def dictToKW(d):
             raise NonFormattableDict("%r ain't a string" % k)
         if not r.match(k):
             raise NonFormattableDict("%r ain't an identifier" % k)
-        out.append("\n\0%s=%s," % (k, prettify(v)))
-    return "".join(out)
+        out.append(
+            "\n\0%s=%s," % (k, prettify(v))
+            )
+    return ''.join(out)
 
 
 def prettify(obj):
-    if hasattr(obj, "getSource"):
+    if hasattr(obj, 'getSource'):
         return obj.getSource()
     else:
-        # basic type
+        #basic type
         t = type(obj)
 
         if t in _SIMPLE_BUILTINS:
             return repr(obj)
 
         elif t is dict:
-            out = ["{"]
-            for k, v in obj.items():
-                out.append("\n\0%s: %s," % (prettify(k), prettify(v)))
-            out.append(len(obj) and "\n\0}" or "}")
-            return "".join(out)
+            out = ['{']
+            for k,v in obj.items():
+                out.append('\n\0%s: %s,' % (prettify(k), prettify(v)))
+            out.append(len(obj) and '\n\0}' or '}')
+            return ''.join(out)
 
         elif t is list:
             out = ["["]
             for x in obj:
-                out.append("\n\0%s," % prettify(x))
-            out.append(len(obj) and "\n\0]" or "]")
-            return "".join(out)
+                out.append('\n\0%s,' % prettify(x))
+            out.append(len(obj) and '\n\0]' or ']')
+            return ''.join(out)
 
         elif t is tuple:
             out = ["("]
             for x in obj:
-                out.append("\n\0%s," % prettify(x))
-            out.append(len(obj) and "\n\0)" or ")")
-            return "".join(out)
+                out.append('\n\0%s,' % prettify(x))
+            out.append(len(obj) and '\n\0)' or ')')
+            return ''.join(out)
         else:
-            raise TypeError(
-                "Unsupported type %s when trying to prettify %s." % (t, obj)
-            )
-
+            raise TypeError("Unsupported type %s when trying to prettify %s." % (t, obj))
 
 def indentify(s):
     out = []
     stack = []
-    l = ["", s]
-    for (
-        tokenType,
-        tokenString,
-        (startRow, startColumn),
-        (endRow, endColumn),
-        logicalLine,
-    ) in tokenize(l.pop):
-        if tokenString in ["[", "(", "{"]:
+    l = ['', s]
+    for (tokenType, tokenString, (startRow, startColumn),
+         (endRow, endColumn), logicalLine) in tokenize(l.pop):
+        if tokenString in ['[', '(', '{']:
             stack.append(tokenString)
-        elif tokenString in ["]", ")", "}"]:
+        elif tokenString in [']', ')', '}']:
             stack.pop()
-        if tokenString == "\0":
-            out.append("  " * len(stack))
+        if tokenString == '\0':
+            out.append('  '*len(stack))
         else:
             out.append(tokenString)
-    return "".join(out)
+    return ''.join(out)
+
 
 
 ###########
 # Unjelly #
 ###########
 
-
 def unjellyFromAOT(aot):
     """
     Pass me an Abstract Object Tree, and I'll unjelly it for you.
     """
     return AOTUnjellier().unjelly(aot)
-
 
 def unjellyFromSource(stringOrFile):
     """
@@ -289,16 +253,15 @@ def unjellyFromSource(stringOrFile):
     AOT for you, returning a newly unpersisted Application object!
     """
 
-    ns = {
-        "Instance": Instance,
-        "InstanceMethod": InstanceMethod,
-        "Class": Class,
-        "Function": Function,
-        "Module": Module,
-        "Ref": Ref,
-        "Deref": Deref,
-        "Copyreg": Copyreg,
-    }
+    ns = {"Instance": Instance,
+          "InstanceMethod": InstanceMethod,
+          "Class": Class,
+          "Function": Function,
+          "Module": Module,
+          "Ref": Ref,
+          "Deref": Deref,
+          "Copyreg": Copyreg,
+          }
 
     if hasattr(stringOrFile, "read"):
         source = stringOrFile.read()
@@ -307,8 +270,8 @@ def unjellyFromSource(stringOrFile):
     code = compile(source, "<source>", "exec")
     eval(code, ns, ns)
 
-    if "app" in ns:
-        return unjellyFromAOT(ns["app"])
+    if 'app' in ns:
+        return unjellyFromAOT(ns['app'])
     else:
         raise ValueError("%s needs to define an 'app', it didn't!" % stringOrFile)
 
@@ -317,7 +280,6 @@ class AOTUnjellier:
     """I handle the unjellying of an Abstract Object Tree.
     See AOTUnjellier.unjellyAO
     """
-
     def __init__(self):
         self.references = {}
         self.stack = []
@@ -352,7 +314,7 @@ class AOTUnjellier:
         self.afterUnjelly.append((callable, l))
 
     def unjellyAttribute(self, instance, attrName, ao):
-        # XXX this is unused????
+        #XXX this is unused????
         """Utility method for unjellying into instances of attributes.
 
         Use this rather than unjellyAO unless you like surprising bugs!
@@ -373,7 +335,7 @@ class AOTUnjellier:
             l = []
             for x in ao:
                 l.append(None)
-                self.unjellyInto(l, len(l) - 1, x)
+                self.unjellyInto(l, len(l)-1, x)
             return l
 
         elif t is tuple:
@@ -381,19 +343,19 @@ class AOTUnjellier:
             tuple_ = tuple
             for x in ao:
                 l.append(None)
-                if isinstance(self.unjellyInto(l, len(l) - 1, x), crefutil.NotKnown):
+                if isinstance(self.unjellyInto(l, len(l)-1, x), crefutil.NotKnown):
                     tuple_ = crefutil._Tuple
             return tuple_(l)
 
         elif t is dict:
             d = {}
-            for k, v in ao.items():
+            for k,v in ao.items():
                 kvd = crefutil._DictKeyAndValue(d)
                 self.unjellyInto(kvd, 0, k)
                 self.unjellyInto(kvd, 1, v)
             return d
         else:
-            # Abstract Objects
+            #Abstract Objects
             c = ao.__class__
             if c is Module:
                 return reflect.namedModule(ao.name)
@@ -429,7 +391,7 @@ class AOTUnjellier:
                 return inst
 
             elif c is Ref:
-                o = self.unjellyAO(ao.obj)  # THIS IS CHANGING THE REF OMG
+                o = self.unjellyAO(ao.obj) #THIS IS CHANGING THE REF OMG
                 refkey = ao.refnum
                 ref = self.references.get(refkey)
                 if ref is None:
@@ -441,10 +403,7 @@ class AOTUnjellier:
                     # This happens when you're unjellying from an AOT not read from source
                     pass
                 else:
-                    raise ValueError(
-                        "Multiple references with the same ID: %s, %s, %s!"
-                        % (ref, refkey, ao)
-                    )
+                    raise ValueError("Multiple references with the same ID: %s, %s, %s!" % (ref, refkey, ao))
                 return o
 
             elif c is Deref:
@@ -459,13 +418,13 @@ class AOTUnjellier:
             elif c is Copyreg:
                 loadfunc = reflect.namedObject(ao.loadfunc)
                 d = self.unjellyLater(ao.state).addCallback(
-                    lambda result, _l: _l(*result), loadfunc
-                )
+                    lambda result, _l: _l(*result), loadfunc)
                 return d
             else:
                 raise TypeError("Unsupported AOT type: %s" % t)
 
         del self.stack[-1]
+
 
     def unjelly(self, ao):
         try:
@@ -478,8 +437,6 @@ class AOTUnjellier:
             log.msg("Error jellying object! Stacktrace follows::")
             log.msg("\n".join(map(repr, self.stack)))
             raise
-
-
 #########
 # Jelly #
 #########
@@ -488,7 +445,6 @@ class AOTUnjellier:
 def jellyToAOT(obj):
     """Convert an object to an Abstract Object Tree."""
     return AOTJellier().jelly(obj)
-
 
 def jellyToSource(obj, file=None):
     """
@@ -505,10 +461,12 @@ def jellyToSource(obj, file=None):
 
 
 try:
-    from types import ClassType as _OldStyleClass, InstanceType as _OldStyleInstance
+    from types import (ClassType as _OldStyleClass,
+                       InstanceType as _OldStyleInstance)
 except ImportError:
     _OldStyleClass = None
     _OldStyleInstance = None
+
 
 
 def _classOfMethod(methodObject):
@@ -526,6 +484,7 @@ def _classOfMethod(methodObject):
     return methodObject.im_class
 
 
+
 def _funcOfMethod(methodObject):
     """
     Get the associated function of the given method object.
@@ -541,6 +500,7 @@ def _funcOfMethod(methodObject):
     return methodObject.im_func
 
 
+
 def _selfOfMethod(methodObject):
     """
     Get the object that a bound method is bound to.
@@ -554,6 +514,7 @@ def _selfOfMethod(methodObject):
     if _PY3:
         return methodObject.__self__
     return methodObject.im_self
+
 
 
 class AOTJellier:
@@ -573,7 +534,7 @@ class AOTJellier:
         objType = type(obj)
         self.stack.append(repr(obj))
 
-        # immutable: We don't care if these have multiple refs!
+        #immutable: We don't care if these have multiple refs!
         if objType in _SIMPLE_BUILTINS:
             retval = obj
 
@@ -581,11 +542,9 @@ class AOTJellier:
             # TODO: make methods 'prefer' not to jelly the object internally,
             # so that the object will show up where it's referenced first NOT
             # by a method.
-            retval = InstanceMethod(
-                _funcOfMethod(obj).__name__,
-                reflect.qual(_classOfMethod(obj)),
-                self.jellyToAO(_selfOfMethod(obj)),
-            )
+            retval = InstanceMethod(_funcOfMethod(obj).__name__,
+                                    reflect.qual(_classOfMethod(obj)),
+                                    self.jellyToAO(_selfOfMethod(obj)))
 
         elif objType is types.ModuleType:
             retval = Module(obj.__name__)
@@ -599,16 +558,16 @@ class AOTJellier:
         elif objType is types.FunctionType:
             retval = Function(reflect.fullFuncName(obj))
 
-        else:  # mutable! gotta watch for refs.
+        else: #mutable! gotta watch for refs.
 
-            # Marmalade had the nicety of being able to just stick a 'reference' attribute
-            # on any Node object that was referenced, but in AOT, the referenced object
-            # is *inside* of a Ref call (Ref(num, obj) instead of
-            # <objtype ... reference="1">). The problem is, especially for built-in types,
-            # I can't just assign some attribute to them to give them a refnum. So, I have
-            # to "wrap" a Ref(..) around them later -- that's why I put *everything* that's
-            # mutable inside one. The Ref() class will only print the "Ref(..)" around an
-            # object if it has a Reference explicitly attached.
+#Marmalade had the nicety of being able to just stick a 'reference' attribute
+#on any Node object that was referenced, but in AOT, the referenced object
+#is *inside* of a Ref call (Ref(num, obj) instead of
+#<objtype ... reference="1">). The problem is, especially for built-in types,
+#I can't just assign some attribute to them to give them a refnum. So, I have
+#to "wrap" a Ref(..) around them later -- that's why I put *everything* that's
+#mutable inside one. The Ref() class will only print the "Ref(..)" around an
+#object if it has a Reference explicitly attached.
 
             if id(obj) in self.prepared:
                 oldRef = self.prepared[id(obj)]
@@ -623,32 +582,28 @@ class AOTJellier:
                 return Deref(key)
 
             retval = Ref()
-
             def _stateFrom(state):
-                retval.setObj(
-                    Instance(reflect.qual(obj.__class__), self.jellyToAO(state))
-                )
-
+                retval.setObj(Instance(reflect.qual(obj.__class__),
+                                       self.jellyToAO(state)))
             self.prepareForRef(retval, obj)
 
             if objType is list:
-                retval.setObj([self.jellyToAO(o) for o in obj])  # hah!
+                retval.setObj([self.jellyToAO(o) for o in obj]) #hah!
 
             elif objType is tuple:
                 retval.setObj(tuple(map(self.jellyToAO, obj)))
 
             elif objType is dict:
                 d = {}
-                for k, v in obj.items():
+                for k,v in obj.items():
                     d[self.jellyToAO(k)] = self.jellyToAO(v)
                 retval.setObj(d)
 
             elif objType in copy_reg.dispatch_table:
                 unpickleFunc, state = copy_reg.dispatch_table[objType](obj)
 
-                retval.setObj(
-                    Copyreg(reflect.fullFuncName(unpickleFunc), self.jellyToAO(state))
-                )
+                retval.setObj(Copyreg( reflect.fullFuncName(unpickleFunc),
+                                       self.jellyToAO(state)))
 
             elif hasattr(obj, "__getstate__"):
                 _stateFrom(obj.__getstate__())
@@ -666,5 +621,5 @@ class AOTJellier:
             return ao
         except:
             log.msg("Error jellying object! Stacktrace follows::")
-            log.msg("\n".join(self.stack))
+            log.msg('\n'.join(self.stack))
             raise

@@ -23,6 +23,7 @@ from twisted.python.failure import Failure
 log = Logger()
 
 
+
 def failureAsJSON(failure):
     """
     Convert a failure to a JSON-serializable data structure.
@@ -36,8 +37,12 @@ def failureAsJSON(failure):
     """
     return dict(
         failure.__getstate__(),
-        type=dict(__module__=failure.type.__module__, __name__=failure.type.__name__,),
+        type=dict(
+            __module__=failure.type.__module__,
+            __name__=failure.type.__name__,
+        )
     )
+
 
 
 def asBytes(obj):
@@ -62,6 +67,7 @@ def asBytes(obj):
         return obj.encode("utf-8")
     else:
         return obj
+
 
 
 def failureFromJSON(failureDict):
@@ -93,26 +99,31 @@ def failureFromJSON(failureDict):
     return f
 
 
+
 classInfo = [
     (
         lambda level: (
-            isinstance(level, NamedConstant)
-            and getattr(LogLevel, level.name, None) is level
+            isinstance(level, NamedConstant) and
+            getattr(LogLevel, level.name, None) is level
         ),
         UUID("02E59486-F24D-46AD-8224-3ACDF2A5732A"),
         lambda level: dict(name=level.name),
-        lambda level: getattr(LogLevel, level["name"], None),
+        lambda level: getattr(LogLevel, level["name"], None)
     ),
+
     (
         lambda o: isinstance(o, Failure),
         UUID("E76887E2-20ED-49BF-A8F8-BA25CC586F2D"),
-        failureAsJSON,
-        failureFromJSON,
+        failureAsJSON, failureFromJSON
     ),
 ]
 
 
-uuidToLoader = dict([(uuid, loader) for (predicate, uuid, saver, loader) in classInfo])
+
+uuidToLoader = dict([
+    (uuid, loader) for (predicate, uuid, saver, loader) in classInfo
+])
+
 
 
 def objectLoadHook(aDict):
@@ -131,6 +142,7 @@ def objectLoadHook(aDict):
     if "__class_uuid__" in aDict:
         return uuidToLoader[UUID(aDict["__class_uuid__"])](aDict)
     return aDict
+
 
 
 def objectSaveHook(pythonObject):
@@ -155,6 +167,7 @@ def objectSaveHook(pythonObject):
     return {"unpersistable": True}
 
 
+
 def eventAsJSON(event):
     """
     Encode an event as JSON, flattening it if necessary to preserve as much
@@ -174,7 +187,6 @@ def eventAsJSON(event):
     if bytes is str:
         kw = dict(default=objectSaveHook, encoding="charmap", skipkeys=True)
     else:
-
         def default(unencodable):
             """
             Serialize an object not otherwise serializable by L{dumps}.
@@ -195,6 +207,7 @@ def eventAsJSON(event):
     return result
 
 
+
 def eventFromJSON(eventText):
     """
     Decode a log event from JSON.
@@ -207,6 +220,7 @@ def eventFromJSON(eventText):
     """
     loaded = loads(eventText, object_hook=objectLoadHook)
     return loaded
+
 
 
 def jsonFileLogObserver(outFile, recordSeparator=u"\x1e"):
@@ -234,8 +248,10 @@ def jsonFileLogObserver(outFile, recordSeparator=u"\x1e"):
     @rtype: L{FileLogObserver}
     """
     return FileLogObserver(
-        outFile, lambda event: u"{0}{1}\n".format(recordSeparator, eventAsJSON(event))
+        outFile,
+        lambda event: u"{0}{1}\n".format(recordSeparator, eventAsJSON(event))
     )
+
 
 
 def eventsFromJSONLogFile(inFile, recordSeparator=None, bufferSize=4096):
@@ -259,7 +275,6 @@ def eventsFromJSONLogFile(inFile, recordSeparator=None, bufferSize=4096):
     @return: Log events as read from C{inFile}.
     @rtype: iterable of L{dict}
     """
-
     def asBytes(s):
         if type(s) is bytes:
             return s
@@ -272,14 +287,17 @@ def eventsFromJSONLogFile(inFile, recordSeparator=None, bufferSize=4096):
         except UnicodeDecodeError:
             log.error(
                 u"Unable to decode UTF-8 for JSON record: {record!r}",
-                record=bytes(record),
+                record=bytes(record)
             )
             return None
 
         try:
             return eventFromJSON(text)
         except ValueError:
-            log.error(u"Unable to read JSON record: {record!r}", record=bytes(record))
+            log.error(
+                u"Unable to read JSON record: {record!r}",
+                record=bytes(record)
+            )
             return None
 
     if recordSeparator is None:
@@ -303,14 +321,13 @@ def eventsFromJSONLogFile(inFile, recordSeparator=None, bufferSize=4096):
         eventFromRecord = eventFromBytearray
 
     else:
-
         def eventFromRecord(record):
             if record[-1] == ord("\n"):
                 return eventFromBytearray(record)
             else:
                 log.error(
                     u"Unable to read truncated JSON record: {record!r}",
-                    record=bytes(record),
+                    record=bytes(record)
                 )
             return None
 

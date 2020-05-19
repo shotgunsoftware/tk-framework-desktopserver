@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class RequirementSet(object):
+
     def __init__(self, require_hashes=False, check_supported_wheels=True):
         """Create a RequirementSet.
         """
@@ -26,21 +27,20 @@ class RequirementSet(object):
         self.reqs_to_cleanup = []
 
     def __str__(self):
-        reqs = [req for req in self.requirements.values() if not req.comes_from]
+        reqs = [req for req in self.requirements.values()
+                if not req.comes_from]
         reqs.sort(key=lambda req: req.name.lower())
-        return " ".join([str(req.req) for req in reqs])
+        return ' '.join([str(req.req) for req in reqs])
 
     def __repr__(self):
         reqs = [req for req in self.requirements.values()]
         reqs.sort(key=lambda req: req.name.lower())
-        reqs_str = ", ".join([str(req.req) for req in reqs])
-        return "<%s object; %d requirement(s): %s>" % (
-            self.__class__.__name__,
-            len(reqs),
-            reqs_str,
-        )
+        reqs_str = ', '.join([str(req.req) for req in reqs])
+        return ('<%s object; %d requirement(s): %s>'
+                % (self.__class__.__name__, len(reqs), reqs_str))
 
-    def add_requirement(self, install_req, parent_req_name=None, extras_requested=None):
+    def add_requirement(self, install_req, parent_req_name=None,
+                        extras_requested=None):
         """Add install_req as a requirement to install.
 
         :param parent_req_name: The name of the requirement that needed this
@@ -61,8 +61,7 @@ class RequirementSet(object):
         if not install_req.match_markers(extras_requested):
             logger.info(
                 "Ignoring %s: markers '%s' don't match your environment",
-                name,
-                install_req.markers,
+                name, install_req.markers,
             )
             return [], None
 
@@ -74,7 +73,8 @@ class RequirementSet(object):
             wheel = Wheel(install_req.link.filename)
             if self.check_supported_wheels and not wheel.supported():
                 raise InstallationError(
-                    "%s is not a supported wheel on this platform." % wheel.filename
+                    "%s is not a supported wheel on this platform." %
+                    wheel.filename
                 )
 
         # This next bit is really a sanity check.
@@ -96,11 +96,11 @@ class RequirementSet(object):
             existing_req = None
 
         has_conflicting_requirement = (
-            parent_req_name is None
-            and existing_req
-            and not existing_req.constraint
-            and existing_req.extras == install_req.extras
-            and existing_req.req.specifier != install_req.req.specifier
+            parent_req_name is None and
+            existing_req and
+            not existing_req.constraint and
+            existing_req.extras == install_req.extras and
+            existing_req.req.specifier != install_req.req.specifier
         )
         if has_conflicting_requirement:
             raise InstallationError(
@@ -123,8 +123,12 @@ class RequirementSet(object):
         if install_req.constraint or not existing_req.constraint:
             return [], existing_req
 
-        does_not_satisfy_constraint = install_req.link and not (
-            existing_req.link and install_req.link.path == existing_req.link.path
+        does_not_satisfy_constraint = (
+            install_req.link and
+            not (
+                existing_req.link and
+                install_req.link.path == existing_req.link.path
+            )
         )
         if does_not_satisfy_constraint:
             self.reqs_to_cleanup.append(install_req)
@@ -136,11 +140,12 @@ class RequirementSet(object):
         # If we're now installing a constraint, mark the existing
         # object for real installation.
         existing_req.constraint = False
-        existing_req.extras = tuple(
-            sorted(set(existing_req.extras) | set(install_req.extras))
-        )
+        existing_req.extras = tuple(sorted(
+            set(existing_req.extras) | set(install_req.extras)
+        ))
         logger.debug(
-            "Setting %s extras to: %s", existing_req, existing_req.extras,
+            "Setting %s extras to: %s",
+            existing_req, existing_req.extras,
         )
         # Return the existing requirement for addition to the parent and
         # scanning again.
@@ -148,21 +153,17 @@ class RequirementSet(object):
 
     def has_requirement(self, project_name):
         name = project_name.lower()
-        if (
-            name in self.requirements
-            and not self.requirements[name].constraint
-            or name in self.requirement_aliases
-            and not self.requirements[self.requirement_aliases[name]].constraint
-        ):
+        if (name in self.requirements and
+           not self.requirements[name].constraint or
+           name in self.requirement_aliases and
+           not self.requirements[self.requirement_aliases[name]].constraint):
             return True
         return False
 
     @property
     def has_requirements(self):
-        return (
-            list(req for req in self.requirements.values() if not req.constraint)
-            or self.unnamed_requirements
-        )
+        return list(req for req in self.requirements.values() if not
+                    req.constraint) or self.unnamed_requirements
 
     def get_requirement(self, project_name):
         for name in project_name, project_name.lower():
@@ -174,7 +175,7 @@ class RequirementSet(object):
 
     def cleanup_files(self):
         """Clean up files, remove builds."""
-        logger.debug("Cleaning up...")
+        logger.debug('Cleaning up...')
         with indent_log():
             for req in self.reqs_to_cleanup:
                 req.remove_temporary_source()

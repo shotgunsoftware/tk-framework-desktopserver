@@ -14,6 +14,7 @@ from ._observer import ILogObserver
 from ._stdlib import fromStdlibLogLevelMapping, StringifiableFromEvent
 
 
+
 @implementer(ILogObserver)
 class LegacyLogObserverWrapper(object):
     """
@@ -32,8 +33,13 @@ class LegacyLogObserverWrapper(object):
         """
         self.legacyObserver = legacyObserver
 
+
     def __repr__(self):
-        return "{self.__class__.__name__}({self.legacyObserver})".format(self=self)
+        return (
+            "{self.__class__.__name__}({self.legacyObserver})"
+            .format(self=self)
+        )
+
 
     def __call__(self, event):
         """
@@ -85,6 +91,7 @@ class LegacyLogObserverWrapper(object):
                 event["isError"] = 0
 
         self.legacyObserver(event)
+
 
 
 def publishToNewObserver(observer, eventDict, textFromEventDict):

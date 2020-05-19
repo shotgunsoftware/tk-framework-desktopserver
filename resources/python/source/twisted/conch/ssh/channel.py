@@ -18,6 +18,7 @@ from twisted.python.compat import nativeString, intToBytes
 from twisted.internet import interfaces
 
 
+
 @implementer(interfaces.ITransport)
 class SSHChannel(log.Logger):
     """
@@ -52,18 +53,11 @@ class SSHChannel(log.Logger):
     @type remoteClosed: L{bool}
     """
 
-    name = None  # only needed for client channels
+    name = None # only needed for client channels
 
-    def __init__(
-        self,
-        localWindow=0,
-        localMaxPacket=0,
-        remoteWindow=0,
-        remoteMaxPacket=0,
-        conn=None,
-        data=None,
-        avatar=None,
-    ):
+    def __init__(self, localWindow = 0, localMaxPacket = 0,
+                       remoteWindow = 0, remoteMaxPacket = 0,
+                       conn = None, data=None, avatar = None):
         self.localWindowSize = localWindow or 131072
         self.localWindowLeft = self.localWindowSize
         self.localMaxPacket = localMaxPacket or 32768
@@ -73,16 +67,18 @@ class SSHChannel(log.Logger):
         self.conn = conn
         self.data = data
         self.avatar = avatar
-        self.specificData = b""
-        self.buf = b""
+        self.specificData = b''
+        self.buf = b''
         self.extBuf = []
         self.closing = 0
         self.localClosed = 0
         self.remoteClosed = 0
-        self.id = None  # gets set later by SSHConnection
+        self.id = None # gets set later by SSHConnection
+
 
     def __str__(self):
         return nativeString(self.__bytes__())
+
 
     def __bytes__(self):
         """
@@ -90,24 +86,22 @@ class SSHChannel(log.Logger):
         """
         name = self.name
         if not name:
-            name = b"None"
+            name = b'None'
 
-        return (
-            b"<SSHChannel "
-            + name
-            + b" (lw "
-            + intToBytes(self.localWindowLeft)
-            + b" rw "
-            + intToBytes(self.remoteWindowLeft)
-            + b")>"
-        )
+        return (b'<SSHChannel ' + name +
+                b' (lw ' + intToBytes(self.localWindowLeft) +
+                b' rw ' + intToBytes(self.remoteWindowLeft) +
+                b')>')
+
 
     def logPrefix(self):
         id = (self.id is not None and str(self.id)) or "unknown"
         name = self.name
         if name:
             name = nativeString(name)
-        return "SSHChannel %s (%s) on %s" % (name, id, self.conn.logPrefix())
+        return "SSHChannel %s (%s) on %s" % (name, id,
+                self.conn.logPrefix())
+
 
     def channelOpen(self, specificData):
         """
@@ -116,7 +110,8 @@ class SSHChannel(log.Logger):
 
         @type specificData: L{bytes}
         """
-        log.msg("channel open")
+        log.msg('channel open')
+
 
     def openFailed(self, reason):
         """
@@ -125,7 +120,8 @@ class SSHChannel(log.Logger):
 
         @type reason: L{error.ConchError}
         """
-        log.msg("other side refused open\nreason: %s" % reason)
+        log.msg('other side refused open\nreason: %s'% reason)
+
 
     def addWindowBytes(self, data):
         """
@@ -134,19 +130,20 @@ class SSHChannel(log.Logger):
 
         @type data:    L{bytes}
         """
-        self.remoteWindowLeft = self.remoteWindowLeft + data
+        self.remoteWindowLeft = self.remoteWindowLeft+data
         if not self.areWriting and not self.closing:
             self.areWriting = True
             self.startWriting()
         if self.buf:
             b = self.buf
-            self.buf = b""
+            self.buf = b''
             self.write(b)
         if self.extBuf:
             b = self.extBuf
             self.extBuf = []
             for (type, data) in b:
                 self.writeExtended(type, data)
+
 
     def requestReceived(self, requestType, data):
         """
@@ -159,12 +156,13 @@ class SSHChannel(log.Logger):
         @type data:         L{bytes}
         @rtype:             L{bool}
         """
-        foo = nativeString(requestType.replace(b"-", b"_"))
-        f = getattr(self, "request_%s" % foo, None)
+        foo = nativeString(requestType.replace(b'-', b'_'))
+        f = getattr(self, 'request_%s'%foo, None)
         if f:
             return f(data)
-        log.msg("unhandled request for %s" % requestType)
+        log.msg('unhandled request for %s'%requestType)
         return 0
+
 
     def dataReceived(self, data):
         """
@@ -172,7 +170,8 @@ class SSHChannel(log.Logger):
 
         @type data: L{bytes}
         """
-        log.msg("got data %s" % repr(data))
+        log.msg('got data %s'%repr(data))
+
 
     def extReceived(self, dataType, data):
         """
@@ -181,27 +180,31 @@ class SSHChannel(log.Logger):
         @type dataType: L{int}
         @type data:     L{str}
         """
-        log.msg("got extended data %s %s" % (dataType, repr(data)))
+        log.msg('got extended data %s %s'%(dataType, repr(data)))
+
 
     def eofReceived(self):
         """
         Called when the other side will send no more data.
         """
-        log.msg("remote eof")
+        log.msg('remote eof')
+
 
     def closeReceived(self):
         """
         Called when the other side has closed the channel.
         """
-        log.msg("remote close")
+        log.msg('remote close')
         self.loseConnection()
+
 
     def closed(self):
         """
         Called when the channel is closed.  This means that both our side and
         the remote side have closed the channel.
         """
-        log.msg("closed")
+        log.msg('closed')
+
 
     def write(self, data):
         """
@@ -216,10 +219,8 @@ class SSHChannel(log.Logger):
             return
         top = len(data)
         if top > self.remoteWindowLeft:
-            data, self.buf = (
-                data[: self.remoteWindowLeft],
-                data[self.remoteWindowLeft :],
-            )
+            data, self.buf = (data[:self.remoteWindowLeft],
+                data[self.remoteWindowLeft:])
             self.areWriting = 0
             self.stopWriting()
             top = self.remoteWindowLeft
@@ -227,10 +228,11 @@ class SSHChannel(log.Logger):
         write = self.conn.sendData
         r = range(0, top, rmp)
         for offset in r:
-            write(self, data[offset : offset + rmp])
+            write(self, data[offset: offset+rmp])
         self.remoteWindowLeft -= top
         if self.closing and not self.buf:
-            self.loseConnection()  # try again
+            self.loseConnection() # try again
+
 
     def writeExtended(self, dataType, data):
         """
@@ -248,21 +250,21 @@ class SSHChannel(log.Logger):
                 self.extBuf.append([dataType, data])
             return
         if len(data) > self.remoteWindowLeft:
-            data, self.extBuf = (
-                data[: self.remoteWindowLeft],
-                [[dataType, data[self.remoteWindowLeft :]]],
-            )
+            data, self.extBuf = (data[:self.remoteWindowLeft],
+                                [[dataType, data[self.remoteWindowLeft:]]])
             self.areWriting = 0
             self.stopWriting()
         while len(data) > self.remoteMaxPacket:
-            self.conn.sendExtendedData(self, dataType, data[: self.remoteMaxPacket])
-            data = data[self.remoteMaxPacket :]
+            self.conn.sendExtendedData(self, dataType,
+                                             data[:self.remoteMaxPacket])
+            data = data[self.remoteMaxPacket:]
             self.remoteWindowLeft -= self.remoteMaxPacket
         if data:
             self.conn.sendExtendedData(self, dataType, data)
             self.remoteWindowLeft -= len(data)
         if self.closing:
-            self.loseConnection()  # try again
+            self.loseConnection() # try again
+
 
     def writeSequence(self, data):
         """
@@ -271,7 +273,8 @@ class SSHChannel(log.Logger):
 
         @type data: C{list} of L{str}
         """
-        self.write(b"".join(data))
+        self.write(b''.join(data))
+
 
     def loseConnection(self):
         """
@@ -282,6 +285,7 @@ class SSHChannel(log.Logger):
         if not self.buf and not self.extBuf:
             self.conn.sendClose(self)
 
+
     def getPeer(self):
         """
         See: L{ITransport.getPeer}
@@ -290,6 +294,7 @@ class SSHChannel(log.Logger):
         @rtype: L{SSHTransportAddress}.
         """
         return self.conn.transport.getPeer()
+
 
     def getHost(self):
         """
@@ -300,11 +305,13 @@ class SSHChannel(log.Logger):
         """
         return self.conn.transport.getHost()
 
+
     def stopWriting(self):
         """
         Called when the remote buffer is full, as a hint to stop writing.
         This can be ignored, but it can be helpful.
         """
+
 
     def startWriting(self):
         """

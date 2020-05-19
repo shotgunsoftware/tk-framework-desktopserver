@@ -12,14 +12,13 @@ import warnings, os, random, string
 
 from twisted.python.compat import _PY3
 
-getrandbits = getattr(random, "getrandbits", None)
+getrandbits = getattr(random, 'getrandbits', None)
 
 if _PY3:
     _fromhex = bytes.fromhex
 else:
-
     def _fromhex(hexBytes):
-        return hexBytes.decode("hex")
+        return hexBytes.decode('hex')
 
 
 class SecureRandomNotAvailable(RuntimeError):
@@ -28,10 +27,12 @@ class SecureRandomNotAvailable(RuntimeError):
     """
 
 
+
 class SourceNotAvailable(RuntimeError):
     """
     Internal exception used when a specific random source is not available.
     """
+
 
 
 class RandomFactory(object):
@@ -48,6 +49,7 @@ class RandomFactory(object):
 
     getrandbits = getrandbits
 
+
     def _osUrandom(self, nbytes):
         """
         Wrapper around C{os.urandom} that cleanly manage its absence.
@@ -56,6 +58,7 @@ class RandomFactory(object):
             return os.urandom(nbytes)
         except (AttributeError, NotImplementedError) as e:
             raise SourceNotAvailable(e)
+
 
     def secureRandom(self, nbytes, fallback=False):
         """
@@ -80,11 +83,11 @@ class RandomFactory(object):
                 "urandom unavailable - "
                 "proceeding with non-cryptographically secure random source",
                 category=RuntimeWarning,
-                stacklevel=2,
-            )
+                stacklevel=2)
             return self.insecureRandom(nbytes)
         else:
             raise SecureRandomNotAvailable("No secure random source available")
+
 
     def _randBits(self, nbytes):
         """
@@ -96,27 +99,26 @@ class RandomFactory(object):
             return _fromhex(hexBytes)
         raise SourceNotAvailable("random.getrandbits is not available")
 
+
     if _PY3:
         _maketrans = bytes.maketrans
-
         def _randModule(self, nbytes):
             """
             Wrapper around the C{random} module.
             """
-            return b"".join(
-                [bytes([random.choice(self._BYTES)]) for i in range(nbytes)]
-            )
-
+            return b"".join([
+                    bytes([random.choice(self._BYTES)]) for i in range(nbytes)])
     else:
         _maketrans = string.maketrans
-
         def _randModule(self, nbytes):
             """
             Wrapper around the C{random} module.
             """
-            return b"".join([random.choice(self._BYTES) for i in range(nbytes)])
+            return b"".join([
+                    random.choice(self._BYTES) for i in range(nbytes)])
 
-    _BYTES = _maketrans(b"", b"")
+    _BYTES = _maketrans(b'', b'')
+
 
     def insecureRandom(self, nbytes):
         """
@@ -133,6 +135,7 @@ class RandomFactory(object):
                 return getattr(self, src)(nbytes)
             except SourceNotAvailable:
                 pass
+
 
 
 factory = RandomFactory()

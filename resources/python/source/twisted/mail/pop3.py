@@ -27,7 +27,9 @@ from twisted.mail.interfaces import (
     IServerFactoryPOP3 as IServerFactory,
     IMailboxPOP3 as IMailbox,
 )
-from twisted.mail._except import POP3Error, _POP3MessageDeleted, POP3ClientError
+from twisted.mail._except import (
+    POP3Error, _POP3MessageDeleted, POP3ClientError
+)
 from twisted.protocols import basic
 from twisted.protocols import policies
 from twisted.python import log
@@ -43,7 +45,6 @@ class APOPCredentials:
     @ivar username: See L{__init__}
     @ivar digest: See L{__init__}
     """
-
     def __init__(self, magic, username, digest):
         """
         @type magic: L{bytes}
@@ -61,6 +62,7 @@ class APOPCredentials:
         self.username = username
         self.digest = digest
 
+
     def checkPassword(self, password):
         """
         Validate a plaintext password against the credentials.
@@ -75,6 +77,7 @@ class APOPCredentials:
         seed = self.magic + password
         myDigest = md5(seed).hexdigest()
         return myDigest == self.digest
+
 
 
 class _HeadersPlusNLines:
@@ -100,7 +103,6 @@ class _HeadersPlusNLines:
     @ivar buf: The portion of the message body that has been scanned, up to
         C{n} lines.
     """
-
     def __init__(self, file, extraLines):
         """
         @type file: file-like object
@@ -114,7 +116,8 @@ class _HeadersPlusNLines:
         self.linecount = 0
         self.headers = 1
         self.done = 0
-        self.buf = b""
+        self.buf = b''
+
 
     def read(self, bytes):
         """
@@ -131,14 +134,14 @@ class _HeadersPlusNLines:
             lines, the empty string is returned.
         """
         if self.done:
-            return b""
+            return b''
         data = self._file.read(bytes)
         if not data:
             return data
         if self.headers:
-            df, sz = data.find(b"\r\n\r\n"), 4
+            df, sz = data.find(b'\r\n\r\n'), 4
             if df == -1:
-                df, sz = data.find(b"\n\n"), 2
+                df, sz = data.find(b'\n\n'), 2
             if df != -1:
                 df += sz
                 val = data[:df]
@@ -146,19 +149,20 @@ class _HeadersPlusNLines:
                 self.linecount = 1
                 self.headers = 0
         else:
-            val = b""
+            val = b''
         if self.linecount > 0:
-            dsplit = (self.buf + data).split(b"\n")
+            dsplit = (self.buf + data).split(b'\n')
             self.buf = dsplit[-1]
             for ln in dsplit[:-1]:
                 if self.linecount > self._extraLines:
                     self.done = 1
                     return val
-                val += ln + b"\n"
+                val += (ln + b'\n')
                 self.linecount += 1
             return val
         else:
             return data
+
 
 
 class _IteratorBuffer(object):
@@ -178,7 +182,6 @@ class _IteratorBuffer(object):
     @type iterator: iterator which yields L{bytes}
     @ivar iterator: An iterator over a container of strings.
     """
-
     bufSize = 0
 
     def __init__(self, write, iterable, memoryBufferSize=None):
@@ -201,6 +204,7 @@ class _IteratorBuffer(object):
             memoryBufferSize = 2 ** 16
         self.memoryBufferSize = memoryBufferSize
 
+
     def __iter__(self):
         """
         Return an iterator.
@@ -209,6 +213,7 @@ class _IteratorBuffer(object):
         @return: An iterator over strings.
         """
         return self
+
 
     def __next__(self):
         """
@@ -242,6 +247,7 @@ class _IteratorBuffer(object):
         next = __next__
 
 
+
 def iterateLineGenerator(proto, gen):
     """
     Direct the output of an iterator to the transport of a protocol and arrange
@@ -260,6 +266,7 @@ def iterateLineGenerator(proto, gen):
     return proto.schedule(coll)
 
 
+
 def successResponse(response):
     """
     Format an object as a positive response.
@@ -272,7 +279,8 @@ def successResponse(response):
     """
     if not isinstance(response, bytes):
         response = str(response).encode("utf-8")
-    return b"+OK " + response + b"\r\n"
+    return b'+OK ' + response + b'\r\n'
+
 
 
 def formatStatResponse(msgs):
@@ -296,7 +304,8 @@ def formatStatResponse(msgs):
         i += 1
         bytes += size
         yield None
-    yield successResponse(intToBytes(i) + b" " + intToBytes(bytes))
+    yield successResponse(intToBytes(i) + b' ' + intToBytes(bytes))
+
 
 
 def formatListLines(msgs):
@@ -314,7 +323,8 @@ def formatListLines(msgs):
     i = 0
     for size in msgs:
         i += 1
-        yield intToBytes(i) + b" " + intToBytes(size) + b"\r\n"
+        yield intToBytes(i) + b' ' + intToBytes(size) + b'\r\n'
+
 
 
 def formatListResponse(msgs):
@@ -333,7 +343,8 @@ def formatListResponse(msgs):
     yield successResponse(intToBytes(len(msgs)))
     for ele in formatListLines(msgs):
         yield ele
-    yield b".\r\n"
+    yield b'.\r\n'
+
 
 
 def formatUIDListLines(msgs, getUidl):
@@ -353,7 +364,8 @@ def formatUIDListLines(msgs, getUidl):
             uid = getUidl(i)
             if not isinstance(uid, bytes):
                 uid = str(uid).encode("utf-8")
-            yield intToBytes(i + 1) + b" " + uid + b"\r\n"
+            yield intToBytes(i + 1) + b' ' + uid + b'\r\n'
+
 
 
 def formatUIDListResponse(msgs, getUidl):
@@ -373,10 +385,11 @@ def formatUIDListResponse(msgs, getUidl):
     @rtype: L{bytes}
     @return: Yields a series of strings which make up a complete UIDL response.
     """
-    yield successResponse("")
+    yield successResponse('')
     for ele in formatUIDListLines(msgs, getUidl):
         yield ele
-    yield b".\r\n"
+    yield b'.\r\n'
+
 
 
 @implementer(interfaces.IProducer)
@@ -435,12 +448,11 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         <cred.credentials.IUsernameHashedPassword>} provider
     @ivar _auth: Authorization credentials.
     """
-
     magic = None
     _userIs = None
     _onLogout = None
 
-    AUTH_CMDS = [b"CAPA", b"USER", b"PASS", b"APOP", b"AUTH", b"RPOP", b"QUIT"]
+    AUTH_CMDS = [b'CAPA', b'USER', b'PASS', b'APOP', b'AUTH', b'RPOP', b'QUIT']
 
     portal = None
     factory = None
@@ -470,8 +482,9 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             self.magic = self.generateMagic()
         self.successResponse(self.magic)
         self.setTimeout(self.timeOut)
-        if getattr(self.factory, "noisy", True):
+        if getattr(self.factory, 'noisy', True):
             log.msg("New connection from " + str(self.transport.getPeer()))
+
 
     def connectionLost(self, reason):
         """
@@ -485,6 +498,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             self._onLogout = None
         self.setTimeout(None)
 
+
     def generateMagic(self):
         """
         Generate an APOP challenge.
@@ -494,7 +508,8 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         """
         return smtp.messageid()
 
-    def successResponse(self, message=""):
+
+    def successResponse(self, message=''):
         """
         Send a response indicating success.
 
@@ -504,7 +519,8 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         """
         self.transport.write(successResponse(message))
 
-    def failResponse(self, message=b""):
+
+    def failResponse(self, message=b''):
         """
         Send a response indicating failure.
 
@@ -514,7 +530,8 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         """
         if not isinstance(message, bytes):
             message = str(message).encode("utf-8")
-        self.sendLine(b"-ERR " + message)
+        self.sendLine(b'-ERR ' + message)
+
 
     def lineReceived(self, line):
         """
@@ -524,7 +541,8 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @param line: A received line.
         """
         self.resetTimeout()
-        getattr(self, "state_" + self.state)(line)
+        getattr(self, 'state_' + self.state)(line)
+
 
     def _unblock(self, _):
         """
@@ -544,6 +562,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         if self.blocked is not None:
             self.blocked.extend(commands)
 
+
     def state_COMMAND(self, line):
         """
         Handle received lines for the COMMAND state in which commands from the
@@ -553,18 +572,13 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @param line: A received command.
         """
         try:
-            return self.processCommand(*line.split(b" "))
+            return self.processCommand(*line.split(b' '))
         except (ValueError, AttributeError, POP3Error, TypeError) as e:
             log.err()
-            self.failResponse(
-                b": ".join(
-                    [
-                        b"bad protocol or server",
-                        e.__class__.__name__.encode("utf-8"),
-                        b"".join(e.args),
-                    ]
-                )
-            )
+            self.failResponse(b': '.join([b'bad protocol or server',
+                                          e.__class__.__name__.encode('utf-8'),
+                                          b''.join(e.args)]))
+
 
     def processCommand(self, command, *args):
         """
@@ -587,10 +601,11 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         authCmd = command in self.AUTH_CMDS
         if not self.mbox and not authCmd:
             raise POP3Error(b"not authenticated yet: cannot do " + command)
-        f = getattr(self, "do_" + command.decode("utf-8"), None)
+        f = getattr(self, 'do_' + command.decode("utf-8"), None)
         if f:
             return f(*args)
         raise POP3Error(b"Unknown protocol command: " + command)
+
 
     def listCapabilities(self):
         """
@@ -665,8 +680,9 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             except:
                 log.err()
             else:
-                baseCaps.append(b"SASL " + b" ".join(v.keys()))
+                baseCaps.append(b"SASL " + b' '.join(v.keys()))
         return baseCaps
+
 
     def do_CAPA(self):
         """
@@ -678,6 +694,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         for cap in self.listCapabilities():
             self.sendLine(cap)
         self.sendLine(b".")
+
 
     def do_AUTH(self, args=None):
         """
@@ -692,7 +709,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @type args: L{bytes} or L{None}
         @param args: The name of an authentication mechanism.
         """
-        if not getattr(self.factory, "challengers", None):
+        if not getattr(self.factory, 'challengers', None):
             self.failResponse(b"AUTH extension unsupported")
             return
 
@@ -711,8 +728,9 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         self._auth = auth()
         chal = self._auth.getChallenge()
 
-        self.sendLine(b"+ " + base64.encodestring(chal).rstrip(b"\n"))
-        self.state = "AUTH"
+        self.sendLine(b'+ ' + base64.encodestring(chal).rstrip(b'\n'))
+        self.state = 'AUTH'
+
 
     def state_AUTH(self, line):
         """
@@ -743,6 +761,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             d.addErrback(self._ebMailbox)
             d.addErrback(self._ebUnexpected)
 
+
     def do_APOP(self, user, digest):
         """
         Handle an APOP command.
@@ -758,9 +777,9 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @param digest: An MD5 digest string.
         """
         d = defer.maybeDeferred(self.authenticateUserAPOP, user, digest)
-        d.addCallbacks(
-            self._cbMailbox, self._ebMailbox, callbackArgs=(user,)
+        d.addCallbacks(self._cbMailbox, self._ebMailbox, callbackArgs=(user,)
         ).addErrback(self._ebUnexpected)
+
 
     def _cbMailbox(self, result, user):
         """
@@ -783,15 +802,18 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         """
         (interface, avatar, logout) = result
         if interface is not IMailbox:
-            self.failResponse(b"Authentication failed")
-            log.err("_cbMailbox() called with an interface other than IMailbox")
+            self.failResponse(b'Authentication failed')
+            log.err(
+                "_cbMailbox() called with an interface other than IMailbox"
+            )
             return
 
         self.mbox = avatar
         self._onLogout = logout
-        self.successResponse("Authentication succeeded")
-        if getattr(self.factory, "noisy", True):
+        self.successResponse('Authentication succeeded')
+        if getattr(self.factory, 'noisy', True):
             log.msg(b"Authenticated login for " + user)
+
 
     def _ebMailbox(self, failure):
         """
@@ -807,9 +829,12 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         if issubclass(failure, cred.error.LoginDenied):
             self.failResponse("Access denied: " + str(failure))
         elif issubclass(failure, cred.error.LoginFailed):
-            self.failResponse(b"Authentication failed")
-        if getattr(self.factory, "noisy", True):
-            log.msg("Denied login attempt from " + str(self.transport.getPeer()))
+            self.failResponse(b'Authentication failed')
+        if getattr(self.factory, 'noisy', True):
+            log.msg(
+                "Denied login attempt from " + str(self.transport.getPeer())
+            )
+
 
     def _ebUnexpected(self, failure):
         """
@@ -820,8 +845,9 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @type failure: L{Failure}
         @param failure: The authentication error.
         """
-        self.failResponse("Server error: " + failure.getErrorMessage())
+        self.failResponse('Server error: ' + failure.getErrorMessage())
         log.err(failure)
+
 
     def do_USER(self, user):
         """
@@ -834,7 +860,8 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @param user: A username.
         """
         self._userIs = user
-        self.successResponse(b"USER accepted, send PASS")
+        self.successResponse(b'USER accepted, send PASS')
+
 
     def do_PASS(self, password, *words):
         """
@@ -857,11 +884,11 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             return
         user = self._userIs
         self._userIs = None
-        password = b" ".join((password,) + words)
+        password = b' '.join((password,) + words)
         d = defer.maybeDeferred(self.authenticateUserPASS, user, password)
-        d.addCallbacks(
-            self._cbMailbox, self._ebMailbox, callbackArgs=(user,)
-        ).addErrback(self._ebUnexpected)
+        d.addCallbacks(self._cbMailbox, self._ebMailbox,
+                       callbackArgs=(user,)).addErrback(self._ebUnexpected)
+
 
     def _longOperation(self, d):
         """
@@ -883,6 +910,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         d.addCallback(lambda ign: self.setTimeout(timeOut))
         return d
 
+
     def _coiterate(self, gen):
         """
         Direct the output of an iterator to the transport and arrange for
@@ -894,7 +922,10 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @rtype: L{Deferred <defer.Deferred>}
         @return: A deferred which fires when the iterator finishes.
         """
-        return self.schedule(_IteratorBuffer(self.transport.writeSequence, gen))
+        return self.schedule(
+            _IteratorBuffer(self.transport.writeSequence, gen)
+        )
+
 
     def do_STAT(self):
         """
@@ -905,16 +936,14 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             command has been issued.
         """
         d = defer.maybeDeferred(self.mbox.listMessages)
-
         def cbMessages(msgs):
             return self._coiterate(formatStatResponse(msgs))
-
         def ebMessages(err):
             self.failResponse(err.getErrorMessage())
             log.msg("Unexpected do_STAT failure:")
             log.err(err)
-
         return self._longOperation(d.addCallbacks(cbMessages, ebMessages))
+
 
     def do_LIST(self, i=None):
         """
@@ -929,15 +958,12 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         """
         if i is None:
             d = defer.maybeDeferred(self.mbox.listMessages)
-
             def cbMessages(msgs):
                 return self._coiterate(formatListResponse(msgs))
-
             def ebMessages(err):
                 self.failResponse(err.getErrorMessage())
                 log.msg("Unexpected do_LIST failure:")
                 log.err(err)
-
             return self._longOperation(d.addCallbacks(cbMessages, ebMessages))
         else:
             try:
@@ -950,10 +976,9 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
                 self.failResponse(b"Invalid message-number: " + i)
             else:
                 d = defer.maybeDeferred(self.mbox.listMessages, i - 1)
-
                 def cbMessage(msg):
-                    self.successResponse(intToBytes(i) + b" " + intToBytes(msg))
-
+                    self.successResponse(intToBytes(i) + b' ' +
+                                         intToBytes(msg))
                 def ebMessage(err):
                     errcls = err.check(ValueError, IndexError)
                     if errcls is not None:
@@ -965,19 +990,19 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
                                 "twisted.mail.pop3.IMailbox.listMessages may "
                                 "not raise IndexError for out-of-bounds "
                                 "message numbers: raise ValueError instead.",
-                                PendingDeprecationWarning,
-                            )
+                                PendingDeprecationWarning)
                         invalidNum = i
                         if invalidNum and not isinstance(invalidNum, bytes):
                             invalidNum = str(invalidNum).encode("utf-8")
-                        self.failResponse(b"Invalid message-number: " + invalidNum)
+                        self.failResponse(b"Invalid message-number: " +
+                                          invalidNum)
                     else:
                         self.failResponse(err.getErrorMessage())
                         log.msg("Unexpected do_LIST failure:")
                         log.err(err)
-
                 d.addCallbacks(cbMessage, ebMessage)
                 return self._longOperation(d)
+
 
     def do_UIDL(self, i=None):
         """
@@ -992,15 +1017,14 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         """
         if i is None:
             d = defer.maybeDeferred(self.mbox.listMessages)
-
             def cbMessages(msgs):
-                return self._coiterate(formatUIDListResponse(msgs, self.mbox.getUidl),)
-
+                return self._coiterate(
+                    formatUIDListResponse(msgs, self.mbox.getUidl),
+                )
             def ebMessages(err):
                 self.failResponse(err.getErrorMessage())
                 log.msg("Unexpected do_UIDL failure:")
                 log.err(err)
-
             return self._longOperation(d.addCallbacks(cbMessages, ebMessages))
         else:
             try:
@@ -1018,8 +1042,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
                         "twisted.mail.pop3.IMailbox.getUidl may not "
                         "raise IndexError for out-of-bounds message numbers: "
                         "raise ValueError instead.",
-                        PendingDeprecationWarning,
-                    )
+                        PendingDeprecationWarning)
                     self.failResponse("Bad message number argument")
                 except ValueError:
                     self.failResponse("Bad message number argument")
@@ -1027,6 +1050,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
                     if not isinstance(msg, bytes):
                         msg = str(msg).encode("utf-8")
                     self.successResponse(msg)
+
 
     def _getMessageFile(self, i):
         """
@@ -1049,7 +1073,6 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             return defer.succeed(None)
 
         sizeDeferred = defer.maybeDeferred(self.mbox.listMessages, msg)
-
         def cbMessageSize(size):
             if not size:
                 return defer.fail(_POP3MessageDeleted())
@@ -1068,8 +1091,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
                         "twisted.mail.pop3.IMailbox.listMessages may not "
                         "raise IndexError for out-of-bounds message numbers: "
                         "raise ValueError instead.",
-                        PendingDeprecationWarning,
-                    )
+                        PendingDeprecationWarning)
                 self.failResponse("Bad message number argument")
             else:
                 log.msg("Unexpected _getMessageFile failure:")
@@ -1079,6 +1101,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         sizeDeferred.addCallback(cbMessageSize)
         sizeDeferred.addErrback(ebMessageSomething)
         return sizeDeferred
+
 
     def _sendMessageContent(self, i, fpWrapper, successResponse):
         """
@@ -1099,7 +1122,6 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @return: A deferred which triggers after the message has been sent.
         """
         d = self._getMessageFile(i)
-
         def cbMessageFile(info):
             if info is None:
                 # Some error occurred - a failure response has been sent
@@ -1114,10 +1136,10 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             d = s.beginFileTransfer(fp, self.transport, self.transformChunk)
 
             def cbFileTransfer(lastsent):
-                if lastsent != b"\n":
-                    line = b"\r\n."
+                if lastsent != b'\n':
+                    line = b'\r\n.'
                 else:
-                    line = b"."
+                    line = b'.'
                 self.sendLine(line)
 
             def ebFileTransfer(err):
@@ -1128,8 +1150,8 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             d.addCallback(cbFileTransfer)
             d.addErrback(ebFileTransfer)
             return d
-
         return self._longOperation(d.addCallback(cbMessageFile))
+
 
     def do_TOP(self, i, size):
         """
@@ -1155,8 +1177,8 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             return self._sendMessageContent(
                 i,
                 lambda fp: _HeadersPlusNLines(fp, size),
-                lambda size: "Top of message follows",
-            )
+                lambda size: "Top of message follows")
+
 
     def do_RETR(self, i):
         """
@@ -1169,7 +1191,11 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @return: A deferred which triggers after the response to the RETR
             command has been issued.
         """
-        return self._sendMessageContent(i, lambda fp: fp, lambda size: "%d" % (size,))
+        return self._sendMessageContent(
+            i,
+            lambda fp: fp,
+            lambda size: "%d" % (size,))
+
 
     def transformChunk(self, chunk):
         """
@@ -1185,7 +1211,8 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @rtype: L{bytes}
         @return: The transformed string.
         """
-        return chunk.replace(b"\n", b"\r\n").replace(b"\r\n.", b"\r\n..")
+        return chunk.replace(b'\n', b'\r\n').replace(b'\r\n.', b'\r\n..')
+
 
     def finishedFileTransfer(self, lastsent):
         """
@@ -1194,11 +1221,12 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @type lastsent: L{bytes}
         @param lastsent: The last character of the file.
         """
-        if lastsent != b"\n":
-            line = b"\r\n."
+        if lastsent != b'\n':
+            line = b'\r\n.'
         else:
-            line = b"."
+            line = b'.'
         self.sendLine(line)
+
 
     def do_DELE(self, i):
         """
@@ -1209,9 +1237,10 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @type i: L{int}
         @param i: A 1-based message index.
         """
-        i = int(i) - 1
+        i = int(i)-1
         self.mbox.deleteMessage(i)
         self.successResponse()
+
 
     def do_NOOP(self):
         """
@@ -1220,6 +1249,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         Do nothing but issue a successful response.
         """
         self.successResponse()
+
 
     def do_RSET(self):
         """
@@ -1236,6 +1266,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             self._highest = 0
             self.successResponse()
 
+
     def do_LAST(self):
         """
         Handle a LAST command.
@@ -1243,6 +1274,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         Respond with the 1-based index of the highest retrieved message.
         """
         self.successResponse(self._highest)
+
 
     def do_RPOP(self, user):
         """
@@ -1254,7 +1286,8 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         @param user: A username.
 
         """
-        self.failResponse("permission denied, sucker")
+        self.failResponse('permission denied, sucker')
+
 
     def do_QUIT(self):
         """
@@ -1267,6 +1300,7 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
             self.mbox.sync()
         self.successResponse()
         self.transport.loseConnection()
+
 
     def authenticateUserAPOP(self, user, digest):
         """
@@ -1291,9 +1325,12 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         """
         if self.portal is not None:
             return self.portal.login(
-                APOPCredentials(self.magic, user, digest), None, IMailbox
+                APOPCredentials(self.magic, user, digest),
+                None,
+                IMailbox
             )
         raise cred.error.UnauthorizedLogin()
+
 
     def authenticateUserPASS(self, user, password):
         """
@@ -1318,9 +1355,12 @@ class POP3(basic.LineOnlyReceiver, policies.TimeoutMixin):
         """
         if self.portal is not None:
             return self.portal.login(
-                cred.credentials.UsernamePassword(user, password), None, IMailbox
+                cred.credentials.UsernamePassword(user, password),
+                None,
+                IMailbox
             )
         raise cred.error.UnauthorizedLogin()
+
 
 
 @implementer(IMailbox)
@@ -1328,7 +1368,6 @@ class Mailbox:
     """
     A base class for mailboxes.
     """
-
     def listMessages(self, i=None):
         """
         Retrieve the size of a message, or, if none is specified, the size of
@@ -1349,6 +1388,7 @@ class Mailbox:
         """
         return []
 
+
     def getMessage(self, i):
         """
         Retrieve a file containing the contents of a message.
@@ -1363,6 +1403,7 @@ class Mailbox:
             a message in the mailbox.  The use of ValueError is preferred.
         """
         raise ValueError
+
 
     def getUidl(self, i):
         """
@@ -1380,6 +1421,7 @@ class Mailbox:
         """
         raise ValueError
 
+
     def deleteMessage(self, i):
         """
         Mark a message for deletion.
@@ -1396,6 +1438,7 @@ class Mailbox:
         """
         raise ValueError
 
+
     def undeleteMessages(self):
         """
         Undelete all messages marked for deletion.
@@ -1405,11 +1448,13 @@ class Mailbox:
         """
         pass
 
+
     def sync(self):
         """
         Discard the contents of any message marked for deletion.
         """
         pass
+
 
 
 NONE, SHORT, FIRST_LONG, LONG = range(4)
@@ -1419,6 +1464,7 @@ NEXT[NONE] = NONE
 NEXT[SHORT] = NONE
 NEXT[FIRST_LONG] = LONG
 NEXT[LONG] = NONE
+
 
 
 class POP3Client(basic.LineOnlyReceiver):
@@ -1440,26 +1486,21 @@ class POP3Client(basic.LineOnlyReceiver):
     @type welcomeCode: L{bytes}
     @ivar welcomeCode: The APOP challenge passed in the server greeting.
     """
-
     mode = SHORT
-    command = b"WELCOME"
+    command = b'WELCOME'
     import re
-
-    welcomeRe = re.compile(b"<(.*)>")
+    welcomeRe = re.compile(b'<(.*)>')
 
     def __init__(self):
         """
         Issue deprecation warning.
         """
         import warnings
+        warnings.warn("twisted.mail.pop3.POP3Client is deprecated, "
+                      "please use twisted.mail.pop3.AdvancedPOP3Client "
+                      "instead.", DeprecationWarning,
+                      stacklevel=3)
 
-        warnings.warn(
-            "twisted.mail.pop3.POP3Client is deprecated, "
-            "please use twisted.mail.pop3.AdvancedPOP3Client "
-            "instead.",
-            DeprecationWarning,
-            stacklevel=3,
-        )
 
     def sendShort(self, command, params=None):
         """
@@ -1474,11 +1515,12 @@ class POP3Client(basic.LineOnlyReceiver):
         if params is not None:
             if not isinstance(params, bytes):
                 params = str(params).encode("utf-8")
-            self.sendLine(command + b" " + params)
+            self.sendLine(command + b' ' + params)
         else:
             self.sendLine(command)
         self.command = command
         self.mode = SHORT
+
 
     def sendLong(self, command, params):
         """
@@ -1493,11 +1535,12 @@ class POP3Client(basic.LineOnlyReceiver):
         if params:
             if not isinstance(params, bytes):
                 params = str(params).encode("utf-8")
-            self.sendLine(command + b" " + params)
+            self.sendLine(command + b' ' + params)
         else:
             self.sendLine(command)
         self.command = command
         self.mode = FIRST_LONG
+
 
     def handle_default(self, line):
         """
@@ -1506,8 +1549,9 @@ class POP3Client(basic.LineOnlyReceiver):
         @type line: L{bytes}
         @param line: A received line.
         """
-        if line[:-4] == b"-ERR":
+        if line[:-4] == b'-ERR':
             self.mode = NONE
+
 
     def handle_WELCOME(self, line):
         """
@@ -1516,13 +1560,14 @@ class POP3Client(basic.LineOnlyReceiver):
         @type line: L{bytes}
         @param line: A received line.
         """
-        code, data = line.split(b" ", 1)
-        if code != b"+OK":
+        code, data = line.split(b' ', 1)
+        if code != b'+OK':
             self.transport.loseConnection()
         else:
             m = self.welcomeRe.match(line)
             if m:
                 self.welcomeCode = m.group(1)
+
 
     def _dispatch(self, command, default, *args):
         """
@@ -1542,11 +1587,13 @@ class POP3Client(basic.LineOnlyReceiver):
         @param args: Arguments to the handler function.
         """
         try:
-            method = getattr(self, "handle_" + command.decode("utf-8"), default)
+            method = getattr(self, 'handle_' + command.decode("utf-8"),
+                             default)
             if method is not None:
                 method(*args)
         except:
             log.err()
+
 
     def lineReceived(self, line):
         """
@@ -1569,13 +1616,14 @@ class POP3Client(basic.LineOnlyReceiver):
             self.mode = NEXT[self.mode]
             self._dispatch(self.command, self.handle_default, line)
         elif self.mode == LONG:
-            if line == b".":
+            if line == b'.':
                 self.mode = NEXT[self.mode]
-                self._dispatch(self.command + b"_end", None)
+                self._dispatch(self.command + b'_end', None)
                 return
-            if line[:1] == b".":
+            if line[:1] == b'.':
                 line = line[1:]
             self._dispatch(self.command + b"_continue", None, line)
+
 
     def apopAuthenticate(self, user, password, magic):
         """
@@ -1593,6 +1641,7 @@ class POP3Client(basic.LineOnlyReceiver):
         digest = md5(magic + password).hexdigest().encode("ascii")
         self.apop(user, digest)
 
+
     def apop(self, user, digest):
         """
         Send an APOP command to perform authenticated login.
@@ -1603,7 +1652,8 @@ class POP3Client(basic.LineOnlyReceiver):
         @type digest: L{bytes}
         @param digest: The challenge response with which to authenticate.
         """
-        self.sendLong(b"APOP", b" ".join((user, digest)))
+        self.sendLong(b'APOP', b' '.join((user, digest)))
+
 
     def retr(self, i):
         """
@@ -1612,7 +1662,8 @@ class POP3Client(basic.LineOnlyReceiver):
         @type i: L{int} or L{bytes}
         @param i: A 0-based message index.
         """
-        self.sendLong(b"RETR", i)
+        self.sendLong(b'RETR', i)
+
 
     def dele(self, i):
         """
@@ -1621,9 +1672,10 @@ class POP3Client(basic.LineOnlyReceiver):
         @type i: L{int} or L{bytes}
         @param i: A 0-based message index.
         """
-        self.sendShort(b"DELE", i)
+        self.sendShort(b'DELE', i)
 
-    def list(self, i=""):
+
+    def list(self, i=''):
         """
         Send a LIST command to retrieve the size of a message or, if no message
         is specified, the sizes of all messages.
@@ -1632,9 +1684,10 @@ class POP3Client(basic.LineOnlyReceiver):
         @param i: A 0-based message index or the empty string to specify all
             messages.
         """
-        self.sendLong(b"LIST", i)
+        self.sendLong(b'LIST', i)
 
-    def uidl(self, i=""):
+
+    def uidl(self, i=''):
         """
         Send a UIDL command to retrieve the unique identifier of a message or,
         if no message is specified, the unique identifiers of all messages.
@@ -1643,7 +1696,8 @@ class POP3Client(basic.LineOnlyReceiver):
         @param i: A 0-based message index or the empty string to specify all
             messages.
         """
-        self.sendLong(b"UIDL", i)
+        self.sendLong(b'UIDL', i)
+
 
     def user(self, name):
         """
@@ -1652,7 +1706,8 @@ class POP3Client(basic.LineOnlyReceiver):
         @type name: L{bytes}
         @param name: The username with which to log in.
         """
-        self.sendShort(b"USER", name)
+        self.sendShort(b'USER', name)
+
 
     def password(self, password):
         """
@@ -1661,7 +1716,7 @@ class POP3Client(basic.LineOnlyReceiver):
         @type password: L{bytes}
         @param password: The plaintext password with which to authenticate.
         """
-        self.sendShort(b"PASS", password)
+        self.sendShort(b'PASS', password)
 
     pass_ = password
 
@@ -1669,7 +1724,7 @@ class POP3Client(basic.LineOnlyReceiver):
         """
         Send a QUIT command to disconnect from the server.
         """
-        self.sendShort(b"QUIT")
+        self.sendShort(b'QUIT')
 
 
 from twisted.mail.pop3client import POP3Client as AdvancedPOP3Client
@@ -1681,21 +1736,14 @@ from twisted.mail.pop3client import TLSNotSupportedError
 
 __all__ = [
     # Interfaces
-    "IMailbox",
-    "IServerFactory",
+    'IMailbox', 'IServerFactory',
+
     # Exceptions
-    "POP3Error",
-    "POP3ClientError",
-    "InsecureAuthenticationDisallowed",
-    "ServerErrorResponse",
-    "LineTooLong",
-    "TLSError",
-    "TLSNotSupportedError",
+    'POP3Error', 'POP3ClientError', 'InsecureAuthenticationDisallowed',
+    'ServerErrorResponse', 'LineTooLong', 'TLSError', 'TLSNotSupportedError',
+
     # Protocol classes
-    "POP3",
-    "POP3Client",
-    "AdvancedPOP3Client",
+    'POP3', 'POP3Client', 'AdvancedPOP3Client',
+
     # Misc
-    "APOPCredentials",
-    "Mailbox",
-]
+    'APOPCredentials', 'Mailbox']

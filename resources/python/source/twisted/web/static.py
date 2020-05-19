@@ -22,7 +22,8 @@ from twisted.web import resource
 from twisted.web import http
 from twisted.web.util import redirectTo
 
-from twisted.python.compat import _PY3, intToBytes, nativeString, networkString
+from twisted.python.compat import (_PY3, intToBytes, nativeString,
+                                   networkString)
 from twisted.python.compat import escape
 
 from twisted.python import components, filepath, log
@@ -40,9 +41,8 @@ else:
 
 dangerousPathError = resource.NoResource("Invalid request URL.")
 
-
 def isDangerous(path):
-    return path == b".." or b"/" in path or networkString(os.sep) in path
+    return path == b'..' or b'/' in path or networkString(os.sep) in path
 
 
 class Data(resource.Resource):
@@ -63,14 +63,15 @@ class Data(resource.Resource):
         self.data = data
         self.type = type
 
+
     def render_GET(self, request):
         request.setHeader(b"content-type", networkString(self.type))
         request.setHeader(b"content-length", intToBytes(len(self.data)))
         if request.method == b"HEAD":
-            return b""
+            return b''
         return self.data
-
     render_HEAD = render_GET
+
 
 
 @deprecated(Version("Twisted", 16, 0, 0))
@@ -79,6 +80,7 @@ def addSlash(request):
     Add a trailing slash to C{request}'s URI. Deprecated, do not use.
     """
     return _addSlash(request)
+
 
 
 def _addSlash(request):
@@ -91,10 +93,11 @@ def _addSlash(request):
     @return: A URI with a trailing slash, with query and fragment preserved.
     @rtype: L{bytes}
     """
-    url = URL.fromText(request.uri.decode("ascii"))
+    url = URL.fromText(request.uri.decode('ascii'))
     # Add an empty path segment at the end, so that it adds a trailing slash
     url = url.replace(path=list(url.path) + [u""])
-    return url.asText().encode("ascii")
+    return url.asText().encode('ascii')
+
 
 
 class Redirect(resource.Resource):
@@ -146,15 +149,15 @@ def loadMimeTypes(mimetype_locations=None, init=mimetypes.init):
     init(mimetype_locations)
     mimetypes.types_map.update(
         {
-            ".conf": "text/plain",
-            ".diff": "text/plain",
-            ".flac": "audio/x-flac",
-            ".java": "text/plain",
-            ".oz": "text/x-oz",
-            ".swf": "application/x-shockwave-flash",
-            ".wml": "text/vnd.wap.wml",
-            ".xul": "application/vnd.mozilla.xul+xml",
-            ".patch": "text/plain",
+            '.conf':  'text/plain',
+            '.diff':  'text/plain',
+            '.flac':  'audio/x-flac',
+            '.java':  'text/plain',
+            '.oz':    'text/x-oz',
+            '.swf':   'application/x-shockwave-flash',
+            '.wml':   'text/vnd.wap.wml',
+            '.xul':   'application/vnd.mozilla.xul+xml',
+            '.patch': 'text/plain'
         }
     )
     return mimetypes.types_map
@@ -162,7 +165,7 @@ def loadMimeTypes(mimetype_locations=None, init=mimetypes.init):
 
 def getTypeAndEncoding(filename, types, encodings, defaultType):
     p, ext = filepath.FilePath(filename).splitext()
-    ext = filepath._coerceToFilesystemEncoding("", ext.lower())
+    ext = filepath._coerceToFilesystemEncoding('', ext.lower())
     if ext in encodings:
         enc = encodings[ext]
         ext = os.path.splitext(p)[1].lower()
@@ -170,6 +173,7 @@ def getTypeAndEncoding(filename, types, encodings, defaultType):
         enc = None
     type = types.get(ext, defaultType)
     return type, enc
+
 
 
 class File(resource.Resource, filepath.FilePath):
@@ -204,7 +208,10 @@ class File(resource.Resource, filepath.FilePath):
 
     contentTypes = loadMimeTypes()
 
-    contentEncodings = {".gz": "gzip", ".bz2": "bzip2"}
+    contentEncodings = {
+        ".gz" : "gzip",
+        ".bz2": "bzip2"
+        }
 
     processors = {}
 
@@ -212,9 +219,7 @@ class File(resource.Resource, filepath.FilePath):
 
     type = None
 
-    def __init__(
-        self, path, defaultType="text/html", ignoredExts=(), registry=None, allowExt=0
-    ):
+    def __init__(self, path, defaultType="text/html", ignoredExts=(), registry=None, allowExt=0):
         """
         Create a file with the given path.
 
@@ -248,12 +253,13 @@ class File(resource.Resource, filepath.FilePath):
         if ignoredExts in (0, 1) or allowExt:
             warnings.warn("ignoredExts should receive a list, not a boolean")
             if ignoredExts or allowExt:
-                self.ignoredExts = ["*"]
+                self.ignoredExts = ['*']
             else:
                 self.ignoredExts = []
         else:
             self.ignoredExts = list(ignoredExts)
         self.registry = registry or Registry()
+
 
     def ignoreExt(self, ext):
         """Ignore the given extension.
@@ -264,6 +270,7 @@ class File(resource.Resource, filepath.FilePath):
 
     childNotFound = resource.NoResource("File not found.")
     forbidden = resource.ForbiddenResource()
+
 
     def directoryListing(self):
         """
@@ -287,9 +294,12 @@ class File(resource.Resource, filepath.FilePath):
             nativeStringPath = self.createSimilarFile(self.asBytesMode().path)
             path = nativeStringPath.path
             names = nativeStringPath.listNames()
-        return DirectoryLister(
-            path, names, self.contentTypes, self.contentEncodings, self.defaultType
-        )
+        return DirectoryLister(path,
+                               names,
+                               self.contentTypes,
+                               self.contentEncodings,
+                               self.defaultType)
+
 
     def getChild(self, path, request):
         """
@@ -314,9 +324,10 @@ class File(resource.Resource, filepath.FilePath):
             try:
                 # Request calls urllib.unquote on each path segment,
                 # leaving us with raw bytes.
-                path = path.decode("utf-8")
+                path = path.decode('utf-8')
             except UnicodeDecodeError:
-                log.err(None, "Could not decode path segment as utf-8: %r" % (path,))
+                log.err(None,
+                        "Could not decode path segment as utf-8: %r" % (path,))
                 return self.childNotFound
 
         self.restat(reraise=False)
@@ -350,14 +361,17 @@ class File(resource.Resource, filepath.FilePath):
             return resource.IResource(processor(fpath.path, self.registry))
         return self.createSimilarFile(fpath.path)
 
+
     # methods to allow subclasses to e.g. decrypt files on the fly:
     def openForReading(self):
         """Open a file and return it."""
         return self.open()
 
+
     def getFileSize(self):
         """Return file size."""
         return self.getsize()
+
 
     def _parseRangeHeader(self, range):
         """
@@ -372,17 +386,17 @@ class File(resource.Resource, filepath.FilePath):
             Bytes-Unit is anything other than "bytes'.
         """
         try:
-            kind, value = range.split(b"=", 1)
+            kind, value = range.split(b'=', 1)
         except ValueError:
             raise ValueError("Missing '=' separator")
         kind = kind.strip()
-        if kind != b"bytes":
+        if kind != b'bytes':
             raise ValueError("Unsupported Bytes-Unit: %r" % (kind,))
-        unparsedRanges = list(filter(None, map(bytes.strip, value.split(b","))))
+        unparsedRanges = list(filter(None, map(bytes.strip, value.split(b','))))
         parsedRanges = []
         for byteRange in unparsedRanges:
             try:
-                start, end = byteRange.split(b"-", 1)
+                start, end = byteRange.split(b'-', 1)
             except ValueError:
                 raise ValueError("Invalid Byte-Range: %r" % (byteRange,))
             if start:
@@ -409,6 +423,7 @@ class File(resource.Resource, filepath.FilePath):
                 raise ValueError("Invalid Byte-Range: %r" % (byteRange,))
             parsedRanges.append((start, end))
         return parsedRanges
+
 
     def _rangeToOffsetAndSize(self, start, end):
         """
@@ -453,6 +468,7 @@ class File(resource.Resource, filepath.FilePath):
             start = end = 0
         return start, (end - start)
 
+
     def _contentRange(self, offset, size):
         """
         Return a string suitable for the value of a Content-Range header for a
@@ -465,9 +481,9 @@ class File(resource.Resource, filepath.FilePath):
         @return: The value as appropriate for the value of a Content-Range
             header.
         """
-        return networkString(
-            "bytes %d-%d/%d" % (offset, offset + size - 1, self.getFileSize())
-        )
+        return networkString('bytes %d-%d/%d' % (
+            offset, offset + size - 1, self.getFileSize()))
+
 
     def _doSingleRangeRequest(self, request, startAndEnd):
         """
@@ -485,18 +501,19 @@ class File(resource.Resource, filepath.FilePath):
             offset == size == 0 indicates that the request is not satisfiable.
         """
         start, end = startAndEnd
-        offset, size = self._rangeToOffsetAndSize(start, end)
+        offset, size  = self._rangeToOffsetAndSize(start, end)
         if offset == size == 0:
             # This range doesn't overlap with any of this resource, so the
             # request is unsatisfiable.
             request.setResponseCode(http.REQUESTED_RANGE_NOT_SATISFIABLE)
             request.setHeader(
-                b"content-range", networkString("bytes */%d" % (self.getFileSize(),))
-            )
+                b'content-range', networkString('bytes */%d' % (self.getFileSize(),)))
         else:
             request.setResponseCode(http.PARTIAL_CONTENT)
-            request.setHeader(b"content-range", self._contentRange(offset, size))
+            request.setHeader(
+                b'content-range', self._contentRange(offset, size))
         return offset, size
+
 
     def _doMultipleRangeRequest(self, request, byteRanges):
         """
@@ -528,11 +545,11 @@ class File(resource.Resource, filepath.FilePath):
         matchingRangeFound = False
         rangeInfo = []
         contentLength = 0
-        boundary = networkString("%x%x" % (int(time.time() * 1000000), os.getpid()))
+        boundary = networkString("%x%x" % (int(time.time()*1000000), os.getpid()))
         if self.type:
             contentType = self.type
         else:
-            contentType = b"bytes"  # It's what Apache does...
+            contentType = b'bytes' # It's what Apache does...
         for start, end in byteRanges:
             partOffset, partSize = self._rangeToOffsetAndSize(start, end)
             if partOffset == partSize == 0:
@@ -540,42 +557,30 @@ class File(resource.Resource, filepath.FilePath):
             contentLength += partSize
             matchingRangeFound = True
             partContentRange = self._contentRange(partOffset, partSize)
-            partSeparator = networkString(
-                (
-                    "\r\n"
-                    "--%s\r\n"
-                    "Content-type: %s\r\n"
-                    "Content-range: %s\r\n"
-                    "\r\n"
-                )
-                % (
-                    nativeString(boundary),
-                    nativeString(contentType),
-                    nativeString(partContentRange),
-                )
-            )
+            partSeparator = networkString((
+                "\r\n"
+                "--%s\r\n"
+                "Content-type: %s\r\n"
+                "Content-range: %s\r\n"
+                "\r\n") % (nativeString(boundary), nativeString(contentType), nativeString(partContentRange)))
             contentLength += len(partSeparator)
             rangeInfo.append((partSeparator, partOffset, partSize))
         if not matchingRangeFound:
             request.setResponseCode(http.REQUESTED_RANGE_NOT_SATISFIABLE)
-            request.setHeader(b"content-length", b"0")
             request.setHeader(
-                b"content-range", networkString("bytes */%d" % (self.getFileSize(),))
-            )
-            return [], b""
+                b'content-length', b'0')
+            request.setHeader(
+                b'content-range', networkString('bytes */%d' % (self.getFileSize(),)))
+            return [], b''
         finalBoundary = b"\r\n--" + boundary + b"--\r\n"
         rangeInfo.append((finalBoundary, 0, 0))
         request.setResponseCode(http.PARTIAL_CONTENT)
         request.setHeader(
-            b"content-type",
-            networkString(
-                'multipart/byteranges; boundary="%s"' % (nativeString(boundary),)
-            ),
-        )
+            b'content-type', networkString('multipart/byteranges; boundary="%s"' % (nativeString(boundary),)))
         request.setHeader(
-            b"content-length", intToBytes(contentLength + len(finalBoundary))
-        )
+            b'content-length', intToBytes(contentLength + len(finalBoundary)))
         return rangeInfo
+
 
     def _setContentHeaders(self, request, size=None):
         """
@@ -590,11 +595,12 @@ class File(resource.Resource, filepath.FilePath):
         """
         if size is None:
             size = self.getFileSize()
-        request.setHeader(b"content-length", intToBytes(size))
+        request.setHeader(b'content-length', intToBytes(size))
         if self.type:
-            request.setHeader(b"content-type", networkString(self.type))
+            request.setHeader(b'content-type', networkString(self.type))
         if self.encoding:
-            request.setHeader(b"content-encoding", networkString(self.encoding))
+            request.setHeader(b'content-encoding', networkString(self.encoding))
+
 
     def makeProducer(self, request, fileForReading):
         """
@@ -607,7 +613,7 @@ class File(resource.Resource, filepath.FilePath):
         @return: A L{StaticProducer}.  Calling C{.start()} on this will begin
             producing the response.
         """
-        byteRange = request.getHeader(b"range")
+        byteRange = request.getHeader(b'range')
         if byteRange is None:
             self._setContentHeaders(request)
             request.setResponseCode(http.OK)
@@ -621,12 +627,16 @@ class File(resource.Resource, filepath.FilePath):
             return NoRangeStaticProducer(request, fileForReading)
 
         if len(parsedRanges) == 1:
-            offset, size = self._doSingleRangeRequest(request, parsedRanges[0])
+            offset, size = self._doSingleRangeRequest(
+                request, parsedRanges[0])
             self._setContentHeaders(request, size)
-            return SingleRangeStaticProducer(request, fileForReading, offset, size)
+            return SingleRangeStaticProducer(
+                request, fileForReading, offset, size)
         else:
             rangeInfo = self._doMultipleRangeRequest(request, parsedRanges)
-            return MultipleRangeStaticProducer(request, fileForReading, rangeInfo)
+            return MultipleRangeStaticProducer(
+                request, fileForReading, rangeInfo)
+
 
     def render_GET(self, request):
         """
@@ -636,12 +646,10 @@ class File(resource.Resource, filepath.FilePath):
         self.restat(False)
 
         if self.type is None:
-            self.type, self.encoding = getTypeAndEncoding(
-                self.basename(),
-                self.contentTypes,
-                self.contentEncodings,
-                self.defaultType,
-            )
+            self.type, self.encoding = getTypeAndEncoding(self.basename(),
+                                                          self.contentTypes,
+                                                          self.contentEncodings,
+                                                          self.defaultType)
 
         if not self.exists():
             return self.childNotFound.render(request)
@@ -649,7 +657,7 @@ class File(resource.Resource, filepath.FilePath):
         if self.isdir():
             return self.redirect(request)
 
-        request.setHeader(b"accept-ranges", b"bytes")
+        request.setHeader(b'accept-ranges', b'bytes')
 
         try:
             fileForReading = self.openForReading()
@@ -664,26 +672,27 @@ class File(resource.Resource, filepath.FilePath):
             # request is cached, we close the file now that we've made sure that
             # the request would otherwise succeed and return an empty body.
             fileForReading.close()
-            return b""
+            return b''
 
-        if request.method == b"HEAD":
+        if request.method == b'HEAD':
             # Set the content headers here, rather than making a producer.
             self._setContentHeaders(request)
             # We've opened the file to make sure it's accessible, so close it
             # now that we don't need it.
             fileForReading.close()
-            return b""
+            return b''
 
         producer = self.makeProducer(request, fileForReading)
         producer.start()
 
         # and make sure the connection doesn't get closed
         return server.NOT_DONE_YET
-
     render_HEAD = render_GET
+
 
     def redirect(self, request):
         return redirectTo(_addSlash(request), request)
+
 
     def listNames(self):
         if not self.isdir():
@@ -693,14 +702,8 @@ class File(resource.Resource, filepath.FilePath):
         return directory
 
     def listEntities(self):
-        return list(
-            map(
-                lambda fileName, self=self: self.createSimilarFile(
-                    os.path.join(self.path, fileName)
-                ),
-                self.listNames(),
-            )
-        )
+        return list(map(lambda fileName, self=self: self.createSimilarFile(os.path.join(self.path, fileName)), self.listNames()))
+
 
     def createSimilarFile(self, path):
         f = self.__class__(path, self.defaultType, self.ignoredExts, self.registry)
@@ -709,6 +712,7 @@ class File(resource.Resource, filepath.FilePath):
         f.indexNames = self.indexNames[:]
         f.childNotFound = self.childNotFound
         return f
+
 
 
 @implementer(interfaces.IPullProducer)
@@ -722,6 +726,7 @@ class StaticProducer(object):
 
     bufferSize = abstract.FileDescriptor.bufferSize
 
+
     def __init__(self, request, fileObject):
         """
         Initialize the instance.
@@ -729,11 +734,14 @@ class StaticProducer(object):
         self.request = request
         self.fileObject = fileObject
 
+
     def start(self):
         raise NotImplementedError(self.start)
 
+
     def resumeProducing(self):
         raise NotImplementedError(self.resumeProducing)
+
 
     def stopProducing(self):
         """
@@ -747,6 +755,7 @@ class StaticProducer(object):
         self.request = None
 
 
+
 class NoRangeStaticProducer(StaticProducer):
     """
     A L{StaticProducer} that writes the entire file to the request.
@@ -754,6 +763,7 @@ class NoRangeStaticProducer(StaticProducer):
 
     def start(self):
         self.request.registerProducer(self, False)
+
 
     def resumeProducing(self):
         if not self.request:
@@ -767,6 +777,7 @@ class NoRangeStaticProducer(StaticProducer):
             self.request.unregisterProducer()
             self.request.finish()
             self.stopProducing()
+
 
 
 class SingleRangeStaticProducer(StaticProducer):
@@ -787,15 +798,18 @@ class SingleRangeStaticProducer(StaticProducer):
         self.offset = offset
         self.size = size
 
+
     def start(self):
         self.fileObject.seek(self.offset)
         self.bytesWritten = 0
         self.request.registerProducer(self, 0)
 
+
     def resumeProducing(self):
         if not self.request:
             return
-        data = self.fileObject.read(min(self.bufferSize, self.size - self.bytesWritten))
+        data = self.fileObject.read(
+            min(self.bufferSize, self.size - self.bytesWritten))
         if data:
             self.bytesWritten += len(data)
             # this .write will spin the reactor, calling .doWrite and then
@@ -805,6 +819,7 @@ class SingleRangeStaticProducer(StaticProducer):
             self.request.unregisterProducer()
             self.request.finish()
             self.stopProducing()
+
 
 
 class MultipleRangeStaticProducer(StaticProducer):
@@ -827,15 +842,18 @@ class MultipleRangeStaticProducer(StaticProducer):
         StaticProducer.__init__(self, request, fileObject)
         self.rangeInfo = rangeInfo
 
+
     def start(self):
         self.rangeIter = iter(self.rangeInfo)
         self._nextRange()
         self.request.registerProducer(self, 0)
 
+
     def _nextRange(self):
         self.partBoundary, partOffset, self._partSize = next(self.rangeIter)
         self._partBytesWritten = 0
         self.fileObject.seek(partOffset)
+
 
     def resumeProducing(self):
         if not self.request:
@@ -849,11 +867,8 @@ class MultipleRangeStaticProducer(StaticProducer):
                 data.append(self.partBoundary)
                 self.partBoundary = None
             p = self.fileObject.read(
-                min(
-                    self.bufferSize - dataLength,
-                    self._partSize - self._partBytesWritten,
-                )
-            )
+                min(self.bufferSize - dataLength,
+                    self._partSize - self._partBytesWritten))
             self._partBytesWritten += len(p)
             dataLength += len(p)
             data.append(p)
@@ -863,11 +878,12 @@ class MultipleRangeStaticProducer(StaticProducer):
                 except StopIteration:
                     done = True
                     break
-        self.request.write(b"".join(data))
+        self.request.write(b''.join(data))
         if done:
             self.request.unregisterProducer()
             self.request.finish()
             self.stopProducing()
+
 
 
 class ASISProcessor(resource.Resource):
@@ -881,10 +897,12 @@ class ASISProcessor(resource.Resource):
         self.path = path
         self.registry = registry or Registry()
 
+
     def render(self, request):
         request.startedWriting = 1
         res = File(self.path, registry=self.registry)
         return res.render(request)
+
 
 
 def formatFileSize(size):
@@ -892,13 +910,14 @@ def formatFileSize(size):
     Format the given file size in bytes to human readable format.
     """
     if size < 1024:
-        return "%iB" % size
+        return '%iB' % size
     elif size < (1024 ** 2):
-        return "%iK" % (size / 1024)
+        return '%iK' % (size / 1024)
     elif size < (1024 ** 3):
-        return "%iM" % (size / (1024 ** 2))
+        return '%iM' % (size / (1024 ** 2))
     else:
-        return "%iG" % (size / (1024 ** 3))
+        return '%iG' % (size / (1024 ** 3))
+
 
 
 class DirectoryLister(resource.Resource):
@@ -986,14 +1005,10 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
 </tr>
 """
 
-    def __init__(
-        self,
-        pathname,
-        dirs=None,
-        contentTypes=File.contentTypes,
-        contentEncodings=File.contentEncodings,
-        defaultType="text/html",
-    ):
+    def __init__(self, pathname, dirs=None,
+                 contentTypes=File.contentTypes,
+                 contentEncodings=File.contentEncodings,
+                 defaultType='text/html'):
         resource.Resource.__init__(self)
         self.contentTypes = contentTypes
         self.contentEncodings = contentEncodings
@@ -1001,6 +1016,7 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
         # dirs allows usage of the File to specify what gets listed
         self.dirs = dirs
         self.path = pathname
+
 
     def _getFilesAndDirectories(self, directory):
         """
@@ -1024,33 +1040,24 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
             childPath = filepath.FilePath(self.path).child(path)
 
             if childPath.isdir():
-                dirs.append(
-                    {
-                        "text": escapedPath + "/",
-                        "href": url + "/",
-                        "size": "",
-                        "type": "[Directory]",
-                        "encoding": "",
-                    }
-                )
+                dirs.append({'text': escapedPath + "/", 'href': url + "/",
+                             'size': '', 'type': '[Directory]',
+                             'encoding': ''})
             else:
-                mimetype, encoding = getTypeAndEncoding(
-                    path, self.contentTypes, self.contentEncodings, self.defaultType
-                )
+                mimetype, encoding = getTypeAndEncoding(path, self.contentTypes,
+                                                        self.contentEncodings,
+                                                        self.defaultType)
                 try:
                     size = childPath.getsize()
                 except OSError:
                     continue
-                files.append(
-                    {
-                        "text": escapedPath,
-                        "href": url,
-                        "type": "[%s]" % mimetype,
-                        "encoding": (encoding and "[%s]" % encoding or ""),
-                        "size": formatFileSize(size),
-                    }
-                )
+                files.append({
+                    'text': escapedPath, "href": url,
+                    'type': '[%s]' % mimetype,
+                    'encoding': (encoding and '[%s]' % encoding or ''),
+                    'size': formatFileSize(size)})
         return dirs, files
+
 
     def _buildTableContent(self, elements):
         """
@@ -1058,11 +1065,12 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
         and even classes.
         """
         tableContent = []
-        rowClasses = itertools.cycle(["odd", "even"])
+        rowClasses = itertools.cycle(['odd', 'even'])
         for element, rowClass in zip(elements, rowClasses):
             element["class"] = rowClass
             tableContent.append(self.linePattern % element)
         return tableContent
+
 
     def render(self, request):
         """
@@ -1080,8 +1088,7 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
         tableContent = "".join(self._buildTableContent(dirs + files))
 
         header = "Directory listing for %s" % (
-            escape(unquote(nativeString(request.uri))),
-        )
+            escape(unquote(nativeString(request.uri))),)
 
         done = self.template % {"header": header, "tableContent": tableContent}
         if _PY3:
@@ -1089,7 +1096,8 @@ h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin wh
 
         return done
 
+
     def __repr__(self):
-        return "<DirectoryLister of %r>" % self.path
+        return '<DirectoryLister of %r>' % self.path
 
     __str__ = __repr__

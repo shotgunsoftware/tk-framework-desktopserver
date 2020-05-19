@@ -17,14 +17,13 @@ See Adapter class.
 """
 from zope.interface import Declaration
 
-
 def _flatten(implements, include_None=0):
 
     try:
         r = implements.flattened()
     except AttributeError:
         if implements is None:
-            r = ()
+            r=()
         else:
             r = Declaration(implements).flattened()
 

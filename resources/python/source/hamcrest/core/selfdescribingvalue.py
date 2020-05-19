@@ -18,7 +18,8 @@ class SelfDescribingValue(SelfDescribing):
     """
 
     def __init__(self, value):
-        warnings.warn("SelfDescribingValue no longer needed", DeprecationWarning)
+        warnings.warn('SelfDescribingValue no longer needed',
+                      DeprecationWarning)
         self.value = value
 
     def describe_to(self, description):

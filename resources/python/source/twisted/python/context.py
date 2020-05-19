@@ -23,7 +23,6 @@ defaultContextDict = {}
 
 setDefault = defaultContextDict.__setitem__
 
-
 @_oldStyle
 class ContextTracker:
     """
@@ -59,9 +58,9 @@ class ContextTracker:
         for the duration of the call, making the data available to the function
         called and restoring the previous data once it is complete..
     """
-
     def __init__(self):
         self.contexts = [defaultContextDict]
+
 
     def callWithContext(self, newContext, func, *args, **kw):
         """
@@ -83,9 +82,10 @@ class ContextTracker:
         """
         self.contexts.append(newContext)
         try:
-            return func(*args, **kw)
+            return func(*args,**kw)
         finally:
             self.contexts.pop()
+
 
     def getContext(self, key, default=None):
         """
@@ -104,6 +104,7 @@ class ContextTracker:
             except KeyError:
                 pass
         return default
+
 
 
 class ThreadedContextTracker(object):
@@ -132,6 +133,5 @@ def installContextTracker(ctr):
     theContextTracker = ctr
     call = theContextTracker.callWithContext
     get = theContextTracker.getContext
-
 
 installContextTracker(ThreadedContextTracker())

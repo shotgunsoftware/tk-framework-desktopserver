@@ -31,8 +31,12 @@ class ExtensionOID(object):
     TLS_FEATURE = ObjectIdentifier("1.3.6.1.5.5.7.1.24")
     CRL_NUMBER = ObjectIdentifier("2.5.29.20")
     DELTA_CRL_INDICATOR = ObjectIdentifier("2.5.29.27")
-    PRECERT_SIGNED_CERTIFICATE_TIMESTAMPS = ObjectIdentifier("1.3.6.1.4.1.11129.2.4.2")
-    PRECERT_POISON = ObjectIdentifier("1.3.6.1.4.1.11129.2.4.3")
+    PRECERT_SIGNED_CERTIFICATE_TIMESTAMPS = (
+        ObjectIdentifier("1.3.6.1.4.1.11129.2.4.2")
+    )
+    PRECERT_POISON = (
+        ObjectIdentifier("1.3.6.1.4.1.11129.2.4.3")
+    )
 
 
 class OCSPExtensionOID(object):
@@ -66,7 +70,9 @@ class NameOID(object):
     EMAIL_ADDRESS = ObjectIdentifier("1.2.840.113549.1.9.1")
     JURISDICTION_COUNTRY_NAME = ObjectIdentifier("1.3.6.1.4.1.311.60.2.1.3")
     JURISDICTION_LOCALITY_NAME = ObjectIdentifier("1.3.6.1.4.1.311.60.2.1.1")
-    JURISDICTION_STATE_OR_PROVINCE_NAME = ObjectIdentifier("1.3.6.1.4.1.311.60.2.1.2")
+    JURISDICTION_STATE_OR_PROVINCE_NAME = ObjectIdentifier(
+        "1.3.6.1.4.1.311.60.2.1.2"
+    )
     BUSINESS_CATEGORY = ObjectIdentifier("2.5.4.15")
     POSTAL_ADDRESS = ObjectIdentifier("2.5.4.16")
     POSTAL_CODE = ObjectIdentifier("2.5.4.17")
@@ -157,10 +163,13 @@ _OID_NAMES = {
     NameOID.EMAIL_ADDRESS: "emailAddress",
     NameOID.JURISDICTION_COUNTRY_NAME: "jurisdictionCountryName",
     NameOID.JURISDICTION_LOCALITY_NAME: "jurisdictionLocalityName",
-    NameOID.JURISDICTION_STATE_OR_PROVINCE_NAME: ("jurisdictionStateOrProvinceName"),
+    NameOID.JURISDICTION_STATE_OR_PROVINCE_NAME: (
+        "jurisdictionStateOrProvinceName"
+    ),
     NameOID.BUSINESS_CATEGORY: "businessCategory",
     NameOID.POSTAL_ADDRESS: "postalAddress",
     NameOID.POSTAL_CODE: "postalCode",
+
     SignatureAlgorithmOID.RSA_WITH_MD5: "md5WithRSAEncryption",
     SignatureAlgorithmOID.RSA_WITH_SHA1: "sha1WithRSAEncryption",
     SignatureAlgorithmOID.RSA_WITH_SHA224: "sha224WithRSAEncryption",
@@ -206,7 +215,9 @@ _OID_NAMES = {
     ExtensionOID.EXTENDED_KEY_USAGE: "extendedKeyUsage",
     ExtensionOID.FRESHEST_CRL: "freshestCRL",
     ExtensionOID.INHIBIT_ANY_POLICY: "inhibitAnyPolicy",
-    ExtensionOID.ISSUING_DISTRIBUTION_POINT: ("issuingDistributionPoint"),
+    ExtensionOID.ISSUING_DISTRIBUTION_POINT: (
+        "issuingDistributionPoint"
+    ),
     ExtensionOID.AUTHORITY_INFORMATION_ACCESS: "authorityInfoAccess",
     ExtensionOID.SUBJECT_INFORMATION_ACCESS: "subjectInfoAccess",
     ExtensionOID.OCSP_NO_CHECK: "OCSPNoCheck",

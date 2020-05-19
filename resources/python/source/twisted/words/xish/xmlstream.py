@@ -43,7 +43,6 @@ STREAM_START_EVENT = intern("//event/stream/start")
 STREAM_END_EVENT = intern("//event/stream/end")
 STREAM_ERROR_EVENT = intern("//event/stream/error")
 
-
 class XmlStream(protocol.Protocol, utility.EventDispatcher):
     """ Generic Streaming XML protocol handler.
 
@@ -52,7 +51,6 @@ class XmlStream(protocol.Protocol, utility.EventDispatcher):
     XPath-like expressions that are matched against each stanza. See
     L{utility.EventDispatcher} for details.
     """
-
     def __init__(self):
         utility.EventDispatcher.__init__(self)
         self.stream = None
@@ -161,12 +159,13 @@ class XmlStream(protocol.Protocol, utility.EventDispatcher):
             obj = obj.toXml()
 
         if isinstance(obj, unicode):
-            obj = obj.encode("utf-8")
+            obj = obj.encode('utf-8')
 
         if self.rawDataOutFn:
             self.rawDataOutFn(obj)
 
         self.transport.write(obj)
+
 
 
 class BootstrapMixin(object):
@@ -191,6 +190,7 @@ class BootstrapMixin(object):
     def __init__(self):
         self.bootstraps = []
 
+
     def installBootstraps(self, dispatcher):
         """
         Install registered bootstrap observers.
@@ -200,6 +200,7 @@ class BootstrapMixin(object):
         """
         for event, fn in self.bootstraps:
             dispatcher.addObserver(event, fn)
+
 
     def addBootstrap(self, event, fn):
         """
@@ -211,6 +212,7 @@ class BootstrapMixin(object):
         """
         self.bootstraps.append((event, fn))
 
+
     def removeBootstrap(self, event, fn):
         """
         Remove a bootstrap event handler.
@@ -220,6 +222,7 @@ class BootstrapMixin(object):
         @param fn: The registered observer callable.
         """
         self.bootstraps.remove((event, fn))
+
 
 
 class XmlStreamFactoryMixin(BootstrapMixin):
@@ -240,6 +243,7 @@ class XmlStreamFactoryMixin(BootstrapMixin):
         self.args = args
         self.kwargs = kwargs
 
+
     def buildProtocol(self, addr):
         """
         Create an instance of XmlStream.
@@ -253,7 +257,9 @@ class XmlStreamFactoryMixin(BootstrapMixin):
         return xs
 
 
-class XmlStreamFactory(XmlStreamFactoryMixin, protocol.ReconnectingClientFactory):
+
+class XmlStreamFactory(XmlStreamFactoryMixin,
+                       protocol.ReconnectingClientFactory):
     """
     Factory for XmlStream protocol objects as a reconnection client.
     """

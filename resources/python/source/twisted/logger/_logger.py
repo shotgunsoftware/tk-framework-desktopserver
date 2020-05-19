@@ -13,6 +13,7 @@ from twisted.python.failure import Failure
 from ._levels import InvalidLogLevelError, LogLevel
 
 
+
 class Logger(object):
     """
     A L{Logger} emits log messages to an observer.  You should instantiate it
@@ -42,6 +43,7 @@ class Logger(object):
         except KeyError:
             return "<unknown>"
 
+
     def __init__(self, namespace=None, source=None, observer=None):
         """
         @param namespace: The namespace for this logger.  Uses a dotted
@@ -66,10 +68,10 @@ class Logger(object):
 
         if observer is None:
             from ._global import globalLogPublisher
-
             self.observer = globalLogPublisher
         else:
             self.observer = observer
+
 
     def __get__(self, oself, type=None):
         """
@@ -96,11 +98,15 @@ class Logger(object):
             source = oself
 
         return self.__class__(
-            ".".join([type.__module__, type.__name__]), source, observer=self.observer,
+            ".".join([type.__module__, type.__name__]),
+            source,
+            observer=self.observer,
         )
+
 
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.namespace)
+
 
     def emit(self, level, format=None, **kwargs):
         """
@@ -128,18 +134,15 @@ class Logger(object):
 
         event = kwargs
         event.update(
-            log_logger=self,
-            log_level=level,
-            log_namespace=self.namespace,
-            log_source=self.source,
-            log_format=format,
-            log_time=time(),
+            log_logger=self, log_level=level, log_namespace=self.namespace,
+            log_source=self.source, log_format=format, log_time=time(),
         )
 
         if "log_trace" in event:
             event["log_trace"].append((self, self.observer))
 
         self.observer(event)
+
 
     def failure(self, format, failure=None, level=LogLevel.critical, **kwargs):
         """
@@ -186,6 +189,7 @@ class Logger(object):
 
         self.emit(level, format, log_failure=failure, **kwargs)
 
+
     def debug(self, format=None, **kwargs):
         """
         Emit a log event at log level L{LogLevel.debug}.
@@ -200,6 +204,7 @@ class Logger(object):
             later execution.
         """
         self.emit(LogLevel.debug, format, **kwargs)
+
 
     def info(self, format=None, **kwargs):
         """
@@ -216,6 +221,7 @@ class Logger(object):
         """
         self.emit(LogLevel.info, format, **kwargs)
 
+
     def warn(self, format=None, **kwargs):
         """
         Emit a log event at log level L{LogLevel.warn}.
@@ -231,6 +237,7 @@ class Logger(object):
         """
         self.emit(LogLevel.warn, format, **kwargs)
 
+
     def error(self, format=None, **kwargs):
         """
         Emit a log event at log level L{LogLevel.error}.
@@ -245,6 +252,7 @@ class Logger(object):
             later execution.
         """
         self.emit(LogLevel.error, format, **kwargs)
+
 
     def critical(self, format=None, **kwargs):
         """
@@ -262,5 +270,6 @@ class Logger(object):
         self.emit(LogLevel.critical, format, **kwargs)
 
 
+
 _log = Logger()
-_loggerFor = lambda obj: _log.__get__(obj, obj.__class__)
+_loggerFor = lambda obj:_log.__get__(obj, obj.__class__)

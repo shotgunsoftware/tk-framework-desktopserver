@@ -18,7 +18,7 @@ class ChaCha20Poly1305(object):
         if not backend.aead_cipher_supported(self):
             raise exceptions.UnsupportedAlgorithm(
                 "ChaCha20Poly1305 is not supported by this version of OpenSSL",
-                exceptions._Reasons.UNSUPPORTED_CIPHER,
+                exceptions._Reasons.UNSUPPORTED_CIPHER
             )
         utils._check_byteslike("key", key)
 
@@ -37,17 +37,23 @@ class ChaCha20Poly1305(object):
 
         if len(data) > self._MAX_SIZE or len(associated_data) > self._MAX_SIZE:
             # This is OverflowError to match what cffi would raise
-            raise OverflowError("Data or associated data too long. Max 2**32 bytes")
+            raise OverflowError(
+                "Data or associated data too long. Max 2**32 bytes"
+            )
 
         self._check_params(nonce, data, associated_data)
-        return aead._encrypt(backend, self, nonce, data, associated_data, 16)
+        return aead._encrypt(
+            backend, self, nonce, data, associated_data, 16
+        )
 
     def decrypt(self, nonce, data, associated_data):
         if associated_data is None:
             associated_data = b""
 
         self._check_params(nonce, data, associated_data)
-        return aead._decrypt(backend, self, nonce, data, associated_data, 16)
+        return aead._decrypt(
+            backend, self, nonce, data, associated_data, 16
+        )
 
     def _check_params(self, nonce, data, associated_data):
         utils._check_byteslike("nonce", nonce)
@@ -77,7 +83,7 @@ class AESCCM(object):
         if not backend.aead_cipher_supported(self):
             raise exceptions.UnsupportedAlgorithm(
                 "AESCCM is not supported by this version of OpenSSL",
-                exceptions._Reasons.UNSUPPORTED_CIPHER,
+                exceptions._Reasons.UNSUPPORTED_CIPHER
             )
 
     @classmethod
@@ -96,7 +102,9 @@ class AESCCM(object):
 
         if len(data) > self._MAX_SIZE or len(associated_data) > self._MAX_SIZE:
             # This is OverflowError to match what cffi would raise
-            raise OverflowError("Data or associated data too long. Max 2**32 bytes")
+            raise OverflowError(
+                "Data or associated data too long. Max 2**32 bytes"
+            )
 
         self._check_params(nonce, data, associated_data)
         self._validate_lengths(nonce, len(data))
@@ -154,17 +162,23 @@ class AESGCM(object):
 
         if len(data) > self._MAX_SIZE or len(associated_data) > self._MAX_SIZE:
             # This is OverflowError to match what cffi would raise
-            raise OverflowError("Data or associated data too long. Max 2**32 bytes")
+            raise OverflowError(
+                "Data or associated data too long. Max 2**32 bytes"
+            )
 
         self._check_params(nonce, data, associated_data)
-        return aead._encrypt(backend, self, nonce, data, associated_data, 16)
+        return aead._encrypt(
+            backend, self, nonce, data, associated_data, 16
+        )
 
     def decrypt(self, nonce, data, associated_data):
         if associated_data is None:
             associated_data = b""
 
         self._check_params(nonce, data, associated_data)
-        return aead._decrypt(backend, self, nonce, data, associated_data, 16)
+        return aead._decrypt(
+            backend, self, nonce, data, associated_data, 16
+        )
 
     def _check_params(self, nonce, data, associated_data):
         utils._check_byteslike("nonce", nonce)

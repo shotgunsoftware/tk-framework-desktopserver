@@ -32,7 +32,6 @@ from zope.interface import Interface
 from zope.interface._compat import PYTHON2 as PY2
 from zope.interface.common import collections
 
-
 class IItemMapping(Interface):
     """Simplest readable mapping object
     """
@@ -97,10 +96,8 @@ class IEnumerableMapping(collections.ISized, IReadMapping):
         """Return the items of the mapping object.
         """
 
-
 class IMapping(IWriteMapping, IEnumerableMapping):
-    """ Simple mapping interface """
-
+    ''' Simple mapping interface '''
 
 class IIterableMapping(IEnumerableMapping):
     """A mapping that has distinct methods for iterating
@@ -112,7 +109,6 @@ class IIterableMapping(IEnumerableMapping):
     """
 
     if PY2:
-
         def iterkeys():
             "iterate over keys; equivalent to ``__iter__``"
 
@@ -121,7 +117,6 @@ class IIterableMapping(IEnumerableMapping):
 
         def iteritems():
             "iterate over items"
-
 
 class IClonableMapping(Interface):
     """Something that can produce a copy of itself.
@@ -132,7 +127,6 @@ class IClonableMapping(Interface):
     def copy():
         "return copy of dict"
 
-
 class IExtendedReadMapping(IIterableMapping):
     """
     Something with a particular method equivalent to ``__contains__``.
@@ -142,10 +136,8 @@ class IExtendedReadMapping(IIterableMapping):
     """
 
     if PY2:
-
         def has_key(key):
             """Tell if a key exists in the mapping; equivalent to ``__contains__``"""
-
 
 class IExtendedWriteMapping(IWriteMapping):
     """Additional mutation methods.
@@ -177,14 +169,9 @@ class IExtendedWriteMapping(IWriteMapping):
         """remove and return some (key, value) pair as a
         2-tuple; but raise KeyError if mapping is empty"""
 
-
 class IFullMapping(
-    collections.IMutableMapping,
-    IExtendedReadMapping,
-    IExtendedWriteMapping,
-    IClonableMapping,
-    IMapping,
-):
+        collections.IMutableMapping,
+        IExtendedReadMapping, IExtendedWriteMapping, IClonableMapping, IMapping,):
     """
     Full mapping interface.
 

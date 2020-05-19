@@ -10,11 +10,8 @@ import six
 
 from cryptography import utils
 from cryptography.exceptions import (
-    AlreadyFinalized,
-    AlreadyUpdated,
-    NotYetFinalized,
-    UnsupportedAlgorithm,
-    _Reasons,
+    AlreadyFinalized, AlreadyUpdated, NotYetFinalized, UnsupportedAlgorithm,
+    _Reasons
 )
 from cryptography.hazmat.backends.interfaces import CipherBackend
 from cryptography.hazmat.primitives.ciphers import modes
@@ -101,7 +98,7 @@ class Cipher(object):
         if not isinstance(backend, CipherBackend):
             raise UnsupportedAlgorithm(
                 "Backend object does not implement CipherBackend.",
-                _Reasons.BACKEND_MISSING_INTERFACE,
+                _Reasons.BACKEND_MISSING_INTERFACE
             )
 
         if not isinstance(algorithm, CipherAlgorithm):
@@ -117,12 +114,18 @@ class Cipher(object):
     def encryptor(self):
         if isinstance(self.mode, modes.ModeWithAuthenticationTag):
             if self.mode.tag is not None:
-                raise ValueError("Authentication tag must be None when encrypting.")
-        ctx = self._backend.create_symmetric_encryption_ctx(self.algorithm, self.mode)
+                raise ValueError(
+                    "Authentication tag must be None when encrypting."
+                )
+        ctx = self._backend.create_symmetric_encryption_ctx(
+            self.algorithm, self.mode
+        )
         return self._wrap_ctx(ctx, encrypt=True)
 
     def decryptor(self):
-        ctx = self._backend.create_symmetric_decryption_ctx(self.algorithm, self.mode)
+        ctx = self._backend.create_symmetric_decryption_ctx(
+            self.algorithm, self.mode
+        )
         return self._wrap_ctx(ctx, encrypt=False)
 
     def _wrap_ctx(self, ctx, encrypt):
@@ -227,7 +230,6 @@ class _AEADEncryptionContext(_AEADCipherContext):
     @property
     def tag(self):
         if self._ctx is not None:
-            raise NotYetFinalized(
-                "You must finalize encryption before " "getting the tag."
-            )
+            raise NotYetFinalized("You must finalize encryption before "
+                                  "getting the tag.")
         return self._tag

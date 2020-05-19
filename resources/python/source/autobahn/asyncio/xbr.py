@@ -26,7 +26,6 @@
 
 try:
     from autobahn import xbr
-
     HAS_XBR = True
 except:
     HAS_XBR = False
@@ -35,7 +34,6 @@ except:
 if HAS_XBR:
     import asyncio
     import txaio
-
     txaio.use_asyncio()
 
     import uuid
@@ -62,11 +60,8 @@ if HAS_XBR:
             """
             assert not self.running
 
-            self.log.info(
-                'Starting key rotation every {interval} seconds for api_id="{api_id}" ..',
-                interval=hl(self._interval),
-                api_id=hl(uuid.UUID(bytes=self._api_id)),
-            )
+            self.log.info('Starting key rotation every {interval} seconds for api_id="{api_id}" ..',
+                          interval=hl(self._interval), api_id=hl(uuid.UUID(bytes=self._api_id)))
             self.running = True
 
             async def rotate_with_interval():
@@ -81,11 +76,7 @@ if HAS_XBR:
             Stop offering/selling data encryption keys.
             """
             if not self.running:
-                raise RuntimeError(
-                    "cannot stop {} - not currently running".format(
-                        self.__class__.__name__
-                    )
-                )
+                raise RuntimeError('cannot stop {} - not currently running'.format(self.__class__.__name__))
 
             self.running = False
 
@@ -94,7 +85,6 @@ if HAS_XBR:
         Simple XBR seller component. This component can be used by a XBR seller delegate to
         handle the automated selling of data encryption keys to the XBR market maker.
         """
-
         xbr.SimpleSeller.KeySeries = KeySeries
 
     class SimpleBuyer(xbr.SimpleBuyer):

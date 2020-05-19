@@ -14,92 +14,104 @@ class IMAP4Exception(Exception):
     pass
 
 
+
 class IllegalClientResponse(IMAP4Exception):
     pass
+
 
 
 class IllegalOperation(IMAP4Exception):
     pass
 
 
+
 class IllegalMailboxEncoding(IMAP4Exception):
     pass
+
 
 
 class MailboxException(IMAP4Exception):
     pass
 
 
+
 class MailboxCollision(MailboxException):
     def __str__(self):
-        return "Mailbox named %s already exists" % self.args
+        return 'Mailbox named %s already exists' % self.args
+
 
 
 class NoSuchMailbox(MailboxException):
     def __str__(self):
-        return "No mailbox named %s exists" % self.args
+        return 'No mailbox named %s exists' % self.args
+
 
 
 class ReadOnlyMailbox(MailboxException):
     def __str__(self):
-        return "Mailbox open in read-only state"
+        return 'Mailbox open in read-only state'
 
 
 class UnhandledResponse(IMAP4Exception):
     pass
 
 
+
 class NegativeResponse(IMAP4Exception):
     pass
 
 
+
 class NoSupportedAuthentication(IMAP4Exception):
     def __init__(self, serverSupports, clientSupports):
-        IMAP4Exception.__init__(self, "No supported authentication schemes available")
+        IMAP4Exception.__init__(
+            self, 'No supported authentication schemes available')
         self.serverSupports = serverSupports
         self.clientSupports = clientSupports
 
     def __str__(self):
-        return IMAP4Exception.__str__(
-            self
-        ) + ": Server supports %r, client supports %r" % (
-            self.serverSupports,
-            self.clientSupports,
-        )
+        return (IMAP4Exception.__str__(self)
+            + ': Server supports %r, client supports %r'
+            % (self.serverSupports, self.clientSupports))
+
 
 
 class IllegalServerResponse(IMAP4Exception):
     pass
 
 
+
 class IllegalIdentifierError(IMAP4Exception):
     pass
+
 
 
 class IllegalQueryError(IMAP4Exception):
     pass
 
 
+
 class MismatchedNesting(IMAP4Exception):
     pass
+
 
 
 class MismatchedQuoting(IMAP4Exception):
     pass
 
 
+
 class SMTPError(Exception):
     pass
+
 
 
 class SMTPClientError(SMTPError):
     """
     Base class for SMTP client errors.
     """
-
-    def __init__(
-        self, code, resp, log=None, addresses=None, isFatal=False, retry=False
-    ):
+    def __init__(self, code, resp, log=None, addresses=None, isFatal=False,
+                 retry=False):
         """
         @param code: The SMTP response code associated with this error.
 
@@ -124,11 +136,13 @@ class SMTPClientError(SMTPError):
         self.isFatal = isFatal
         self.retry = retry
 
+
     def __str__(self):
         if _PY3:
             return self.__bytes__().decode("utf-8")
         else:
             return self.__bytes__()
+
 
     def __bytes__(self):
         if self.code > 0:
@@ -137,17 +151,19 @@ class SMTPClientError(SMTPError):
             res = [self.resp]
         if self.log:
             res.append(self.log)
-            res.append(b"")
+            res.append(b'')
         for (i, r) in enumerate(res):
             if isinstance(r, unicode):
-                res[i] = r.encode("utf-8")
-        return b"\n".join(res)
+                res[i] = r.encode('utf-8')
+        return b'\n'.join(res)
+
 
 
 class ESMTPClientError(SMTPClientError):
     """
     Base class for ESMTP client errors.
     """
+
 
 
 class EHLORequiredError(ESMTPClientError):
@@ -158,6 +174,7 @@ class EHLORequiredError(ESMTPClientError):
     """
 
 
+
 class AUTHRequiredError(ESMTPClientError):
     """
     Authentication was required but the server does not support it.
@@ -166,12 +183,14 @@ class AUTHRequiredError(ESMTPClientError):
     """
 
 
+
 class TLSRequiredError(ESMTPClientError):
     """
     Transport security was required but the server does not support it.
 
     This is considered a non-fatal error (the connection will not be dropped).
     """
+
 
 
 class AUTHDeclinedError(ESMTPClientError):
@@ -186,6 +205,7 @@ class AUTHDeclinedError(ESMTPClientError):
     """
 
 
+
 class AuthenticationError(ESMTPClientError):
     """
     An error occurred while authenticating.
@@ -198,6 +218,7 @@ class AuthenticationError(ESMTPClientError):
     """
 
 
+
 class SMTPTLSError(ESMTPClientError):
     """
     An error occurred while negiotiating for transport security.
@@ -206,15 +227,18 @@ class SMTPTLSError(ESMTPClientError):
     """
 
 
+
 class SMTPConnectError(SMTPClientError):
     """
     Failed to connect to the mail exchange host.
 
     This is considered a fatal error.  A retry will be made.
     """
+    def __init__(self, code, resp, log=None, addresses=None, isFatal=True,
+                 retry=True):
+        SMTPClientError.__init__(self, code, resp, log, addresses, isFatal,
+                                 retry)
 
-    def __init__(self, code, resp, log=None, addresses=None, isFatal=True, retry=True):
-        SMTPClientError.__init__(self, code, resp, log, addresses, isFatal, retry)
 
 
 class SMTPTimeoutError(SMTPClientError):
@@ -223,9 +247,11 @@ class SMTPTimeoutError(SMTPClientError):
 
     This is considered a fatal error.  A retry will be made.
     """
+    def __init__(self, code, resp, log=None, addresses=None, isFatal=True,
+                 retry=True):
+        SMTPClientError.__init__(self, code, resp, log, addresses, isFatal,
+                                 retry)
 
-    def __init__(self, code, resp, log=None, addresses=None, isFatal=True, retry=True):
-        SMTPClientError.__init__(self, code, resp, log, addresses, isFatal, retry)
 
 
 class SMTPProtocolError(SMTPClientError):
@@ -234,9 +260,11 @@ class SMTPProtocolError(SMTPClientError):
 
     This is considered a fatal error.  A retry will not be made.
     """
+    def __init__(self, code, resp, log=None, addresses=None, isFatal=True,
+                 retry=False):
+        SMTPClientError.__init__(self, code, resp, log, addresses, isFatal,
+                                 retry)
 
-    def __init__(self, code, resp, log=None, addresses=None, isFatal=True, retry=False):
-        SMTPClientError.__init__(self, code, resp, log, addresses, isFatal, retry)
 
 
 class SMTPDeliveryError(SMTPClientError):
@@ -245,13 +273,16 @@ class SMTPDeliveryError(SMTPClientError):
     """
 
 
+
 class SMTPServerError(SMTPError):
     def __init__(self, code, resp):
         self.code = code
         self.resp = resp
 
+
     def __str__(self):
         return "%.3d %s" % (self.code, self.resp)
+
 
 
 class SMTPAddressError(SMTPServerError):
@@ -261,18 +292,23 @@ class SMTPAddressError(SMTPServerError):
         SMTPServerError.__init__(self, code, resp)
         self.addr = Address(addr)
 
+
     def __str__(self):
         return "%.3d <%s>... %s" % (self.code, self.addr, self.resp)
 
 
+
 class SMTPBadRcpt(SMTPAddressError):
-    def __init__(self, addr, code=550, resp="Cannot receive for specified address"):
+    def __init__(self, addr, code=550,
+                 resp='Cannot receive for specified address'):
         SMTPAddressError.__init__(self, addr, code, resp)
+
 
 
 class SMTPBadSender(SMTPAddressError):
-    def __init__(self, addr, code=550, resp="Sender not acceptable"):
+    def __init__(self, addr, code=550, resp='Sender not acceptable'):
         SMTPAddressError.__init__(self, addr, code, resp)
+
 
 
 class AddressError(SMTPError):
@@ -285,8 +321,8 @@ class POP3Error(Exception):
     """
     The base class for POP3 errors.
     """
-
     pass
+
 
 
 class _POP3MessageDeleted(Exception):
@@ -296,10 +332,12 @@ class _POP3MessageDeleted(Exception):
     """
 
 
+
 class POP3ClientError(Exception):
     """
     The base class for all exceptions raised by POP3Client.
     """
+
 
 
 class InsecureAuthenticationDisallowed(POP3ClientError):
@@ -309,11 +347,13 @@ class InsecureAuthenticationDisallowed(POP3ClientError):
     """
 
 
+
 class TLSError(POP3ClientError):
     """
     An error indicating secure authentication was required but either the
     transport does not support TLS or no TLS context factory was supplied.
     """
+
 
 
 class TLSNotSupportedError(POP3ClientError):
@@ -323,6 +363,7 @@ class TLSNotSupportedError(POP3ClientError):
     """
 
 
+
 class ServerErrorResponse(POP3ClientError):
     """
     An error indicating that the server returned an error response to a
@@ -330,7 +371,6 @@ class ServerErrorResponse(POP3ClientError):
 
     @ivar consumer: See L{__init__}
     """
-
     def __init__(self, reason, consumer=None):
         """
         @type reason: L{bytes}
@@ -342,6 +382,7 @@ class ServerErrorResponse(POP3ClientError):
         """
         POP3ClientError.__init__(self, reason)
         self.consumer = consumer
+
 
 
 class LineTooLong(POP3ClientError):

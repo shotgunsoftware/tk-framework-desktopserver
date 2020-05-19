@@ -8,6 +8,7 @@ __unittest = True
 
 
 class EqualityWrapper(object):
+
     def __init__(self, matcher):
         self.matcher = matcher
 

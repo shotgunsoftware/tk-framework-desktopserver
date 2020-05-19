@@ -17,7 +17,6 @@ import sys
 # in the DEP-8 tests, so just suppress the warning.  pdb tells me this has to
 # be done before the import of pip.vcs.
 from pip._vendor.urllib3.exceptions import DependencyWarning
-
 warnings.filterwarnings("ignore", category=DependencyWarning)  # noqa
 
 # We want to inject the use of SecureTransport as early as possible so that any
@@ -30,7 +29,7 @@ except ImportError:
     pass
 else:
     # Checks for OpenSSL 1.0.1 on MacOS
-    if sys.platform == "darwin" and ssl.OPENSSL_VERSION_NUMBER < 0x1000100F:
+    if sys.platform == "darwin" and ssl.OPENSSL_VERSION_NUMBER < 0x1000100f:
         try:
             from pip._vendor.urllib3.contrib import securetransport
         except (ImportError, OSError):
@@ -71,7 +70,7 @@ def main(args=None):
     # Needed for locale.getpreferredencoding(False) to work
     # in pip._internal.utils.encoding.auto_decode
     try:
-        locale.setlocale(locale.LC_ALL, "")
+        locale.setlocale(locale.LC_ALL, '')
     except locale.Error as e:
         # setlocale can apparently crash if locale are uninitialized
         logger.debug("Ignoring error %s when setting locale", e)

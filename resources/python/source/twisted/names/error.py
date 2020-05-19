@@ -18,6 +18,7 @@ class DomainError(ValueError):
     """
 
 
+
 class AuthoritativeDomainError(ValueError):
     """
     Indicates a lookup failed for a name for which this server is authoritative
@@ -26,16 +27,17 @@ class AuthoritativeDomainError(ValueError):
     """
 
 
+
 class DNSQueryTimeoutError(TimeoutError):
     """
     Indicates a lookup failed due to a timeout.
 
     @ivar id: The id of the message which timed out.
     """
-
     def __init__(self, id):
         TimeoutError.__init__(self)
         self.id = id
+
 
 
 class DNSFormatError(DomainError):
@@ -44,10 +46,12 @@ class DNSFormatError(DomainError):
     """
 
 
+
 class DNSServerError(DomainError):
     """
     Indicates a query failed with a result of C{twisted.names.dns.ESERVER}.
     """
+
 
 
 class DNSNameError(DomainError):
@@ -56,10 +60,12 @@ class DNSNameError(DomainError):
     """
 
 
+
 class DNSNotImplementedError(DomainError):
     """
     Indicates a query failed with a result of C{twisted.names.dns.ENOTIMP}.
     """
+
 
 
 class DNSQueryRefusedError(DomainError):
@@ -68,10 +74,12 @@ class DNSQueryRefusedError(DomainError):
     """
 
 
+
 class DNSUnknownError(DomainError):
     """
     Indicates a query failed with an unknown result.
     """
+
 
 
 class ResolverError(Exception):
@@ -82,14 +90,8 @@ class ResolverError(Exception):
 
 
 __all__ = [
-    "DomainError",
-    "AuthoritativeDomainError",
-    "DNSQueryTimeoutError",
-    "DNSFormatError",
-    "DNSServerError",
-    "DNSNameError",
-    "DNSNotImplementedError",
-    "DNSQueryRefusedError",
-    "DNSUnknownError",
-    "ResolverError",
-]
+    'DomainError', 'AuthoritativeDomainError', 'DNSQueryTimeoutError',
+
+    'DNSFormatError', 'DNSServerError', 'DNSNameError',
+    'DNSNotImplementedError', 'DNSQueryRefusedError',
+    'DNSUnknownError', 'ResolverError']

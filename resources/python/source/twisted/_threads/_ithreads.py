@@ -17,6 +17,7 @@ class AlreadyQuit(Exception):
     """
 
 
+
 class IWorker(Interface):
     """
     A worker that can perform some work concurrently.

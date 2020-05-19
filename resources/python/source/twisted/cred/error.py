@@ -12,15 +12,18 @@ class Unauthorized(Exception):
     """Standard unauthorized error."""
 
 
+
 class LoginFailed(Exception):
     """
     The user's request to log in failed for some reason.
     """
 
 
+
 class UnauthorizedLogin(LoginFailed, Unauthorized):
     """The user was not authorized to log in.
     """
+
 
 
 class UnhandledCredentials(LoginFailed):
@@ -29,6 +32,7 @@ class UnhandledCredentials(LoginFailed):
     connected to a Portal without a CredentialChecker that can check all of its
     potential authentication strategies.
     """
+
 
 
 class LoginDenied(LoginFailed):

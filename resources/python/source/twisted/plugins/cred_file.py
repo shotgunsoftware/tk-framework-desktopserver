@@ -19,13 +19,14 @@ from twisted.cred.strcred import ICheckerFactory
 from twisted.cred.credentials import IUsernamePassword, IUsernameHashedPassword
 
 
+
 fileCheckerFactoryHelp = """
 This checker expects to receive the location of a file that
 conforms to the FilePasswordDB format. Each line in the file
 should be of the format 'username:password', in plain text.
 """
 
-invalidFileWarning = "Warning: not a valid file"
+invalidFileWarning = 'Warning: not a valid file'
 
 
 @implementer(ICheckerFactory, plugin.IPlugin)
@@ -33,10 +34,9 @@ class FileCheckerFactory(object):
     """
     A factory for instances of L{FilePasswordDB}.
     """
-
-    authType = "file"
+    authType = 'file'
     authHelp = fileCheckerFactoryHelp
-    argStringFormat = "Location of a FilePasswordDB-formatted file."
+    argStringFormat = 'Location of a FilePasswordDB-formatted file.'
     # Explicitly defined here because FilePasswordDB doesn't do it for us
     credentialInterfaces = (IUsernamePassword, IUsernameHashedPassword)
 
@@ -50,12 +50,12 @@ class FileCheckerFactory(object):
         initialization parameters).
         """
         from twisted.python.filepath import FilePath
-
         if not argstring.strip():
-            raise ValueError("%r requires a filename" % self.authType)
+            raise ValueError('%r requires a filename' % self.authType)
         elif not FilePath(argstring).isfile():
-            self.errorOutput.write("%s: %s\n" % (invalidFileWarning, argstring))
+            self.errorOutput.write('%s: %s\n' % (invalidFileWarning, argstring))
         return FilePasswordDB(argstring)
+
 
 
 theFileCheckerFactory = FileCheckerFactory()

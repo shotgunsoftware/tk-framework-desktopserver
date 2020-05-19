@@ -20,6 +20,7 @@ class ConnectionLost(Exception):
     """
 
 
+
 class Connection(object):
     """
     A wrapper for a DB-API connection instance.
@@ -34,6 +35,7 @@ class Connection(object):
         self._connection = None
         self.reconnect()
 
+
     def close(self):
         # The way adbapi works right now means that closing a connection is
         # a really bad thing  as it leaves a dead connection associated with
@@ -43,6 +45,7 @@ class Connection(object):
         # rather than upsetting anyone by raising an exception, let's ignore
         # the request
         pass
+
 
     def rollback(self):
         if not self._pool.reconnect:
@@ -66,13 +69,16 @@ class Connection(object):
 
         raise ConnectionLost()
 
+
     def reconnect(self):
         if self._connection is not None:
             self._pool.disconnect(self._connection)
         self._connection = self._pool.connect()
 
+
     def __getattr__(self, name):
         return getattr(self._connection, name)
+
 
 
 class Transaction:
@@ -84,7 +90,6 @@ class Transaction:
     underlying DB-API cursor object. Attributes will also be retrieved from
     there.
     """
-
     _cursor = None
 
     def __init__(self, pool, connection):
@@ -92,10 +97,12 @@ class Transaction:
         self._connection = connection
         self.reopen()
 
+
     def close(self):
         _cursor = self._cursor
         self._cursor = None
         _cursor.close()
+
 
     def reopen(self):
         if self._cursor is not None:
@@ -111,17 +118,20 @@ class Transaction:
                 log.err(None, "Cursor creation failed")
 
         if self._pool.noisy:
-            log.msg("Connection lost, reconnecting")
+            log.msg('Connection lost, reconnecting')
 
         self.reconnect()
         self._cursor = self._connection.cursor()
+
 
     def reconnect(self):
         self._connection.reconnect()
         self._cursor = None
 
+
     def __getattr__(self, name):
         return getattr(self._cursor, name)
+
 
 
 class ConnectionPool:
@@ -146,15 +156,15 @@ class ConnectionPool:
 
     CP_ARGS = "min max name noisy openfun reconnect good_sql".split()
 
-    noisy = False  # If true, generate informational log messages
-    min = 3  # Minimum number of connections in pool
-    max = 5  # Maximum number of connections in pool
-    name = None  # Name to assign to thread pool for debugging
-    openfun = None  # A function to call on new connections
-    reconnect = False  # Reconnect when connections fail
-    good_sql = "select 1"  # A query which should always succeed
+    noisy = False # If true, generate informational log messages
+    min = 3 # Minimum number of connections in pool
+    max = 5 # Maximum number of connections in pool
+    name = None # Name to assign to thread pool for debugging
+    openfun = None # A function to call on new connections
+    reconnect = False # Reconnect when connections fail
+    good_sql = 'select 1' # A query which should always succeed
 
-    running = False  # True when the pool is operating
+    running = False # True when the pool is operating
     connectionFactory = Connection
     transactionFactory = Transaction
 
@@ -200,13 +210,13 @@ class ConnectionPool:
         self.dbapiName = dbapiName
         self.dbapi = reflect.namedModule(dbapiName)
 
-        if getattr(self.dbapi, "apilevel", None) != "2.0":
-            log.msg("DB API module not DB API 2.0 compliant.")
+        if getattr(self.dbapi, 'apilevel', None) != '2.0':
+            log.msg('DB API module not DB API 2.0 compliant.')
 
-        if getattr(self.dbapi, "threadsafety", 0) < 1:
-            log.msg("DB API module not sufficiently thread-safe.")
+        if getattr(self.dbapi, 'threadsafety', 0) < 1:
+            log.msg('DB API module not sufficiently thread-safe.')
 
-        reactor = connkw.pop("cp_reactor", None)
+        reactor = connkw.pop('cp_reactor', None)
         if reactor is None:
             from twisted.internet import reactor
         self._reactor = reactor
@@ -215,7 +225,7 @@ class ConnectionPool:
         self.connkw = connkw
 
         for arg in self.CP_ARGS:
-            cpArg = "cp_%s" % (arg,)
+            cpArg = 'cp_%s' % (arg,)
             if cpArg in connkw:
                 setattr(self, arg, connkw[cpArg])
                 del connkw[cpArg]
@@ -234,9 +244,11 @@ class ConnectionPool:
         self.threadpool = threadpool.ThreadPool(self.min, self.max)
         self.startID = self._reactor.callWhenRunning(self._start)
 
+
     def _start(self):
         self.startID = None
         return self.start()
+
 
     def start(self):
         """
@@ -248,9 +260,9 @@ class ConnectionPool:
         if not self.running:
             self.threadpool.start()
             self.shutdownID = self._reactor.addSystemEventTrigger(
-                "during", "shutdown", self.finalClose
-            )
+                'during', 'shutdown', self.finalClose)
             self.running = True
+
 
     def runWithConnection(self, func, *args, **kw):
         """
@@ -274,9 +286,10 @@ class ConnectionPool:
             C{func(Transaction(...), *args, **kw)}, or a
             L{twisted.python.failure.Failure}.
         """
-        return threads.deferToThreadPool(
-            self._reactor, self.threadpool, self._runWithConnection, func, *args, **kw
-        )
+        return threads.deferToThreadPool(self._reactor, self.threadpool,
+                                         self._runWithConnection,
+                                         func, *args, **kw)
+
 
     def _runWithConnection(self, func, *args, **kw):
         conn = self.connectionFactory(self)
@@ -291,6 +304,7 @@ class ConnectionPool:
             except:
                 log.err(None, "Rollback failed")
             compat.reraise(excValue, excTraceback)
+
 
     def runInteraction(self, interaction, *args, **kw):
         """
@@ -320,14 +334,10 @@ class ConnectionPool:
             C{interaction(Transaction(...), *args, **kw)}, or a
             L{twisted.python.failure.Failure}.
         """
-        return threads.deferToThreadPool(
-            self._reactor,
-            self.threadpool,
-            self._runInteraction,
-            interaction,
-            *args,
-            **kw
-        )
+        return threads.deferToThreadPool(self._reactor, self.threadpool,
+                                         self._runInteraction,
+                                         interaction, *args, **kw)
+
 
     def runQuery(self, *args, **kw):
         """
@@ -348,6 +358,7 @@ class ConnectionPool:
             cursor's 'fetchall' method, or a L{twisted.python.failure.Failure}.
         """
         return self.runInteraction(self._runQuery, *args, **kw)
+
 
     def runOperation(self, *args, **kw):
         """
@@ -370,6 +381,7 @@ class ConnectionPool:
         """
         return self.runInteraction(self._runOperation, *args, **kw)
 
+
     def close(self):
         """
         Close all pool connections and shutdown the pool.
@@ -382,6 +394,7 @@ class ConnectionPool:
             self.startID = None
         self.finalClose()
 
+
     def finalClose(self):
         """
         This should only be called by the shutdown trigger.
@@ -392,6 +405,7 @@ class ConnectionPool:
         for conn in self.connections.values():
             self._close(conn)
         self.connections.clear()
+
 
     def connect(self):
         """
@@ -409,12 +423,13 @@ class ConnectionPool:
         conn = self.connections.get(tid)
         if conn is None:
             if self.noisy:
-                log.msg("adbapi connecting: %s" % (self.dbapiName,))
+                log.msg('adbapi connecting: %s' % (self.dbapiName,))
             conn = self.dbapi.connect(*self.connargs, **self.connkw)
             if self.openfun is not None:
                 self.openfun(conn)
             self.connections[tid] = conn
         return conn
+
 
     def disconnect(self, conn):
         """
@@ -431,13 +446,15 @@ class ConnectionPool:
             self._close(conn)
             del self.connections[tid]
 
+
     def _close(self, conn):
         if self.noisy:
-            log.msg("adbapi closing: %s" % (self.dbapiName,))
+            log.msg('adbapi closing: %s' % (self.dbapiName,))
         try:
             conn.close()
         except:
             log.err(None, "Connection close failed")
+
 
     def _runInteraction(self, interaction, *args, **kw):
         conn = self.connectionFactory(self)
@@ -455,28 +472,31 @@ class ConnectionPool:
                 log.err(None, "Rollback failed")
             compat.reraise(excValue, excTraceback)
 
+
     def _runQuery(self, trans, *args, **kw):
         trans.execute(*args, **kw)
         return trans.fetchall()
 
+
     def _runOperation(self, trans, *args, **kw):
         trans.execute(*args, **kw)
 
+
     def __getstate__(self):
-        return {
-            "dbapiName": self.dbapiName,
-            "min": self.min,
-            "max": self.max,
-            "noisy": self.noisy,
-            "reconnect": self.reconnect,
-            "good_sql": self.good_sql,
-            "connargs": self.connargs,
-            "connkw": self.connkw,
-        }
+        return {'dbapiName': self.dbapiName,
+                'min': self.min,
+                'max': self.max,
+                'noisy': self.noisy,
+                'reconnect': self.reconnect,
+                'good_sql': self.good_sql,
+                'connargs': self.connargs,
+                'connkw': self.connkw}
+
 
     def __setstate__(self, state):
         self.__dict__ = state
         self.__init__(self.dbapiName, *self.connargs, **self.connkw)
 
 
-__all__ = ["Transaction", "ConnectionPool"]
+
+__all__ = ['Transaction', 'ConnectionPool']

@@ -20,6 +20,7 @@ from twisted.web.template import TagLoader, XMLString, Element, renderer
 from twisted.web.template import flattenString
 
 
+
 def _PRE(text):
     """
     Wraps <pre> tags around some text and HTML-escape it.
@@ -32,7 +33,8 @@ def _PRE(text):
     @return: Escaped text wrapped in <pre> tags.
     @rtype: C{str}
     """
-    return "<pre>%s</pre>" % (escape(text),)
+    return '<pre>%s</pre>' % (escape(text),)
+
 
 
 def redirectTo(URL, request):
@@ -55,11 +57,11 @@ def redirectTo(URL, request):
             def render_GET(self, request):
                 return redirectTo(b"http://example.com/", request)
     """
-    if isinstance(URL, unicode):
+    if isinstance(URL, unicode) :
         raise TypeError("Unicode object not allowed as URL")
     request.setHeader(b"Content-Type", b"text/html; charset=utf-8")
     request.redirect(URL)
-    content = """
+    content =  """
 <html>
     <head>
         <meta http-equiv=\"refresh\" content=\"0;URL=%(url)s\">
@@ -68,9 +70,7 @@ def redirectTo(URL, request):
     <a href=\"%(url)s\">click here</a>
     </body>
 </html>
-""" % {
-        "url": nativeString(URL)
-    }
+""" % {'url': nativeString(URL)}
     if _PY3:
         content = content.encode("utf8")
     return content
@@ -92,24 +92,18 @@ class Redirect(resource.Resource):
 
 class ChildRedirector(Redirect):
     isLeaf = 0
-
     def __init__(self, url):
         # XXX is this enough?
-        if (
-            (url.find("://") == -1)
-            and (not url.startswith(".."))
-            and (not url.startswith("/"))
-        ):
-            raise ValueError(
-                "It seems you've given me a redirect (%s) that is a child of myself! That's not good, it'll cause an infinite redirect."
-                % url
-            )
+        if ((url.find('://') == -1)
+            and (not url.startswith('..'))
+            and (not url.startswith('/'))):
+            raise ValueError("It seems you've given me a redirect (%s) that is a child of myself! That's not good, it'll cause an infinite redirect." % url)
         Redirect.__init__(self, url)
 
     def getChild(self, name, request):
         newUrl = self.url
-        if not newUrl.endswith("/"):
-            newUrl += "/"
+        if not newUrl.endswith('/'):
+            newUrl += '/'
         newUrl += name
         return ChildRedirector(newUrl)
 
@@ -118,9 +112,7 @@ class ParentRedirect(resource.Resource):
     """
     I redirect to URLPath.here().
     """
-
     isLeaf = 1
-
     def render(self, request):
         return redirectTo(urlpath.URLPath.fromRequest(request).here(), request)
 
@@ -133,7 +125,6 @@ class DeferredResource(resource.Resource):
     I wrap up a Deferred that will eventually result in a Resource
     object.
     """
-
     isLeaf = 1
 
     def __init__(self, d):
@@ -144,9 +135,9 @@ class DeferredResource(resource.Resource):
         return self
 
     def render(self, request):
-        self.d.addCallback(self._cbChild, request).addErrback(self._ebChild, request)
+        self.d.addCallback(self._cbChild, request).addErrback(
+            self._ebChild,request)
         from twisted.web.server import NOT_DONE_YET
-
         return NOT_DONE_YET
 
     def _cbChild(self, child, request):
@@ -154,6 +145,7 @@ class DeferredResource(resource.Resource):
 
     def _ebChild(self, reason, request):
         request.processingFailed(reason)
+
 
 
 class _SourceLineElement(Element):
@@ -165,18 +157,19 @@ class _SourceLineElement(Element):
         rendered.
     @ivar source: A C{str} giving the source code to be rendered.
     """
-
     def __init__(self, loader, number, source):
         Element.__init__(self, loader)
         self.number = number
         self.source = source
+
 
     @renderer
     def sourceLine(self, request, tag):
         """
         Render the line of source as a child of C{tag}.
         """
-        return tag(self.source.replace("  ", u" \N{NO-BREAK SPACE}"))
+        return tag(self.source.replace('  ', u' \N{NO-BREAK SPACE}'))
+
 
     @renderer
     def lineNumber(self, request, tag):
@@ -184,6 +177,7 @@ class _SourceLineElement(Element):
         Render the line number as a child of C{tag}.
         """
         return tag(str(self.number))
+
 
 
 class _SourceFragmentElement(Element):
@@ -196,10 +190,10 @@ class _SourceFragmentElement(Element):
         holding some information from a frame object.  See
         L{Failure.frames<twisted.python.failure.Failure>} for specifics.
     """
-
     def __init__(self, loader, frame):
         Element.__init__(self, loader)
         self.frame = frame
+
 
     def _getSourceLines(self):
         """
@@ -212,7 +206,9 @@ class _SourceFragmentElement(Element):
         filename = self.frame[1]
         lineNumber = self.frame[2]
         for snipLineNumber in range(lineNumber - 1, lineNumber + 2):
-            yield (snipLineNumber, linecache.getline(filename, snipLineNumber).rstrip())
+            yield (snipLineNumber,
+                   linecache.getline(filename, snipLineNumber).rstrip())
+
 
     @renderer
     def sourceLines(self, request, tag):
@@ -232,6 +228,7 @@ class _SourceFragmentElement(Element):
             yield _SourceLineElement(loader, lineNumber, sourceLine)
 
 
+
 class _FrameElement(Element):
     """
     L{_FrameElement} is an L{IRenderable} which can render details about one
@@ -242,10 +239,10 @@ class _FrameElement(Element):
         holding some information from a frame object.  See
         L{Failure.frames<twisted.python.failure.Failure>} for specifics.
     """
-
     def __init__(self, loader, frame):
         Element.__init__(self, loader)
         self.frame = frame
+
 
     @renderer
     def filename(self, request, tag):
@@ -253,6 +250,7 @@ class _FrameElement(Element):
         Render the name of the file this frame references as a child of C{tag}.
         """
         return tag(self.frame[1])
+
 
     @renderer
     def lineNumber(self, request, tag):
@@ -262,12 +260,14 @@ class _FrameElement(Element):
         """
         return tag(str(self.frame[2]))
 
+
     @renderer
     def function(self, request, tag):
         """
         Render the function name this frame references as a child of C{tag}.
         """
         return tag(self.frame[0])
+
 
     @renderer
     def source(self, request, tag):
@@ -278,14 +278,15 @@ class _FrameElement(Element):
         return _SourceFragmentElement(TagLoader(tag), self.frame)
 
 
+
 class _StackElement(Element):
     """
     L{_StackElement} renders an L{IRenderable} which can render a list of frames.
     """
-
     def __init__(self, loader, stackFrames):
         Element.__init__(self, loader)
         self.stackFrames = stackFrames
+
 
     @renderer
     def frames(self, request, tag):
@@ -293,8 +294,10 @@ class _StackElement(Element):
         Render the list of frames in this L{_StackElement}, replacing C{tag}.
         """
         return [
-            _FrameElement(TagLoader(tag.clone()), frame) for frame in self.stackFrames
-        ]
+            _FrameElement(TagLoader(tag.clone()), frame)
+            for frame
+            in self.stackFrames]
+
 
 
 class FailureElement(Element):
@@ -307,9 +310,7 @@ class FailureElement(Element):
 
     @since: 12.1
     """
-
-    loader = XMLString(
-        """
+    loader = XMLString("""
 <div xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1">
   <style type="text/css">
     div.error {
@@ -382,12 +383,12 @@ class FailureElement(Element):
     <span t:render="type" />: <span t:render="value" />
   </div>
 </div>
-"""
-    )
+""")
 
     def __init__(self, failure, loader=None):
         Element.__init__(self, loader)
         self.failure = failure
+
 
     @renderer
     def type(self, request, tag):
@@ -396,12 +397,14 @@ class FailureElement(Element):
         """
         return tag(fullyQualifiedName(self.failure.type))
 
+
     @renderer
     def value(self, request, tag):
         """
         Render the exception value as a child of C{tag}.
         """
-        return tag(unicode(self.failure.value).encode("utf8"))
+        return tag(unicode(self.failure.value).encode('utf8'))
+
 
     @renderer
     def traceback(self, request, tag):
@@ -411,6 +414,7 @@ class FailureElement(Element):
         C{tag}.
         """
         return _StackElement(TagLoader(tag), self.failure.frames)
+
 
 
 def formatFailure(myFailure):
@@ -429,16 +433,11 @@ def formatFailure(myFailure):
     if isinstance(result[0], bytes):
         # Ensure the result string is all ASCII, for compatibility with the
         # default encoding expected by browsers.
-        return result[0].decode("utf-8").encode("ascii", "xmlcharrefreplace")
+        return result[0].decode('utf-8').encode('ascii', 'xmlcharrefreplace')
     result[0].raiseException()
 
 
+
 __all__ = [
-    "redirectTo",
-    "Redirect",
-    "ChildRedirector",
-    "ParentRedirect",
-    "DeferredResource",
-    "FailureElement",
-    "formatFailure",
-]
+    "redirectTo", "Redirect", "ChildRedirector", "ParentRedirect",
+    "DeferredResource", "FailureElement", "formatFailure"]

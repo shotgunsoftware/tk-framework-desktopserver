@@ -28,18 +28,18 @@
 from __future__ import absolute_import
 
 __all__ = (
-    "Publication",
-    "Subscription",
-    "Handler",
-    "Registration",
-    "Endpoint",
-    "PublishRequest",
-    "SubscribeRequest",
-    "UnsubscribeRequest",
-    "CallRequest",
-    "InvocationRequest",
-    "RegisterRequest",
-    "UnregisterRequest",
+    'Publication',
+    'Subscription',
+    'Handler',
+    'Registration',
+    'Endpoint',
+    'PublishRequest',
+    'SubscribeRequest',
+    'UnsubscribeRequest',
+    'CallRequest',
+    'InvocationRequest',
+    'RegisterRequest',
+    'UnregisterRequest',
 )
 
 
@@ -49,7 +49,7 @@ class Publication(object):
     an acknowledged publish).
     """
 
-    __slots__ = ("id", "was_encrypted")
+    __slots__ = ('id', 'was_encrypted')
 
     def __init__(self, publication_id, was_encrypted):
         """
@@ -64,9 +64,7 @@ class Publication(object):
         self.was_encrypted = was_encrypted
 
     def __str__(self):
-        return "Publication(id={0}, was_encrypted={1})".format(
-            self.id, self.was_encrypted
-        )
+        return "Publication(id={0}, was_encrypted={1})".format(self.id, self.was_encrypted)
 
 
 class Subscription(object):
@@ -74,7 +72,7 @@ class Subscription(object):
     Object representing a handler subscription.
     """
 
-    __slots__ = ("id", "topic", "active", "session", "handler")
+    __slots__ = ('id', 'topic', 'active', 'session', 'handler')
 
     def __init__(self, subscription_id, topic, session, handler):
         """
@@ -115,7 +113,7 @@ class Handler(object):
     Object representing an event handler attached to a subscription.
     """
 
-    __slots__ = ("fn", "obj", "details_arg")
+    __slots__ = ('fn', 'obj', 'details_arg')
 
     def __init__(self, fn, obj=None, details_arg=None):
         """
@@ -139,7 +137,7 @@ class Registration(object):
     Object representing a registration.
     """
 
-    __slots__ = ("id", "active", "session", "procedure", "endpoint")
+    __slots__ = ('id', 'active', 'session', 'procedure', 'endpoint')
 
     def __init__(self, session, registration_id, procedure, endpoint):
         """
@@ -176,7 +174,7 @@ class Endpoint(object):
     Object representing an procedure endpoint attached to a registration.
     """
 
-    __slots__ = ("fn", "obj", "details_arg")
+    __slots__ = ('fn', 'obj', 'details_arg')
 
     def __init__(self, fn, obj=None, details_arg=None):
         """
@@ -201,7 +199,7 @@ class Request(object):
     register/unregister or call/publish.
     """
 
-    __slots__ = ("request_id", "on_reply")
+    __slots__ = ('request_id', 'on_reply')
 
     def __init__(self, request_id, on_reply):
         """
@@ -221,7 +219,7 @@ class PublishRequest(Request):
     Object representing an outstanding request to publish (acknowledged) an event.
     """
 
-    __slots__ = "was_encrypted"
+    __slots__ = ('was_encrypted')
 
     def __init__(self, request_id, on_reply, was_encrypted):
         """
@@ -244,7 +242,7 @@ class SubscribeRequest(Request):
     Object representing an outstanding request to subscribe to a topic.
     """
 
-    __slots__ = ("handler", "topic")
+    __slots__ = ('handler', 'topic')
 
     def __init__(self, request_id, topic, on_reply, handler):
         """
@@ -271,7 +269,7 @@ class UnsubscribeRequest(Request):
     Object representing an outstanding request to unsubscribe a subscription.
     """
 
-    __slots__ = ("subscription_id",)
+    __slots__ = ('subscription_id',)
 
     def __init__(self, request_id, on_reply, subscription_id):
         """
@@ -285,10 +283,7 @@ class CallRequest(Request):
     Object representing an outstanding request to call a procedure.
     """
 
-    __slots__ = (
-        "procedure",
-        "options",
-    )
+    __slots__ = ('procedure', 'options',)
 
     def __init__(self, request_id, procedure, on_reply, options):
         """
@@ -318,10 +313,7 @@ class RegisterRequest(Request):
     Object representing an outstanding request to register a procedure.
     """
 
-    __slots__ = (
-        "procedure",
-        "endpoint",
-    )
+    __slots__ = ('procedure', 'endpoint',)
 
     def __init__(self, request_id, on_reply, procedure, endpoint):
         """
@@ -336,7 +328,7 @@ class UnregisterRequest(Request):
     Object representing an outstanding request to unregister a registration.
     """
 
-    __slots__ = ("registration_id",)
+    __slots__ = ('registration_id',)
 
     def __init__(self, request_id, on_reply, registration_id):
         """

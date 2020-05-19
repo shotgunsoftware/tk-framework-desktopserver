@@ -30,13 +30,13 @@ from zope.interface.exceptions import MultipleInvalid
 from zope.interface.interface import fromMethod, fromFunction, Method
 
 __all__ = [
-    "verifyObject",
-    "verifyClass",
+    'verifyObject',
+    'verifyClass',
 ]
 
 # This will be monkey-patched when running under Zope 2, so leave this
 # here:
-MethodTypes = (MethodType,)
+MethodTypes = (MethodType, )
 
 
 def _verify(iface, candidate, tentative=False, vtype=None):
@@ -71,7 +71,7 @@ def _verify(iface, candidate, tentative=False, vtype=None):
         alone, like before.
     """
 
-    if vtype == "c":
+    if vtype == 'c':
         tester = iface.implementedBy
     else:
         tester = iface.providedBy
@@ -93,13 +93,12 @@ def _verify(iface, candidate, tentative=False, vtype=None):
 
     return True
 
-
 def _verify_element(iface, name, desc, candidate, vtype):
     # Here the `desc` is either an `Attribute` or `Method` instance
     try:
         attr = getattr(candidate, name)
     except AttributeError:
-        if (not isinstance(desc, Method)) and vtype == "c":
+        if (not isinstance(desc, Method)) and vtype == 'c':
             # We can't verify non-methods on classes, since the
             # class may provide attrs in it's __init__.
             return
@@ -125,18 +124,20 @@ def _verify_element(iface, name, desc, candidate, vtype):
         return
 
     if isinstance(attr, FunctionType):
-        if sys.version_info[0] >= 3 and isinstance(candidate, type) and vtype == "c":
+        if sys.version_info[0] >= 3 and isinstance(candidate, type) and vtype == 'c':
             # This is an "unbound method" in Python 3.
             # Only unwrap this if we're verifying implementedBy;
             # otherwise we can unwrap @staticmethod on classes that directly
             # provide an interface.
-            meth = fromFunction(attr, iface, name=name, imlevel=1)
+            meth = fromFunction(attr, iface, name=name,
+                                imlevel=1)
         else:
             # Nope, just a normal function
             meth = fromFunction(attr, iface, name=name)
-    elif isinstance(attr, MethodTypes) and type(attr.__func__) is FunctionType:
+    elif (isinstance(attr, MethodTypes)
+          and type(attr.__func__) is FunctionType):
         meth = fromMethod(attr, iface, name)
-    elif isinstance(attr, property) and vtype == "c":
+    elif isinstance(attr, property) and vtype == 'c':
         # Without an instance we cannot be sure it's not a
         # callable.
         # TODO: This should probably check inspect.isdatadescriptor(),
@@ -145,9 +146,8 @@ def _verify_element(iface, name, desc, candidate, vtype):
 
     else:
         if not callable(attr):
-            raise BrokenMethodImplementation(
-                desc, "implementation is not a method", attr, iface, candidate
-            )
+            raise BrokenMethodImplementation(desc, "implementation is not a method",
+                                             attr, iface, candidate)
         # sigh, it's callable, but we don't know how to introspect it, so
         # we have to give it a pass.
         return
@@ -161,21 +161,22 @@ def _verify_element(iface, name, desc, candidate, vtype):
         raise BrokenMethodImplementation(desc, mess, attr, iface, candidate)
 
 
+
 def verifyClass(iface, candidate, tentative=False):
     """
     Verify that the *candidate* might correctly provide *iface*.
     """
-    return _verify(iface, candidate, tentative, vtype="c")
-
+    return _verify(iface, candidate, tentative, vtype='c')
 
 def verifyObject(iface, candidate, tentative=False):
-    return _verify(iface, candidate, tentative, vtype="o")
-
+    return _verify(iface, candidate, tentative, vtype='o')
 
 verifyObject.__doc__ = _verify.__doc__
 
-_MSG_TOO_MANY = "implementation requires too many arguments"
-_KNOWN_PYPY2_FALSE_POSITIVES = frozenset((_MSG_TOO_MANY,))
+_MSG_TOO_MANY = 'implementation requires too many arguments'
+_KNOWN_PYPY2_FALSE_POSITIVES = frozenset((
+    _MSG_TOO_MANY,
+))
 
 
 def _pypy2_false_positive(msg, candidate, vtype):
@@ -194,7 +195,7 @@ def _pypy2_false_positive(msg, candidate, vtype):
         return False
 
     known_builtin_types = vars(__builtins__).values()
-    candidate_type = candidate if vtype == "c" else type(candidate)
+    candidate_type = candidate if vtype == 'c' else type(candidate)
     if candidate_type in known_builtin_types:
         return True
 
@@ -202,17 +203,16 @@ def _pypy2_false_positive(msg, candidate, vtype):
 
 
 def _incompat(required, implemented):
-    # if (required['positional'] !=
+    #if (required['positional'] !=
     #    implemented['positional'][:len(required['positional'])]
     #    and implemented['kwargs'] is None):
     #    return 'imlementation has different argument names'
-    if len(implemented["required"]) > len(required["required"]):
+    if len(implemented['required']) > len(required['required']):
         return _MSG_TOO_MANY
-    if (
-        len(implemented["positional"]) < len(required["positional"])
-    ) and not implemented["varargs"]:
+    if ((len(implemented['positional']) < len(required['positional']))
+        and not implemented['varargs']):
         return "implementation doesn't allow enough arguments"
-    if required["kwargs"] and not implemented["kwargs"]:
+    if required['kwargs'] and not implemented['kwargs']:
         return "implementation doesn't support keyword arguments"
-    if required["varargs"] and not implemented["varargs"]:
+    if required['varargs'] and not implemented['varargs']:
         return "implementation doesn't support variable arguments"

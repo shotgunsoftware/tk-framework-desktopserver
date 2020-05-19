@@ -4,6 +4,7 @@
 # See LICENSE for details.
 
 
+
 """
 DBM-style interface to a directory.
 
@@ -35,6 +36,7 @@ try:
     _open
 except NameError:
     _open = open
+
 
 
 class DirDBM:
@@ -73,18 +75,21 @@ class DirDBM:
                 else:
                     os.rename(f, old)
 
+
     def _encode(self, k):
         """
         Encode a key so it can be used as a filename.
         """
         # NOTE: '_' is NOT in the base64 alphabet!
-        return base64.encodestring(k).replace(b"\n", b"_").replace(b"/", b"-")
+        return base64.encodestring(k).replace(b'\n', b'_').replace(b"/", b"-")
+
 
     def _decode(self, k):
         """
         Decode a filename to get the key.
         """
-        return base64.decodestring(k.replace(b"_", b"\n").replace(b"-", b"/"))
+        return base64.decodestring(k.replace(b'_', b'\n').replace(b"-", b"/"))
+
 
     def _readFile(self, path):
         """
@@ -96,6 +101,7 @@ class DirDBM:
             s = f.read()
         return s
 
+
     def _writeFile(self, path, data):
         """
         Write data to a file.
@@ -106,11 +112,13 @@ class DirDBM:
             f.write(data)
             f.flush()
 
+
     def __len__(self):
         """
         @return: The number of key/value pairs in this Shelf
         """
         return len(self._dnamePath.listdir())
+
 
     def __setitem__(self, k, v):
         """
@@ -133,18 +141,18 @@ class DirDBM:
         # if the write succeeds delete the old file and rename the new one.
         old = self._dnamePath.child(k)
         if old.exists():
-            new = old.siblingExtension(".rpl")  # Replacement entry
+            new = old.siblingExtension(".rpl") # Replacement entry
         else:
-            new = old.siblingExtension(".new")  # New entry
+            new = old.siblingExtension(".new") # New entry
         try:
             self._writeFile(new, v)
         except:
             new.remove()
             raise
         else:
-            if old.exists():
-                old.remove()
+            if (old.exists()): old.remove()
             new.moveTo(old)
+
 
     def __getitem__(self, k):
         """
@@ -165,6 +173,7 @@ class DirDBM:
         except (EnvironmentError):
             raise KeyError(k)
 
+
     def __delitem__(self, k):
         """
         C{del dirdbm[foo]}
@@ -183,11 +192,13 @@ class DirDBM:
         except (EnvironmentError):
             raise KeyError(self._decode(k))
 
+
     def keys(self):
         """
         @return: a L{list} of filenames (keys).
         """
         return list(map(self._decode, self._dnamePath.asBytesMode().listdir()))
+
 
     def values(self):
         """
@@ -199,6 +210,7 @@ class DirDBM:
             vals.append(self[key])
         return vals
 
+
     def items(self):
         """
         @return: a L{list} of 2-tuples containing key/value pairs.
@@ -208,6 +220,7 @@ class DirDBM:
         for key in keys:
             items.append((key, self[key]))
         return items
+
 
     def has_key(self, key):
         """
@@ -222,6 +235,7 @@ class DirDBM:
         key = self._encode(key)
         return self._dnamePath.child(key).isfile()
 
+
     def setdefault(self, key, value):
         """
         @type key: bytes
@@ -235,7 +249,8 @@ class DirDBM:
             return value
         return self[key]
 
-    def get(self, key, default=None):
+
+    def get(self, key, default = None):
         """
         @type key: bytes
         @param key: The key to lookup
@@ -250,11 +265,13 @@ class DirDBM:
         else:
             return default
 
+
     def __contains__(self, key):
         """
         @see: L{DirDBM.has_key}
         """
         return self.has_key(key)
+
 
     def update(self, dict):
         """
@@ -265,7 +282,8 @@ class DirDBM:
         @param dict: A mapping of key/value pairs to add to this dirdbm.
         """
         for key, val in dict.items():
-            self[key] = val
+            self[key]=val
+
 
     def copyTo(self, path):
         """
@@ -287,6 +305,7 @@ class DirDBM:
             d[k] = self[k]
         return d
 
+
     def clear(self):
         """
         Delete all key/value pairs in this dirdbm.
@@ -294,10 +313,12 @@ class DirDBM:
         for k in self.keys():
             del self[k]
 
+
     def close(self):
         """
         Close this dbm: no-op, for dbm-style interface compliance.
         """
+
 
     def getModificationTime(self, key):
         """
@@ -313,6 +334,7 @@ class DirDBM:
             return path.getModificationTime()
         else:
             raise KeyError(key)
+
 
 
 class Shelf(DirDBM):
@@ -336,6 +358,7 @@ class Shelf(DirDBM):
         v = pickle.dumps(v)
         DirDBM.__setitem__(self, k, v)
 
+
     def __getitem__(self, k):
         """
         C{dirdbm[foo]}
@@ -350,7 +373,8 @@ class Shelf(DirDBM):
         return pickle.loads(DirDBM.__getitem__(self, k))
 
 
-def open(file, flag=None, mode=None):
+
+def open(file, flag = None, mode = None):
     """
     This is for 'anydbm' compatibility.
 

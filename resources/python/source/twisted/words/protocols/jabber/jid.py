@@ -12,18 +12,12 @@ characters, case folding and canonicalisation through L{stringprep<twisted.words
 """
 
 from twisted.python.compat import _PY3, unicode
-from twisted.words.protocols.jabber.xmpp_stringprep import (
-    nodeprep,
-    resourceprep,
-    nameprep,
-)
-
+from twisted.words.protocols.jabber.xmpp_stringprep import nodeprep, resourceprep, nameprep
 
 class InvalidFormat(Exception):
     """
     The given string could not be parsed into a valid Jabber Identifier (JID).
     """
-
 
 def parse(jidstring):
     """
@@ -43,7 +37,7 @@ def parse(jidstring):
 
     # Search for delimiters
     user_sep = jidstring.find("@")
-    res_sep = jidstring.find("/")
+    res_sep  = jidstring.find("/")
 
     if user_sep == -1:
         if res_sep == -1:
@@ -52,25 +46,24 @@ def parse(jidstring):
         else:
             # host/resource
             host = jidstring[0:res_sep]
-            resource = jidstring[res_sep + 1 :] or None
+            resource = jidstring[res_sep + 1:] or None
     else:
         if res_sep == -1:
             # user@host
             user = jidstring[0:user_sep] or None
-            host = jidstring[user_sep + 1 :]
+            host = jidstring[user_sep + 1:]
         else:
             if user_sep < res_sep:
                 # user@host/resource
                 user = jidstring[0:user_sep] or None
-                host = jidstring[user_sep + 1 : user_sep + (res_sep - user_sep)]
-                resource = jidstring[res_sep + 1 :] or None
+                host = jidstring[user_sep + 1:user_sep + (res_sep - user_sep)]
+                resource = jidstring[res_sep + 1:] or None
             else:
                 # host/resource (with an @ in resource)
                 host = jidstring[0:res_sep]
-                resource = jidstring[res_sep + 1 :] or None
+                resource = jidstring[res_sep + 1:] or None
 
     return prep(user, host, resource)
-
 
 def prep(user, host, resource):
     """
@@ -112,9 +105,7 @@ def prep(user, host, resource):
 
     return (user, host, resource)
 
-
 __internJIDs = {}
-
 
 def internJID(jidstring):
     """
@@ -130,7 +121,6 @@ def internJID(jidstring):
         __internJIDs[jidstring] = j
         return j
 
-
 class JID(object):
     """
     Represents a stringprep'd Jabber ID.
@@ -141,9 +131,8 @@ class JID(object):
 
     def __init__(self, str=None, tuple=None):
         if not (str or tuple):
-            raise RuntimeError(
-                "You must provide a value for either 'str' or " "'tuple' arguments."
-            )
+            raise RuntimeError("You must provide a value for either 'str' or "
+                               "'tuple' arguments.")
 
         if str:
             user, host, res = parse(str)
@@ -212,11 +201,9 @@ class JID(object):
         uses the default comparison.
         """
         if isinstance(other, JID):
-            return (
-                self.user == other.user
-                and self.host == other.host
-                and self.resource == other.resource
-            )
+            return (self.user == other.user and
+                    self.host == other.host and
+                    self.resource == other.resource)
         else:
             return NotImplemented
 
@@ -263,4 +250,4 @@ class JID(object):
         Returns a string that would create a new JID object that compares equal
         to this one.
         """
-        return "JID(%r)" % self.full()
+        return 'JID(%r)' % self.full()

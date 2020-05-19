@@ -14,7 +14,6 @@ This script will update the list of requirements to install in the bin and sourc
 folders.
 """
 
-from __future__ import print_function
 import subprocess
 import shutil
 import sys

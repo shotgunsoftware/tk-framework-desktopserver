@@ -23,25 +23,29 @@ from pyasn1_modules import rfc5652
 
 import string
 
-MAX = float("inf")
+MAX = float('inf')
 
 
 class Algorithm(univ.Enumerated):
     namedValues = namedval.NamedValues(
-        ("canonAlgorithmSimple", 0), ("canonAlgorithmRelaxed", 1)
+        ('canonAlgorithmSimple', 0),
+        ('canonAlgorithmRelaxed', 1)
     )
 
 
 class HeaderFieldStatus(univ.Integer):
     namedValues = namedval.NamedValues(
-        ("duplicated", 0), ("deleted", 1), ("modified", 2)
+        ('duplicated', 0),
+        ('deleted', 1),
+        ('modified', 2)
     )
 
 
 class HeaderFieldName(char.VisibleString):
-    subtypeSpec = constraint.PermittedAlphabetConstraint(
-        *string.printable
-    ) - constraint.PermittedAlphabetConstraint(":")
+    subtypeSpec = (
+        constraint.PermittedAlphabetConstraint(*string.printable) -
+        constraint.PermittedAlphabetConstraint(':')
+    )
 
 
 class HeaderFieldValue(char.UTF8String):
@@ -50,11 +54,10 @@ class HeaderFieldValue(char.UTF8String):
 
 class HeaderField(univ.Sequence):
     componentType = namedtype.NamedTypes(
-        namedtype.NamedType("field-Name", HeaderFieldName()),
-        namedtype.NamedType("field-Value", HeaderFieldValue()),
-        namedtype.DefaultedNamedType(
-            "field-Status", HeaderFieldStatus().subtype(value="duplicated")
-        ),
+        namedtype.NamedType('field-Name', HeaderFieldName()),
+        namedtype.NamedType('field-Value', HeaderFieldValue()),
+        namedtype.DefaultedNamedType('field-Status',
+            HeaderFieldStatus().subtype(value='duplicated'))
     )
 
 
@@ -65,14 +68,15 @@ class HeaderFields(univ.SequenceOf):
 
 class SecureHeaderFields(univ.Set):
     componentType = namedtype.NamedTypes(
-        namedtype.NamedType("canonAlgorithm", Algorithm()),
-        namedtype.NamedType("secHeaderFields", HeaderFields()),
+        namedtype.NamedType('canonAlgorithm', Algorithm()),
+        namedtype.NamedType('secHeaderFields', HeaderFields())
     )
 
 
-id_aa = univ.ObjectIdentifier((1, 2, 840, 113549, 1, 9, 16, 2,))
+id_aa = univ.ObjectIdentifier((1, 2, 840, 113549, 1, 9, 16, 2, ))
 
-id_aa_secureHeaderFieldsIdentifier = id_aa + (55,)
+id_aa_secureHeaderFieldsIdentifier = id_aa + (55, )
+
 
 
 # Map of Attribute Type OIDs to Attributes added to the
@@ -83,3 +87,4 @@ _cmsAttributesMapUpdate = {
 }
 
 rfc5652.cmsAttributesMap.update(_cmsAttributesMapUpdate)
+

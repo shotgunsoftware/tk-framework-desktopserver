@@ -29,23 +29,24 @@ __all__ = [
     # from zope.interface. The only remaining public API intended to
     # be imported from here should be those few things documented as
     # such.
-    "InterfaceClass",
-    "Specification",
-    "adapter_hooks",
+    'InterfaceClass',
+    'Specification',
+    'adapter_hooks',
 ]
 
 CO_VARARGS = 4
 CO_VARKEYWORDS = 8
-TAGGED_DATA = "__interface_tagged_values__"
+TAGGED_DATA = '__interface_tagged_values__'
 
 _decorator_non_return = object()
 _marker = object()
 
 
+
 def invariant(call):
     f_locals = sys._getframe(1).f_locals
     tags = f_locals.setdefault(TAGGED_DATA, {})
-    invariants = tags.setdefault("invariants", [])
+    invariants = tags.setdefault('invariants', [])
     invariants.append(call)
     return _decorator_non_return
 
@@ -66,10 +67,10 @@ class Element(object):
     # We can't say this yet because we don't have enough
     # infrastructure in place.
     #
-    # implements(IElement)
+    #implements(IElement)
 
-    def __init__(self, __name__, __doc__=""):  # pylint:disable=redefined-builtin
-        if not __doc__ and __name__.find(" ") >= 0:
+    def __init__(self, __name__, __doc__=''): # pylint:disable=redefined-builtin
+        if not __doc__ and __name__.find(' ') >= 0:
             __doc__ = __name__
             __name__ = None
 
@@ -102,9 +103,7 @@ class Element(object):
 
     def queryTaggedValue(self, tag, default=None):
         """ Returns the value associated with 'tag'. """
-        return (
-            self.__tagged_values.get(tag, default) if self.__tagged_values else default
-        )
+        return self.__tagged_values.get(tag, default) if self.__tagged_values else default
 
     def getTaggedValueTags(self):
         """ Returns a collection of all tags. """
@@ -121,7 +120,7 @@ class Element(object):
     getDirectTaggedValueTags = getTaggedValueTags
 
 
-SpecificationBasePy = object  # filled by _use_c_impl.
+SpecificationBasePy = object # filled by _use_c_impl.
 
 
 @_use_c_impl
@@ -139,14 +138,14 @@ class SpecificationBase(object):
     # trees. These all translate into tp_members in C.
     __slots__ = (
         # Things used here.
-        "_implied",
+        '_implied',
         # Things used in Specification.
-        "_dependents",
-        "_bases",
-        "_v_attrs",
-        "__iro__",
-        "__sro__",
-        "__weakref__",
+        '_dependents',
+        '_bases',
+        '_v_attrs',
+        '__iro__',
+        '__sro__',
+        '__weakref__',
     )
 
     def providedBy(self, ob):
@@ -166,7 +165,7 @@ class SpecificationBase(object):
     def isOrExtends(self, interface):
         """Is the interface the same as or extend the given interface
         """
-        return interface in self._implied  # pylint:disable=no-member
+        return interface in self._implied # pylint:disable=no-member
 
     __call__ = isOrExtends
 
@@ -255,9 +254,9 @@ class InterfaceBase(NameAndModuleComparisonMixin, SpecificationBasePy):
     """
 
     __slots__ = (
-        "__name__",
-        "__ibmodule__",
-        "_v_cached_hash",
+        '__name__',
+        '__ibmodule__',
+        '_v_cached_hash',
     )
 
     def __init__(self, name=None, module=None):
@@ -276,7 +275,7 @@ class InterfaceBase(NameAndModuleComparisonMixin, SpecificationBasePy):
         """Adapt an object to the interface
         """
         try:
-            conform = getattr(obj, "__conform__", None)
+            conform = getattr(obj, '__conform__', None)
         # XXX: Ideally, we don't want to catch BaseException. Things
         # like MemoryError, KeyboardInterrupt, and other BaseExceptions should
         # get through. Here, and everywhere we have bare ``except:`` clauses.
@@ -284,7 +283,7 @@ class InterfaceBase(NameAndModuleComparisonMixin, SpecificationBasePy):
         # ``_zope_interface_coptimizations.c`` (``ib_call()`` in this case). Both
         # implementations would need to change. But beware of things like proxies and
         # Acquisition wrappers. See https://github.com/zopefoundation/zope.interface/issues/163
-        except:  # pylint:disable=bare-except
+        except: # pylint:disable=bare-except
             conform = None
         if conform is not None:
             adapter = self._call_conform(conform)
@@ -335,8 +334,7 @@ class InterfaceBase(NameAndModuleComparisonMixin, SpecificationBasePy):
             return c
         return c != 0
 
-
-adapter_hooks = _use_c_impl([], "adapter_hooks")
+adapter_hooks = _use_c_impl([], 'adapter_hooks')
 
 
 class Specification(SpecificationBase):
@@ -351,7 +349,6 @@ class Specification(SpecificationBase):
     Specifications are mutable.  If you reassign their bases, their
     relations with other specifications are adjusted accordingly.
     """
-
     __slots__ = ()
 
     # The root of all Specifications. This will be assigned `Interface`,
@@ -371,7 +368,7 @@ class Specification(SpecificationBase):
         # 4700 had 0 dependents, 1400 had 1, 382 had 2 and so on. Only one
         # for <type> had 1664. So there's savings to be had deferring
         # the creation of dependents.
-        self._dependents = None  # type: weakref.WeakKeyDictionary
+        self._dependents = None # type: weakref.WeakKeyDictionary
         self._bases = ()
         self._implied = {}
         self._v_attrs = None
@@ -413,7 +410,10 @@ class Specification(SpecificationBase):
 
         self.changed(self)
 
-    __bases__ = property(lambda self: self._bases, __setBases,)
+    __bases__ = property(
+        lambda self: self._bases,
+        __setBases,
+        )
 
     def _calculate_sro(self):
         """
@@ -450,7 +450,10 @@ class Specification(SpecificationBase):
         # This requires that by the time this method is invoked, our bases
         # have settled their SROs. Thus, ``changed()`` must first
         # update itself before telling its descendents of changes.
-        sro = calculate_ro(self, base_mros={b: b.__sro__ for b in self.__bases__})
+        sro = calculate_ro(self, base_mros={
+            b: b.__sro__
+            for b in self.__bases__
+        })
         root = self._ROOT
         if root is not None and sro and sro[-1] is not root:
             # In one dataset of 1823 Interface objects, 1117 ClassProvides objects,
@@ -460,7 +463,11 @@ class Specification(SpecificationBase):
             # Once we don't have to deal with old-style classes,
             # we can add a check and only do this if base_count > 1,
             # if we tweak the bootstrapping for ``<implementedBy object>``
-            sro = [x for x in sro if x is not root]
+            sro = [
+                x
+                for x in sro
+                if x is not root
+            ]
             sro.append(root)
 
         return sro
@@ -479,9 +486,9 @@ class Specification(SpecificationBase):
 
         ancestors = self._calculate_sro()
         self.__sro__ = tuple(ancestors)
-        self.__iro__ = tuple(
-            [ancestor for ancestor in ancestors if isinstance(ancestor, InterfaceClass)]
-        )
+        self.__iro__ = tuple([ancestor for ancestor in ancestors
+                              if isinstance(ancestor, InterfaceClass)
+                              ])
 
         for ancestor in ancestors:
             # We directly imply our ancestors:
@@ -513,7 +520,10 @@ class Specification(SpecificationBase):
         Test whether an interface in the specification extends the
         given interface
         """
-        return (interface in self._implied) and ((not strict) or (self != interface))
+        return ((interface in self._implied)
+                and
+                ((not strict) or (self != interface))
+                )
 
     def weakref(self, callback=None):
         return weakref.ref(self, callback)
@@ -615,15 +625,15 @@ class _InterfaceMetaClass(type):
         # This is copied from ``InterfaceClass.__init__``;
         # reviewers aren't sure how AttributeError or KeyError
         # could be raised.
-        __module__ = sys._getframe(1).f_globals["__name__"]
+        __module__ = sys._getframe(1).f_globals['__name__']
         # Get the C optimized __module__ accessor and give it
         # to the new class.
-        moduledescr = InterfaceBase.__dict__["__module__"]
+        moduledescr = InterfaceBase.__dict__['__module__']
         if isinstance(moduledescr, str):
             # We're working with the Python implementation,
             # not the C version
-            moduledescr = InterfaceBase.__dict__["__module_property__"]
-        attrs["__module__"] = moduledescr
+            moduledescr = InterfaceBase.__dict__['__module_property__']
+        attrs['__module__'] = moduledescr
         kind = type.__new__(cls, name, bases, attrs)
         kind.__module = __module__
         return kind
@@ -633,14 +643,17 @@ class _InterfaceMetaClass(type):
         return cls.__module
 
     def __repr__(cls):
-        return "<class '%s.%s'>" % (cls.__module, cls.__name__,)
+        return "<class '%s.%s'>" % (
+            cls.__module,
+            cls.__name__,
+        )
 
 
 _InterfaceClassBase = _InterfaceMetaClass(
-    "InterfaceClass",
+    'InterfaceClass',
     # From least specific to most specific.
     (InterfaceBase, Specification, Element),
-    {"__slots__": ()},
+    {'__slots__': ()}
 )
 
 
@@ -655,36 +668,30 @@ class InterfaceClass(_InterfaceClassBase):
     # We can't say this yet because we don't have enough
     # infrastructure in place.
     #
-    # implements(IInterface)
+    #implements(IInterface)
 
-    def __init__(
-        self,
-        name,
-        bases=(),
-        attrs=None,
-        __doc__=None,  # pylint:disable=redefined-builtin
-        __module__=None,
-    ):
+    def __init__(self, name, bases=(), attrs=None, __doc__=None,  # pylint:disable=redefined-builtin
+                 __module__=None):
         # We don't call our metaclass parent directly
         # pylint:disable=non-parent-init-called
         # pylint:disable=super-init-not-called
         if not all(isinstance(base, InterfaceClass) for base in bases):
-            raise TypeError("Expected base interfaces")
+            raise TypeError('Expected base interfaces')
 
         if attrs is None:
             attrs = {}
 
         if __module__ is None:
-            __module__ = attrs.get("__module__")
+            __module__ = attrs.get('__module__')
             if isinstance(__module__, str):
-                del attrs["__module__"]
+                del attrs['__module__']
             else:
                 try:
                     # Figure out what module defined the interface.
                     # This is how cPython figures out the module of
                     # a class, but of course it does it in C. :-/
-                    __module__ = sys._getframe(1).f_globals["__name__"]
-                except (AttributeError, KeyError):  # pragma: no cover
+                    __module__ = sys._getframe(1).f_globals['__name__']
+                except (AttributeError, KeyError): # pragma: no cover
                     pass
 
         InterfaceBase.__init__(self, name, __module__)
@@ -692,15 +699,15 @@ class InterfaceClass(_InterfaceClassBase):
         # assert '__module__' not in self.__dict__
         # assert self.__ibmodule__ is self.__module__ is __module__
 
-        d = attrs.get("__doc__")
+        d = attrs.get('__doc__')
         if d is not None:
             if not isinstance(d, Attribute):
                 if __doc__ is None:
                     __doc__ = d
-                del attrs["__doc__"]
+                del attrs['__doc__']
 
         if __doc__ is None:
-            __doc__ = ""
+            __doc__ = ''
 
         Element.__init__(self, name, __doc__)
 
@@ -731,14 +738,13 @@ class InterfaceClass(_InterfaceClassBase):
         return {
             aname: update_value(aname, aval)
             for aname, aval in attrs.items()
-            if aname
-            not in (
+            if aname not in (
                 # __locals__: Python 3 sometimes adds this.
-                "__locals__",
+                '__locals__',
                 # __qualname__: PEP 3155 (Python 3.3+)
-                "__qualname__",
+                '__qualname__',
                 # __annotations__: PEP 3107 (Python 3.0+)
-                "__annotations__",
+                '__annotations__'
             )
             and aval is not _decorator_non_return
         }
@@ -755,7 +761,7 @@ class InterfaceClass(_InterfaceClassBase):
         """Same interface or extends?"""
         return self == other or other.extends(self)
 
-    def names(self, all=False):  # pylint:disable=redefined-builtin
+    def names(self, all=False): # pylint:disable=redefined-builtin
         """Return the attribute names defined by the interface."""
         if not all:
             return self.__attrs.keys()
@@ -770,7 +776,7 @@ class InterfaceClass(_InterfaceClassBase):
     def __iter__(self):
         return iter(self.names(all=True))
 
-    def namesAndDescriptions(self, all=False):  # pylint:disable=redefined-builtin
+    def namesAndDescriptions(self, all=False): # pylint:disable=redefined-builtin
         """Return attribute names and descriptions defined by interface."""
         if not all:
             return self.__attrs.items()
@@ -804,7 +810,7 @@ class InterfaceClass(_InterfaceClassBase):
 
     def validateInvariants(self, obj, errors=None):
         """validate object to defined invariants."""
-        for call in self.queryTaggedValue("invariants", []):
+        for call in self.queryTaggedValue('invariants', []):
             try:
                 call(obj)
             except Invalid as e:
@@ -854,15 +860,15 @@ class InterfaceClass(_InterfaceClassBase):
             name = self.__name__
             m = self.__ibmodule__
             if m:
-                name = "%s.%s" % (m, name)
+                name = '%s.%s' % (m, name)
             r = "<%s %s>" % (self.__class__.__name__, name)
-            self._v_repr = r  # pylint:disable=attribute-defined-outside-init
+            self._v_repr = r # pylint:disable=attribute-defined-outside-init
             return r
 
     def _call_conform(self, conform):
         try:
             return conform(self)
-        except TypeError:  # pragma: no cover
+        except TypeError: # pragma: no cover
             # We got a TypeError. It might be an error raised by
             # the __conform__ implementation, or *we* may have
             # made the TypeError by calling an unbound method
@@ -876,13 +882,12 @@ class InterfaceClass(_InterfaceClassBase):
                 raise
             # This clever trick is from Phillip Eby
 
-        return None  # pragma: no cover
+        return None # pragma: no cover
 
     def __reduce__(self):
         return self.__name__
 
-
-Interface = InterfaceClass("Interface", __module__="zope.interface")
+Interface = InterfaceClass("Interface", __module__='zope.interface')
 # Interface is the only member of its own SRO.
 Interface._calculate_sro = lambda: (Interface,)
 Interface.changed(Interface)
@@ -907,18 +912,18 @@ class Attribute(Element):
         return ""
 
     def __str__(self):
-        of = ""
+        of = ''
         if self.interface is not None:
-            of = self.interface.__module__ + "." + self.interface.__name__ + "."
+            of = self.interface.__module__ + '.' + self.interface.__name__ + '.'
         # self.__name__ may be None during construction (e.g., debugging)
-        return of + (self.__name__ or "<unknown>") + self._get_str_info()
+        return of + (self.__name__ or '<unknown>') + self._get_str_info()
 
     def __repr__(self):
         return "<%s.%s object at 0x%x %s>" % (
             type(self).__module__,
             type(self).__name__,
             id(self),
-            self,
+            self
         )
 
 
@@ -936,31 +941,26 @@ class Method(Attribute):
 
     positional = required = ()
     _optional = varargs = kwargs = None
-
     def _get_optional(self):
         if self._optional is None:
             return {}
         return self._optional
-
     def _set_optional(self, opt):
         self._optional = opt
-
     def _del_optional(self):
         self._optional = None
-
     optional = property(_get_optional, _set_optional, _del_optional)
 
     def __call__(self, *args, **kw):
         raise BrokenImplementation(self.interface, self.__name__)
 
     def getSignatureInfo(self):
-        return {
-            "positional": self.positional,
-            "required": self.required,
-            "optional": self.optional,
-            "varargs": self.varargs,
-            "kwargs": self.kwargs,
-        }
+        return {'positional': self.positional,
+                'required': self.required,
+                'optional': self.optional,
+                'varargs': self.varargs,
+                'kwargs': self.kwargs,
+                }
 
     def getSignatureString(self):
         sig = []
@@ -981,7 +981,7 @@ class Method(Attribute):
 def fromFunction(func, interface=None, imlevel=0, name=None):
     name = name or func.__name__
     method = Method(name, func.__doc__)
-    defaults = getattr(func, "__defaults__", None) or ()
+    defaults = getattr(func, '__defaults__', None) or ()
     code = func.__code__
     # Number of positional arguments
     na = code.co_argcount - imlevel
@@ -993,7 +993,7 @@ def fromFunction(func, interface=None, imlevel=0, name=None):
         # PyPy3 uses ``__defaults_count__`` for builtin methods
         # like ``dict.pop``. Surprisingly, these don't have recorded
         # ``__defaults__``
-        defaults_count = getattr(func, "__defaults_count__", 0)
+        defaults_count = getattr(func, '__defaults_count__', 0)
 
     nr = na - defaults_count
     if nr < 0:
@@ -1041,26 +1041,20 @@ def fromMethod(meth, interface=None, name=None):
 # Now we can create the interesting interfaces and wire them up:
 def _wire():
     from zope.interface.declarations import classImplements
-
     # From lest specific to most specific.
     from zope.interface.interfaces import IElement
-
     classImplements(Element, IElement)
 
     from zope.interface.interfaces import IAttribute
-
     classImplements(Attribute, IAttribute)
 
     from zope.interface.interfaces import IMethod
-
     classImplements(Method, IMethod)
 
     from zope.interface.interfaces import ISpecification
-
     classImplements(Specification, ISpecification)
 
     from zope.interface.interfaces import IInterface
-
     classImplements(InterfaceClass, IInterface)
 
 
@@ -1075,5 +1069,4 @@ from zope.interface.exceptions import BrokenImplementation
 # list of the immutable declaration. It correctly overrides changed()
 # as a no-op, so we bypass that.
 from zope.interface.declarations import _empty
-
 Specification.changed(_empty, _empty)

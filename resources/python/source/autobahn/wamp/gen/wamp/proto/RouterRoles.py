@@ -4,9 +4,8 @@
 
 import flatbuffers
 
-
 class RouterRoles(object):
-    __slots__ = ["_tab"]
+    __slots__ = ['_tab']
 
     @classmethod
     def GetRootAsRouterRoles(cls, buf, offset):
@@ -25,7 +24,6 @@ class RouterRoles(object):
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
             from .BrokerFeatures import BrokerFeatures
-
             obj = BrokerFeatures()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -37,28 +35,12 @@ class RouterRoles(object):
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
             from .DealerFeatures import DealerFeatures
-
             obj = DealerFeatures()
             obj.Init(self._tab.Bytes, x)
             return obj
         return None
 
-
-def RouterRolesStart(builder):
-    builder.StartObject(2)
-
-
-def RouterRolesAddBroker(builder, broker):
-    builder.PrependUOffsetTRelativeSlot(
-        0, flatbuffers.number_types.UOffsetTFlags.py_type(broker), 0
-    )
-
-
-def RouterRolesAddDealer(builder, dealer):
-    builder.PrependUOffsetTRelativeSlot(
-        1, flatbuffers.number_types.UOffsetTFlags.py_type(dealer), 0
-    )
-
-
-def RouterRolesEnd(builder):
-    return builder.EndObject()
+def RouterRolesStart(builder): builder.StartObject(2)
+def RouterRolesAddBroker(builder, broker): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(broker), 0)
+def RouterRolesAddDealer(builder, dealer): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(dealer), 0)
+def RouterRolesEnd(builder): return builder.EndObject()

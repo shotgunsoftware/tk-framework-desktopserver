@@ -40,7 +40,6 @@ except ImportError:
     import trollius as asyncio
 
 import txaio
-
 txaio.use_asyncio()  # noqa
 
 from autobahn.asyncio.websocket import WampWebSocketClientFactory
@@ -50,13 +49,10 @@ from autobahn.wamp import component
 from autobahn.wamp.exception import TransportLost
 
 from autobahn.asyncio.wamp import Session
-from autobahn.wamp.serializer import (
-    create_transport_serializers,
-    create_transport_serializer,
-)
+from autobahn.wamp.serializer import create_transport_serializers, create_transport_serializer
 
 
-__all__ = ("Component", "run")
+__all__ = ('Component', 'run')
 
 
 def _unique_list(seq):
@@ -68,15 +64,15 @@ def _unique_list(seq):
 
 
 def _camel_case_from_snake_case(snake):
-    parts = snake.split("_")
-    return parts[0] + "".join([s.capitalize() for s in parts[1:]])
+    parts = snake.split('_')
+    return parts[0] + ''.join([s.capitalize() for s in parts[1:]])
 
 
 def _create_transport_factory(loop, transport, session_factory):
     """
     Create a WAMP-over-XXX transport factory.
     """
-    if transport.type == u"websocket":
+    if transport.type == u'websocket':
         serializers = create_transport_serializers(transport)
         factory = WampWebSocketClientFactory(
             session_factory,
@@ -85,12 +81,12 @@ def _create_transport_factory(loop, transport, session_factory):
             proxy=transport.proxy,  # either None or a dict with host, port
         )
 
-    elif transport.type == u"rawsocket":
+    elif transport.type == u'rawsocket':
         serializer = create_transport_serializer(transport.serializers[0])
         factory = WampRawSocketClientFactory(session_factory, serializer=serializer)
 
     else:
-        assert False, "should not arrive here"
+        assert(False), 'should not arrive here'
 
     # set the options one at a time so we can give user better feedback
     for k, v in transport.options.items():
@@ -101,7 +97,9 @@ def _create_transport_factory(loop, transport, session_factory):
             # until everything internally is upgraded from
             # camelCase
             try:
-                factory.setProtocolOptions(**{_camel_case_from_snake_case(k): v})
+                factory.setProtocolOptions(
+                    **{_camel_case_from_snake_case(k): v}
+                )
             except (TypeError, KeyError):
                 raise ValueError(
                     "Unknown {} transport option: {}={}".format(transport.type, k, v)
@@ -133,8 +131,8 @@ class Component(component.Component):
 
     def _check_native_endpoint(self, endpoint):
         if isinstance(endpoint, dict):
-            if u"tls" in endpoint:
-                tls = endpoint[u"tls"]
+            if u'tls' in endpoint:
+                tls = endpoint[u'tls']
                 if isinstance(tls, (dict, bool)):
                     pass
                 elif isinstance(tls, ssl.SSLContext):
@@ -161,58 +159,38 @@ class Component(component.Component):
         # own method (or three!)...
 
         if transport.proxy:
-            timeout = transport.endpoint.get(u"timeout", 10)  # in seconds
+            timeout = transport.endpoint.get(u'timeout', 10)  # in seconds
             if type(timeout) not in six.integer_types:
-                raise ValueError(
-                    "invalid type {} for timeout in client endpoint configuration".format(
-                        type(timeout)
-                    )
-                )
+                raise ValueError('invalid type {} for timeout in client endpoint configuration'.format(type(timeout)))
             # do we support HTTPS proxies?
 
             f = loop.create_connection(
                 protocol_factory=factory,
-                host=transport.proxy["host"],
-                port=transport.proxy["port"],
+                host=transport.proxy['host'],
+                port=transport.proxy['port'],
             )
             time_f = asyncio.ensure_future(asyncio.wait_for(f, timeout=timeout))
             return self._wrap_connection_future(transport, done, time_f)
 
-        elif transport.endpoint[u"type"] == u"tcp":
+        elif transport.endpoint[u'type'] == u'tcp':
 
-            version = transport.endpoint.get(u"version", 4)
+            version = transport.endpoint.get(u'version', 4)
             if version not in [4, 6]:
-                raise ValueError(
-                    "invalid IP version {} in client endpoint configuration".format(
-                        version
-                    )
-                )
+                raise ValueError('invalid IP version {} in client endpoint configuration'.format(version))
 
-            host = transport.endpoint[u"host"]
+            host = transport.endpoint[u'host']
             if type(host) != six.text_type:
-                raise ValueError(
-                    "invalid type {} for host in client endpoint configuration".format(
-                        type(host)
-                    )
-                )
+                raise ValueError('invalid type {} for host in client endpoint configuration'.format(type(host)))
 
-            port = transport.endpoint[u"port"]
+            port = transport.endpoint[u'port']
             if type(port) not in six.integer_types:
-                raise ValueError(
-                    "invalid type {} for port in client endpoint configuration".format(
-                        type(port)
-                    )
-                )
+                raise ValueError('invalid type {} for port in client endpoint configuration'.format(type(port)))
 
-            timeout = transport.endpoint.get(u"timeout", 10)  # in seconds
+            timeout = transport.endpoint.get(u'timeout', 10)  # in seconds
             if type(timeout) not in six.integer_types:
-                raise ValueError(
-                    "invalid type {} for timeout in client endpoint configuration".format(
-                        type(timeout)
-                    )
-                )
+                raise ValueError('invalid type {} for timeout in client endpoint configuration'.format(type(timeout)))
 
-            tls = transport.endpoint.get(u"tls", None)
+            tls = transport.endpoint.get(u'tls', None)
             tls_hostname = None
 
             # create a TLS enabled connecting TCP socket
@@ -220,23 +198,18 @@ class Component(component.Component):
                 if isinstance(tls, dict):
                     for k in tls.keys():
                         if k not in [u"hostname", u"trust_root"]:
-                            raise ValueError(
-                                "Invalid key '{}' in 'tls' config".format(k)
-                            )
-                    hostname = tls.get(u"hostname", host)
+                            raise ValueError("Invalid key '{}' in 'tls' config".format(k))
+                    hostname = tls.get(u'hostname', host)
                     if type(hostname) != six.text_type:
-                        raise ValueError(
-                            "invalid type {} for hostname in TLS client endpoint configuration".format(
-                                hostname
-                            )
-                        )
-                    cert_fname = tls.get(u"trust_root", None)
+                        raise ValueError('invalid type {} for hostname in TLS client endpoint configuration'.format(hostname))
+                    cert_fname = tls.get(u'trust_root', None)
 
                     tls_hostname = hostname
                     tls = True
                     if cert_fname is not None:
                         tls = ssl.create_default_context(
-                            purpose=ssl.Purpose.SERVER_AUTH, cafile=cert_fname,
+                            purpose=ssl.Purpose.SERVER_AUTH,
+                            cafile=cert_fname,
                         )
 
                 elif isinstance(tls, ssl.SSLContext):
@@ -248,11 +221,7 @@ class Component(component.Component):
                         tls_hostname = host
 
                 else:
-                    raise RuntimeError(
-                        'unknown type {} for "tls" configuration in transport'.format(
-                            type(tls)
-                        )
-                    )
+                    raise RuntimeError('unknown type {} for "tls" configuration in transport'.format(type(tls)))
 
             f = loop.create_connection(
                 protocol_factory=factory,
@@ -264,18 +233,22 @@ class Component(component.Component):
             time_f = asyncio.ensure_future(asyncio.wait_for(f, timeout=timeout))
             return self._wrap_connection_future(transport, done, time_f)
 
-        elif transport.endpoint[u"type"] == u"unix":
-            path = transport.endpoint[u"path"]
-            timeout = int(transport.endpoint.get(u"timeout", 10))  # in seconds
+        elif transport.endpoint[u'type'] == u'unix':
+            path = transport.endpoint[u'path']
+            timeout = int(transport.endpoint.get(u'timeout', 10))  # in seconds
 
-            f = loop.create_unix_connection(protocol_factory=factory, path=path,)
+            f = loop.create_unix_connection(
+                protocol_factory=factory,
+                path=path,
+            )
             time_f = asyncio.ensure_future(asyncio.wait_for(f, timeout=timeout))
             return self._wrap_connection_future(transport, done, time_f)
 
         else:
-            assert False, "should not arrive here"
+            assert(False), 'should not arrive here'
 
     def _wrap_connection_future(self, transport, done, conn_f):
+
         def on_connect_success(result):
             # async connect call returns a 2-tuple
             transport, proto = result
@@ -288,9 +261,7 @@ class Component(component.Component):
             # doesn't know of one, anyway
             if transport.is_closing():
                 if not txaio.is_called(done):
-                    reason = getattr(
-                        proto, "_onclose_reason", "Connection already closed"
-                    )
+                    reason = getattr(proto, "_onclose_reason", "Connection already closed")
                     txaio.reject(done, TransportLost(reason))
                 return
 
@@ -316,7 +287,6 @@ class Component(component.Component):
                         fail = TransportLost("failed to complete connection")
                     txaio.reject(done, fail)
                 return rtn
-
             proto.connection_lost = lost
 
         def on_connect_failure(err):
@@ -352,7 +322,7 @@ class Component(component.Component):
         return self._start(loop=loop)
 
 
-def run(components, start_loop=True, log_level="info"):
+def run(components, start_loop=True, log_level='info'):
     """
     High-level API to run a series of components.
 
@@ -420,12 +390,8 @@ def run(components, start_loop=True, log_level="info"):
         fut.add_done_callback(cancel_all_callback)
 
     try:
-        loop.add_signal_handler(
-            signal.SIGINT, lambda: asyncio.ensure_future(nicely_exit("SIGINT"))
-        )
-        loop.add_signal_handler(
-            signal.SIGTERM, lambda: asyncio.ensure_future(nicely_exit("SIGTERM"))
-        )
+        loop.add_signal_handler(signal.SIGINT, lambda: asyncio.ensure_future(nicely_exit("SIGINT")))
+        loop.add_signal_handler(signal.SIGTERM, lambda: asyncio.ensure_future(nicely_exit("SIGTERM")))
     except NotImplementedError:
         # signals are not available on Windows
         pass

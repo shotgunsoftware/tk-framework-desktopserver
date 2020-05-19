@@ -19,7 +19,6 @@ from twisted.persisted import styles
 
 from twisted.internet import error
 
-
 class AbstractGroup:
     def __init__(self, name, account):
         self.name = name
@@ -55,11 +54,10 @@ class AbstractGroup:
         self.account.client.leaveGroup(self.name)
 
     def __repr__(self):
-        return "<%s %r>" % (self.__class__, self.name)
+        return '<%s %r>' % (self.__class__, self.name)
 
     def __str__(self):
-        return "%s@%s" % (self.name, self.account.accountName)
-
+        return '%s@%s' % (self.name, self.account.accountName)
 
 class AbstractPerson:
     def __init__(self, name, baseAccount):
@@ -79,14 +77,13 @@ class AbstractPerson:
         """
         Returns a string.
         """
-        return "--"
+        return '--'
 
     def __repr__(self):
-        return "<%s %r/%s>" % (self.__class__, self.name, self.status)
+        return '<%s %r/%s>' % (self.__class__, self.name, self.status)
 
     def __str__(self):
-        return "%s@%s" % (self.name, self.account.accountName)
-
+        return '%s@%s' % (self.name, self.account.accountName)
 
 class AbstractClientMixin:
     """Designed to be mixed in to a Protocol implementing class.
@@ -95,7 +92,6 @@ class AbstractClientMixin:
 
     @ivar _logonDeferred: Fired when I am done logging in.
     """
-
     def __init__(self, account, chatui, logonDeferred):
         for base in self.__class__.__bases__:
             if issubclass(base, Protocol):
@@ -169,13 +165,13 @@ class AbstractAccount(styles.Versioned):
 
     def upgrateToVersion2(self):
         # Added in CVS revision 1.16.
-        for k in ("_groups", "_persons"):
+        for k in ('_groups', '_persons'):
             if not hasattr(self, k):
                 setattr(self, k, {})
 
     def __getstate__(self):
         state = styles.Versioned.__getstate__(self)
-        for k in ("client", "_isOnline", "_isConnecting"):
+        for k in ('client', '_isOnline', '_isConnecting'):
             try:
                 del state[k]
             except KeyError:
@@ -256,7 +252,7 @@ class AbstractAccount(styles.Versioned):
         @returntype: Failure
         """
         self._isConnecting = 0
-        self._isOnline = 0  # just in case
+        self._isOnline = 0 # just in case
         return reason
 
     def _clientLost(self, client, reason):
@@ -266,10 +262,8 @@ class AbstractAccount(styles.Versioned):
         return reason
 
     def __repr__(self):
-        return "<%s: %s (%s@%s:%s)>" % (
-            self.__class__,
-            self.accountName,
-            self.username,
-            self.host,
-            self.port,
-        )
+        return "<%s: %s (%s@%s:%s)>" % (self.__class__,
+                                        self.accountName,
+                                        self.username,
+                                        self.host,
+                                        self.port)

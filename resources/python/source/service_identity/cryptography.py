@@ -122,11 +122,16 @@ def extract_ids(cert):
         ids.extend(
             [
                 URIPattern(uri.encode("utf-8"))
-                for uri in ext.value.get_values_for_type(UniformResourceIdentifier)
+                for uri in ext.value.get_values_for_type(
+                    UniformResourceIdentifier
+                )
             ]
         )
         ids.extend(
-            [IPAddressPattern(ip) for ip in ext.value.get_values_for_type(IPAddress)]
+            [
+                IPAddressPattern(ip)
+                for ip in ext.value.get_values_for_type(IPAddress)
+            ]
         )
         for other in ext.value.get_values_for_type(OtherName):
             if other.type_id == ID_ON_DNS_SRV:
@@ -142,7 +147,8 @@ def extract_ids(cert):
         # the presented identifiers include a DNS-ID, SRV-ID, URI-ID, or any
         # application-specific identifier types supported by the client.
         cns = [
-            n.value for n in cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+            n.value
+            for n in cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
         ]
         cn = next(iter(cns), b"<not given>")
         ids = [DNSPattern(n.encode("utf-8")) for n in cns]

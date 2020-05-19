@@ -4,9 +4,8 @@
 
 import flatbuffers
 
-
 class Void(object):
-    __slots__ = ["_tab"]
+    __slots__ = ['_tab']
 
     @classmethod
     def GetRootAsVoid(cls, buf, offset):
@@ -19,10 +18,5 @@ class Void(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-
-def VoidStart(builder):
-    builder.StartObject(0)
-
-
-def VoidEnd(builder):
-    return builder.EndObject()
+def VoidStart(builder): builder.StartObject(0)
+def VoidEnd(builder): return builder.EndObject()

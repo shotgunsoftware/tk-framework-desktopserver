@@ -4,7 +4,7 @@
 
 from __future__ import absolute_import, division
 
-__all__ = ["SecondaryAuthority", "SecondaryAuthorityService"]
+__all__ = ['SecondaryAuthority', 'SecondaryAuthorityService']
 
 from twisted.internet import task, defer
 from twisted.names import dns
@@ -18,6 +18,7 @@ from twisted.python.compat import nativeString
 from twisted.application import service
 
 
+
 class SecondaryAuthorityService(service.Service):
     """
     A service that keeps one or more authorities up to date by doing hourly
@@ -29,7 +30,6 @@ class SecondaryAuthorityService(service.Service):
     @ivar domains: An authority for each domain mirrored from the master.
     @type domains: L{list} of L{SecondaryAuthority}
     """
-
     calls = None
 
     _port = 53
@@ -46,6 +46,7 @@ class SecondaryAuthorityService(service.Service):
         """
         self.primary = nativeString(primary)
         self.domains = [SecondaryAuthority(primary, d) for d in domains]
+
 
     @classmethod
     def fromServerAddressAndDomains(cls, serverAddress, domains):
@@ -68,9 +69,9 @@ class SecondaryAuthorityService(service.Service):
         service._port = port
         service.domains = [
             SecondaryAuthority.fromServerAddressAndDomain(serverAddress, d)
-            for d in domains
-        ]
+            for d in domains]
         return service
+
 
     def getAuthority(self):
         """
@@ -85,7 +86,6 @@ class SecondaryAuthorityService(service.Service):
         self.calls = [task.LoopingCall(d.transfer) for d in self.domains]
         i = 0
         from twisted.internet import reactor
-
         for c in self.calls:
             # XXX Add errbacks, respect proper timeouts
             reactor.callLater(i, c.start, 60 * 60)
@@ -95,6 +95,7 @@ class SecondaryAuthorityService(service.Service):
         service.Service.stopService(self)
         for c in self.calls:
             c.stop()
+
 
 
 class SecondaryAuthority(FileAuthority):
@@ -134,6 +135,7 @@ class SecondaryAuthority(FileAuthority):
         self.primary = nativeString(primaryIP)
         self.domain = dns.domainString(domain)
 
+
     @classmethod
     def fromServerAddressAndDomain(cls, serverAddress, domain):
         """
@@ -156,6 +158,7 @@ class SecondaryAuthority(FileAuthority):
         secondary._port = port
         return secondary
 
+
     def transfer(self):
         """
         Attempt a zone transfer.
@@ -174,13 +177,12 @@ class SecondaryAuthority(FileAuthority):
             from twisted.internet import reactor
 
         resolver = client.Resolver(
-            servers=[(self.primary, self._port)], reactor=reactor
-        )
-        return (
-            resolver.lookupZone(self.domain)
-            .addCallback(self._cbZone)
-            .addErrback(self._ebZone)
-        )
+            servers=[(self.primary, self._port)], reactor=reactor)
+        return resolver.lookupZone(self.domain
+            ).addCallback(self._cbZone
+            ).addErrback(self._ebZone
+            )
+
 
     def _lookup(self, name, cls, type, timeout=None):
         if not self.soa or not self.records:
@@ -188,6 +190,7 @@ class SecondaryAuthority(FileAuthority):
             # the caller can try elsewhere.
             return defer.fail(failure.Failure(dns.DomainError(name)))
         return FileAuthority._lookup(self, name, cls, type, timeout)
+
 
     def _cbZone(self, zone):
         ans, _, _ = zone
@@ -198,23 +201,21 @@ class SecondaryAuthority(FileAuthority):
             else:
                 r.setdefault(rec.name.name.lower(), []).append(rec.payload)
 
+
     def _ebZone(self, failure):
-        log.msg(
-            "Updating %s from %s failed during zone transfer"
-            % (self.domain, self.primary)
-        )
+        log.msg("Updating %s from %s failed during zone transfer" % (self.domain, self.primary))
         log.err(failure)
+
 
     def update(self):
         self.transfer().addCallbacks(self._cbTransferred, self._ebTransferred)
 
+
     def _cbTransferred(self, result):
         self.transferring = False
 
+
     def _ebTransferred(self, failure):
         self.transferred = False
-        log.msg(
-            "Transferring %s from %s failed after zone transfer"
-            % (self.domain, self.primary)
-        )
+        log.msg("Transferring %s from %s failed after zone transfer" % (self.domain, self.primary))
         log.err(failure)

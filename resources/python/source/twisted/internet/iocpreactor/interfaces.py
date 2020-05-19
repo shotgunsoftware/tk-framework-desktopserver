@@ -10,6 +10,7 @@ Interfaces for iocpreactor
 from zope.interface import Interface
 
 
+
 class IReadHandle(Interface):
     def readFromHandle(bufflist, evt):
         """
@@ -22,6 +23,7 @@ class IReadHandle(Interface):
 
         @return: tuple (return code, number of bytes read)
         """
+
 
 
 class IWriteHandle(Interface):
@@ -38,5 +40,8 @@ class IWriteHandle(Interface):
         """
 
 
+
 class IReadWriteHandle(IReadHandle, IWriteHandle):
     pass
+
+

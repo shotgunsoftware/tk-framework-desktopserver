@@ -26,9 +26,7 @@
 
 from twisted.application.service import ServiceMaker
 
-serviceMaker = ServiceMaker(
-    "endpointforward",
-    "autobahn.twisted.forwarder",
-    "A simple stream endpoint forwarder",
-    "endpointforward",
-)
+serviceMaker = ServiceMaker('endpointforward',
+                            'autobahn.twisted.forwarder',
+                            'A simple stream endpoint forwarder',
+                            'endpointforward')

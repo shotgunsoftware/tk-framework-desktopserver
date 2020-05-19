@@ -8,10 +8,7 @@ import sys
 
 from cryptography import utils
 from cryptography.exceptions import (
-    AlreadyFinalized,
-    InvalidKey,
-    UnsupportedAlgorithm,
-    _Reasons,
+    AlreadyFinalized, InvalidKey, UnsupportedAlgorithm, _Reasons
 )
 from cryptography.hazmat.backends.interfaces import ScryptBackend
 from cryptography.hazmat.primitives import constant_time
@@ -29,7 +26,7 @@ class Scrypt(object):
         if not isinstance(backend, ScryptBackend):
             raise UnsupportedAlgorithm(
                 "Backend object does not implement ScryptBackend.",
-                _Reasons.BACKEND_MISSING_INTERFACE,
+                _Reasons.BACKEND_MISSING_INTERFACE
             )
 
         self._length = length

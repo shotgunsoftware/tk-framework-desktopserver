@@ -22,6 +22,7 @@ from twisted.python._oldstyle import _oldStyle
 WorkerStop = object()
 
 
+
 @_oldStyle
 class ThreadPool:
     """
@@ -39,7 +40,6 @@ class ThreadPool:
     @ivar _pool: A hook for testing.
     @type _pool: callable compatible with L{_pool}
     """
-
     min = 5
     max = 20
     joined = False
@@ -64,8 +64,8 @@ class ThreadPool:
         @param name: The name to give this threadpool; visible in log messages.
         @type name: native L{str}
         """
-        assert minthreads >= 0, "minimum is negative"
-        assert minthreads <= maxthreads, "minimum is greater than maximum"
+        assert minthreads >= 0, 'minimum is negative'
+        assert minthreads <= maxthreads, 'minimum is greater than maximum'
         self.min = minthreads
         self.max = maxthreads
         self.name = name
@@ -83,6 +83,7 @@ class ThreadPool:
 
         self._team = self._pool(currentLimit, trackingThreadFactory)
 
+
     @property
     def workers(self):
         """
@@ -95,6 +96,7 @@ class ThreadPool:
         stats = self._team.statistics()
         return stats.idleWorkerCount + stats.busyWorkerCount
 
+
     @property
     def working(self):
         """
@@ -105,6 +107,7 @@ class ThreadPool:
         @rtype: L{list} of L{None}
         """
         return [None] * self._team.statistics().busyWorkerCount
+
 
     @property
     def waiters(self):
@@ -118,6 +121,7 @@ class ThreadPool:
         """
         return [None] * self._team.statistics().idleWorkerCount
 
+
     @property
     def _queue(self):
         """
@@ -126,7 +130,6 @@ class ThreadPool:
 
         @return: an object with a C{qsize} method.
         """
-
         class NotAQueue(object):
             def qsize(q):
                 """
@@ -138,11 +141,11 @@ class ThreadPool:
                 @rtype: L{int}
                 """
                 return self._team.statistics().backloggedWorkCount
-
         return NotAQueue()
 
-    q = _queue  # Yes, twistedchecker, I want a single-letter
-    # attribute name.
+    q = _queue                  # Yes, twistedchecker, I want a single-letter
+                                # attribute name.
+
 
     def start(self):
         """
@@ -156,12 +159,14 @@ class ThreadPool:
         if backlog:
             self._team.grow(backlog)
 
+
     def startAWorker(self):
         """
         Increase the number of available workers for the thread pool by 1, up
         to the maximum allowed by L{ThreadPool.max}.
         """
         self._team.grow(1)
+
 
     def _generateName(self):
         """
@@ -172,6 +177,7 @@ class ThreadPool:
         """
         return "PoolThread-%s-%s" % (self.name or id(self), self.workers)
 
+
     def stopAWorker(self):
         """
         Decrease the number of available workers by 1, by quitting one as soon
@@ -179,15 +185,18 @@ class ThreadPool:
         """
         self._team.shrink(1)
 
+
     def __setstate__(self, state):
         setattr(self, "__dict__", state)
         ThreadPool.__init__(self, self.min, self.max)
 
+
     def __getstate__(self):
         state = {}
-        state["min"] = self.min
-        state["max"] = self.max
+        state['min'] = self.min
+        state['max'] = self.max
         return state
+
 
     def callInThread(self, func, *args, **kw):
         """
@@ -200,6 +209,7 @@ class ThreadPool:
         @param kw: keyword args to be passed to C{func}
         """
         self.callInThreadWithCallback(None, func, *args, **kw)
+
 
     def callInThreadWithCallback(self, onResult, func, *args, **kw):
         """
@@ -258,6 +268,7 @@ class ThreadPool:
 
         self._team.do(inContext)
 
+
     def stop(self):
         """
         Shutdown the threads in the threadpool.
@@ -267,6 +278,7 @@ class ThreadPool:
         self._team.quit()
         for thread in self.threads:
             thread.join()
+
 
     def adjustPoolsize(self, minthreads=None, maxthreads=None):
         """
@@ -282,8 +294,8 @@ class ThreadPool:
         if maxthreads is None:
             maxthreads = self.max
 
-        assert minthreads >= 0, "minimum is negative"
-        assert minthreads <= maxthreads, "minimum is greater than maximum"
+        assert minthreads >= 0, 'minimum is negative'
+        assert minthreads <= maxthreads, 'minimum is greater than maximum'
 
         self.min = minthreads
         self.max = maxthreads
@@ -297,11 +309,12 @@ class ThreadPool:
         if self.workers < self.min:
             self._team.grow(self.min - self.workers)
 
+
     def dumpStats(self):
         """
         Dump some plain-text informational messages to the log about the state
         of this L{ThreadPool}.
         """
-        log.msg("waiters: %s" % (self.waiters,))
-        log.msg("workers: %s" % (self.working,))
-        log.msg("total: %s" % (self.threads,))
+        log.msg('waiters: %s' % (self.waiters,))
+        log.msg('workers: %s' % (self.working,))
+        log.msg('total: %s'   % (self.threads,))

@@ -27,7 +27,6 @@
 from __future__ import absolute_import
 
 import txaio
-
 txaio.use_twisted()
 
 from twisted.python import usage
@@ -47,7 +46,8 @@ class DestEndpointForwardingProtocol(Protocol):
 
     def dataReceived(self, data):
         self.log.debug(
-            "DestEndpointForwardingProtocol.dataReceived: {data}", data=data,
+            "DestEndpointForwardingProtocol.dataReceived: {data}",
+            data=data,
         )
         if self.factory._sourceProtocol:
             self.factory._sourceProtocol.transport.write(data)
@@ -59,6 +59,7 @@ class DestEndpointForwardingProtocol(Protocol):
 
 
 class DestEndpointForwardingFactory(Factory):
+
     def __init__(self, sourceProtocol):
         self._sourceProtocol = sourceProtocol
         self._proto = None
@@ -77,14 +78,14 @@ class EndpointForwardingProtocol(Protocol):
     def connectionMade(self):
         self.log.debug("EndpointForwardingProtocol.connectionMade")
         self._destFactory = DestEndpointForwardingFactory(self)
-        self._destEndpoint = clientFromString(
-            self.factory.service._reactor, self.factory.service._destEndpointDescriptor
-        )
+        self._destEndpoint = clientFromString(self.factory.service._reactor,
+                                              self.factory.service._destEndpointDescriptor)
         self._destEndpointPort = yield self._destEndpoint.connect(self._destFactory)
 
     def dataReceived(self, data):
         self.log.debug(
-            "EndpointForwardingProtocol.dataReceived: {data}", data=data,
+            "EndpointForwardingProtocol.dataReceived: {data}",
+            data=data,
         )
         if self._destFactory._proto:
             self._destFactory._proto.transport.write(data)
@@ -96,6 +97,7 @@ class EndpointForwardingProtocol(Protocol):
 
 
 class EndpointForwardingService(service.Service):
+
     def __init__(self, endpointDescriptor, destEndpointDescriptor, reactor=None):
         if reactor is None:
             from twisted.internet import reactor
@@ -116,13 +118,13 @@ class EndpointForwardingService(service.Service):
 
 class Options(usage.Options):
     synopsis = "[options]"
-    longdesc = "Endpoint Forwarder."
+    longdesc = 'Endpoint Forwarder.'
     optParameters = [
         ["endpoint", "e", None, "Source endpoint."],
-        ["dest_endpoint", "d", None, "Destination endpoint."],
+        ["dest_endpoint", "d", None, "Destination endpoint."]
     ]
 
 
 def makeService(config):
-    service = EndpointForwardingService(config["endpoint"], config["dest_endpoint"])
+    service = EndpointForwardingService(config['endpoint'], config['dest_endpoint'])
     return service

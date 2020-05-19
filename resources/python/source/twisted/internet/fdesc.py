@@ -9,7 +9,6 @@ Utility functions for dealing with POSIX file descriptors.
 
 import os
 import errno
-
 try:
     import fcntl
 except ImportError:
@@ -42,7 +41,6 @@ if fcntl is None:
     # inherited on Windows, so we can do nothing here.
     _setCloseOnExec = _unsetCloseOnExec = lambda fd: None
 else:
-
     def _setCloseOnExec(fd):
         """
         Make a file descriptor close-on-exec.
@@ -50,6 +48,7 @@ else:
         flags = fcntl.fcntl(fd, fcntl.F_GETFD)
         flags = flags | fcntl.FD_CLOEXEC
         fcntl.fcntl(fd, fcntl.F_SETFD, flags)
+
 
     def _unsetCloseOnExec(fd):
         """

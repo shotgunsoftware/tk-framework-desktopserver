@@ -43,7 +43,6 @@ class PyAsn1UnicodeError(PyAsn1Error, UnicodeError):
     Apart from inheriting from :class:`PyAsn1Error`, it also inherits from
     :class:`UnicodeError` to help the caller catching unicode-related errors.
     """
-
     def __init__(self, message, unicode_error=None):
         if isinstance(unicode_error, UnicodeError):
             UnicodeError.__init__(self, *unicode_error.args)
@@ -72,3 +71,5 @@ class PyAsn1UnicodeEncodeError(PyAsn1UnicodeError, UnicodeEncodeError):
     from :class:`UnicodeEncodeError` to help the caller catching
     unicode-related errors.
     """
+
+

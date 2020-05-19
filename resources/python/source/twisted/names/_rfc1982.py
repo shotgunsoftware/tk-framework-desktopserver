@@ -23,7 +23,8 @@ from twisted.python.compat import nativeString
 from twisted.python.util import FancyStrMixin
 
 
-RFC4034_TIME_FORMAT = "%Y%m%d%H%M%S"
+RFC4034_TIME_FORMAT = '%Y%m%d%H%M%S'
+
 
 
 class SerialNumber(FancyStrMixin, object):
@@ -51,8 +52,8 @@ class SerialNumber(FancyStrMixin, object):
     """
 
     showAttributes = (
-        ("_number", "number", "%d"),
-        ("_serialBits", "serialBits", "%d"),
+        ('_number', 'number', '%d'),
+        ('_serialBits', 'serialBits', '%d'),
     )
 
     def __init__(self, number, serialBits=32):
@@ -74,6 +75,7 @@ class SerialNumber(FancyStrMixin, object):
         self._maxAdd = 2 ** (serialBits - 1) - 1
         self._number = int(number) % self._modulo
 
+
     def _convertOther(self, other):
         """
         Check that a foreign object is suitable for use in the comparison or
@@ -85,15 +87,16 @@ class SerialNumber(FancyStrMixin, object):
         @raises: L{TypeError} if C{other} is not compatible.
         """
         if not isinstance(other, SerialNumber):
-            raise TypeError("cannot compare or combine %r and %r" % (self, other))
+            raise TypeError(
+                'cannot compare or combine %r and %r' % (self, other))
 
         if self._serialBits != other._serialBits:
             raise TypeError(
-                "cannot compare or combine SerialNumber instances with "
-                "different serialBits. %r and %r" % (self, other)
-            )
+                'cannot compare or combine SerialNumber instances with '
+                'different serialBits. %r and %r' % (self, other))
 
         return other
+
 
     def __str__(self):
         """
@@ -101,7 +104,8 @@ class SerialNumber(FancyStrMixin, object):
 
         @rtype: L{nativeString}
         """
-        return nativeString("%d" % (self._number,))
+        return nativeString('%d' % (self._number,))
+
 
     def __int__(self):
         """
@@ -109,6 +113,7 @@ class SerialNumber(FancyStrMixin, object):
         @rtype: L{int}
         """
         return self._number
+
 
     def __eq__(self, other):
         """
@@ -119,6 +124,7 @@ class SerialNumber(FancyStrMixin, object):
         other = self._convertOther(other)
         return other._number == self._number
 
+
     def __ne__(self, other):
         """
         Allow rich equality comparison with another L{SerialNumber} instance.
@@ -126,6 +132,7 @@ class SerialNumber(FancyStrMixin, object):
         @type other: L{SerialNumber}
         """
         return not self.__eq__(other)
+
 
     def __lt__(self, other):
         """
@@ -135,12 +142,13 @@ class SerialNumber(FancyStrMixin, object):
         """
         other = self._convertOther(other)
         return (
-            self._number < other._number
-            and (other._number - self._number) < self._halfRing
-        ) or (
-            self._number > other._number
-            and (self._number - other._number) > self._halfRing
+            (self._number < other._number
+             and (other._number - self._number) < self._halfRing)
+            or
+            (self._number > other._number
+             and (self._number - other._number) > self._halfRing)
         )
+
 
     def __gt__(self, other):
         """
@@ -151,12 +159,13 @@ class SerialNumber(FancyStrMixin, object):
         """
         other = self._convertOther(other)
         return (
-            self._number < other._number
-            and (other._number - self._number) > self._halfRing
-        ) or (
-            self._number > other._number
-            and (self._number - other._number) < self._halfRing
+            (self._number < other._number
+             and (other._number - self._number) > self._halfRing)
+            or
+            (self._number > other._number
+             and (self._number - other._number) < self._halfRing)
         )
+
 
     def __le__(self, other):
         """
@@ -169,6 +178,7 @@ class SerialNumber(FancyStrMixin, object):
         other = self._convertOther(other)
         return self == other or self < other
 
+
     def __ge__(self, other):
         """
         Allow I{greater than or equal} comparison with another L{SerialNumber}
@@ -179,6 +189,7 @@ class SerialNumber(FancyStrMixin, object):
         """
         other = self._convertOther(other)
         return self == other or self > other
+
 
     def __add__(self, other):
         """
@@ -209,12 +220,12 @@ class SerialNumber(FancyStrMixin, object):
         if other._number <= self._maxAdd:
             return SerialNumber(
                 (self._number + other._number) % self._modulo,
-                serialBits=self._serialBits,
-            )
+                serialBits=self._serialBits)
         else:
             raise ArithmeticError(
-                "value %r outside the range 0 .. %r" % (other._number, self._maxAdd,)
-            )
+                'value %r outside the range 0 .. %r' % (
+                    other._number, self._maxAdd,))
+
 
     def __hash__(self):
         """
@@ -223,6 +234,7 @@ class SerialNumber(FancyStrMixin, object):
         @rtype: L{int}
         """
         return hash(self._number)
+
 
     @classmethod
     def fromRFC4034DateString(cls, utcDateString):
@@ -246,6 +258,7 @@ class SerialNumber(FancyStrMixin, object):
         secondsSinceEpoch = calendar.timegm(parsedDate.utctimetuple())
         return cls(secondsSinceEpoch, serialBits=32)
 
+
     def toRFC4034DateString(self):
         """
         Calculate a date by treating the current L{SerialNumber} value as a UNIX
@@ -261,4 +274,5 @@ class SerialNumber(FancyStrMixin, object):
         return nativeString(d.strftime(RFC4034_TIME_FORMAT))
 
 
-__all__ = ["SerialNumber"]
+
+__all__ = ['SerialNumber']

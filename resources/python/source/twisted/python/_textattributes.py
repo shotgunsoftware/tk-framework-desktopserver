@@ -25,6 +25,7 @@ from __future__ import print_function
 from twisted.python.util import FancyEqMixin
 
 
+
 class _Attribute(FancyEqMixin, object):
     """
     A text attribute.
@@ -36,14 +37,16 @@ class _Attribute(FancyEqMixin, object):
     @type children: C{list}
     @ivar children: Child attributes.
     """
+    compareAttributes = ('children',)
 
-    compareAttributes = ("children",)
 
     def __init__(self):
         self.children = []
 
+
     def __repr__(self):
-        return "<%s %r>" % (type(self).__name__, vars(self))
+        return '<%s %r>' % (type(self).__name__, vars(self))
+
 
     def __getitem__(self, item):
         assert isinstance(item, (list, tuple, _Attribute, str))
@@ -53,7 +56,8 @@ class _Attribute(FancyEqMixin, object):
             self.children.append(item)
         return self
 
-    def serialize(self, write, attrs=None, attributeRenderer="toVT102"):
+
+    def serialize(self, write, attrs=None, attributeRenderer='toVT102'):
         """
         Serialize the text attribute and its children.
 
@@ -79,14 +83,15 @@ class _Attribute(FancyEqMixin, object):
                 write(ch)
 
 
+
 class _NormalAttr(_Attribute):
     """
     A text attribute for normal text.
     """
-
     def serialize(self, write, attrs, attributeRenderer):
         attrs.__init__()
         _Attribute.serialize(self, write, attrs, attributeRenderer)
+
 
 
 class _OtherAttr(_Attribute):
@@ -101,22 +106,25 @@ class _OtherAttr(_Attribute):
 
     @ivar attrvalue: Text attribute value.
     """
+    compareAttributes = ('attrname', 'attrvalue', 'children')
 
-    compareAttributes = ("attrname", "attrvalue", "children")
 
     def __init__(self, attrname, attrvalue):
         _Attribute.__init__(self)
         self.attrname = attrname
         self.attrvalue = attrvalue
 
+
     def __neg__(self):
         result = _OtherAttr(self.attrname, not self.attrvalue)
         result.children.extend(self.children)
         return result
 
+
     def serialize(self, write, attrs, attributeRenderer):
         attrs = attrs._withAttribute(self.attrname, self.attrvalue)
         _Attribute.serialize(self, write, attrs, attributeRenderer)
+
 
 
 class _ColorAttr(_Attribute):
@@ -127,35 +135,37 @@ class _ColorAttr(_Attribute):
 
     @param ground: Foreground or background attribute name.
     """
+    compareAttributes = ('color', 'ground', 'children')
 
-    compareAttributes = ("color", "ground", "children")
 
     def __init__(self, color, ground):
         _Attribute.__init__(self)
         self.color = color
         self.ground = ground
 
+
     def serialize(self, write, attrs, attributeRenderer):
         attrs = attrs._withAttribute(self.ground, self.color)
         _Attribute.serialize(self, write, attrs, attributeRenderer)
+
 
 
 class _ForegroundColorAttr(_ColorAttr):
     """
     Foreground color attribute.
     """
-
     def __init__(self, color):
-        _ColorAttr.__init__(self, color, "foreground")
+        _ColorAttr.__init__(self, color, 'foreground')
+
 
 
 class _BackgroundColorAttr(_ColorAttr):
     """
     Background color attribute.
     """
-
     def __init__(self, color):
-        _ColorAttr.__init__(self, color, "background")
+        _ColorAttr.__init__(self, color, 'background')
+
 
 
 class _ColorAttribute(object):
@@ -172,16 +182,17 @@ class _ColorAttribute(object):
     @param attrs: Mapping of color names to color values.
     @type attrs: Dict like object.
     """
-
     def __init__(self, ground, attrs):
         self.ground = ground
         self.attrs = attrs
+
 
     def __getattr__(self, name):
         try:
             return self.ground(self.attrs[name])
         except KeyError:
             raise AttributeError(name)
+
 
 
 class CharacterAttributesMixin(object):
@@ -191,13 +202,13 @@ class CharacterAttributesMixin(object):
     a C{'normal'} attribute; otherwise a new C{_OtherAttr} instance is returned
     for names that appears in the C{'attrs'} attribute.
     """
-
     def __getattr__(self, name):
-        if name == "normal":
+        if name == 'normal':
             return _NormalAttr()
         if name in self.attrs:
             return _OtherAttr(name, True)
         raise AttributeError(name)
+
 
 
 class DefaultFormattingState(FancyEqMixin, object):
@@ -205,10 +216,10 @@ class DefaultFormattingState(FancyEqMixin, object):
     A character attribute that does nothing, thus applying no attributes to
     text.
     """
-
-    compareAttributes = ("_dummy",)
+    compareAttributes = ('_dummy',)
 
     _dummy = 0
+
 
     def copy(self):
         """
@@ -217,6 +228,7 @@ class DefaultFormattingState(FancyEqMixin, object):
         @return: A formatting state instance.
         """
         return type(self)()
+
 
     def _withAttribute(self, name, value):
         """
@@ -230,6 +242,7 @@ class DefaultFormattingState(FancyEqMixin, object):
         """
         return self.copy()
 
+
     def toVT102(self):
         """
         Emit a VT102 control sequence that will set up all the attributes this
@@ -238,18 +251,19 @@ class DefaultFormattingState(FancyEqMixin, object):
         @return: A string containing VT102 control sequences that mimic this
             formatting state.
         """
-        return ""
+        return ''
+
 
 
 class _FormattingStateMixin(DefaultFormattingState):
     """
     Mixin for the formatting state/attributes of a single character.
     """
-
     def copy(self):
         c = DefaultFormattingState.copy(self)
         c.__dict__.update(vars(self))
         return c
+
 
     def _withAttribute(self, name, value):
         if getattr(self, name) != value:
@@ -261,7 +275,8 @@ class _FormattingStateMixin(DefaultFormattingState):
             return self.copy()
 
 
-def flatten(output, attrs, attributeRenderer="toVT102"):
+
+def flatten(output, attrs, attributeRenderer='toVT102'):
     """
     Serialize a sequence of characters with attribute information
 
@@ -297,7 +312,9 @@ def flatten(output, attrs, attributeRenderer="toVT102"):
     """
     flattened = []
     output.serialize(flattened.append, attrs, attributeRenderer)
-    return "".join(flattened)
+    return ''.join(flattened)
 
 
-__all__ = ["flatten", "DefaultFormattingState", "CharacterAttributesMixin"]
+
+__all__ = [
+    'flatten', 'DefaultFormattingState', 'CharacterAttributesMixin']

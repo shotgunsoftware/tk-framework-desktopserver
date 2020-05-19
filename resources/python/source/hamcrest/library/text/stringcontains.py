@@ -7,16 +7,17 @@ __license__ = "BSD, see License.txt"
 
 
 class StringContains(SubstringMatcher):
+
     def __init__(self, substring):
         super(StringContains, self).__init__(substring)
 
     def _matches(self, item):
-        if not hasmethod(item, "find"):
+        if not hasmethod(item, 'find'):
             return False
         return item.find(self.substring) >= 0
 
     def relationship(self):
-        return "containing"
+        return 'containing'
 
 
 def contains_string(substring):

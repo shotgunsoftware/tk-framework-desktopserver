@@ -9,26 +9,17 @@ import functools
 from cryptography import utils, x509
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends.openssl.decode_asn1 import (
-    _CRL_ENTRY_REASON_CODE_TO_ENUM,
-    _OCSP_BASICRESP_EXT_PARSER,
-    _OCSP_REQ_EXT_PARSER,
-    _OCSP_SINGLERESP_EXT_PARSER,
+    _CRL_ENTRY_REASON_CODE_TO_ENUM, _OCSP_BASICRESP_EXT_PARSER,
+    _OCSP_REQ_EXT_PARSER, _OCSP_SINGLERESP_EXT_PARSER,
     _asn1_integer_to_int,
-    _asn1_string_to_bytes,
-    _decode_x509_name,
-    _obj2txt,
+    _asn1_string_to_bytes, _decode_x509_name, _obj2txt,
     _parse_asn1_generalized_time,
 )
 from cryptography.hazmat.backends.openssl.x509 import _Certificate
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.ocsp import (
-    OCSPCertStatus,
-    OCSPRequest,
-    OCSPResponse,
-    OCSPResponseStatus,
-    _CERT_STATUS_TO_ENUM,
-    _OIDS_TO_HASH,
-    _RESPONSE_STATUS_TO_ENUM,
+    OCSPCertStatus, OCSPRequest, OCSPResponse, OCSPResponseStatus,
+    _CERT_STATUS_TO_ENUM, _OIDS_TO_HASH, _RESPONSE_STATUS_TO_ENUM,
 )
 
 
@@ -37,7 +28,8 @@ def _requires_successful_response(func):
     def wrapper(self, *args):
         if self.response_status != OCSPResponseStatus.SUCCESSFUL:
             raise ValueError(
-                "OCSP response status is not successful so the property " "has no value"
+                "OCSP response status is not successful so the property "
+                "has no value"
             )
         else:
             return func(self, *args)
@@ -48,7 +40,8 @@ def _requires_successful_response(func):
 def _issuer_key_hash(backend, cert_id):
     key_hash = backend._ffi.new("ASN1_OCTET_STRING **")
     res = backend._lib.OCSP_id_get0_info(
-        backend._ffi.NULL, backend._ffi.NULL, key_hash, backend._ffi.NULL, cert_id
+        backend._ffi.NULL, backend._ffi.NULL,
+        key_hash, backend._ffi.NULL, cert_id
     )
     backend.openssl_assert(res == 1)
     backend.openssl_assert(key_hash[0] != backend._ffi.NULL)
@@ -58,7 +51,8 @@ def _issuer_key_hash(backend, cert_id):
 def _issuer_name_hash(backend, cert_id):
     name_hash = backend._ffi.new("ASN1_OCTET_STRING **")
     res = backend._lib.OCSP_id_get0_info(
-        name_hash, backend._ffi.NULL, backend._ffi.NULL, backend._ffi.NULL, cert_id
+        name_hash, backend._ffi.NULL,
+        backend._ffi.NULL, backend._ffi.NULL, cert_id
     )
     backend.openssl_assert(res == 1)
     backend.openssl_assert(name_hash[0] != backend._ffi.NULL)
@@ -68,7 +62,8 @@ def _issuer_name_hash(backend, cert_id):
 def _serial_number(backend, cert_id):
     num = backend._ffi.new("ASN1_INTEGER **")
     res = backend._lib.OCSP_id_get0_info(
-        backend._ffi.NULL, backend._ffi.NULL, backend._ffi.NULL, num, cert_id
+        backend._ffi.NULL, backend._ffi.NULL,
+        backend._ffi.NULL, num, cert_id
     )
     backend.openssl_assert(res == 1)
     backend.openssl_assert(num[0] != backend._ffi.NULL)
@@ -78,7 +73,8 @@ def _serial_number(backend, cert_id):
 def _hash_algorithm(backend, cert_id):
     asn1obj = backend._ffi.new("ASN1_OBJECT **")
     res = backend._lib.OCSP_id_get0_info(
-        backend._ffi.NULL, asn1obj, backend._ffi.NULL, backend._ffi.NULL, cert_id
+        backend._ffi.NULL, asn1obj,
+        backend._ffi.NULL, backend._ffi.NULL, cert_id
     )
     backend.openssl_assert(res == 1)
     backend.openssl_assert(asn1obj[0] != backend._ffi.NULL)
@@ -100,7 +96,9 @@ class _OCSPResponse(object):
         self._backend.openssl_assert(status in _RESPONSE_STATUS_TO_ENUM)
         self._status = _RESPONSE_STATUS_TO_ENUM[status]
         if self._status is OCSPResponseStatus.SUCCESSFUL:
-            basic = self._backend._lib.OCSP_response_get1_basic(self._ocsp_response)
+            basic = self._backend._lib.OCSP_response_get1_basic(
+                self._ocsp_response
+            )
             self._backend.openssl_assert(basic != self._backend._ffi.NULL)
             self._basic = self._backend._ffi.gc(
                 basic, self._backend._lib.OCSP_BASICRESP_free
@@ -109,9 +107,15 @@ class _OCSPResponse(object):
                 self._backend._lib.OCSP_resp_count(self._basic) == 1
             )
             self._single = self._backend._lib.OCSP_resp_get0(self._basic, 0)
-            self._backend.openssl_assert(self._single != self._backend._ffi.NULL)
-            self._cert_id = self._backend._lib.OCSP_SINGLERESP_get0_id(self._single)
-            self._backend.openssl_assert(self._cert_id != self._backend._ffi.NULL)
+            self._backend.openssl_assert(
+                self._single != self._backend._ffi.NULL
+            )
+            self._cert_id = self._backend._lib.OCSP_SINGLERESP_get0_id(
+                self._single
+            )
+            self._backend.openssl_assert(
+                self._cert_id != self._backend._ffi.NULL
+            )
 
     response_status = utils.read_only_property("_status")
 
@@ -194,14 +198,18 @@ class _OCSPResponse(object):
     def _responder_key_name(self):
         asn1_string = self._backend._ffi.new("ASN1_OCTET_STRING **")
         x509_name = self._backend._ffi.new("X509_NAME **")
-        res = self._backend._lib.OCSP_resp_get0_id(self._basic, asn1_string, x509_name)
+        res = self._backend._lib.OCSP_resp_get0_id(
+            self._basic, asn1_string, x509_name
+        )
         self._backend.openssl_assert(res == 1)
         return x509_name[0], asn1_string[0]
 
     @property
     @_requires_successful_response
     def produced_at(self):
-        produced_at = self._backend._lib.OCSP_resp_get0_produced_at(self._basic)
+        produced_at = self._backend._lib.OCSP_resp_get0_produced_at(
+            self._basic
+        )
         return _parse_asn1_generalized_time(self._backend, produced_at)
 
     @property
@@ -315,14 +323,20 @@ class _OCSPResponse(object):
     @utils.cached_property
     @_requires_successful_response
     def single_extensions(self):
-        return _OCSP_SINGLERESP_EXT_PARSER.parse(self._backend, self._single)
+        return _OCSP_SINGLERESP_EXT_PARSER.parse(
+            self._backend, self._single
+        )
 
     def public_bytes(self, encoding):
         if encoding is not serialization.Encoding.DER:
-            raise ValueError("The only allowed encoding value is Encoding.DER")
+            raise ValueError(
+                "The only allowed encoding value is Encoding.DER"
+            )
 
         bio = self._backend._create_mem_bio_gc()
-        res = self._backend._lib.i2d_OCSP_RESPONSE_bio(bio, self._ocsp_response)
+        res = self._backend._lib.i2d_OCSP_RESPONSE_bio(
+            bio, self._ocsp_response
+        )
         self._backend.openssl_assert(res > 0)
         return self._backend._read_mem_bio(bio)
 
@@ -331,7 +345,9 @@ class _OCSPResponse(object):
 class _OCSPRequest(object):
     def __init__(self, backend, ocsp_request):
         if backend._lib.OCSP_request_onereq_count(ocsp_request) > 1:
-            raise NotImplementedError("OCSP request contains more than one request")
+            raise NotImplementedError(
+                'OCSP request contains more than one request'
+            )
         self._backend = backend
         self._ocsp_request = ocsp_request
         self._request = self._backend._lib.OCSP_request_onereq_get0(
@@ -363,7 +379,9 @@ class _OCSPRequest(object):
 
     def public_bytes(self, encoding):
         if encoding is not serialization.Encoding.DER:
-            raise ValueError("The only allowed encoding value is Encoding.DER")
+            raise ValueError(
+                "The only allowed encoding value is Encoding.DER"
+            )
 
         bio = self._backend._create_mem_bio_gc()
         res = self._backend._lib.i2d_OCSP_REQUEST_bio(bio, self._ocsp_request)

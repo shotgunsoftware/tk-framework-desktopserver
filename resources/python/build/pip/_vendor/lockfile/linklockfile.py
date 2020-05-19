@@ -3,7 +3,8 @@ from __future__ import absolute_import
 import time
 import os
 
-from . import LockBase, LockFailed, NotLocked, NotMyLock, LockTimeout, AlreadyLocked
+from . import (LockBase, LockFailed, NotLocked, NotMyLock, LockTimeout,
+               AlreadyLocked)
 
 
 class LinkLockFile(LockBase):
@@ -40,11 +41,12 @@ class LinkLockFile(LockBase):
                     if timeout is not None and time.time() > end_time:
                         os.unlink(self.unique_name)
                         if timeout > 0:
-                            raise LockTimeout(
-                                "Timeout waiting to acquire" " lock for %s" % self.path
-                            )
+                            raise LockTimeout("Timeout waiting to acquire"
+                                              " lock for %s" %
+                                              self.path)
                         else:
-                            raise AlreadyLocked("%s is already locked" % self.path)
+                            raise AlreadyLocked("%s is already locked" %
+                                                self.path)
                     time.sleep(timeout is not None and timeout / 10 or 0.1)
             else:
                 # Link creation succeeded.  We're good to go.
@@ -62,11 +64,9 @@ class LinkLockFile(LockBase):
         return os.path.exists(self.lock_file)
 
     def i_am_locking(self):
-        return (
-            self.is_locked()
-            and os.path.exists(self.unique_name)
-            and os.stat(self.unique_name).st_nlink == 2
-        )
+        return (self.is_locked() and
+                os.path.exists(self.unique_name) and
+                os.stat(self.unique_name).st_nlink == 2)
 
     def break_lock(self):
         if os.path.exists(self.lock_file):

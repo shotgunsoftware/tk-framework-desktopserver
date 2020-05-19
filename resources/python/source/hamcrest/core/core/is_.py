@@ -1,5 +1,4 @@
 from __future__ import absolute_import
-
 __author__ = "Jon Reid"
 __copyright__ = "Copyright 2011 hamcrest.org"
 __license__ = "BSD, see License.txt"
@@ -10,6 +9,7 @@ from .isinstanceof import instance_of
 
 
 class Is(BaseMatcher):
+
     def __init__(self, matcher):
         self.matcher = matcher
 

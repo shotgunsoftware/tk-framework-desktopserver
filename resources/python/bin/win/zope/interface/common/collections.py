@@ -34,7 +34,6 @@ from __future__ import absolute_import
 import sys
 
 from abc import ABCMeta
-
 # The collections imports are here, and not in
 # zope.interface._compat to avoid importing collections
 # unless requested. It's a big import.
@@ -43,7 +42,6 @@ try:
 except ImportError:
     import collections as abc
 from collections import OrderedDict
-
 try:
     # On Python 3, all of these extend the appropriate collection ABC,
     # but on Python 2, UserDict does not (though it is registered as a
@@ -73,51 +71,50 @@ from zope.interface.common import optional
 PY35 = sys.version_info[:2] >= (3, 5)
 PY36 = sys.version_info[:2] >= (3, 6)
 
-
-def _new_in_ver(name, ver, bases_if_missing=(ABCMeta,), register_if_missing=()):
+def _new_in_ver(name, ver,
+                bases_if_missing=(ABCMeta,),
+                register_if_missing=()):
     if ver:
         return getattr(abc, name)
 
     # TODO: It's a shame to have to repeat the bases when
     # the ABC is missing. Can we DRY that?
-    missing = ABCMeta(
-        name,
-        bases_if_missing,
-        {"__doc__": "The ABC %s is not defined in this version of Python." % (name),},
-    )
+    missing = ABCMeta(name, bases_if_missing, {
+        '__doc__': "The ABC %s is not defined in this version of Python." % (
+            name
+        ),
+    })
 
     for c in register_if_missing:
         missing.register(c)
 
     return missing
 
-
 __all__ = [
-    "IAsyncGenerator",
-    "IAsyncIterable",
-    "IAsyncIterator",
-    "IAwaitable",
-    "ICollection",
-    "IContainer",
-    "ICoroutine",
-    "IGenerator",
-    "IHashable",
-    "IItemsView",
-    "IIterable",
-    "IIterator",
-    "IKeysView",
-    "IMapping",
-    "IMappingView",
-    "IMutableMapping",
-    "IMutableSequence",
-    "IMutableSet",
-    "IReversible",
-    "ISequence",
-    "ISet",
-    "ISized",
-    "IValuesView",
+    'IAsyncGenerator',
+    'IAsyncIterable',
+    'IAsyncIterator',
+    'IAwaitable',
+    'ICollection',
+    'IContainer',
+    'ICoroutine',
+    'IGenerator',
+    'IHashable',
+    'IItemsView',
+    'IIterable',
+    'IIterator',
+    'IKeysView',
+    'IMapping',
+    'IMappingView',
+    'IMutableMapping',
+    'IMutableSequence',
+    'IMutableSet',
+    'IReversible',
+    'ISequence',
+    'ISet',
+    'ISized',
+    'IValuesView',
 ]
-
 
 class IContainer(ABCInterface):
     abc = abc.Container
@@ -130,10 +127,8 @@ class IContainer(ABCInterface):
         to implement ``in``.
         """
 
-
 class IHashable(ABCInterface):
     abc = abc.Hashable
-
 
 class IIterable(ABCInterface):
     abc = abc.Iterable
@@ -145,13 +140,11 @@ class IIterable(ABCInterface):
         implement `iter` using the old ``__getitem__`` protocol.
         """
 
-
 class IIterator(IIterable):
     abc = abc.Iterator
 
-
 class IReversible(IIterable):
-    abc = _new_in_ver("Reversible", PY36, (IIterable.getABC(),))
+    abc = _new_in_ver('Reversible', PY36, (IIterable.getABC(),))
 
     @optional
     def __reversed__():
@@ -161,10 +154,9 @@ class IReversible(IIterable):
         `reversed` builtin.
         """
 
-
 class IGenerator(IIterator):
     # New in 3.5
-    abc = _new_in_ver("Generator", PY35, (IIterator.getABC(),))
+    abc = _new_in_ver('Generator', PY35, (IIterator.getABC(),))
 
 
 class ISized(ABCInterface):
@@ -173,22 +165,21 @@ class ISized(ABCInterface):
 
 # ICallable is not defined because there's no standard signature.
 
+class ICollection(ISized,
+                  IIterable,
+                  IContainer):
+    abc = _new_in_ver('Collection', PY36,
+                      (ISized.getABC(), IIterable.getABC(), IContainer.getABC()))
 
-class ICollection(ISized, IIterable, IContainer):
-    abc = _new_in_ver(
-        "Collection", PY36, (ISized.getABC(), IIterable.getABC(), IContainer.getABC())
-    )
 
-
-class ISequence(IReversible, ICollection):
+class ISequence(IReversible,
+                ICollection):
     abc = abc.Sequence
     extra_classes = (UserString,)
     # On Python 2, basestring is registered as an ISequence, and
     # its subclass str is an IByteString. If we also register str as
     # an ISequence, that tends to lead to inconsistent resolution order.
-    ignored_classes = (
-        (basestring,) if str is bytes else ()
-    )  # pylint:disable=undefined-variable
+    ignored_classes = (basestring,) if str is bytes else () # pylint:disable=undefined-variable
 
     @optional
     def __reversed__():
@@ -205,7 +196,6 @@ class ISequence(IReversible, ICollection):
         implement `iter` using the old ``__getitem__`` protocol.
         """
 
-
 class IMutableSequence(ISequence):
     abc = abc.MutableSequence
     extra_classes = (UserList,)
@@ -215,8 +205,9 @@ class IByteString(ISequence):
     """
     This unifies `bytes` and `bytearray`.
     """
-
-    abc = _new_in_ver("ByteString", PY3, (ISequence.getABC(),), (bytes, bytearray))
+    abc = _new_in_ver('ByteString', PY3,
+                      (ISequence.getABC(),),
+                      (bytes, bytearray))
 
 
 class ISet(ICollection):
@@ -236,7 +227,6 @@ class IMapping(ICollection):
     # here.
     ignored_classes = (OrderedDict,)
     if PY2:
-
         @optional
         def __eq__(other):
             """
@@ -248,12 +238,8 @@ class IMapping(ICollection):
 
 class IMutableMapping(IMapping):
     abc = abc.MutableMapping
-    extra_classes = (
-        dict,
-        UserDict,
-    )
+    extra_classes = (dict, UserDict,)
     ignored_classes = (OrderedDict,)
-
 
 class IMappingView(ISized):
     abc = abc.MappingView
@@ -278,22 +264,21 @@ class IValuesView(IMappingView, ICollection):
         to implement ``in``.
         """
 
-
 class IAwaitable(ABCInterface):
-    abc = _new_in_ver("Awaitable", PY35)
+    abc = _new_in_ver('Awaitable', PY35)
 
 
 class ICoroutine(IAwaitable):
-    abc = _new_in_ver("Coroutine", PY35)
+    abc = _new_in_ver('Coroutine', PY35)
 
 
 class IAsyncIterable(ABCInterface):
-    abc = _new_in_ver("AsyncIterable", PY35)
+    abc = _new_in_ver('AsyncIterable', PY35)
 
 
 class IAsyncIterator(IAsyncIterable):
-    abc = _new_in_ver("AsyncIterator", PY35)
+    abc = _new_in_ver('AsyncIterator', PY35)
 
 
 class IAsyncGenerator(IAsyncIterator):
-    abc = _new_in_ver("AsyncGenerator", PY36)
+    abc = _new_in_ver('AsyncGenerator', PY36)

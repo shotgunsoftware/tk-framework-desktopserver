@@ -9,11 +9,11 @@ Log levels.
 from constantly import NamedConstant, Names
 
 
+
 class InvalidLogLevelError(Exception):
     """
     Someone tried to use a L{LogLevel} that is unknown to the logging system.
     """
-
     def __init__(self, level):
         """
         @param level: A log level.
@@ -21,6 +21,7 @@ class InvalidLogLevelError(Exception):
         """
         super(InvalidLogLevelError, self).__init__(str(level))
         self.level = level
+
 
 
 class LogLevel(Names):
@@ -64,6 +65,7 @@ class LogLevel(Names):
     error = NamedConstant()
     critical = NamedConstant()
 
+
     @classmethod
     def levelWithName(cls, name):
         """
@@ -82,6 +84,7 @@ class LogLevel(Names):
             return cls.lookupByName(name)
         except ValueError:
             raise InvalidLogLevelError(name)
+
 
     @classmethod
     def _priorityForLevel(cls, level):
@@ -102,5 +105,6 @@ class LogLevel(Names):
 
 
 LogLevel._levelPriorities = dict(
-    (level, index) for (index, level) in (enumerate(LogLevel.iterconstants()))
+    (level, index) for (index, level) in
+    (enumerate(LogLevel.iterconstants()))
 )

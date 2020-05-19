@@ -13,33 +13,33 @@
 ##############################################################################
 """Interface Package Interfaces
 """
-__docformat__ = "restructuredtext"
+__docformat__ = 'restructuredtext'
 
 from zope.interface.interface import Attribute
 from zope.interface.interface import Interface
 from zope.interface.declarations import implementer
 
 __all__ = [
-    "IAdapterRegistration",
-    "IAdapterRegistry",
-    "IAttribute",
-    "IComponentLookup",
-    "IComponentRegistry",
-    "IComponents",
-    "IDeclaration",
-    "IElement",
-    "IHandlerRegistration",
-    "IInterface",
-    "IInterfaceDeclaration",
-    "IMethod",
-    "IObjectEvent",
-    "IRegistered",
-    "IRegistration",
-    "IRegistrationEvent",
-    "ISpecification",
-    "ISubscriptionAdapterRegistration",
-    "IUnregistered",
-    "IUtilityRegistration",
+    'IAdapterRegistration',
+    'IAdapterRegistry',
+    'IAttribute',
+    'IComponentLookup',
+    'IComponentRegistry',
+    'IComponents',
+    'IDeclaration',
+    'IElement',
+    'IHandlerRegistration',
+    'IInterface',
+    'IInterfaceDeclaration',
+    'IMethod',
+    'IObjectEvent',
+    'IRegistered',
+    'IRegistration',
+    'IRegistrationEvent',
+    'ISpecification',
+    'ISubscriptionAdapterRegistration',
+    'IUnregistered',
+    'IUtilityRegistration',
 ]
 
 
@@ -59,8 +59,8 @@ class IElement(Interface):
     # from introspection. When changing it, also change it in the Sphinx
     # ReST files.
 
-    __name__ = Attribute("__name__", "The object name")
-    __doc__ = Attribute("__doc__", "The object doc string")
+    __name__ = Attribute('__name__', 'The object name')
+    __doc__  = Attribute('__doc__', 'The object doc string')
 
     ###
     # Tagged values.
@@ -139,10 +139,9 @@ class IElement(Interface):
 class IAttribute(IElement):
     """Attribute descriptors"""
 
-    interface = Attribute(
-        "interface",
-        "Stores the interface instance in which the " "attribute is located.",
-    )
+    interface = Attribute('interface',
+                          'Stores the interface instance in which the '
+                          'attribute is located.')
 
 
 class IMethod(IAttribute):
@@ -172,7 +171,6 @@ class IMethod(IAttribute):
         have ``def func(a, b, c=1, d='f')``, then the signature string is ``"(a, b,
         c=1, d='f')"``.
         """
-
 
 class ISpecification(Interface):
     """Object Behavioral specifications"""
@@ -216,36 +214,30 @@ class ISpecification(Interface):
 
         """
 
-    __bases__ = Attribute(
-        """Base specifications
+    __bases__ = Attribute("""Base specifications
 
     A tuple of specifications from which this specification is
     directly derived.
 
-    """
-    )
+    """)
 
-    __sro__ = Attribute(
-        """Specification-resolution order
+    __sro__ = Attribute("""Specification-resolution order
 
     A tuple of the specification and all of it's ancestor
     specifications from most specific to least specific. The specification
     itself is the first element.
 
     (This is similar to the method-resolution order for new-style classes.)
-    """
-    )
+    """)
 
-    __iro__ = Attribute(
-        """Interface-resolution order
+    __iro__ = Attribute("""Interface-resolution order
 
     A tuple of the specification's ancestor interfaces from
     most specific to least specific.  The specification itself is
     included if it is an interface.
 
     (This is similar to the method-resolution order for new-style classes.)
-    """
-    )
+    """)
 
     def get(name, default=None):
         """Look up the description for a name
@@ -457,7 +449,6 @@ class IDeclaration(ISpecification):
     def __nonzero__():
         """Return a true value of the interface specification is non-empty
         """
-
 
 class IInterfaceDeclaration(Interface):
     """Declare and check the interfaces of objects
@@ -778,7 +769,6 @@ class IInterfaceDeclaration(Interface):
         the given interfaces is returned.
         """
 
-
 class IAdapterRegistry(Interface):
     """Provide an interface-based registry for adapters
 
@@ -798,7 +788,7 @@ class IAdapterRegistry(Interface):
         provided interface, and a name, which must be text.
         """
 
-    def registered(required, provided, name=u""):
+    def registered(required, provided, name=u''):
         """Return the component registered for the given interfaces and name
 
         name must be text.
@@ -812,7 +802,7 @@ class IAdapterRegistry(Interface):
 
         """
 
-    def lookup(required, provided, name="", default=None):
+    def lookup(required, provided, name='', default=None):
         """Lookup a value
 
         A value is looked up based on a *sequence* of required
@@ -820,11 +810,11 @@ class IAdapterRegistry(Interface):
         text.
         """
 
-    def queryMultiAdapter(objects, provided, name=u"", default=None):
+    def queryMultiAdapter(objects, provided, name=u'', default=None):
         """Adapt a sequence of objects to a named, provided, interface
         """
 
-    def lookup1(required, provided, name=u"", default=None):
+    def lookup1(required, provided, name=u'', default=None):
         """Lookup a value using a single required interface
 
         A value is looked up based on a single required
@@ -832,11 +822,11 @@ class IAdapterRegistry(Interface):
         text.
         """
 
-    def queryAdapter(object, provided, name=u"", default=None):
+    def queryAdapter(object, provided, name=u'', default=None):
         """Adapt an object using a registered adapter factory.
         """
 
-    def adapter_hook(provided, object, name=u"", default=None):
+    def adapter_hook(provided, object, name=u'', default=None):
         """Adapt an object using a registered adapter factory.
 
         name must be text.
@@ -852,7 +842,7 @@ class IAdapterRegistry(Interface):
         """Return the names for which there are registered objects
         """
 
-    def subscribe(required, provided, subscriber, name=u""):
+    def subscribe(required, provided, subscriber, name=u''):
         """Register a subscriber
 
         A subscriber is registered for a *sequence* of required
@@ -862,28 +852,24 @@ class IAdapterRegistry(Interface):
         equivalent) interfaces.
         """
 
-    def subscriptions(required, provided, name=u""):
+    def subscriptions(required, provided, name=u''):
         """Get a sequence of subscribers
 
         Subscribers for a *sequence* of required interfaces, and a provided
         interface are returned.
         """
 
-    def subscribers(objects, provided, name=u""):
+    def subscribers(objects, provided, name=u''):
         """Get a sequence of subscription adapters
         """
 
-
 # begin formerly in zope.component
-
 
 class ComponentLookupError(LookupError):
     """A component could not be found."""
 
-
 class Invalid(Exception):
     """A component doesn't satisfy a promise."""
-
 
 class IObjectEvent(Interface):
     """An event related to an object.
@@ -897,9 +883,9 @@ class IObjectEvent(Interface):
 
 @implementer(IObjectEvent)
 class ObjectEvent(object):
+
     def __init__(self, object):
         self.object = object
-
 
 class IComponentLookup(Interface):
     """Component Manager for a Site
@@ -908,30 +894,32 @@ class IComponentLookup(Interface):
     definition of a site is intentionally vague.
     """
 
-    adapters = Attribute("Adapter Registry to manage all registered adapters.")
+    adapters = Attribute(
+        "Adapter Registry to manage all registered adapters.")
 
-    utilities = Attribute("Adapter Registry to manage all registered utilities.")
+    utilities = Attribute(
+        "Adapter Registry to manage all registered utilities.")
 
-    def queryAdapter(object, interface, name=u"", default=None):
+    def queryAdapter(object, interface, name=u'', default=None):
         """Look for a named adapter to an interface for an object
 
         If a matching adapter cannot be found, returns the default.
         """
 
-    def getAdapter(object, interface, name=u""):
+    def getAdapter(object, interface, name=u''):
         """Look for a named adapter to an interface for an object
 
         If a matching adapter cannot be found, a `ComponentLookupError`
         is raised.
         """
 
-    def queryMultiAdapter(objects, interface, name=u"", default=None):
+    def queryMultiAdapter(objects, interface, name=u'', default=None):
         """Look for a multi-adapter to an interface for multiple objects
 
         If a matching adapter cannot be found, returns the default.
         """
 
-    def getMultiAdapter(objects, interface, name=u""):
+    def getMultiAdapter(objects, interface, name=u''):
         """Look for a multi-adapter to an interface for multiple objects
 
         If a matching adapter cannot be found, a `ComponentLookupError`
@@ -959,7 +947,7 @@ class IComponentLookup(Interface):
         Handlers registered for the given objects are called.
         """
 
-    def queryUtility(interface, name="", default=None):
+    def queryUtility(interface, name='', default=None):
         """Look up a utility that provides an interface.
 
         If one is not found, returns default.
@@ -980,7 +968,6 @@ class IComponentLookup(Interface):
         returned.
         """
 
-
 class IRegistration(Interface):
     """A registration-information object
     """
@@ -989,15 +976,12 @@ class IRegistration(Interface):
 
     name = Attribute("The registration name")
 
-    info = Attribute(
-        """Information about the registration
+    info = Attribute("""Information about the registration
 
     This is information deemed useful to people browsing the
     configuration of a system. It could, for example, include
     commentary or information about the source of the configuration.
-    """
-    )
-
+    """)
 
 class IUtilityRegistration(IRegistration):
     """Information about the registration of a utility
@@ -1007,53 +991,42 @@ class IUtilityRegistration(IRegistration):
     component = Attribute("The object registered")
     provided = Attribute("The interface provided by the component")
 
-
 class _IBaseAdapterRegistration(IRegistration):
     """Information about the registration of an adapter
     """
 
     factory = Attribute("The factory used to create adapters")
 
-    required = Attribute(
-        """The adapted interfaces
+    required = Attribute("""The adapted interfaces
 
     This is a sequence of interfaces adapters by the registered
     factory.  The factory will be caled with a sequence of objects, as
     positional arguments, that provide these interfaces.
-    """
-    )
+    """)
 
-    provided = Attribute(
-        """The interface provided by the adapters.
+    provided = Attribute("""The interface provided by the adapters.
 
     This interface is implemented by the factory
-    """
-    )
-
+    """)
 
 class IAdapterRegistration(_IBaseAdapterRegistration):
     """Information about the registration of an adapter
     """
 
-
 class ISubscriptionAdapterRegistration(_IBaseAdapterRegistration):
     """Information about the registration of a subscription adapter
     """
-
 
 class IHandlerRegistration(IRegistration):
 
     handler = Attribute("An object called used to handle an event")
 
-    required = Attribute(
-        """The handled interfaces
+    required = Attribute("""The handled interfaces
 
     This is a sequence of interfaces handled by the registered
     handler.  The handler will be caled with a sequence of objects, as
     positional arguments, that provide these interfaces.
-    """
-    )
-
+    """)
 
 class IRegistrationEvent(IObjectEvent):
     """An event that involves a registration"""
@@ -1063,41 +1036,33 @@ class IRegistrationEvent(IObjectEvent):
 class RegistrationEvent(ObjectEvent):
     """There has been a change in a registration
     """
-
     def __repr__(self):
         return "%s event:\n%r" % (self.__class__.__name__, self.object)
-
 
 class IRegistered(IRegistrationEvent):
     """A component or factory was registered
     """
 
-
 @implementer(IRegistered)
 class Registered(RegistrationEvent):
     pass
-
 
 class IUnregistered(IRegistrationEvent):
     """A component or factory was unregistered
     """
 
-
 @implementer(IUnregistered)
 class Unregistered(RegistrationEvent):
     """A component or factory was unregistered
     """
-
     pass
-
 
 class IComponentRegistry(Interface):
     """Register components
     """
 
-    def registerUtility(
-        component=None, provided=None, name=u"", info=u"", factory=None
-    ):
+    def registerUtility(component=None, provided=None, name=u'',
+                        info=u'', factory=None):
         """Register a utility
 
         :param factory:
@@ -1124,7 +1089,8 @@ class IComponentRegistry(Interface):
         A `IRegistered` event is generated with an `IUtilityRegistration`.
         """
 
-    def unregisterUtility(component=None, provided=None, name=u"", factory=None):
+    def unregisterUtility(component=None, provided=None, name=u'',
+                          factory=None):
         """Unregister a utility
 
         :returns:
@@ -1163,7 +1129,8 @@ class IComponentRegistry(Interface):
         in the object.
         """
 
-    def registerAdapter(factory, required=None, provided=None, name=u"", info=u""):
+    def registerAdapter(factory, required=None, provided=None, name=u'',
+                       info=u''):
         """Register an adapter factory
 
         :param factory:
@@ -1197,7 +1164,8 @@ class IComponentRegistry(Interface):
         A `IRegistered` event is generated with an `IAdapterRegistration`.
         """
 
-    def unregisterAdapter(factory=None, required=None, provided=None, name=u""):
+    def unregisterAdapter(factory=None, required=None,
+                          provided=None, name=u''):
         """Unregister an adapter factory
 
         :returns:
@@ -1245,9 +1213,8 @@ class IComponentRegistry(Interface):
         in the object.
         """
 
-    def registerSubscriptionAdapter(
-        factory, required=None, provides=None, name=u"", info=""
-    ):
+    def registerSubscriptionAdapter(factory, required=None, provides=None,
+                                    name=u'', info=''):
         """Register a subscriber factory
 
         :param factory:
@@ -1284,9 +1251,8 @@ class IComponentRegistry(Interface):
         `ISubscriptionAdapterRegistration`.
         """
 
-    def unregisterSubscriptionAdapter(
-        factory=None, required=None, provides=None, name=u""
-    ):
+    def unregisterSubscriptionAdapter(factory=None, required=None,
+                                      provides=None, name=u''):
         """Unregister a subscriber factory.
 
         :returns:
@@ -1338,7 +1304,7 @@ class IComponentRegistry(Interface):
         registrations in the object.
         """
 
-    def registerHandler(handler, required=None, name=u"", info=""):
+    def registerHandler(handler, required=None, name=u'', info=''):
         """Register a handler.
 
         A handler is a subscriber that doesn't compute an adapter
@@ -1373,7 +1339,7 @@ class IComponentRegistry(Interface):
         A `IRegistered` event is generated with an `IHandlerRegistration`.
         """
 
-    def unregisterHandler(handler=None, required=None, name=u""):
+    def unregisterHandler(handler=None, required=None, name=u''):
         """Unregister a handler.
 
         A handler is a subscriber that doesn't compute an adapter

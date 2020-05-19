@@ -26,14 +26,14 @@ from zope.interface.common import numbers
 from zope.interface.common import io
 
 __all__ = [
-    "IList",
-    "ITuple",
-    "ITextString",
-    "IByteString",
-    "INativeString",
-    "IBool",
-    "IDict",
-    "IFile",
+    'IList',
+    'ITuple',
+    'ITextString',
+    'IByteString',
+    'INativeString',
+    'IBool',
+    'IDict',
+    'IFile',
 ]
 
 # pylint:disable=no-self-argument
@@ -41,7 +41,6 @@ class IList(collections.IMutableSequence):
     """
     Interface for :class:`list`
     """
-
     extra_classes = (list,)
 
     def sort(key=None, reverse=False):
@@ -56,7 +55,6 @@ class ITuple(collections.ISequence):
     """
     Interface for :class:`tuple`
     """
-
     extra_classes = (tuple,)
 
 
@@ -67,8 +65,7 @@ class ITextString(collections.ISequence):
     On Python 2, this is :class:`unicode`. On Python 3,
     this is :class:`str`
     """
-
-    extra_classes = (type(u"unicode"),)
+    extra_classes = (type(u'unicode'),)
 
 
 class IByteString(collections.IByteString):
@@ -81,7 +78,6 @@ class IByteString(collections.IByteString):
     (the parent of this interface) this does *not* include
     :class:`bytearray`.
     """
-
     extra_classes = (bytes,)
 
 
@@ -93,8 +89,6 @@ class INativeString(IByteString if str is bytes else ITextString):
     this extends :class:`IByteString`, while on Python 3 it extends
     :class:`ITextString`.
     """
-
-
 # We're not extending ABCInterface so extra_classes won't work
 classImplements(str, INativeString)
 
@@ -103,7 +97,6 @@ class IBool(numbers.IIntegral):
     """
     Interface for :class:`bool`
     """
-
     extra_classes = (bool,)
 
 
@@ -111,7 +104,6 @@ class IDict(collections.IMutableMapping):
     """
     Interface for :class:`dict`
     """
-
     extra_classes = (dict,)
 
 
@@ -127,7 +119,6 @@ class IFile(io.IIOBase):
     many different classes that implement different interfaces from
     :mod:`zope.interface.common.io`.
     """
-
     try:
         extra_classes = (file,)
     except NameError:

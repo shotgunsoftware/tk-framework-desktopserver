@@ -1,5 +1,4 @@
 from __future__ import absolute_import
-
 """Fundamental matchers of objects and values, and composite matchers."""
 
 from hamcrest.core.core.allof import all_of

@@ -37,13 +37,11 @@ from zlmdb import time_ns
 
 import cbor2
 import eth_keys
-
 # from eth_account import Account
 import nacl.secret
 import nacl.utils
 import nacl.public
 import txaio
-
 # import web3
 
 from ._util import hl, recover_eip712_signer, sign_eip712_data
@@ -109,7 +107,7 @@ class KeySeries(object):
         data = cbor2.dumps(payload)
         ciphertext = self._box.encrypt(data)
 
-        return self._id, "cbor", ciphertext
+        return self._id, 'cbor', ciphertext
 
     def encrypt_key(self, key_id, buyer_pubkey):
         """
@@ -130,9 +128,8 @@ class KeySeries(object):
 
         key, _ = self._archive[key_id]
 
-        sendkey_box = nacl.public.SealedBox(
-            nacl.public.PublicKey(buyer_pubkey, encoder=nacl.encoding.RawEncoder)
-        )
+        sendkey_box = nacl.public.SealedBox(nacl.public.PublicKey(buyer_pubkey,
+                                                                  encoder=nacl.encoding.RawEncoder))
 
         encrypted_key = sendkey_box.encrypt(key, encoder=nacl.encoding.RawEncoder)
 
@@ -159,10 +156,9 @@ class KeySeries(object):
 
         self.log.info(
             '{tx_type} key "{key_id}" rotated [api_id="{api_id}"]',
-            tx_type=hl("XBR ROTATE", color="magenta"),
+            tx_type=hl('XBR ROTATE', color='magenta'),
             key_id=hl(uuid.UUID(bytes=self._id)),
-            api_id=hl(uuid.UUID(bytes=self._api_id)),
-        )
+            api_id=hl(uuid.UUID(bytes=self._api_id)))
 
         # maybe fire user callback
         if self._on_rotate:
@@ -203,15 +199,9 @@ class SimpleSeller(object):
             public WAMP key (Ed25519 in Hex) is used as the provider ID. This must be a valid WAMP URI part.
         :type provider_id: string
         """
-        assert (
-            type(market_maker_adr) == bytes and len(market_maker_adr) == 20
-        ), 'market_maker_adr must be bytes[20], but got "{}"'.format(market_maker_adr)
-        assert (
-            type(seller_key) == bytes and len(seller_key) == 32
-        ), 'seller delegate must be bytes[32], but got "{}"'.format(seller_key)
-        assert (
-            provider_id is None or type(provider_id) == str
-        ), 'provider_id must be None or string, but got "{}"'.format(provider_id)
+        assert type(market_maker_adr) == bytes and len(market_maker_adr) == 20, 'market_maker_adr must be bytes[20], but got "{}"'.format(market_maker_adr)
+        assert type(seller_key) == bytes and len(seller_key) == 32, 'seller delegate must be bytes[32], but got "{}"'.format(seller_key)
+        assert provider_id is None or type(provider_id) == str, 'provider_id must be None or string, but got "{}"'.format(provider_id)
 
         self.log = txaio.make_logger()
 
@@ -287,11 +277,7 @@ class SimpleSeller(object):
         assert type(api_id) == bytes and len(api_id) == 16 and api_id not in self._keys
         assert type(price) == int and price > 0
         assert type(interval) == int and interval > 0
-        assert categories is None or (
-            type(categories) == dict
-            and (type(k) == str for k in categories.keys())
-            and (type(v) == str for v in categories.values())
-        ), "invalid categories type (must be dict) or category key or value type (must both be string)"
+        assert categories is None or (type(categories) == dict and (type(k) == str for k in categories.keys()) and (type(v) == str for v in categories.values())), 'invalid categories type (must be dict) or category key or value type (must both be string)'
 
         async def on_rotate(key_series):
 
@@ -311,62 +297,52 @@ class SimpleSeller(object):
                     signature = os.urandom(65)
                     provider_id = self._provider_id
 
-                    offer = await self._session.call(
-                        "xbr.marketmaker.place_offer",
-                        key_id,
-                        api_id,
-                        prefix,
-                        valid_from,
-                        delegate,
-                        signature,
-                        privkey=None,
-                        price=pack_uint256(price) if price is not None else None,
-                        categories=categories,
-                        expires=None,
-                        copies=None,
-                        provider_id=provider_id,
-                    )
+                    offer = await self._session.call('xbr.marketmaker.place_offer',
+                                                     key_id,
+                                                     api_id,
+                                                     prefix,
+                                                     valid_from,
+                                                     delegate,
+                                                     signature,
+                                                     privkey=None,
+                                                     price=pack_uint256(price) if price is not None else None,
+                                                     categories=categories,
+                                                     expires=None,
+                                                     copies=None,
+                                                     provider_id=provider_id)
 
                     self.log.info(
                         '{tx_type} key "{key_id}" offered for {price} [api_id={api_id}, prefix="{prefix}", delegate="{delegate}"]',
-                        tx_type=hl("XBR OFFER ", color="magenta"),
+                        tx_type=hl('XBR OFFER ', color='magenta'),
                         key_id=hl(uuid.UUID(bytes=key_id)),
                         api_id=hl(uuid.UUID(bytes=api_id)),
-                        price=hl(
-                            str(int(price / 10 ** 18) if price is not None else 0)
-                            + " XBR",
-                            color="magenta",
-                        ),
+                        price=hl(str(int(price / 10 ** 18) if price is not None else 0) + ' XBR', color='magenta'),
                         delegate=hl(binascii.b2a_hex(delegate).decode()),
-                        prefix=hl(prefix),
-                    )
+                        prefix=hl(prefix))
 
-                    self.log.debug("offer={offer}", offer=offer)
+                    self.log.debug('offer={offer}', offer=offer)
 
                     break
 
                 except ApplicationError as e:
-                    if e.error == "wamp.error.no_such_procedure":
-                        self.log.warn("xbr.marketmaker.offer: procedure unavailable!")
+                    if e.error == 'wamp.error.no_such_procedure':
+                        self.log.warn('xbr.marketmaker.offer: procedure unavailable!')
                     else:
                         self.log.failure()
                         break
                 except TransportLost:
-                    self.log.warn("TransportLost while calling xbr.marketmaker.offer!")
+                    self.log.warn('TransportLost while calling xbr.marketmaker.offer!')
                     break
                 except:
                     self.log.failure()
 
                 retries -= 1
-                self.log.warn(
-                    "Failed to place offer for key! Retrying {retries}/5 ..",
-                    retries=retries,
-                )
+                self.log.warn('Failed to place offer for key! Retrying {retries}/5 ..', retries=retries)
                 await asyncio.sleep(1)
 
         key_series = self.KeySeries(api_id, price, interval, on_rotate)
         self._keys[api_id] = key_series
-        self.log.info("Created new key series {key_series}", key_series=key_series)
+        self.log.info('Created new key series {key_series}', key_series=key_series)
 
         return key_series
 
@@ -377,84 +353,59 @@ class SimpleSeller(object):
         :param session: WAMP session over which to communicate with the XBR market maker.
         :type session: :class:`autobahn.wamp.protocol.ApplicationSession`
         """
-        assert isinstance(
-            session, ApplicationSession
-        ), 'session must be an ApplicationSession, was "{}"'.format(session)
-        assert self._state in [
-            SimpleSeller.STATE_NONE,
-            SimpleSeller.STATE_STOPPED,
-        ], "seller already running"
+        assert isinstance(session, ApplicationSession), 'session must be an ApplicationSession, was "{}"'.format(session)
+        assert self._state in [SimpleSeller.STATE_NONE, SimpleSeller.STATE_STOPPED], 'seller already running'
 
         self._state = SimpleSeller.STATE_STARTING
         self._session = session
         self._session_regs = []
 
-        self.log.info(
-            "Start selling from seller delegate address {address} (public key 0x{public_key}..)",
-            address=hl(self._caddr),
-            public_key=binascii.b2a_hex(self._pkey.public_key[:10]).decode(),
-        )
+        self.log.info('Start selling from seller delegate address {address} (public key 0x{public_key}..)',
+                      address=hl(self._caddr),
+                      public_key=binascii.b2a_hex(self._pkey.public_key[:10]).decode())
 
-        procedure = "xbr.provider.{}.sell".format(self._provider_id)
-        reg = await session.register(
-            self.sell, procedure, options=RegisterOptions(details_arg="details")
-        )
+        procedure = 'xbr.provider.{}.sell'.format(self._provider_id)
+        reg = await session.register(self.sell, procedure, options=RegisterOptions(details_arg='details'))
         self._session_regs.append(reg)
-        self.log.debug(
-            'Registered procedure "{procedure}"', procedure=hl(reg.procedure)
-        )
+        self.log.debug('Registered procedure "{procedure}"', procedure=hl(reg.procedure))
 
-        procedure = "xbr.provider.{}.close_channel".format(self._provider_id)
-        reg = await session.register(
-            self.close_channel,
-            procedure,
-            options=RegisterOptions(details_arg="details"),
-        )
+        procedure = 'xbr.provider.{}.close_channel'.format(self._provider_id)
+        reg = await session.register(self.close_channel, procedure, options=RegisterOptions(details_arg='details'))
         self._session_regs.append(reg)
-        self.log.debug(
-            'Registered procedure "{procedure}"', procedure=hl(reg.procedure)
-        )
+        self.log.debug('Registered procedure "{procedure}"', procedure=hl(reg.procedure))
 
         for key_series in self._keys.values():
             await key_series.start()
 
         # get the currently active (if any) paying channel for the delegate
-        channel = await session.call(
-            "xbr.marketmaker.get_active_paying_channel", self._addr
-        )
+        channel = await session.call('xbr.marketmaker.get_active_paying_channel', self._addr)
 
         # get the current (off-chain) balance of the paying channel
-        paying_balance = await session.call(
-            "xbr.marketmaker.get_paying_channel_balance", channel["channel"]
-        )
+        paying_balance = await session.call('xbr.marketmaker.get_paying_channel_balance', channel['channel'])
         # FIXME
-        if type(paying_balance["remaining"]) == bytes:
-            paying_balance["remaining"] = unpack_uint256(paying_balance["remaining"])
+        if type(paying_balance['remaining']) == bytes:
+            paying_balance['remaining'] = unpack_uint256(paying_balance['remaining'])
 
-        self.log.info(
-            "Delegate has currently active paying channel address {paying_channel_adr}",
-            paying_channel_adr=hl("0x" + binascii.b2a_hex(channel["channel"]).decode()),
-        )
+        self.log.info('Delegate has currently active paying channel address {paying_channel_adr}',
+                      paying_channel_adr=hl('0x' + binascii.b2a_hex(channel['channel']).decode()))
 
-        self._channels[channel["channel"]] = PayingChannel(
-            channel["channel"], paying_balance["seq"], paying_balance["remaining"]
-        )
+        self._channels[channel['channel']] = PayingChannel(channel['channel'], paying_balance['seq'], paying_balance['remaining'])
         self._state = SimpleSeller.STATE_STARTED
 
         # FIXME
         self._channel = channel
-        self._balance = paying_balance["remaining"]
+        self._balance = paying_balance['remaining']
         if type(self._balance) == bytes:
             self._balance = unpack_uint256(self._balance)
-        self._seq = paying_balance["seq"]
+        self._seq = paying_balance['seq']
 
-        return paying_balance["remaining"]
+        return paying_balance['remaining']
 
     async def stop(self):
         """
         Stop rotating/offering keys to the XBR market maker.
         """
-        assert self._state in [SimpleSeller.STATE_STARTED], "seller not running"
+        assert self._state in [SimpleSeller.STATE_STARTED], 'seller not running'
 
         self._state = SimpleSeller.STATE_STOPPING
 
@@ -493,13 +444,11 @@ class SimpleSeller(object):
         :rtype: dict
         """
         if self._state not in [SimpleSeller.STATE_STARTED]:
-            raise RuntimeError("seller not running")
+            raise RuntimeError('seller not running')
         if not self._session or not self._session.is_attached():
-            raise RuntimeError("market-maker session not attached")
+            raise RuntimeError('market-maker session not attached')
 
-        paying_balance = await self._session.call(
-            "xbr.marketmaker.get_payment_channel_balance", self._channel["channel"]
-        )
+        paying_balance = await self._session.call('xbr.marketmaker.get_payment_channel_balance', self._channel['channel'])
 
         return paying_balance
 
@@ -529,149 +478,73 @@ class SimpleSeller(object):
 
         return key_id, serializer, ciphertext
 
-    def close_channel(
-        self,
-        market_maker_adr,
-        channel_adr,
-        channel_seq,
-        channel_balance,
-        channel_is_final,
-        marketmaker_signature,
-        details=None,
-    ):
+    def close_channel(self, market_maker_adr, channel_adr, channel_seq, channel_balance, channel_is_final,
+                      marketmaker_signature, details=None):
         """
         Called by a XBR Market Maker to close a paying channel.
         """
-        assert (
-            type(market_maker_adr) == bytes and len(market_maker_adr) == 20
-        ), "market_maker_adr must be bytes[20], but was {}".format(
-            type(market_maker_adr)
-        )
-        assert (
-            type(channel_adr) == bytes and len(channel_adr) == 20
-        ), "channel_adr must be bytes[20], but was {}".format(type(channel_adr))
-        assert type(channel_seq) == int, "channel_seq must be int, but was {}".format(
-            type(channel_seq)
-        )
-        assert (
-            type(channel_balance) == bytes and len(channel_balance) == 32
-        ), "channel_balance must be bytes[32], but was {}".format(type(channel_balance))
-        assert (
-            type(channel_is_final) == bool
-        ), "channel_is_final must be bool, but was {}".format(type(channel_is_final))
-        assert type(marketmaker_signature) == bytes and len(marketmaker_signature) == (
-            32 + 32 + 1
-        ), "marketmaker_signature must be bytes[65], but was {}".format(
-            type(marketmaker_signature)
-        )
-        assert details is None or isinstance(
-            details, CallDetails
-        ), "details must be autobahn.wamp.types.CallDetails"
+        assert type(market_maker_adr) == bytes and len(market_maker_adr) == 20, 'market_maker_adr must be bytes[20], but was {}'.format(type(market_maker_adr))
+        assert type(channel_adr) == bytes and len(channel_adr) == 20, 'channel_adr must be bytes[20], but was {}'.format(type(channel_adr))
+        assert type(channel_seq) == int, 'channel_seq must be int, but was {}'.format(type(channel_seq))
+        assert type(channel_balance) == bytes and len(channel_balance) == 32, 'channel_balance must be bytes[32], but was {}'.format(type(channel_balance))
+        assert type(channel_is_final) == bool, 'channel_is_final must be bool, but was {}'.format(type(channel_is_final))
+        assert type(marketmaker_signature) == bytes and len(marketmaker_signature) == (32 + 32 + 1), 'marketmaker_signature must be bytes[65], but was {}'.format(type(marketmaker_signature))
+        assert details is None or isinstance(details, CallDetails), 'details must be autobahn.wamp.types.CallDetails'
 
         # check that the delegate_adr fits what we expect for the market maker
         if market_maker_adr != self._market_maker_adr:
-            raise ApplicationError(
-                "xbr.error.unexpected_delegate_adr",
-                "{}.sell() - unexpected market maker (delegate) address: expected 0x{}, but got 0x{}".format(
-                    self.__class__.__name__,
-                    binascii.b2a_hex(self._market_maker_adr).decode(),
-                    binascii.b2a_hex(market_maker_adr).decode(),
-                ),
-            )
+            raise ApplicationError('xbr.error.unexpected_delegate_adr',
+                                   '{}.sell() - unexpected market maker (delegate) address: expected 0x{}, but got 0x{}'.format(self.__class__.__name__, binascii.b2a_hex(self._market_maker_adr).decode(), binascii.b2a_hex(market_maker_adr).decode()))
 
         # FIXME: must be the currently active channel .. and we need to track all of these
-        if channel_adr != self._channel["channel"]:
+        if channel_adr != self._channel['channel']:
             self._session.leave()
-            raise ApplicationError(
-                "xbr.error.unexpected_channel_adr",
-                "{}.sell() - unexpected paying channel address: expected 0x{}, but got 0x{}".format(
-                    self.__class__.__name__,
-                    binascii.b2a_hex(self._channel["channel"]).decode(),
-                    binascii.b2a_hex(channel_adr).decode(),
-                ),
-            )
+            raise ApplicationError('xbr.error.unexpected_channel_adr',
+                                   '{}.sell() - unexpected paying channel address: expected 0x{}, but got 0x{}'.format(self.__class__.__name__, binascii.b2a_hex(self._channel['channel']).decode(), binascii.b2a_hex(channel_adr).decode()))
 
         # channel sequence number: check we have consensus on off-chain channel state with peer (which is the market maker)
         if channel_seq != self._seq:
-            raise ApplicationError(
-                "xbr.error.unexpected_channel_seq",
-                "{}.sell() - unexpected channel (after tx) sequence number: expected {}, but got {}".format(
-                    self.__class__.__name__, self._seq + 1, channel_seq
-                ),
-            )
+            raise ApplicationError('xbr.error.unexpected_channel_seq',
+                                   '{}.sell() - unexpected channel (after tx) sequence number: expected {}, but got {}'.format(self.__class__.__name__, self._seq + 1, channel_seq))
 
         # channel balance: check we have consensus on off-chain channel state with peer (which is the market maker)
         channel_balance = unpack_uint256(channel_balance)
         if channel_balance != self._balance:
-            raise ApplicationError(
-                "xbr.error.unexpected_channel_balance",
-                "{}.sell() - unexpected channel (after tx) balance: expected {}, but got {}".format(
-                    self.__class__.__name__, self._balance, channel_balance
-                ),
-            )
+            raise ApplicationError('xbr.error.unexpected_channel_balance',
+                                   '{}.sell() - unexpected channel (after tx) balance: expected {}, but got {}'.format(self.__class__.__name__, self._balance, channel_balance))
 
         # XBRSIG: check the signature (over all input data for the buying of the key)
-        signer_address = recover_eip712_signer(
-            channel_adr,
-            channel_seq,
-            channel_balance,
-            channel_is_final,
-            marketmaker_signature,
-        )
+        signer_address = recover_eip712_signer(channel_adr, channel_seq, channel_balance, channel_is_final, marketmaker_signature)
         if signer_address != market_maker_adr:
-            self.log.warn(
-                "{klass}.sell()::XBRSIG[4/8] - EIP712 signature invalid: signer_address={signer_address}, delegate_adr={delegate_adr}",
-                klass=self.__class__.__name__,
-                signer_address=hl(binascii.b2a_hex(signer_address).decode()),
-                delegate_adr=hl(binascii.b2a_hex(market_maker_adr).decode()),
-            )
-            raise ApplicationError(
-                "xbr.error.invalid_signature",
-                "{}.sell()::XBRSIG[4/8] - EIP712 signature invalid or not signed by market maker".format(
-                    self.__class__.__name__
-                ),
-            )
+            self.log.warn('{klass}.sell()::XBRSIG[4/8] - EIP712 signature invalid: signer_address={signer_address}, delegate_adr={delegate_adr}',
+                          klass=self.__class__.__name__,
+                          signer_address=hl(binascii.b2a_hex(signer_address).decode()),
+                          delegate_adr=hl(binascii.b2a_hex(market_maker_adr).decode()))
+            raise ApplicationError('xbr.error.invalid_signature', '{}.sell()::XBRSIG[4/8] - EIP712 signature invalid or not signed by market maker'.format(self.__class__.__name__))
 
         # XBRSIG: compute EIP712 typed data signature
-        seller_signature = sign_eip712_data(
-            self._pkey_raw, channel_adr, channel_seq, channel_balance, channel_is_final
-        )
+        seller_signature = sign_eip712_data(self._pkey_raw, channel_adr, channel_seq, channel_balance, channel_is_final)
 
         receipt = {
-            "delegate": self._addr,
-            "seq": channel_seq,
-            "balance": pack_uint256(channel_balance),
-            "is_final": channel_is_final,
-            "signature": seller_signature,
+            'delegate': self._addr,
+            'seq': channel_seq,
+            'balance': pack_uint256(channel_balance),
+            'is_final': channel_is_final,
+            'signature': seller_signature,
         }
 
-        self.log.info(
-            '{klass}.close_channel() - {tx_type} closing channel {channel_adr}, closing balance {channel_balance}, closing sequence {channel_seq} [caller={caller}, caller_authid="{caller_authid}"]',
-            klass=self.__class__.__name__,
-            tx_type=hl("XBR CLOSE  ", color="magenta"),
-            channel_balance=hl(
-                str(int(channel_balance / 10 ** 18)) + " XBR", color="magenta"
-            ),
-            channel_seq=hl(channel_seq),
-            channel_adr=hl(binascii.b2a_hex(channel_adr).decode()),
-            caller=hl(details.caller),
-            caller_authid=hl(details.caller_authid),
-        )
+        self.log.info('{klass}.close_channel() - {tx_type} closing channel {channel_adr}, closing balance {channel_balance}, closing sequence {channel_seq} [caller={caller}, caller_authid="{caller_authid}"]',
+                      klass=self.__class__.__name__,
+                      tx_type=hl('XBR CLOSE  ', color='magenta'),
+                      channel_balance=hl(str(int(channel_balance / 10 ** 18)) + ' XBR', color='magenta'),
+                      channel_seq=hl(channel_seq),
+                      channel_adr=hl(binascii.b2a_hex(channel_adr).decode()),
+                      caller=hl(details.caller),
+                      caller_authid=hl(details.caller_authid))
 
         return receipt
 
-    def sell(
-        self,
-        market_maker_adr,
-        buyer_pubkey,
-        key_id,
-        channel_adr,
-        channel_seq,
-        amount,
-        balance,
-        signature,
-        details=None,
-    ):
+    def sell(self, market_maker_adr, buyer_pubkey, key_id, channel_adr, channel_seq, amount, balance, signature, details=None):
         """
         Called by a XBR Market Maker to buy a data encyption key. The XBR Market Maker here is
         acting for (triggered by) the XBR buyer delegate.
@@ -709,101 +582,53 @@ class SimpleSeller(object):
         :return: The data encryption key, itself encrypted to the public key of the original buyer.
         :rtype: bytes
         """
-        assert (
-            type(market_maker_adr) == bytes and len(market_maker_adr) == 20
-        ), "delegate_adr must be bytes[20]"
-        assert (
-            type(buyer_pubkey) == bytes and len(buyer_pubkey) == 32
-        ), "buyer_pubkey must be bytes[32]"
-        assert type(key_id) == bytes and len(key_id) == 16, "key_id must be bytes[16]"
-        assert (
-            type(channel_adr) == bytes and len(channel_adr) == 20
-        ), "channel_adr must be bytes[20]"
-        assert type(channel_seq) == int, "channel_seq must be int"
-        assert (
-            type(amount) == bytes and len(amount) == 32
-        ), "amount_paid must be bytes[32], but was {}".format(type(amount))
-        assert (
-            type(balance) == bytes and len(amount) == 32
-        ), "post_balance must be bytes[32], but was {}".format(type(balance))
-        assert type(signature) == bytes and len(signature) == (
-            32 + 32 + 1
-        ), "signature must be bytes[65]"
-        assert details is None or isinstance(
-            details, CallDetails
-        ), "details must be autobahn.wamp.types.CallDetails"
+        assert type(market_maker_adr) == bytes and len(market_maker_adr) == 20, 'delegate_adr must be bytes[20]'
+        assert type(buyer_pubkey) == bytes and len(buyer_pubkey) == 32, 'buyer_pubkey must be bytes[32]'
+        assert type(key_id) == bytes and len(key_id) == 16, 'key_id must be bytes[16]'
+        assert type(channel_adr) == bytes and len(channel_adr) == 20, 'channel_adr must be bytes[20]'
+        assert type(channel_seq) == int, 'channel_seq must be int'
+        assert type(amount) == bytes and len(amount) == 32, 'amount_paid must be bytes[32], but was {}'.format(type(amount))
+        assert type(balance) == bytes and len(amount) == 32, 'post_balance must be bytes[32], but was {}'.format(type(balance))
+        assert type(signature) == bytes and len(signature) == (32 + 32 + 1), 'signature must be bytes[65]'
+        assert details is None or isinstance(details, CallDetails), 'details must be autobahn.wamp.types.CallDetails'
 
         amount = unpack_uint256(amount)
         balance = unpack_uint256(balance)
 
         # check that the delegate_adr fits what we expect for the market maker
         if market_maker_adr != self._market_maker_adr:
-            raise ApplicationError(
-                "xbr.error.unexpected_marketmaker_adr",
-                "{}.sell() - unexpected market maker address: expected 0x{}, but got 0x{}".format(
-                    self.__class__.__name__,
-                    binascii.b2a_hex(self._market_maker_adr).decode(),
-                    binascii.b2a_hex(market_maker_adr).decode(),
-                ),
-            )
+            raise ApplicationError('xbr.error.unexpected_marketmaker_adr',
+                                   '{}.sell() - unexpected market maker address: expected 0x{}, but got 0x{}'.format(self.__class__.__name__, binascii.b2a_hex(self._market_maker_adr).decode(), binascii.b2a_hex(market_maker_adr).decode()))
 
         # get the key series given the key_id
         if key_id not in self._keys_map:
-            raise ApplicationError(
-                "crossbar.error.no_such_object",
-                '{}.sell() - no key with ID "{}"'.format(
-                    self.__class__.__name__, key_id
-                ),
-            )
+            raise ApplicationError('crossbar.error.no_such_object', '{}.sell() - no key with ID "{}"'.format(self.__class__.__name__, key_id))
         key_series = self._keys_map[key_id]
 
         # FIXME: must be the currently active channel .. and we need to track all of these
-        if channel_adr != self._channel["channel"]:
+        if channel_adr != self._channel['channel']:
             self._session.leave()
-            raise ApplicationError(
-                "xbr.error.unexpected_channel_adr",
-                "{}.sell() - unexpected paying channel address: expected 0x{}, but got 0x{}".format(
-                    self.__class__.__name__,
-                    binascii.b2a_hex(self._channel["channel"]).decode(),
-                    binascii.b2a_hex(channel_adr).decode(),
-                ),
-            )
+            raise ApplicationError('xbr.error.unexpected_channel_adr',
+                                   '{}.sell() - unexpected paying channel address: expected 0x{}, but got 0x{}'.format(self.__class__.__name__, binascii.b2a_hex(self._channel['channel']).decode(), binascii.b2a_hex(channel_adr).decode()))
 
         # channel sequence number: check we have consensus on off-chain channel state with peer (which is the market maker)
         if channel_seq != self._seq + 1:
-            raise ApplicationError(
-                "xbr.error.unexpected_channel_seq",
-                "{}.sell() - unexpected channel (after tx) sequence number: expected {}, but got {}".format(
-                    self.__class__.__name__, self._seq + 1, channel_seq
-                ),
-            )
+            raise ApplicationError('xbr.error.unexpected_channel_seq',
+                                   '{}.sell() - unexpected channel (after tx) sequence number: expected {}, but got {}'.format(self.__class__.__name__, self._seq + 1, channel_seq))
 
         # channel balance: check we have consensus on off-chain channel state with peer (which is the market maker)
         if balance != self._balance - amount:
-            raise ApplicationError(
-                "xbr.error.unexpected_channel_balance",
-                "{}.sell() - unexpected channel (after tx) balance: expected {}, but got {}".format(
-                    self.__class__.__name__, self._balance - amount, balance
-                ),
-            )
+            raise ApplicationError('xbr.error.unexpected_channel_balance',
+                                   '{}.sell() - unexpected channel (after tx) balance: expected {}, but got {}'.format(self.__class__.__name__, self._balance - amount, balance))
 
         # XBRSIG[4/8]: check the signature (over all input data for the buying of the key)
-        signer_address = recover_eip712_signer(
-            channel_adr, channel_seq, balance, False, signature
-        )
+        signer_address = recover_eip712_signer(channel_adr, channel_seq, balance, False, signature)
         if signer_address != market_maker_adr:
-            self.log.warn(
-                "{klass}.sell()::XBRSIG[4/8] - EIP712 signature invalid: signer_address={signer_address}, delegate_adr={delegate_adr}",
-                klass=self.__class__.__name__,
-                signer_address=hl(binascii.b2a_hex(signer_address).decode()),
-                delegate_adr=hl(binascii.b2a_hex(market_maker_adr).decode()),
-            )
-            raise ApplicationError(
-                "xbr.error.invalid_signature",
-                "{}.sell()::XBRSIG[4/8] - EIP712 signature invalid or not signed by market maker".format(
-                    self.__class__.__name__
-                ),
-            )
+            self.log.warn('{klass}.sell()::XBRSIG[4/8] - EIP712 signature invalid: signer_address={signer_address}, delegate_adr={delegate_adr}',
+                          klass=self.__class__.__name__,
+                          signer_address=hl(binascii.b2a_hex(signer_address).decode()),
+                          delegate_adr=hl(binascii.b2a_hex(market_maker_adr).decode()))
+            raise ApplicationError('xbr.error.invalid_signature', '{}.sell()::XBRSIG[4/8] - EIP712 signature invalid or not signed by market maker'.format(self.__class__.__name__))
 
         # now actually update our local knowledge of the channel state
         # FIXME: what if code down below fails?
@@ -813,49 +638,48 @@ class SimpleSeller(object):
         # encrypt the data encryption key against the original buyer delegate Ed25519 public key
         sealed_key = key_series.encrypt_key(key_id, buyer_pubkey)
 
-        assert (
-            type(sealed_key) == bytes and len(sealed_key) == 80
-        ), "{}.sell() - unexpected sealed key computed (expected bytes[80]): {}".format(
-            self.__class__.__name__, sealed_key
-        )
+        assert type(sealed_key) == bytes and len(sealed_key) == 80, '{}.sell() - unexpected sealed key computed (expected bytes[80]): {}'.format(self.__class__.__name__, sealed_key)
 
         # XBRSIG[5/8]: compute EIP712 typed data signature
-        seller_signature = sign_eip712_data(
-            self._pkey_raw, self._channel["channel"], self._seq, self._balance
-        )
+        seller_signature = sign_eip712_data(self._pkey_raw, self._channel['channel'], self._seq, self._balance)
 
         receipt = {
             # key ID that has been bought
-            "key_id": key_id,
+            'key_id': key_id,
+
             # seller delegate address that sold the key
-            "delegate": self._addr,
+            'delegate': self._addr,
+
             # buyer delegate Ed25519 public key with which the bought key was sealed
-            "buyer_pubkey": buyer_pubkey,
+            'buyer_pubkey': buyer_pubkey,
+
             # finally return what the consumer (buyer) was actually interested in:
             # the data encryption key, sealed (public key Ed25519 encrypted) to the
             # public key of the buyer delegate
-            "sealed_key": sealed_key,
+            'sealed_key': sealed_key,
+
             # paying channel off-chain transaction sequence numbers
-            "channel_seq": self._seq,
+            'channel_seq': self._seq,
+
             # amount paid for the key
-            "amount": amount,
+            'amount': amount,
+
             # paying channel amount remaining
-            "balance": self._balance,
+            'balance': self._balance,
+
             # seller (delegate) signature
-            "signature": seller_signature,
+            'signature': seller_signature,
         }
 
-        self.log.info(
-            '{klass}.sell() - {tx_type} key "{key_id}" sold for {amount_earned} - balance is {balance} [caller={caller}, caller_authid="{caller_authid}", buyer_pubkey="{buyer_pubkey}"]',
-            klass=self.__class__.__name__,
-            tx_type=hl("XBR SELL  ", color="magenta"),
-            key_id=hl(uuid.UUID(bytes=key_id)),
-            amount_earned=hl(str(int(amount / 10 ** 18)) + " XBR", color="magenta"),
-            balance=hl(str(int(self._balance / 10 ** 18)) + " XBR", color="magenta"),
-            # paying_channel=hl(binascii.b2a_hex(paying_channel).decode()),
-            caller=hl(details.caller),
-            caller_authid=hl(details.caller_authid),
-            buyer_pubkey=hl(binascii.b2a_hex(buyer_pubkey).decode()),
-        )
+        self.log.info('{klass}.sell() - {tx_type} key "{key_id}" sold for {amount_earned} - balance is {balance} [caller={caller}, caller_authid="{caller_authid}", buyer_pubkey="{buyer_pubkey}"]',
+                      klass=self.__class__.__name__,
+                      tx_type=hl('XBR SELL  ', color='magenta'),
+                      key_id=hl(uuid.UUID(bytes=key_id)),
+                      amount_earned=hl(str(int(amount / 10 ** 18)) + ' XBR', color='magenta'),
+                      balance=hl(str(int(self._balance / 10 ** 18)) + ' XBR', color='magenta'),
+                      # paying_channel=hl(binascii.b2a_hex(paying_channel).decode()),
+                      caller=hl(details.caller),
+                      caller_authid=hl(details.caller_authid),
+                      buyer_pubkey=hl(binascii.b2a_hex(buyer_pubkey).decode()))
 
         return receipt

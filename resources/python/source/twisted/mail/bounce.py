@@ -33,7 +33,9 @@ Final-Recipient: RFC822; {failedTo}
 """
 
 
-def generateBounce(message, failedFrom, failedTo, transcript="", encoding="utf-8"):
+
+def generateBounce(message, failedFrom, failedTo, transcript='',
+                   encoding='utf-8'):
     """
     Generate a bounce message for an undeliverable email message.
 
@@ -65,25 +67,23 @@ def generateBounce(message, failedFrom, failedTo, transcript="", encoding="utf-8
         failedTo = failedTo.decode(encoding)
 
     if not transcript:
-        transcript = u"""\
+        transcript = u'''\
 I'm sorry, the following address has permanent errors: {failedTo}.
 I've given up, and I will not retry the message again.
-""".format(
-            failedTo=failedTo
-        )
+'''.format(failedTo=failedTo)
 
     failedAddress = email.utils.parseaddr(failedTo)[1]
     data = {
-        "boundary": "{}_{}_{}".format(time.time(), os.getpid(), "XXXXX"),
-        "ctime": time.ctime(time.time()),
-        "failedAddress": failedAddress,
-        "failedDomain": failedAddress.split("@", 1)[1],
-        "failedFrom": failedFrom,
-        "failedTo": failedTo,
-        "messageID": smtp.messageid(uniq="bounce"),
-        "message": message,
-        "transcript": transcript,
-    }
+        'boundary': "{}_{}_{}".format(time.time(), os.getpid(), 'XXXXX'),
+        'ctime': time.ctime(time.time()),
+        'failedAddress': failedAddress,
+        'failedDomain': failedAddress.split('@', 1)[1],
+        'failedFrom': failedFrom,
+        'failedTo': failedTo,
+        'messageID': smtp.messageid(uniq='bounce'),
+        'message': message,
+        'transcript': transcript,
+        }
 
     fp = StringIO()
     fp.write(BOUNCE_FORMAT.format(**data))
@@ -104,4 +104,4 @@ I've given up, and I will not retry the message again.
         if isinstance(messageContent, bytes):
             messageContent = messageContent.decode(encoding)
         fp.write(messageContent)
-    return b"", failedFrom.encode(encoding), fp.getvalue().encode(encoding)
+    return b'', failedFrom.encode(encoding), fp.getvalue().encode(encoding)

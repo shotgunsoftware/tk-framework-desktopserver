@@ -4,7 +4,6 @@ An example project.
 @added: exampleproj NEXT
 """
 
-from __future__ import print_function
 from incremental import Version
 from ._version import __version__
 

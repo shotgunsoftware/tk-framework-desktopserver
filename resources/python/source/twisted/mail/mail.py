@@ -32,7 +32,6 @@ class DomainWithDefaultDict:
     @ivar domains: See L{__init__}
     @ivar default: See L{__init__}
     """
-
     def __init__(self, domains, default):
         """
         @type domains: L{dict} of L{bytes} -> L{IDomain} provider
@@ -44,6 +43,7 @@ class DomainWithDefaultDict:
         self.domains = domains
         self.default = default
 
+
     def setDefaultDomain(self, domain):
         """
         Set the default domain.
@@ -52,6 +52,7 @@ class DomainWithDefaultDict:
         @param domain: The default domain.
         """
         self.default = domain
+
 
     def has_key(self, name):
         """
@@ -68,13 +69,13 @@ class DomainWithDefaultDict:
             dictionary.
         """
         warnings.warn(
-            "twisted.mail.mail.DomainWithDefaultDict.has_key was deprecated "
-            "in Twisted 16.3.0. "
-            "Use the `in` keyword instead.",
+            'twisted.mail.mail.DomainWithDefaultDict.has_key was deprecated '
+            'in Twisted 16.3.0. '
+            'Use the `in` keyword instead.',
             category=DeprecationWarning,
-            stacklevel=2,
-        )
+            stacklevel=2)
         return 1
+
 
     def fromkeys(klass, keys, value=None):
         """
@@ -94,8 +95,8 @@ class DomainWithDefaultDict:
         for k in keys:
             d[k] = value
         return d
-
     fromkeys = classmethod(fromkeys)
+
 
     def __contains__(self, name):
         """
@@ -113,6 +114,7 @@ class DomainWithDefaultDict:
         """
         return 1
 
+
     def __getitem__(self, name):
         """
         Look up a domain name and, if it is present, return the domain object
@@ -126,6 +128,7 @@ class DomainWithDefaultDict:
         """
         return self.domains.get(name, self.default)
 
+
     def __setitem__(self, name, value):
         """
         Associate a domain object with a domain name in this dictionary.
@@ -138,6 +141,7 @@ class DomainWithDefaultDict:
         """
         self.domains[name] = value
 
+
     def __delitem__(self, name):
         """
         Delete the entry for a domain name in this dictionary.
@@ -146,6 +150,7 @@ class DomainWithDefaultDict:
         @param name: A domain name.
         """
         del self.domains[name]
+
 
     def __iter__(self):
         """
@@ -156,6 +161,7 @@ class DomainWithDefaultDict:
         """
         return iter(self.domains)
 
+
     def __len__(self):
         """
         Return the number of domains in this dictionary.
@@ -165,6 +171,7 @@ class DomainWithDefaultDict:
         """
         return len(self.domains)
 
+
     def __str__(self):
         """
         Build an informal string representation of this dictionary.
@@ -173,7 +180,8 @@ class DomainWithDefaultDict:
         @return: A string containing the mapping of domain names to domain
             objects.
         """
-        return "<DomainWithDefaultDict %s>" % (self.domains,)
+        return '<DomainWithDefaultDict %s>' % (self.domains,)
+
 
     def __repr__(self):
         """
@@ -183,7 +191,8 @@ class DomainWithDefaultDict:
         @return: A pseudo-executable string describing the underlying domain
             mapping of this object.
         """
-        return "DomainWithDefaultDict(%s)" % (self.domains,)
+        return 'DomainWithDefaultDict(%s)' % (self.domains,)
+
 
     def get(self, key, default=None):
         """
@@ -202,6 +211,7 @@ class DomainWithDefaultDict:
         """
         return self.domains.get(key, default)
 
+
     def copy(self):
         """
         Make a copy of this dictionary.
@@ -210,6 +220,7 @@ class DomainWithDefaultDict:
         @return: A copy of this dictionary.
         """
         return DomainWithDefaultDict(self.domains.copy(), self.default)
+
 
     def iteritems(self):
         """
@@ -226,6 +237,7 @@ class DomainWithDefaultDict:
         """
         return self.domains.iteritems()
 
+
     def iterkeys(self):
         """
         Return an iterator over the domain names in this dictionary.
@@ -238,6 +250,7 @@ class DomainWithDefaultDict:
         @return: An iterator over the domain names.
         """
         return self.domains.iterkeys()
+
 
     def itervalues(self):
         """
@@ -253,6 +266,7 @@ class DomainWithDefaultDict:
         """
         return self.domains.itervalues()
 
+
     def keys(self):
         """
         Return a list of all domain names in this dictionary.
@@ -263,6 +277,7 @@ class DomainWithDefaultDict:
         """
         return self.domains.keys()
 
+
     def values(self):
         """
         Return a list of all domain objects in this dictionary.
@@ -271,6 +286,7 @@ class DomainWithDefaultDict:
         @return: The domain objects in this dictionary.
         """
         return self.domains.values()
+
 
     def items(self):
         """
@@ -282,6 +298,7 @@ class DomainWithDefaultDict:
         @return: Domain name/domain object pairs in this dictionary.
         """
         return self.domains.items()
+
 
     def popitem(self):
         """
@@ -295,6 +312,7 @@ class DomainWithDefaultDict:
         @raise KeyError: When this dictionary is empty.
         """
         return self.domains.popitem()
+
 
     def update(self, other):
         """
@@ -313,6 +331,7 @@ class DomainWithDefaultDict:
         """
         return self.domains.update(other)
 
+
     def clear(self):
         """
         Remove all items from this dictionary.
@@ -321,6 +340,7 @@ class DomainWithDefaultDict:
         @return: None.
         """
         return self.domains.clear()
+
 
     def setdefault(self, key, default):
         """
@@ -340,6 +360,10 @@ class DomainWithDefaultDict:
         return self.domains.setdefault(key, default)
 
 
+
+
+
+
 @implementer(IDomain)
 class BounceDomain:
     """
@@ -347,7 +371,6 @@ class BounceDomain:
 
     This can be used to block off a domain.
     """
-
     def exists(self, user):
         """
         Raise an exception to indicate that the user does not exist in this
@@ -359,6 +382,7 @@ class BounceDomain:
         @raise SMTPBadRcpt: When the given user does not exist in this domain.
         """
         raise smtp.SMTPBadRcpt(user)
+
 
     def willRelay(self, user, protocol):
         """
@@ -376,6 +400,7 @@ class BounceDomain:
         """
         return False
 
+
     def addUser(self, user, password):
         """
         Ignore attempts to add a user to this domain.
@@ -388,6 +413,7 @@ class BounceDomain:
         """
         pass
 
+
     def getCredentialsCheckers(self):
         """
         Return no credentials checkers for this domain.
@@ -396,6 +422,7 @@ class BounceDomain:
         @return: The empty list.
         """
         return []
+
 
 
 @implementer(smtp.IMessage)
@@ -407,7 +434,6 @@ class FileMessage:
     @ivar name: See L{__init__}.
     @ivar finalName: See L{__init__}.
     """
-
     def __init__(self, fp, name, finalName):
         """
         @type fp: file-like object
@@ -425,6 +451,7 @@ class FileMessage:
         self.name = name
         self.finalName = finalName
 
+
     def lineReceived(self, line):
         """
         Write a received line to the file.
@@ -432,7 +459,8 @@ class FileMessage:
         @type line: L{bytes}
         @param line: A received line.
         """
-        self.fp.write(line + "\n")
+        self.fp.write(line+'\n')
+
 
     def eomReceived(self):
         """
@@ -446,12 +474,14 @@ class FileMessage:
         os.rename(self.name, self.finalName)
         return defer.succeed(self.finalName)
 
+
     def connectionLost(self):
         """
         Delete the file holding the partially received message.
         """
         self.fp.close()
         os.remove(self.name)
+
 
 
 class MailService(service.MultiService):
@@ -477,7 +507,6 @@ class MailService(service.MultiService):
     @type monitor: L{FileMonitoringService}
     @ivar monitor: A service to monitor changes to files.
     """
-
     queue = None
     domains = None
     portals = None
@@ -497,6 +526,7 @@ class MailService(service.MultiService):
         self.monitor.setServiceParent(self)
         self.smtpPortal = Portal(self)
 
+
     def getPOP3Factory(self):
         """
         Create a POP3 protocol factory.
@@ -505,6 +535,7 @@ class MailService(service.MultiService):
         @return: A POP3 protocol factory.
         """
         return protocols.POP3Factory(self)
+
 
     def getSMTPFactory(self):
         """
@@ -515,6 +546,7 @@ class MailService(service.MultiService):
         """
         return protocols.SMTPFactory(self, self.smtpPortal)
 
+
     def getESMTPFactory(self):
         """
         Create an ESMTP protocol factory.
@@ -523,6 +555,7 @@ class MailService(service.MultiService):
         @return: An ESMTP protocol factory.
         """
         return protocols.ESMTPFactory(self, self.smtpPortal)
+
 
     def addDomain(self, name, domain):
         """
@@ -541,6 +574,7 @@ class MailService(service.MultiService):
         if self.aliases and IAliasableDomain.providedBy(domain):
             domain.setAliasGroup(self.aliases)
 
+
     def setQueue(self, queue):
         """
         Set the queue for outgoing emails.
@@ -549,6 +583,7 @@ class MailService(service.MultiService):
         @param queue: A queue for outgoing messages.
         """
         self.queue = queue
+
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         """
@@ -577,6 +612,7 @@ class MailService(service.MultiService):
             return smtp.IMessageDelivery, a, lambda: None
         raise NotImplementedError()
 
+
     def lookupPortal(self, name):
         """
         Find the portal for a domain.
@@ -589,6 +625,7 @@ class MailService(service.MultiService):
         """
         return self.portals[name]
 
+
     def defaultPortal(self):
         """
         Return the portal for the default domain.
@@ -598,7 +635,8 @@ class MailService(service.MultiService):
         @rtype: L{Portal}
         @return: The portal for the default domain.
         """
-        return self.portals[""]
+        return self.portals['']
+
 
 
 class FileMonitoringService(internet.TimerService):
@@ -623,13 +661,13 @@ class FileMonitoringService(internet.TimerService):
     @type index: L{int}
     @ivar index: The index of the next file to be checked.
     """
-
     def __init__(self):
         """
         Initialize the file monitoring service.
         """
         self.files = []
         self.intervals = iter(util.IntervalDifferential([], 60))
+
 
     def startService(self):
         """
@@ -638,14 +676,15 @@ class FileMonitoringService(internet.TimerService):
         service.Service.startService(self)
         self._setupMonitor()
 
+
     def _setupMonitor(self):
         """
         Schedule the next monitoring call.
         """
         from twisted.internet import reactor
-
         t, self.index = self.intervals.next()
         self._call = reactor.callLater(t, self._monitor)
+
 
     def stopService(self):
         """
@@ -655,6 +694,7 @@ class FileMonitoringService(internet.TimerService):
         if self._call:
             self._call.cancel()
             self._call = None
+
 
     def monitorFile(self, name, callback, interval=10):
         """
@@ -676,6 +716,7 @@ class FileMonitoringService(internet.TimerService):
         self.files.append([interval, name, callback, mtime])
         self.intervals.addInterval(interval)
 
+
     def unmonitorFile(self, name):
         """
         Stop monitoring a file.
@@ -688,6 +729,7 @@ class FileMonitoringService(internet.TimerService):
                 self.intervals.removeInterval(self.files[i][0])
                 del self.files[i]
                 break
+
 
     def _monitor(self):
         """

@@ -14,6 +14,7 @@ __all__ = [
 ]
 
 
+
 class FixedOffsetTimeZone(tzinfo):
     """
     Represents a fixed timezone offset (without daylight saving time).
@@ -37,6 +38,7 @@ class FixedOffsetTimeZone(tzinfo):
         """
         self.offset = offset
         self.name = name
+
 
     @classmethod
     def fromSignHoursMinutes(cls, sign, hours, minutes):
@@ -67,6 +69,7 @@ class FixedOffsetTimeZone(tzinfo):
             raise ValueError("Invalid sign for timezone %r" % (sign,))
         return cls(timedelta(hours=hours, minutes=minutes), name)
 
+
     @classmethod
     def fromLocalTimeStamp(cls, timeStamp):
         """
@@ -79,10 +82,12 @@ class FixedOffsetTimeZone(tzinfo):
         @return: a time zone
         @rtype: L{FixedOffsetTimeZone}
         """
-        offset = datetime.fromtimestamp(timeStamp) - datetime.utcfromtimestamp(
-            timeStamp
+        offset = (
+            datetime.fromtimestamp(timeStamp) -
+            datetime.utcfromtimestamp(timeStamp)
         )
         return cls(offset)
+
 
     def utcoffset(self, dt):
         """
@@ -90,12 +95,14 @@ class FixedOffsetTimeZone(tzinfo):
         """
         return self.offset
 
+
     def dst(self, dt):
         """
         Return a zero C{datetime.timedelta} for the daylight saving time
         offset, since there is never one.
         """
         return timedelta(0)
+
 
     def tzname(self, dt):
         """
@@ -106,6 +113,7 @@ class FixedOffsetTimeZone(tzinfo):
         # XXX this is wrong; the tests are
         dt = datetime.fromtimestamp(0, self)
         return dt.strftime("UTC%z")
+
 
 
 UTC = FixedOffsetTimeZone.fromSignHoursMinutes("+", 0, 0)

@@ -101,7 +101,11 @@ def extract_ids(cert):
                 if name_string == "dNSName":
                     ids.append(DNSPattern(n.getComponent().asOctets()))
                 elif name_string == "iPAddress":
-                    ids.append(IPAddressPattern.from_bytes(n.getComponent().asOctets()))
+                    ids.append(
+                        IPAddressPattern.from_bytes(
+                            n.getComponent().asOctets()
+                        )
+                    )
                 elif name_string == "uniformResourceIdentifier":
                     ids.append(URIPattern(n.getComponent().asOctets()))
                 elif name_string == "otherName":
@@ -112,7 +116,9 @@ def extract_ids(cert):
                         if isinstance(srv, IA5String):
                             ids.append(SRVPattern(srv.asOctets()))
                         else:  # pragma: nocover
-                            raise CertificateError("Unexpected certificate content.")
+                            raise CertificateError(
+                                "Unexpected certificate content."
+                            )
                     else:  # pragma: nocover
                         pass
                 else:  # pragma: nocover

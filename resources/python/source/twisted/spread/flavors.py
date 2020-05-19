@@ -30,15 +30,9 @@ from zope.interface import implementer, Interface
 from twisted.python import log, reflect
 from twisted.python.compat import _PY3, unicode, comparable, cmp
 from .jelly import (
-    setUnjellyableForClass,
-    setUnjellyableForClassTree,
-    setUnjellyableFactoryForClass,
-    unjellyableRegistry,
-    Jellyable,
-    Unjellyable,
-    setInstanceState,
-    getInstanceState,
-    _createBlank,
+    setUnjellyableForClass, setUnjellyableForClassTree,
+    setUnjellyableFactoryForClass, unjellyableRegistry, Jellyable, Unjellyable,
+    setInstanceState, getInstanceState, _createBlank
 )
 
 # compatibility
@@ -94,7 +88,6 @@ class Serializable(Jellyable):
 
         return id(self)
 
-
 class Referenceable(Serializable):
     perspective = None
     """I am an object sent remotely as a direct reference.
@@ -120,10 +113,10 @@ class Referenceable(Serializable):
         # which may try to send use keywords where keys are of type
         # bytes.
         if [key for key in kw.keys() if isinstance(key, bytes)]:
-            kw = dict((k.decode("utf8"), v) for k, v in kw.items())
+            kw = dict((k.decode('utf8'), v) for k, v in kw.items())
 
         if not isinstance(message, str):
-            message = message.decode("utf8")
+            message = message.decode('utf8')
 
         method = getattr(self, "remote_%s" % message, None)
         if method is None:
@@ -228,11 +221,11 @@ class ViewPoint(Referenceable):
         kw = broker.unserialize(kw, self.perspective)
 
         if not isinstance(message, str):
-            message = message.decode("utf8")
+            message = message.decode('utf8')
 
         method = getattr(self.object, "view_%s" % message)
         try:
-            state = method(*(self.perspective,) + args, **kw)
+            state = method(*(self.perspective,)+args, **kw)
         except TypeError:
             log.msg("%s didn't accept %s and %s" % (method, args, kw))
             raise
@@ -253,6 +246,7 @@ class Viewable(Serializable):
         """Serialize a L{ViewPoint} for me and the perspective of the given broker.
         """
         return ViewPoint(jellier.invoker.serializingPerspective, self).jellyFor(jellier)
+
 
 
 class Copyable(Serializable):
@@ -295,7 +289,7 @@ class Copyable(Serializable):
         you may override this to change it.
         """
 
-        return reflect.qual(self.__class__).encode("utf-8")
+        return reflect.qual(self.__class__).encode('utf-8')
 
     def getTypeToCopyFor(self, perspective):
         """Determine what type tag to send for me.
@@ -381,6 +375,7 @@ class Cacheable(Copyable):
         """
 
 
+
 class RemoteCopy(Unjellyable):
     """I am a remote copy of a Copyable object.
 
@@ -403,10 +398,8 @@ class RemoteCopy(Unjellyable):
         on my peer's perspective).
         """
         if _PY3:
-            state = {
-                x.decode("utf8") if isinstance(x, bytes) else x: y
-                for x, y in state.items()
-            }
+            state = {x.decode('utf8') if isinstance(x, bytes)
+                     else x:y for x,y in state.items()}
         self.__dict__ = state
 
     def unjellyFor(self, unjellier, jellyList):
@@ -414,6 +407,7 @@ class RemoteCopy(Unjellyable):
             return setInstanceState(self, unjellier, jellyList)
         self.setCopyableState(unjellier.unjelly(jellyList[1]))
         return self
+
 
 
 class RemoteCache(RemoteCopy, Serializable):
@@ -436,7 +430,7 @@ class RemoteCache(RemoteCopy, Serializable):
         'C{observe_messagename}' and call it on my  with the same arguments.
         """
         if not isinstance(message, str):
-            message = message.decode("utf8")
+            message = message.decode('utf8')
 
         args = broker.unserialize(args)
         kw = broker.unserialize(kw)
@@ -453,10 +447,9 @@ class RemoteCache(RemoteCopy, Serializable):
         """
         if jellier.invoker is None:
             return getInstanceState(self, jellier)
-        assert (
-            jellier.invoker is self.broker
-        ), "You cannot exchange cached proxies between brokers."
-        return b"lcache", self.luid
+        assert jellier.invoker is self.broker, "You cannot exchange cached proxies between brokers."
+        return b'lcache', self.luid
+
 
     def unjellyFor(self, unjellier, jellyList):
         if unjellier.invoker is None:
@@ -479,9 +472,9 @@ class RemoteCache(RemoteCopy, Serializable):
         self.luid = jellyList[1]
         return borgCopy
 
-    ##     def __really_del__(self):
-    ##         """Final finalization call, made after all remote references have been lost.
-    ##         """
+##     def __really_del__(self):
+##         """Final finalization call, made after all remote references have been lost.
+##         """
 
     def __cmp__(self, other):
         """Compare me [to another RemoteCache.
@@ -509,6 +502,7 @@ class RemoteCache(RemoteCopy, Serializable):
         except:
             log.deferr()
 
+
     def _borgify(self):
         """
         Create a new object that shares its state (i.e. its C{__dict__}) and
@@ -535,30 +529,25 @@ class RemoteCache(RemoteCopy, Serializable):
         return blank
 
 
+
 def unjellyCached(unjellier, unjellyList):
     luid = unjellyList[1]
     return unjellier.invoker.cachedLocallyAs(luid)._borgify()
 
-
 setUnjellyableForClass("cached", unjellyCached)
-
 
 def unjellyLCache(unjellier, unjellyList):
     luid = unjellyList[1]
     obj = unjellier.invoker.remotelyCachedForLUID(luid)
     return obj
 
-
 setUnjellyableForClass("lcache", unjellyLCache)
-
 
 def unjellyLocal(unjellier, unjellyList):
     obj = unjellier.invoker.localObjectForID(unjellyList[1])
     return obj
 
-
 setUnjellyableForClass("local", unjellyLocal)
-
 
 @comparable
 class RemoteCacheMethod:
@@ -585,13 +574,10 @@ class RemoteCacheMethod:
         cacheID = self.broker.cachedRemotelyAs(self.cached)
         if cacheID is None:
             from pb import ProtocolError
+            raise ProtocolError("You can't call a cached method when the object hasn't been given to the peer yet.")
+        return self.broker._sendMessage(b'cache', self.perspective, cacheID,
+                                        self.name, args, kw)
 
-            raise ProtocolError(
-                "You can't call a cached method when the object hasn't been given to the peer yet."
-            )
-        return self.broker._sendMessage(
-            b"cache", self.perspective, cacheID, self.name, args, kw
-        )
 
 
 @comparable
@@ -621,21 +607,15 @@ class RemoteCacheObserver:
 
     def __repr__(self):
         return "<RemoteCacheObserver(%s, %s, %s) at %s>" % (
-            self.broker,
-            self.cached,
-            self.perspective,
-            id(self),
-        )
+            self.broker, self.cached, self.perspective, id(self))
 
     def __hash__(self):
         """Generate a hash unique to all L{RemoteCacheObserver}s for this broker/perspective/cached triplet
         """
 
-        return (
-            (hash(self.broker) % 2 ** 10)
-            + (hash(self.perspective) % 2 ** 10)
-            + (hash(self.cached) % 2 ** 10)
-        )
+        return (  (hash(self.broker) % 2**10)
+                + (hash(self.perspective) % 2**10)
+                + (hash(self.cached) % 2**10))
 
     def __cmp__(self, other):
         """Compare me to another L{RemoteCacheObserver}.
@@ -651,14 +631,10 @@ class RemoteCacheObserver:
             _name = _name.encode("utf-8")
         if cacheID is None:
             from pb import ProtocolError
-
-            raise ProtocolError(
-                "You can't call a cached method when the "
-                "object hasn't been given to the peer yet."
-            )
-        return self.broker._sendMessage(
-            b"cache", self.perspective, cacheID, _name, args, kw
-        )
+            raise ProtocolError("You can't call a cached method when the "
+                                "object hasn't been given to the peer yet.")
+        return self.broker._sendMessage(b'cache', self.perspective, cacheID,
+                                        _name, args, kw)
 
     def remoteMethod(self, key):
         """Get a L{pb.RemoteMethod} for this key.

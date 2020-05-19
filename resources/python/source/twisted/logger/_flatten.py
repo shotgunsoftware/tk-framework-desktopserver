@@ -16,6 +16,7 @@ from twisted.python.compat import unicode
 aFormatter = Formatter()
 
 
+
 class KeyFlattener(object):
     """
     A L{KeyFlattener} computes keys for the things within curly braces in
@@ -27,6 +28,7 @@ class KeyFlattener(object):
         Initialize a L{KeyFlattener}.
         """
         self.keys = defaultdict(lambda: 0)
+
 
     def flatKey(self, fieldName, formatSpec, conversion):
         """
@@ -46,16 +48,20 @@ class KeyFlattener(object):
             L{KeyFlattener}'s lifetime.
         @rtype: L{str}
         """
-        result = "{fieldName}!{conversion}:{formatSpec}".format(
-            fieldName=fieldName,
-            formatSpec=(formatSpec or ""),
-            conversion=(conversion or ""),
+        result = (
+            "{fieldName}!{conversion}:{formatSpec}"
+            .format(
+                fieldName=fieldName,
+                formatSpec=(formatSpec or ""),
+                conversion=(conversion or ""),
+            )
         )
         self.keys[result] += 1
         n = self.keys[result]
         if n != 1:
             result += "/" + str(self.keys[result])
         return result
+
 
 
 def flattenEvent(event):
@@ -77,8 +83,8 @@ def flattenEvent(event):
 
     keyFlattener = KeyFlattener()
 
-    for (literalText, fieldName, formatSpec, conversion) in aFormatter.parse(
-        event["log_format"]
+    for (literalText, fieldName, formatSpec, conversion) in (
+        aFormatter.parse(event["log_format"])
     ):
         if fieldName is None:
             continue
@@ -118,6 +124,7 @@ def flattenEvent(event):
         event["log_flattened"] = fields
 
 
+
 def extractField(field, event):
     """
     Extract a given format field from the given event.
@@ -147,6 +154,7 @@ def extractField(field, event):
     return event["log_flattened"][key]
 
 
+
 def flatFormat(event):
     """
     Format an event which has been flattened with L{flattenEvent}.
@@ -164,6 +172,7 @@ def flatFormat(event):
     for literalText, fieldName, formatSpec, conversion in formatFields:
         s.append(literalText)
         if fieldName is not None:
-            key = keyFlattener.flatKey(fieldName, formatSpec, conversion or "s")
+            key = keyFlattener.flatKey(
+                    fieldName, formatSpec, conversion or "s")
             s.append(unicode(fieldValues[key]))
     return u"".join(s)

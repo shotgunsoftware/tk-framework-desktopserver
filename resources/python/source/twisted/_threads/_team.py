@@ -16,6 +16,7 @@ from . import IWorker
 from ._convenience import Quit
 
 
+
 class Statistics(object):
     """
     Statistics about a L{Team}'s current activity.
@@ -32,10 +33,12 @@ class Statistics(object):
     @type backloggedWorkCount: L{int}
     """
 
-    def __init__(self, idleWorkerCount, busyWorkerCount, backloggedWorkCount):
+    def __init__(self, idleWorkerCount, busyWorkerCount,
+                 backloggedWorkCount):
         self.idleWorkerCount = idleWorkerCount
         self.busyWorkerCount = busyWorkerCount
         self.backloggedWorkCount = backloggedWorkCount
+
 
 
 @implementer(IWorker)
@@ -97,6 +100,7 @@ class Team(object):
         self._shouldQuitCoordinator = False
         self._toShrink = 0
 
+
     def statistics(self):
         """
         Gather information on the current status of this L{Team}.
@@ -104,6 +108,7 @@ class Team(object):
         @return: a L{Statistics} describing the current state of this L{Team}.
         """
         return Statistics(len(self._idle), self._busyCount, len(self._pending))
+
 
     def grow(self, n):
         """
@@ -113,7 +118,6 @@ class Team(object):
         @type n: L{int}
         """
         self._quit.check()
-
         @self._coordinator.do
         def createOneWorker():
             for x in range(n):
@@ -121,6 +125,7 @@ class Team(object):
                 if worker is None:
                     return
                 self._recycleWorker(worker)
+
 
     def shrink(self, n=None):
         """
@@ -132,6 +137,7 @@ class Team(object):
         """
         self._quit.check()
         self._coordinator.do(lambda: self._quitIdlers(n))
+
 
     def _quitIdlers(self, n=None):
         """
@@ -149,6 +155,7 @@ class Team(object):
         if self._shouldQuitCoordinator and self._busyCount == 0:
             self._coordinator.quit()
 
+
     def do(self, task):
         """
         Perform some work in a worker created by C{createWorker}.
@@ -157,6 +164,7 @@ class Team(object):
         """
         self._quit.check()
         self._coordinator.do(lambda: self._coordinateThisTask(task))
+
 
     def _coordinateThisTask(self, task):
         """
@@ -168,14 +176,14 @@ class Team(object):
         @param task: the task to dispatch
         @type task: 0-argument callable
         """
-        worker = self._idle.pop() if self._idle else self._createWorker()
+        worker = (self._idle.pop() if self._idle
+                  else self._createWorker())
         if worker is None:
             # The createWorker method may return None if we're out of resources
             # to create workers.
             self._pending.append(task)
             return
         self._busyCount += 1
-
         @worker.do
         def doWork():
             try:
@@ -187,6 +195,7 @@ class Team(object):
             def idleAndPending():
                 self._busyCount -= 1
                 self._recycleWorker(worker)
+
 
     def _recycleWorker(self, worker):
         """
@@ -208,6 +217,7 @@ class Team(object):
             self._toShrink -= 1
             self._idle.remove(worker)
             worker.quit()
+
 
     def quit(self):
         """

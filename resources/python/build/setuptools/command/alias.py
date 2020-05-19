@@ -1,4 +1,3 @@
-from __future__ import print_function
 from distutils.errors import DistutilsOptionError
 
 from setuptools.extern.six.moves import map
@@ -23,10 +22,10 @@ class alias(option_base):
     command_consumes_arguments = True
 
     user_options = [
-        ("remove", "r", "remove (unset) the alias"),
+        ('remove', 'r', 'remove (unset) the alias'),
     ] + option_base.user_options
 
-    boolean_options = option_base.boolean_options + ["remove"]
+    boolean_options = option_base.boolean_options + ['remove']
 
     def initialize_options(self):
         option_base.initialize_options(self)
@@ -42,40 +41,40 @@ class alias(option_base):
             )
 
     def run(self):
-        aliases = self.distribution.get_option_dict("aliases")
+        aliases = self.distribution.get_option_dict('aliases')
 
         if not self.args:
             print("Command Aliases")
             print("---------------")
             for alias in aliases:
-                print(("setup.py alias", format_alias(alias, aliases)))
+                print("setup.py alias", format_alias(alias, aliases))
             return
 
         elif len(self.args) == 1:
-            (alias,) = self.args
+            alias, = self.args
             if self.remove:
                 command = None
             elif alias in aliases:
-                print(("setup.py alias", format_alias(alias, aliases)))
+                print("setup.py alias", format_alias(alias, aliases))
                 return
             else:
-                print(("No alias definition found for %r" % alias))
+                print("No alias definition found for %r" % alias)
                 return
         else:
             alias = self.args[0]
-            command = " ".join(map(shquote, self.args[1:]))
+            command = ' '.join(map(shquote, self.args[1:]))
 
-        edit_config(self.filename, {"aliases": {alias: command}}, self.dry_run)
+        edit_config(self.filename, {'aliases': {alias: command}}, self.dry_run)
 
 
 def format_alias(name, aliases):
     source, command = aliases[name]
-    if source == config_file("global"):
-        source = "--global-config "
-    elif source == config_file("user"):
-        source = "--user-config "
-    elif source == config_file("local"):
-        source = ""
+    if source == config_file('global'):
+        source = '--global-config '
+    elif source == config_file('user'):
+        source = '--user-config '
+    elif source == config_file('local'):
+        source = ''
     else:
-        source = "--filename=%r" % source
-    return source + name + " " + command
+        source = '--filename=%r' % source
+    return source + name + ' ' + command

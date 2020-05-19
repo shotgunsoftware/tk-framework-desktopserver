@@ -27,7 +27,6 @@ from zope.interface.common import ABCInterface
 # pylint:disable=inherit-non-class,
 # pylint:disable=no-member
 
-
 class IIOBase(ABCInterface):
     abc = abc.IOBase
 
@@ -45,7 +44,6 @@ class IBufferedIOBase(IIOBase):
         extra_classes = ()
     else:
         import StringIO
-
         extra_classes = (StringIO.StringIO, cStringIO.InputType, cStringIO.OutputType)
         del cStringIO
         del StringIO

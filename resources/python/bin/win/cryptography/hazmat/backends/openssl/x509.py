@@ -10,18 +10,14 @@ import operator
 from cryptography import utils, x509
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends.openssl.decode_asn1 import (
-    _CERTIFICATE_EXTENSION_PARSER,
-    _CERTIFICATE_EXTENSION_PARSER_NO_SCT,
-    _CRL_EXTENSION_PARSER,
-    _CSR_EXTENSION_PARSER,
-    _REVOKED_CERTIFICATE_EXTENSION_PARSER,
-    _asn1_integer_to_int,
-    _asn1_string_to_bytes,
-    _decode_x509_name,
-    _obj2txt,
-    _parse_asn1_time,
+    _CERTIFICATE_EXTENSION_PARSER, _CERTIFICATE_EXTENSION_PARSER_NO_SCT,
+    _CRL_EXTENSION_PARSER, _CSR_EXTENSION_PARSER,
+    _REVOKED_CERTIFICATE_EXTENSION_PARSER, _asn1_integer_to_int,
+    _asn1_string_to_bytes, _decode_x509_name, _obj2txt, _parse_asn1_time
 )
-from cryptography.hazmat.backends.openssl.encode_asn1 import _encode_asn1_int_gc
+from cryptography.hazmat.backends.openssl.encode_asn1 import (
+    _encode_asn1_int_gc
+)
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import dsa, ec, rsa
 
@@ -117,7 +113,9 @@ class _Certificate(object):
     @property
     def signature_algorithm_oid(self):
         alg = self._backend._ffi.new("X509_ALGOR **")
-        self._backend._lib.X509_get0_signature(self._backend._ffi.NULL, alg, self._x509)
+        self._backend._lib.X509_get0_signature(
+            self._backend._ffi.NULL, alg, self._x509
+        )
         self._backend.openssl_assert(alg[0] != self._backend._ffi.NULL)
         oid = _obj2txt(self._backend, alg[0].algorithm)
         return x509.ObjectIdentifier(oid)
@@ -125,14 +123,20 @@ class _Certificate(object):
     @utils.cached_property
     def extensions(self):
         if self._backend._lib.CRYPTOGRAPHY_OPENSSL_110_OR_GREATER:
-            return _CERTIFICATE_EXTENSION_PARSER.parse(self._backend, self._x509)
+            return _CERTIFICATE_EXTENSION_PARSER.parse(
+                self._backend, self._x509
+            )
         else:
-            return _CERTIFICATE_EXTENSION_PARSER_NO_SCT.parse(self._backend, self._x509)
+            return _CERTIFICATE_EXTENSION_PARSER_NO_SCT.parse(
+                self._backend, self._x509
+            )
 
     @property
     def signature(self):
         sig = self._backend._ffi.new("ASN1_BIT_STRING **")
-        self._backend._lib.X509_get0_signature(sig, self._backend._ffi.NULL, self._x509)
+        self._backend._lib.X509_get0_signature(
+            sig, self._backend._ffi.NULL, self._x509
+        )
         self._backend.openssl_assert(sig[0] != self._backend._ffi.NULL)
         return _asn1_string_to_bytes(self._backend, sig[0])
 
@@ -175,7 +179,9 @@ class _RevokedCertificate(object):
 
     @property
     def serial_number(self):
-        asn1_int = self._backend._lib.X509_REVOKED_get0_serialNumber(self._x509_revoked)
+        asn1_int = self._backend._lib.X509_REVOKED_get0_serialNumber(
+            self._x509_revoked
+        )
         self._backend.openssl_assert(asn1_int != self._backend._ffi.NULL)
         return _asn1_integer_to_int(self._backend, asn1_int)
 
@@ -183,7 +189,9 @@ class _RevokedCertificate(object):
     def revocation_date(self):
         return _parse_asn1_time(
             self._backend,
-            self._backend._lib.X509_REVOKED_get0_revocationDate(self._x509_revoked),
+            self._backend._lib.X509_REVOKED_get0_revocationDate(
+                self._x509_revoked
+            )
         )
 
     @utils.cached_property
@@ -212,7 +220,9 @@ class _CertificateRevocationList(object):
     def fingerprint(self, algorithm):
         h = hashes.Hash(algorithm, self._backend)
         bio = self._backend._create_mem_bio_gc()
-        res = self._backend._lib.i2d_X509_CRL_bio(bio, self._x509_crl)
+        res = self._backend._lib.i2d_X509_CRL_bio(
+            bio, self._x509_crl
+        )
         self._backend.openssl_assert(res == 1)
         der = self._backend._read_mem_bio(bio)
         h.update(der)
@@ -237,8 +247,12 @@ class _CertificateRevocationList(object):
         if res == 0:
             return None
         else:
-            self._backend.openssl_assert(revoked[0] != self._backend._ffi.NULL)
-            return _RevokedCertificate(self._backend, self._sorted_crl, revoked[0])
+            self._backend.openssl_assert(
+                revoked[0] != self._backend._ffi.NULL
+            )
+            return _RevokedCertificate(
+                self._backend, self._sorted_crl, revoked[0]
+            )
 
     @property
     def signature_hash_algorithm(self):
@@ -300,7 +314,9 @@ class _CertificateRevocationList(object):
     def public_bytes(self, encoding):
         bio = self._backend._create_mem_bio_gc()
         if encoding is serialization.Encoding.PEM:
-            res = self._backend._lib.PEM_write_bio_X509_CRL(bio, self._x509_crl)
+            res = self._backend._lib.PEM_write_bio_X509_CRL(
+                bio, self._x509_crl
+            )
         elif encoding is serialization.Encoding.DER:
             res = self._backend._lib.i2d_X509_CRL_bio(bio, self._x509_crl)
         else:
@@ -343,14 +359,13 @@ class _CertificateRevocationList(object):
         return _CRL_EXTENSION_PARSER.parse(self._backend, self._x509_crl)
 
     def is_signature_valid(self, public_key):
-        if not isinstance(
-            public_key, (dsa.DSAPublicKey, rsa.RSAPublicKey, ec.EllipticCurvePublicKey)
-        ):
-            raise TypeError(
-                "Expecting one of DSAPublicKey, RSAPublicKey,"
-                " or EllipticCurvePublicKey."
-            )
-        res = self._backend._lib.X509_CRL_verify(self._x509_crl, public_key._evp_pkey)
+        if not isinstance(public_key, (dsa.DSAPublicKey, rsa.RSAPublicKey,
+                                       ec.EllipticCurvePublicKey)):
+            raise TypeError('Expecting one of DSAPublicKey, RSAPublicKey,'
+                            ' or EllipticCurvePublicKey.')
+        res = self._backend._lib.X509_CRL_verify(
+            self._x509_crl, public_key._evp_pkey
+        )
 
         if res != 1:
             self._backend._consume_errors()
@@ -417,18 +432,19 @@ class _CertificateSigningRequest(object):
         x509_exts = self._backend._ffi.gc(
             x509_exts,
             lambda x: self._backend._lib.sk_X509_EXTENSION_pop_free(
-                x,
-                self._backend._ffi.addressof(
+                x, self._backend._ffi.addressof(
                     self._backend._lib._original_lib, "X509_EXTENSION_free"
-                ),
-            ),
+                )
+            )
         )
         return _CSR_EXTENSION_PARSER.parse(self._backend, x509_exts)
 
     def public_bytes(self, encoding):
         bio = self._backend._create_mem_bio_gc()
         if encoding is serialization.Encoding.PEM:
-            res = self._backend._lib.PEM_write_bio_X509_REQ(bio, self._x509_req)
+            res = self._backend._lib.PEM_write_bio_X509_REQ(
+                bio, self._x509_req
+            )
         elif encoding is serialization.Encoding.DER:
             res = self._backend._lib.i2d_X509_REQ_bio(bio, self._x509_req)
         else:
@@ -470,7 +486,9 @@ class _CertificateSigningRequest(object):
         return True
 
 
-@utils.register_interface(x509.certificate_transparency.SignedCertificateTimestamp)
+@utils.register_interface(
+    x509.certificate_transparency.SignedCertificateTimestamp
+)
 class _SignedCertificateTimestamp(object):
     def __init__(self, backend, sct_list, sct):
         self._backend = backend
@@ -495,9 +513,9 @@ class _SignedCertificateTimestamp(object):
     def timestamp(self):
         timestamp = self._backend._lib.SCT_get_timestamp(self._sct)
         milliseconds = timestamp % 1000
-        return datetime.datetime.utcfromtimestamp(timestamp // 1000).replace(
-            microsecond=milliseconds * 1000
-        )
+        return datetime.datetime.utcfromtimestamp(
+            timestamp // 1000
+        ).replace(microsecond=milliseconds * 1000)
 
     @property
     def entry_type(self):

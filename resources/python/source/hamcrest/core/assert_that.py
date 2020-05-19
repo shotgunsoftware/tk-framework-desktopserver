@@ -11,8 +11,7 @@ __unittest = True
 # py.test integration; hide these frames from tracebacks
 __tracebackhide__ = True
 
-
-def assert_that(arg1, arg2=None, arg3=""):
+def assert_that(arg1, arg2=None, arg3=''):
     """Asserts that actual value satisfies matcher. (Can also assert plain
     boolean condition.)
 
@@ -52,16 +51,17 @@ def assert_that(arg1, arg2=None, arg3=""):
 def _assert_match(actual, matcher, reason):
     if not matcher.matches(actual):
         description = StringDescription()
-        description.append_text(reason).append_text(
-            "\nExpected: "
-        ).append_description_of(matcher).append_text("\n     but: ")
+        description.append_text(reason)             \
+                   .append_text('\nExpected: ')     \
+                   .append_description_of(matcher)  \
+                   .append_text('\n     but: ')
         matcher.describe_mismatch(actual, description)
-        description.append_text("\n")
+        description.append_text('\n')
         raise AssertionError(description)
 
 
 def _assert_bool(assertion, reason=None):
     if not assertion:
         if not reason:
-            reason = "Assertion failed"
+            reason = 'Assertion failed'
         raise AssertionError(reason)

@@ -32,14 +32,14 @@ from autobahn.util import public
 from autobahn.wamp.uri import error
 
 __all__ = (
-    "Error",
-    "SessionNotReady",
-    "SerializationError",
-    "ProtocolError",
-    "TransportLost",
-    "ApplicationError",
-    "NotAuthorized",
-    "InvalidUri",
+    'Error',
+    'SessionNotReady',
+    'SerializationError',
+    'ProtocolError',
+    'TransportLost',
+    'ApplicationError',
+    'NotAuthorized',
+    'InvalidUri',
 )
 
 
@@ -126,9 +126,7 @@ class ApplicationError(Error):
     already registered.
     """
 
-    PROCEDURE_EXISTS_INVOCATION_POLICY_CONFLICT = (
-        u"wamp.error.procedure_exists_with_different_invocation_policy"
-    )
+    PROCEDURE_EXISTS_INVOCATION_POLICY_CONFLICT = u"wamp.error.procedure_exists_with_different_invocation_policy"
     """
     A procedure could not be registered, since a procedure with the given URI is
     already registered, and the registration has a conflicting invocation policy.
@@ -260,11 +258,11 @@ class ApplicationError(Error):
         Exception.__init__(self, *args)
         self.kwargs = kwargs
         self.error = error
-        self.enc_algo = kwargs.pop("enc_algo", None)
-        self.callee = kwargs.pop("callee", None)
-        self.callee_authid = kwargs.pop("callee_authid", None)
-        self.callee_authrole = kwargs.pop("callee_authrole", None)
-        self.forward_for = kwargs.pop("forward_for", None)
+        self.enc_algo = kwargs.pop('enc_algo', None)
+        self.callee = kwargs.pop('callee', None)
+        self.callee_authid = kwargs.pop('callee_authid', None)
+        self.callee_authrole = kwargs.pop('callee_authrole', None)
+        self.forward_for = kwargs.pop('forward_for', None)
 
     @public
     def error_message(self):
@@ -274,33 +272,25 @@ class ApplicationError(Error):
         :returns: The error message.
         :rtype: str
         """
-        return u"{0}: {1}".format(
-            self.error, u" ".join([six.text_type(a) for a in self.args]),
+        return u'{0}: {1}'.format(
+            self.error,
+            u' '.join([six.text_type(a) for a in self.args]),
         )
 
     def __unicode__(self):
-        if self.kwargs and "traceback" in self.kwargs:
-            tb = u":\n" + u"\n".join(self.kwargs.pop("traceback")) + u"\n"
-            self.kwargs["traceback"] = u"..."
+        if self.kwargs and 'traceback' in self.kwargs:
+            tb = u':\n' + u'\n'.join(self.kwargs.pop('traceback')) + u'\n'
+            self.kwargs['traceback'] = u'...'
         else:
-            tb = u""
+            tb = u''
         return u"ApplicationError(error=<{0}>, args={1}, kwargs={2}, enc_algo={3}, callee={4}, callee_authid={5}, callee_authrole={6}, forward_for={7}){8}".format(
-            self.error,
-            list(self.args),
-            self.kwargs,
-            self.enc_algo,
-            self.callee,
-            self.callee_authid,
-            self.callee_authrole,
-            self.forward_for,
-            tb,
-        )
+            self.error, list(self.args), self.kwargs, self.enc_algo, self.callee, self.callee_authid, self.callee_authrole, self.forward_for, tb)
 
     def __str__(self):
         if six.PY3:
             return self.__unicode__()
         else:
-            return self.__unicode__().encode("utf8")
+            return self.__unicode__().encode('utf8')
 
 
 @error(ApplicationError.NOT_AUTHORIZED)

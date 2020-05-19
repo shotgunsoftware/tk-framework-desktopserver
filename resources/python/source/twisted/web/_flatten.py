@@ -18,16 +18,15 @@ from traceback import extract_tb
 try:
     from inspect import iscoroutine
 except ImportError:
-
     def iscoroutine(*args, **kwargs):
         return False
-
 
 from twisted.python.compat import unicode, nativeString, iteritems
 from twisted.internet.defer import Deferred, ensureDeferred
 from twisted.web._stan import Tag, slot, voidElements, Comment, CDATA, CharRef
 from twisted.web.error import UnfilledSlot, UnsupportedType, FlattenerError
 from twisted.web.iweb import IRenderable
+
 
 
 def escapeForContent(data):
@@ -46,9 +45,12 @@ def escapeForContent(data):
         encoded string.
     """
     if isinstance(data, unicode):
-        data = data.encode("utf-8")
-    data = data.replace(b"&", b"&amp;").replace(b"<", b"&lt;").replace(b">", b"&gt;")
+        data = data.encode('utf-8')
+    data = data.replace(b'&', b'&amp;'
+        ).replace(b'<', b'&lt;'
+        ).replace(b'>', b'&gt;')
     return data
+
 
 
 def attributeEscapingDoneOutside(data):
@@ -70,6 +72,7 @@ def attributeEscapingDoneOutside(data):
     if isinstance(data, unicode):
         return data.encode("utf-8")
     return data
+
 
 
 def writeWithAttributeEscaping(write):
@@ -110,11 +113,10 @@ def writeWithAttributeEscaping(write):
 
     @return: A callable that writes data with escaping.
     """
-
     def _write(data):
-        write(escapeForContent(data).replace(b'"', b"&quot;"))
-
+        write(escapeForContent(data).replace(b'"', b'&quot;'))
     return _write
+
 
 
 def escapedCDATA(data):
@@ -129,8 +131,9 @@ def escapedCDATA(data):
         encoded string.
     """
     if isinstance(data, unicode):
-        data = data.encode("utf-8")
-    return data.replace(b"]]>", b"]]]]><![CDATA[>")
+        data = data.encode('utf-8')
+    return data.replace(b']]>', b']]]]><![CDATA[>')
+
 
 
 def escapedComment(data):
@@ -145,11 +148,12 @@ def escapedComment(data):
         encoded string.
     """
     if isinstance(data, unicode):
-        data = data.encode("utf-8")
-    data = data.replace(b"--", b"- - ").replace(b">", b"&gt;")
-    if data and data[-1:] == b"-":
-        data += b" "
+        data = data.encode('utf-8')
+    data = data.replace(b'--', b'- - ').replace(b'>', b'&gt;')
+    if data and data[-1:] == b'-':
+        data += b' '
     return data
+
 
 
 def _getSlotValue(name, slotData, default=None):
@@ -165,7 +169,9 @@ def _getSlotValue(name, slotData, default=None):
         raise UnfilledSlot(name)
 
 
-def _flattenElement(request, root, write, slotData, renderFactory, dataEscaper):
+
+def _flattenElement(request, root, write, slotData, renderFactory,
+                    dataEscaper):
     """
     Make C{root} slightly more flat by yielding all its immediate contents as
     strings, deferreds or generators that are recursive calls to itself.
@@ -204,27 +210,23 @@ def _flattenElement(request, root, write, slotData, renderFactory, dataEscaper):
     @rtype: An iterator which yields L{bytes}, L{Deferred}, and more iterators
         of the same type.
     """
-
-    def keepGoing(
-        newRoot, dataEscaper=dataEscaper, renderFactory=renderFactory, write=write
-    ):
-        return _flattenElement(
-            request, newRoot, write, slotData, renderFactory, dataEscaper
-        )
-
+    def keepGoing(newRoot, dataEscaper=dataEscaper,
+                  renderFactory=renderFactory, write=write):
+        return _flattenElement(request, newRoot, write, slotData,
+                               renderFactory, dataEscaper)
     if isinstance(root, (bytes, unicode)):
         write(dataEscaper(root))
     elif isinstance(root, slot):
         slotValue = _getSlotValue(root.name, slotData, root.default)
         yield keepGoing(slotValue)
     elif isinstance(root, CDATA):
-        write(b"<![CDATA[")
+        write(b'<![CDATA[')
         write(escapedCDATA(root.data))
-        write(b"]]>")
+        write(b']]>')
     elif isinstance(root, Comment):
-        write(b"<!--")
+        write(b'<!--')
         write(escapedComment(root.data))
-        write(b"-->")
+        write(b'-->')
     elif isinstance(root, Tag):
         slotData.append(root.slotData)
         if root.render is not None:
@@ -241,24 +243,25 @@ def _flattenElement(request, root, write, slotData, renderFactory, dataEscaper):
             yield keepGoing(root.children)
             return
 
-        write(b"<")
+        write(b'<')
         if isinstance(root.tagName, unicode):
-            tagName = root.tagName.encode("ascii")
+            tagName = root.tagName.encode('ascii')
         else:
             tagName = root.tagName
         write(tagName)
         for k, v in iteritems(root.attributes):
             if isinstance(k, unicode):
-                k = k.encode("ascii")
-            write(b" " + k + b'="')
+                k = k.encode('ascii')
+            write(b' ' + k + b'="')
             # Serialize the contents of the attribute, wrapping the results of
             # that serialization so that _everything_ is quoted.
             yield keepGoing(
-                v, attributeEscapingDoneOutside, write=writeWithAttributeEscaping(write)
-            )
+                v,
+                attributeEscapingDoneOutside,
+                write=writeWithAttributeEscaping(write))
             write(b'"')
         if root.children or nativeString(tagName) not in voidElements:
-            write(b">")
+            write(b'>')
             # Regardless of whether we're in an attribute or not, switch back
             # to the escapeForContent dataEscaper.  The contents of a tag must
             # be quoted no matter what; in the top-level document, just so
@@ -267,16 +270,16 @@ def _flattenElement(request, root, write, slotData, renderFactory, dataEscaper):
             # parse the tag within the attribute, all the quoting is still
             # correct.
             yield keepGoing(root.children, escapeForContent)
-            write(b"</" + tagName + b">")
+            write(b'</' + tagName + b'>')
         else:
-            write(b" />")
+            write(b' />')
 
     elif isinstance(root, (tuple, list, GeneratorType)):
         for element in root:
             yield keepGoing(element)
     elif isinstance(root, CharRef):
-        escaped = "&#%d;" % (root.ordinal,)
-        write(escaped.encode("ascii"))
+        escaped = '&#%d;' % (root.ordinal,)
+        write(escaped.encode('ascii'))
     elif isinstance(root, Deferred):
         yield root.addCallback(lambda result: (result, keepGoing(result)))
     elif iscoroutine(root):
@@ -287,6 +290,7 @@ def _flattenElement(request, root, write, slotData, renderFactory, dataEscaper):
         yield keepGoing(result, renderFactory=root)
     else:
         raise UnsupportedType(root)
+
 
 
 def _flattenTree(request, root, write):
@@ -321,17 +325,15 @@ def _flattenTree(request, root, write):
             stack.pop()
             roots = []
             for generator in stack:
-                roots.append(generator.gi_frame.f_locals["root"])
-            roots.append(frame.f_locals["root"])
+                roots.append(generator.gi_frame.f_locals['root'])
+            roots.append(frame.f_locals['root'])
             raise FlattenerError(e, roots, extract_tb(exc_info()[2]))
         else:
             if isinstance(element, Deferred):
-
                 def cbx(originalAndToFlatten):
                     original, toFlatten = originalAndToFlatten
                     stack.append(toFlatten)
                     return original
-
                 yield element.addCallback(cbx)
             else:
                 stack.append(element)
@@ -363,13 +365,12 @@ def _writeFlattenedData(state, write, result):
         except:
             result.errback()
         else:
-
             def cby(original):
                 _writeFlattenedData(state, write, result)
                 return original
-
             element.addCallbacks(cby, result.errback)
         break
+
 
 
 def flatten(request, root, write):
@@ -399,6 +400,7 @@ def flatten(request, root, write):
     state = _flattenTree(request, root, write)
     _writeFlattenedData(state, write, result)
     return result
+
 
 
 def flattenString(request, root):

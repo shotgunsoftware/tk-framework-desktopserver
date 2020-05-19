@@ -51,10 +51,11 @@ if sys.version_info >= (3, 7, 0):
 else:
     _PY37PLUS = False
 
-if platform.python_implementation() == "PyPy":
+if platform.python_implementation() == 'PyPy':
     _PYPY = True
 else:
     _PYPY = False
+
 
 
 def _shouldEnableNewStyle():
@@ -66,9 +67,9 @@ def _shouldEnableNewStyle():
 
     @rtype: L{bool}
     """
-    value = os.environ.get("TWISTED_NEWSTYLE", "")
+    value = os.environ.get('TWISTED_NEWSTYLE', '')
 
-    if value in ["", "no", "false", "False", "0"]:
+    if value in ['', 'no', 'false', 'False', '0']:
         return False
     else:
         return True
@@ -95,6 +96,7 @@ def currentframe(n=0):
     return f
 
 
+
 def inet_pton(af, addr):
     """
     Emulator of L{socket.inet_pton}.
@@ -113,30 +115,30 @@ def inet_pton(af, addr):
         raise ValueError("illegal IP address string passed to inet_pton")
     if af == socket.AF_INET:
         return socket.inet_aton(addr)
-    elif af == getattr(socket, "AF_INET6", "AF_INET6"):
-        if "%" in addr and (addr.count("%") > 1 or addr.index("%") == 0):
+    elif af == getattr(socket, 'AF_INET6', 'AF_INET6'):
+        if '%' in addr and (addr.count('%') > 1 or addr.index("%") == 0):
             raise ValueError("illegal IP address string passed to inet_pton")
-        addr = addr.split("%")[0]
-        parts = addr.split(":")
-        elided = parts.count("")
-        ipv4Component = "." in parts[-1]
+        addr = addr.split('%')[0]
+        parts = addr.split(':')
+        elided = parts.count('')
+        ipv4Component = '.' in parts[-1]
 
         if len(parts) > (8 - ipv4Component) or elided > 3:
             raise ValueError("Syntactically invalid address")
 
         if elided == 3:
-            return "\x00" * 16
+            return '\x00' * 16
 
         if elided:
-            zeros = ["0"] * (8 - len(parts) - ipv4Component + elided)
+            zeros = ['0'] * (8 - len(parts) - ipv4Component + elided)
 
-            if addr.startswith("::"):
+            if addr.startswith('::'):
                 parts[:2] = zeros
-            elif addr.endswith("::"):
+            elif addr.endswith('::'):
                 parts[-2:] = zeros
             else:
-                idx = parts.index("")
-                parts[idx : idx + 1] = zeros
+                idx = parts.index('')
+                parts[idx:idx+1] = zeros
 
             if len(parts) != 8 - ipv4Component:
                 raise ValueError("Syntactically invalid address")
@@ -145,16 +147,17 @@ def inet_pton(af, addr):
                 raise ValueError("Syntactically invalid address")
 
         if ipv4Component:
-            if parts[-1].count(".") != 3:
+            if parts[-1].count('.') != 3:
                 raise ValueError("Syntactically invalid address")
             rawipv4 = socket.inet_aton(parts[-1])
-            unpackedipv4 = struct.unpack("!HH", rawipv4)
+            unpackedipv4 = struct.unpack('!HH', rawipv4)
             parts[-1:] = [hex(x)[2:] for x in unpackedipv4]
 
         parts = [int(x, 16) for x in parts]
-        return struct.pack("!8H", *parts)
+        return struct.pack('!8H', *parts)
     else:
-        raise socket.error(97, "Address family not supported by protocol")
+        raise socket.error(97, 'Address family not supported by protocol')
+
 
 
 def inet_ntop(af, addr):
@@ -163,7 +166,7 @@ def inet_ntop(af, addr):
     elif af == socket.AF_INET6:
         if len(addr) != 16:
             raise ValueError("address length incorrect")
-        parts = struct.unpack("!8H", addr)
+        parts = struct.unpack('!8H', addr)
         curBase = bestBase = None
         for i in range(8):
             if not parts[i]:
@@ -183,20 +186,19 @@ def inet_ntop(af, addr):
             bestLen = curLen
         parts = [hex(x)[2:] for x in parts]
         if bestBase is not None:
-            parts[bestBase : bestBase + bestLen] = [""]
-        if parts[0] == "":
-            parts.insert(0, "")
-        if parts[-1] == "":
-            parts.insert(len(parts) - 1, "")
-        return ":".join(parts)
+            parts[bestBase:bestBase + bestLen] = ['']
+        if parts[0] == '':
+            parts.insert(0, '')
+        if parts[-1] == '':
+            parts.insert(len(parts) - 1, '')
+        return ':'.join(parts)
     else:
-        raise socket.error(97, "Address family not supported by protocol")
-
+        raise socket.error(97, 'Address family not supported by protocol')
 
 try:
     socket.AF_INET6
 except AttributeError:
-    socket.AF_INET6 = "AF_INET6"
+    socket.AF_INET6 = 'AF_INET6'
 
 try:
     socket.inet_pton(socket.AF_INET6, "::")
@@ -206,6 +208,7 @@ except (AttributeError, NameError, socket.error):
 
 
 adict = dict
+
 
 
 if _PY3:
@@ -222,6 +225,7 @@ try:
     from functools import reduce
 except ImportError:
     reduce = reduce
+
 
 
 def execfile(filename, globals, locals=None):
@@ -246,7 +250,6 @@ def execfile(filename, globals, locals=None):
 try:
     cmp = cmp
 except NameError:
-
     def cmp(a, b):
         """
         Compare two objects.
@@ -262,6 +265,7 @@ except NameError:
             return 1
 
 
+
 def comparable(klass):
     """
     Class decorator that ensures support for the special C{__cmp__} method.
@@ -275,11 +279,13 @@ def comparable(klass):
     if not _PY3:
         return klass
 
+
     def __eq__(self, other):
         c = self.__cmp__(other)
         if c is NotImplemented:
             return c
         return c == 0
+
 
     def __ne__(self, other):
         c = self.__cmp__(other)
@@ -287,11 +293,13 @@ def comparable(klass):
             return c
         return c != 0
 
+
     def __lt__(self, other):
         c = self.__cmp__(other)
         if c is NotImplemented:
             return c
         return c < 0
+
 
     def __le__(self, other):
         c = self.__cmp__(other)
@@ -299,11 +307,13 @@ def comparable(klass):
             return c
         return c <= 0
 
+
     def __gt__(self, other):
         c = self.__cmp__(other)
         if c is NotImplemented:
             return c
         return c > 0
+
 
     def __ge__(self, other):
         c = self.__cmp__(other)
@@ -320,12 +330,14 @@ def comparable(klass):
     return klass
 
 
+
 if _PY3:
     unicode = str
     long = int
 else:
     unicode = unicode
     long = long
+
 
 
 def ioType(fileIshObject, default=unicode):
@@ -364,9 +376,8 @@ def ioType(fileIshObject, default=unicode):
     if isinstance(fileIshObject, IOBase):
         # If it's for I/O but it's _not_ for text I/O, it's for bytes I/O.
         return bytes
-    encoding = getattr(fileIshObject, "encoding", None)
+    encoding = getattr(fileIshObject, 'encoding', None)
     import codecs
-
     if isinstance(fileIshObject, (codecs.StreamReader, codecs.StreamWriter)):
         # On StreamReaderWriter, the 'encoding' attribute has special meaning;
         # it is unambiguously unicode.
@@ -384,10 +395,10 @@ def ioType(fileIshObject, default=unicode):
                 return bytes
         from cStringIO import InputType, OutputType
         from StringIO import StringIO
-
         if isinstance(fileIshObject, (StringIO, InputType, OutputType)):
             return bytes
     return default
+
 
 
 def nativeString(s):
@@ -413,6 +424,7 @@ def nativeString(s):
             # Ensure we're limited to ASCII subset:
             s.decode("ascii")
     return s
+
 
 
 def _matchingString(constantString, inputString):
@@ -446,17 +458,13 @@ def _matchingString(constantString, inputString):
         return otherType
 
 
-if _PY3:
 
+if _PY3:
     def reraise(exception, traceback):
         raise exception.with_traceback(traceback)
-
-
 else:
-    exec(
-        """def reraise(exception, traceback):
-        raise exception.__class__, exception, traceback"""
-    )
+    exec("""def reraise(exception, traceback):
+        raise exception.__class__, exception, traceback""")
 
 reraise.__doc__ = """
 Re-raise an exception, with an optional traceback, in a way that is compatible
@@ -470,22 +478,25 @@ C{__traceback__} attribute being set.
 """
 
 
+
 if _PY3:
     from io import StringIO as NativeStringIO
 else:
     from io import BytesIO as NativeStringIO
 
 
+
 # Functions for dealing with Python 3's bytes type, which is somewhat
 # different than Python 2's:
 if _PY3:
-
     def iterbytes(originalBytes):
         for i in range(len(originalBytes)):
-            yield originalBytes[i : i + 1]
+            yield originalBytes[i:i+1]
+
 
     def intToBytes(i):
         return ("%d" % i).encode("ascii")
+
 
     def lazyByteSlice(object, offset=0, size=None):
         """
@@ -505,18 +516,17 @@ if _PY3:
         if size is None:
             return view[offset:]
         else:
-            return view[offset : (offset + size)]
+            return view[offset:(offset + size)]
+
 
     def networkString(s):
         if not isinstance(s, unicode):
             raise TypeError("Can only convert text to bytes on Python 3")
-        return s.encode("ascii")
-
-
+        return s.encode('ascii')
 else:
-
     def iterbytes(originalBytes):
         return originalBytes
+
 
     def intToBytes(i):
         return b"%d" % i
@@ -527,9 +537,8 @@ else:
         if not isinstance(s, str):
             raise TypeError("Can only pass-through bytes on Python 2")
         # Ensure we're limited to ASCII subset:
-        s.decode("ascii")
+        s.decode('ascii')
         return s
-
 
 iterbytes.__doc__ = """
 Return an iterable wrapper for a C{bytes} object that provides the behavior of
@@ -604,12 +613,13 @@ else:
 
 # Dealing with the differences in items/iteritems
 if _PY3:
-
     def iteritems(d):
         return d.items()
 
+
     def itervalues(d):
         return d.values()
+
 
     def items(d):
         return list(d.items())
@@ -618,12 +628,13 @@ if _PY3:
     xrange = range
     izip = zip
 else:
-
     def iteritems(d):
         return d.iteritems()
 
+
     def itervalues(d):
         return d.itervalues()
+
 
     def items(d):
         return d.items()
@@ -631,8 +642,7 @@ else:
     range = xrange
     xrange = xrange
     from itertools import izip
-
-    izip  # shh pyflakes
+    izip # shh pyflakes
 
 
 iteritems.__doc__ = """
@@ -656,7 +666,6 @@ Return a list of the items of C{d}.
 @rtype: L{list}
 """
 
-
 def _keys(d):
     """
     Return a list of the keys of C{d}.
@@ -668,6 +677,7 @@ def _keys(d):
         return list(d.keys())
     else:
         return d.keys()
+
 
 
 def bytesEnviron():
@@ -687,6 +697,7 @@ def bytesEnviron():
         target[os.environ.encodekey(x)] = os.environ.encodevalue(y)
 
     return target
+
 
 
 def _constructMethod(cls, name, self):
@@ -711,12 +722,14 @@ def _constructMethod(cls, name, self):
     return _MethodType(func, self, cls)
 
 
+
 if _PY3:
     from base64 import encodebytes as _b64encodebytes
     from base64 import decodebytes as _b64decodebytes
 else:
     from base64 import encodestring as _b64encodebytes
     from base64 import decodestring as _b64decodebytes
+
 
 
 def _bytesChr(i):
@@ -734,10 +747,12 @@ def _bytesChr(i):
         return chr(i)
 
 
+
 try:
     from sys import intern
 except ImportError:
     intern = intern
+
 
 
 def _coercedUnicode(s):
@@ -760,9 +775,10 @@ def _coercedUnicode(s):
         if _PY3:
             raise TypeError("Expected str not %r (bytes)" % (s,))
         else:
-            return s.decode("ascii")
+            return s.decode('ascii')
     else:
         return s
+
 
 
 if _PY3:
@@ -771,6 +787,7 @@ if _PY3:
 else:
     unichr = unichr
     raw_input = raw_input
+
 
 
 def _bytesRepr(bytestring):
@@ -792,7 +809,7 @@ def _bytesRepr(bytestring):
     if _PY3:
         return repr(bytestring)
     else:
-        return "b" + repr(bytestring)
+        return 'b' + repr(bytestring)
 
 
 if _PY3:
@@ -804,6 +821,7 @@ try:
     from collections.abc import Sequence
 except ImportError:
     from collections import Sequence
+
 
 
 def _get_async_param(isAsync=None, **kwargs):
@@ -822,17 +840,16 @@ def _get_async_param(isAsync=None, **kwargs):
     @return: Final isAsync param value
     @rtype: L{bool}
     """
-    if "async" in kwargs:
+    if 'async' in kwargs:
         warnings.warn(
             "'async' keyword argument is deprecated, please use isAsync",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-    if isAsync is None and "async" in kwargs:
-        isAsync = kwargs.pop("async")
+            DeprecationWarning, stacklevel=2)
+    if isAsync is None and 'async' in kwargs:
+        isAsync = kwargs.pop('async')
     if kwargs:
         raise TypeError
     return bool(isAsync)
+
 
 
 def _pypy3BlockingHack():
@@ -855,14 +872,15 @@ def _pypy3BlockingHack():
             return realFromFD(fd, family, type, *passproto)
         finally:
             fcntl(fd, F_SETFL, flags)
-
     realFromFD = socket.fromfd
     if realFromFD.__name__ == fromFDWithoutModifyingFlags.__name__:
         return
     socket.fromfd = fromFDWithoutModifyingFlags
 
 
+
 _pypy3BlockingHack()
+
 
 
 __all__ = [

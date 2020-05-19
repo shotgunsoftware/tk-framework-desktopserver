@@ -9,14 +9,9 @@ Implementation of the lowest-level Resource class.
 from __future__ import division, absolute_import
 
 __all__ = [
-    "IResource",
-    "getChildForRequest",
-    "Resource",
-    "ErrorPage",
-    "NoResource",
-    "ForbiddenResource",
-    "EncodingResourceWrapper",
-]
+    'IResource', 'getChildForRequest',
+    'Resource', 'ErrorPage', 'NoResource', 'ForbiddenResource',
+    'EncodingResourceWrapper']
 
 import warnings
 
@@ -30,6 +25,7 @@ from twisted.web._responses import FORBIDDEN, NOT_FOUND
 from twisted.web.error import UnsupportedMethod
 
 
+
 class IResource(Interface):
     """
     A web resource.
@@ -39,8 +35,8 @@ class IResource(Interface):
         """
         Signal if this IResource implementor is a "leaf node" or not. If True,
         getChildWithDefault will not be called on this Resource.
-        """
-    )
+        """)
+
 
     def getChildWithDefault(name, request):
         """
@@ -61,6 +57,7 @@ class IResource(Interface):
         @type request: L{twisted.web.server.Request}
         """
 
+
     def putChild(path, child):
         """
         Put a child IResource implementor at the given path.
@@ -72,6 +69,7 @@ class IResource(Interface):
             available at I{http://example.com/foo/bar}.
         @type path: C{bytes}
         """
+
 
     def render(request):
         """
@@ -89,6 +87,7 @@ class IResource(Interface):
         """
 
 
+
 def getChildForRequest(resource, request):
     """
     Traverse resource tree to find who will handle the request.
@@ -100,6 +99,7 @@ def getChildForRequest(resource, request):
     return resource
 
 
+
 @implementer(IResource)
 class Resource:
     """
@@ -109,7 +109,6 @@ class Resource:
     for what HTTP specification calls an 'entity', and the other is to provide
     an abstract directory structure for URL retrieval.
     """
-
     entityType = IResource
 
     server = None
@@ -182,6 +181,7 @@ class Resource:
         """
         return NoResource("No such child resource.")
 
+
     def getChildWithDefault(self, path, request):
         """
         Retrieve a static or dynamically generated child resource from me.
@@ -200,11 +200,11 @@ class Resource:
             return self.children[path]
         return self.getChild(path, request)
 
+
     def getChildForRequest(self, request):
-        warnings.warn(
-            "Please use module level getChildForRequest.", DeprecationWarning, 2
-        )
+        warnings.warn("Please use module level getChildForRequest.", DeprecationWarning, 2)
         return getChildForRequest(self, request)
+
 
     def putChild(self, path, child):
         """
@@ -224,15 +224,16 @@ class Resource:
         """
         if not isinstance(path, bytes):
             warnings.warn(
-                "Path segment must be bytes; "
-                "passing {0} has never worked, and "
-                "will raise an exception in the future.".format(type(path)),
+                'Path segment must be bytes; '
+                'passing {0} has never worked, and '
+                'will raise an exception in the future.'
+                .format(type(path)),
                 category=DeprecationWarning,
-                stacklevel=2,
-            )
+                stacklevel=2)
 
         self.children[path] = child
         child.server = self.server
+
 
     def render(self, request):
         """
@@ -254,7 +255,7 @@ class Resource:
 
         @see: L{IResource.render}
         """
-        m = getattr(self, "render_" + nativeString(request.method), None)
+        m = getattr(self, 'render_' + nativeString(request.method), None)
         if not m:
             try:
                 allowedMethods = self.allowedMethods
@@ -262,6 +263,7 @@ class Resource:
                 allowedMethods = _computeAllowedMethods(self)
             raise UnsupportedMethod(allowedMethods)
         return m(request)
+
 
     def render_HEAD(self, request):
         """
@@ -271,6 +273,7 @@ class Resource:
         the framework will handle this correctly.
         """
         return self.render_GET(request)
+
 
 
 def _computeAllowedMethods(resource):
@@ -284,8 +287,9 @@ def _computeAllowedMethods(resource):
         # Potentially there should be an API for encode('ascii') in this
         # situation - an API for taking a Python native string (bytes on Python
         # 2, text on Python 3) and returning a socket-compatible string type.
-        allowedMethods.append(name.encode("ascii"))
+        allowedMethods.append(name.encode('ascii'))
     return allowedMethods
+
 
 
 class ErrorPage(Resource):
@@ -330,18 +334,20 @@ class ErrorPage(Resource):
         self.brief = brief
         self.detail = detail
 
+
     def render(self, request):
         request.setResponseCode(self.code)
         request.setHeader(b"content-type", b"text/html; charset=utf-8")
         interpolated = self.template % dict(
-            code=self.code, brief=self.brief, detail=self.detail
-        )
+            code=self.code, brief=self.brief, detail=self.detail)
         if isinstance(interpolated, unicode):
-            return interpolated.encode("utf-8")
+            return interpolated.encode('utf-8')
         return interpolated
+
 
     def getChild(self, chnam, request):
         return self
+
 
 
 class NoResource(ErrorPage):
@@ -349,9 +355,9 @@ class NoResource(ErrorPage):
     L{NoResource} is a specialization of L{ErrorPage} which returns the HTTP
     response code I{NOT FOUND}.
     """
-
     def __init__(self, message="Sorry. No luck finding that resource."):
         ErrorPage.__init__(self, NOT_FOUND, "No Such Resource", message)
+
 
 
 class ForbiddenResource(ErrorPage):
@@ -359,9 +365,9 @@ class ForbiddenResource(ErrorPage):
     L{ForbiddenResource} is a specialization of L{ErrorPage} which returns the
     I{FORBIDDEN} HTTP response code.
     """
-
     def __init__(self, message="Sorry, resource is forbidden."):
         ErrorPage.__init__(self, FORBIDDEN, "Forbidden Resource", message)
+
 
 
 class _IEncodingResource(Interface):
@@ -378,6 +384,7 @@ class _IEncodingResource(Interface):
 
         @return: A L{_IRequestEncoder}, or L{None}.
         """
+
 
 
 @implementer(_IEncodingResource)
@@ -403,6 +410,7 @@ class EncodingResourceWrapper(proxyForInterface(IResource)):
     def __init__(self, original, encoders):
         super(EncodingResourceWrapper, self).__init__(original)
         self._encoders = encoders
+
 
     def getEncoder(self, request):
         """

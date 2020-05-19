@@ -23,10 +23,8 @@ class IAccount(Interface):
     I represent a user's account with a chat service.
     """
 
-    client = Attribute("The L{IClient} currently connecting to this account, if any.")
-    gatewayType = Attribute(
-        "A C{str} that identifies the protocol used by this account."
-    )
+    client = Attribute('The L{IClient} currently connecting to this account, if any.')
+    gatewayType = Attribute('A C{str} that identifies the protocol used by this account.')
 
     def __init__(accountName, autoLogin, username, password, host, port):
         """
@@ -71,9 +69,10 @@ class IAccount(Interface):
         """
 
 
+
 class IClient(Interface):
 
-    account = Attribute("The L{IAccount} I am a Client for")
+    account = Attribute('The L{IAccount} I am a Client for')
 
     def __init__(account, chatui, logonDeferred):
         """
@@ -98,11 +97,14 @@ class IClient(Interface):
     def getGroupConversation(name, hide=0):
         pass
 
+
     def getPerson(name):
         pass
 
 
+
 class IPerson(Interface):
+
     def __init__(name, account):
         """
         Initialize me.
@@ -113,12 +115,14 @@ class IPerson(Interface):
         @type account: I{Account}
         """
 
+
     def isOnline():
         """
         Am I online right now?
 
         @rtype: boolean
         """
+
 
     def getStatus():
         """
@@ -127,10 +131,12 @@ class IPerson(Interface):
         @return: L{locals.StatusEnum}
         """
 
+
     def getIdleTime():
         """
         @rtype: string (XXX: How about a scalar?)
         """
+
 
     def sendMessage(text, metadata=None):
         """
@@ -141,6 +147,7 @@ class IPerson(Interface):
         """
 
 
+
 class IGroup(Interface):
     """
     A group which you may have a conversation with.
@@ -149,8 +156,8 @@ class IGroup(Interface):
     leave and join at any time.
     """
 
-    name = Attribute("My C{str} name, as the server knows me.")
-    account = Attribute("The L{Account<IAccount>} I am accessed through.")
+    name = Attribute('My C{str} name, as the server knows me.')
+    account = Attribute('The L{Account<IAccount>} I am accessed through.')
 
     def __init__(name, account):
         """
@@ -162,12 +169,14 @@ class IGroup(Interface):
         @type account: L{Account<IAccount>}
         """
 
+
     def setTopic(text):
         """
         Set this Groups topic on the server.
 
         @type text: string
         """
+
 
     def sendGroupMessage(text, metadata=None):
         """
@@ -182,15 +191,18 @@ class IGroup(Interface):
                 - C{'emote'}: indicates this is an action
         """
 
+
     def join():
         """
         Join this group.
         """
 
+
     def leave():
         """
         Depart this group.
         """
+
 
 
 class IConversation(Interface):
@@ -203,21 +215,26 @@ class IConversation(Interface):
         @type person: L{IPerson}
         """
 
+
     def show():
         """
         doesn't seem like it belongs in this interface.
         """
+
 
     def hide():
         """
         nor this neither.
         """
 
+
     def sendText(text, metadata):
         pass
 
+
     def showMessage(text, metadata):
         pass
+
 
     def changedNick(person, newnick):
         """
@@ -225,27 +242,34 @@ class IConversation(Interface):
         """
 
 
+
 class IGroupConversation(Interface):
+
     def show():
         """
         doesn't seem like it belongs in this interface.
         """
+
 
     def hide():
         """
         nor this neither.
         """
 
+
     def sendText(text, metadata):
         pass
 
+
     def showGroupMessage(sender, text, metadata):
         pass
+
 
     def setGroupMembers(members):
         """
         Sets the list of members in the group and displays it to the user.
         """
+
 
     def setTopic(topic, author):
         """
@@ -255,6 +279,7 @@ class IGroupConversation(Interface):
         @type author: string (XXX: Not Person?)
         """
 
+
     def memberJoined(member):
         """
         Adds the given member to the list of members in the group conversation
@@ -262,6 +287,7 @@ class IGroupConversation(Interface):
 
         @type member: string (XXX: Not Person?)
         """
+
 
     def memberChangedNick(oldnick, newnick):
         """
@@ -272,6 +298,7 @@ class IGroupConversation(Interface):
         @type newnick: string
         """
 
+
     def memberLeft(member):
         """
         Deletes the given member from the list of members in the group
@@ -281,7 +308,9 @@ class IGroupConversation(Interface):
         """
 
 
+
 class IChatUI(Interface):
+
     def registerAccountClient(client):
         """
         Notifies user that an account has been signed on to.
@@ -289,12 +318,14 @@ class IChatUI(Interface):
         @type client: L{Client<IClient>}
         """
 
+
     def unregisterAccountClient(client):
         """
         Notifies user that an account has been signed off or disconnected.
 
         @type client: L{Client<IClient>}
         """
+
 
     def getContactsList():
         """
@@ -316,6 +347,7 @@ class IChatUI(Interface):
         @rtype: L{Conversation<IConversation>}
         """
 
+
     def getGroupConversation(group, Class, stayHidden=0):
         """
         For the given group object, returns the group conversation window or
@@ -327,6 +359,7 @@ class IChatUI(Interface):
 
         @rtype: L{GroupConversation<interfaces.IGroupConversation>}
         """
+
 
     def getPerson(name, client):
         """
@@ -340,6 +373,7 @@ class IChatUI(Interface):
         @rtype: L{Person<IPerson>}
         """
 
+
     def getGroup(name, client):
         """
         Get a Group for a client.
@@ -351,6 +385,7 @@ class IChatUI(Interface):
 
         @rtype: L{Group<IGroup>}
         """
+
 
     def contactChangedNick(oldnick, newnick):
         """

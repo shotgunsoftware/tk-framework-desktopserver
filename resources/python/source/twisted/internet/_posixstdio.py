@@ -22,12 +22,8 @@ class PipeAddress(object):
     pass
 
 
-@implementer(
-    interfaces.ITransport,
-    interfaces.IProducer,
-    interfaces.IConsumer,
-    interfaces.IHalfCloseableDescriptor,
-)
+@implementer(interfaces.ITransport, interfaces.IProducer,
+             interfaces.IConsumer, interfaces.IHalfCloseableDescriptor)
 class StandardIO(object):
 
     _reader = None
@@ -40,8 +36,8 @@ class StandardIO(object):
             from twisted.internet import reactor
         self.protocol = proto
 
-        self._writer = process.ProcessWriter(reactor, self, "write", stdout)
-        self._reader = process.ProcessReader(reactor, self, "read", stdin)
+        self._writer = process.ProcessWriter(reactor, self, 'write', stdout)
+        self._reader = process.ProcessReader(reactor, self, 'read', stdin)
         self._reader.startReading()
         self.protocol.makeConnection(self)
 
@@ -75,6 +71,7 @@ class StandardIO(object):
     def getHost(self):
         return PipeAddress()
 
+
     # Callbacks from process.ProcessReader/ProcessWriter
     def childDataReceived(self, fd, data):
         self.protocol.dataReceived(data)
@@ -85,7 +82,7 @@ class StandardIO(object):
 
         if reason.value.__class__ == error.ConnectionDone:
             # Normal close
-            if fd == "read":
+            if fd == 'read':
                 self._readConnectionLost(reason)
             else:
                 self._writeConnectionLost(reason)
@@ -114,7 +111,7 @@ class StandardIO(object):
             log.err()
 
     def _writeConnectionLost(self, reason):
-        self._writer = None
+        self._writer=None
         if self.disconnecting:
             self.connectionLost(reason)
             return
@@ -128,7 +125,7 @@ class StandardIO(object):
                 self.connectionLost(failure.Failure())
 
     def _readConnectionLost(self, reason):
-        self._reader = None
+        self._reader=None
         p = interfaces.IHalfCloseableProtocol(self.protocol, None)
         if p:
             try:

@@ -8,7 +8,11 @@ from .exceptions import AttrsAttributeNotFoundError
 
 
 def asdict(
-    inst, recurse=True, filter=None, dict_factory=dict, retain_collection_types=False,
+    inst,
+    recurse=True,
+    filter=None,
+    dict_factory=dict,
+    retain_collection_types=False,
 ):
     """
     Return the ``attrs`` attribute values of *inst* as a dict.
@@ -62,8 +66,12 @@ def asdict(
                 df = dict_factory
                 rv[a.name] = df(
                     (
-                        _asdict_anything(kk, filter, df, retain_collection_types),
-                        _asdict_anything(vv, filter, df, retain_collection_types),
+                        _asdict_anything(
+                            kk, filter, df, retain_collection_types
+                        ),
+                        _asdict_anything(
+                            vv, filter, df, retain_collection_types
+                        ),
                     )
                     for kk, vv in iteritems(v)
                 )
@@ -85,7 +93,9 @@ def _asdict_anything(val, filter, dict_factory, retain_collection_types):
         cf = val.__class__ if retain_collection_types is True else list
         rv = cf(
             [
-                _asdict_anything(i, filter, dict_factory, retain_collection_types)
+                _asdict_anything(
+                    i, filter, dict_factory, retain_collection_types
+                )
                 for i in val
             ]
         )
@@ -104,7 +114,11 @@ def _asdict_anything(val, filter, dict_factory, retain_collection_types):
 
 
 def astuple(
-    inst, recurse=True, filter=None, tuple_factory=tuple, retain_collection_types=False,
+    inst,
+    recurse=True,
+    filter=None,
+    tuple_factory=tuple,
+    retain_collection_types=False,
 ):
     """
     Return the ``attrs`` attribute values of *inst* as a tuple.
@@ -240,7 +254,9 @@ def assoc(inst, **changes):
         a = getattr(attrs, k, NOTHING)
         if a is NOTHING:
             raise AttrsAttributeNotFoundError(
-                "{k} is not an attrs attribute on {cl}.".format(k=k, cl=new.__class__)
+                "{k} is not an attrs attribute on {cl}.".format(
+                    k=k, cl=new.__class__
+                )
             )
         _obj_setattr(new, k, v)
     return new

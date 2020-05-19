@@ -7,5 +7,4 @@ TwistedProcmon = ServiceMaker(
     "Twisted Process Monitor",
     "twisted.runner.procmontap",
     ("A process watchdog / supervisor"),
-    "procmon",
-)
+    "procmon")

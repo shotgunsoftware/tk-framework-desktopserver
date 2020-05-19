@@ -29,13 +29,14 @@ from twisted.internet import interfaces, defer, reactor
 from twisted.cred import portal, credentials, checkers
 from twisted.cred.error import UnauthorizedLogin
 
-INTERNAL_ERROR = """\
+INTERNAL_ERROR = '''\
 From: Twisted.mail Internals
 Subject: An Error Occurred
 
   An internal server error has occurred.  Please contact the
   server administrator.
-"""
+'''
+
 
 
 class _MaildirNameGenerator:
@@ -53,10 +54,9 @@ class _MaildirNameGenerator:
 
     @ivar _clock: See C{clock} parameter of L{__init__}.
     """
-
     n = 0
     p = os.getpid()
-    s = socket.gethostname().replace("/", r"\057").replace(":", r"\072")
+    s = socket.gethostname().replace('/', r'\057').replace(':', r'\072')
 
     def __init__(self, clock):
         """
@@ -64,6 +64,7 @@ class _MaildirNameGenerator:
         @param clock: A reactor which will be used to learn the current time.
         """
         self._clock = clock
+
 
     def generate(self):
         """
@@ -80,11 +81,12 @@ class _MaildirNameGenerator:
         self.n = self.n + 1
         t = self._clock.seconds()
         seconds = str(int(t))
-        microseconds = "%07d" % (int((t - int(t)) * 10e6),)
-        return "%s.M%sP%sQ%s.%s" % (seconds, microseconds, self.p, self.n, self.s)
-
+        microseconds = '%07d' % (int((t - int(t)) * 10e6),)
+        return '%s.M%sP%sQ%s.%s' % (seconds, microseconds,
+                                    self.p, self.n, self.s)
 
 _generateMaildirName = _MaildirNameGenerator(reactor).generate
+
 
 
 def initializeMaildir(dir):
@@ -96,12 +98,13 @@ def initializeMaildir(dir):
     """
     if not os.path.isdir(dir):
         os.mkdir(dir, 0o700)
-        for subdir in ["new", "cur", "tmp", ".Trash"]:
+        for subdir in ['new', 'cur', 'tmp', '.Trash']:
             os.mkdir(os.path.join(dir, subdir), 0o700)
-        for subdir in ["new", "cur", "tmp"]:
-            os.mkdir(os.path.join(dir, ".Trash", subdir), 0o700)
+        for subdir in ['new', 'cur', 'tmp']:
+            os.mkdir(os.path.join(dir, '.Trash', subdir), 0o700)
         # touch
-        open(os.path.join(dir, ".Trash", "maildirfolder"), "w").close()
+        open(os.path.join(dir, '.Trash', 'maildirfolder'), 'w').close()
+
 
 
 class MaildirMessage(mail.FileMessage):
@@ -112,7 +115,6 @@ class MaildirMessage(mail.FileMessage):
     @type size: L{int}
     @ivar size: The number of octets in the message.
     """
-
     size = None
 
     def __init__(self, address, fp, *a, **kw):
@@ -135,6 +137,7 @@ class MaildirMessage(mail.FileMessage):
         self.size = len(header)
         mail.FileMessage.__init__(self, fp, *a, **kw)
 
+
     def lineReceived(self, line):
         """
         Write a line to the file.
@@ -143,7 +146,8 @@ class MaildirMessage(mail.FileMessage):
         @param line: A received line.
         """
         mail.FileMessage.lineReceived(self, line)
-        self.size += len(line) + 1
+        self.size += len(line)+1
+
 
     def eomReceived(self):
         """
@@ -155,8 +159,9 @@ class MaildirMessage(mail.FileMessage):
         @return: A deferred which returns the name of the file holding the
             message.
         """
-        self.finalName = self.finalName + ",S=%d" % self.size
+        self.finalName = self.finalName+',S=%d' % self.size
         return mail.FileMessage.eomReceived(self)
+
 
 
 @implementer(mail.IAliasableDomain)
@@ -170,7 +175,6 @@ class AbstractMaildirDomain:
 
     @ivar root: See L{__init__}.
     """
-
     alias = None
     root = None
 
@@ -183,6 +187,7 @@ class AbstractMaildirDomain:
         @param root: The maildir root directory.
         """
         self.root = root
+
 
     def userDirectory(self, user):
         """
@@ -197,6 +202,7 @@ class AbstractMaildirDomain:
         """
         return None
 
+
     def setAliasGroup(self, alias):
         """
         Set the group of defined aliases for this domain.
@@ -205,6 +211,7 @@ class AbstractMaildirDomain:
         @param alias: A mapping of domain name to alias.
         """
         self.alias = alias
+
 
     def exists(self, user, memo=None):
         """
@@ -239,6 +246,7 @@ class AbstractMaildirDomain:
             log.err("Bad alias configuration: " + str(user))
             raise smtp.SMTPBadRcpt(user)
 
+
     def startMessage(self, user):
         """
         Create a maildir message for a user.
@@ -250,16 +258,16 @@ class AbstractMaildirDomain:
         @return: A message receiver for this user.
         """
         if isinstance(user, str):
-            name, domain = user.split("@", 1)
+            name, domain = user.split('@', 1)
         else:
             name, domain = user.dest.local, user.dest.domain
         dir = self.userDirectory(name)
         fname = _generateMaildirName()
-        filename = os.path.join(dir, "tmp", fname)
-        fp = open(filename, "w")
-        return MaildirMessage(
-            "%s@%s" % (name, domain), fp, filename, os.path.join(dir, "new", fname)
-        )
+        filename = os.path.join(dir, 'tmp', fname)
+        fp = open(filename, 'w')
+        return MaildirMessage('%s@%s' % (name, domain), fp, filename,
+                              os.path.join(dir, 'new', fname))
+
 
     def willRelay(self, user, protocol):
         """
@@ -278,6 +286,7 @@ class AbstractMaildirDomain:
         """
         return False
 
+
     def addUser(self, user, password):
         """
         Add a user to this domain.
@@ -292,6 +301,7 @@ class AbstractMaildirDomain:
         """
         raise NotImplementedError
 
+
     def getCredentialsCheckers(self):
         """
         Return credentials checkers for this domain.
@@ -303,6 +313,7 @@ class AbstractMaildirDomain:
         @return: Credentials checkers for this domain.
         """
         raise NotImplementedError
+
 
 
 @implementer(interfaces.IConsumer)
@@ -340,7 +351,6 @@ class _MaildirMailboxAppendMessageTask:
     @ivar streaming: Indicates whether the registered producer provides a
         streaming interface.
     """
-
     osopen = staticmethod(os.open)
     oswrite = staticmethod(os.write)
     osclose = staticmethod(os.close)
@@ -361,6 +371,7 @@ class _MaildirMailboxAppendMessageTask:
             msg = StringIO.StringIO(msg)
         self.msg = msg
 
+
     def startUp(self):
         """
         Start transferring the message to the mailbox.
@@ -369,6 +380,7 @@ class _MaildirMailboxAppendMessageTask:
         if self.fh != -1:
             self.filesender = basic.FileSender()
             self.filesender.beginFileTransfer(self.msg, self)
+
 
     def registerProducer(self, producer, streaming):
         """
@@ -387,6 +399,7 @@ class _MaildirMailboxAppendMessageTask:
         if not streaming:
             self.prodProducer()
 
+
     def prodProducer(self):
         """
         Repeatedly prod a non-streaming producer to produce data.
@@ -396,6 +409,7 @@ class _MaildirMailboxAppendMessageTask:
             self.openCall = reactor.callLater(0, self.prodProducer)
             self.myproducer.resumeProducing()
 
+
     def unregisterProducer(self):
         """
         Finish transferring the message to the mailbox.
@@ -404,6 +418,7 @@ class _MaildirMailboxAppendMessageTask:
         self.streaming = None
         self.osclose(self.fh)
         self.moveFileToNew()
+
 
     def write(self, data):
         """
@@ -416,6 +431,7 @@ class _MaildirMailboxAppendMessageTask:
             self.oswrite(self.fh, data)
         except:
             self.fail()
+
 
     def fail(self, err=None):
         """
@@ -431,6 +447,7 @@ class _MaildirMailboxAppendMessageTask:
         self.defer.errback(err)
         self.defer = None
 
+
     def moveFileToNew(self):
         """
         Place the message in the I{new/} directory, add it to the mailbox and
@@ -445,7 +462,6 @@ class _MaildirMailboxAppendMessageTask:
             except OSError as e:
                 (err, estr) = e.args
                 import errno
-
                 # if the newname exists, retry with a new newname.
                 if err != errno.EEXIST:
                     self.fail()
@@ -456,17 +472,14 @@ class _MaildirMailboxAppendMessageTask:
             self.defer.callback(None)
             self.defer = None
 
+
     def createTempFile(self):
         """
         Create a temporary file to hold the message as it is being transferred.
         """
-        attr = (
-            os.O_RDWR
-            | os.O_CREAT
-            | os.O_EXCL
-            | getattr(os, "O_NOINHERIT", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
-        )
+        attr = (os.O_RDWR | os.O_CREAT | os.O_EXCL
+                | getattr(os, "O_NOINHERIT", 0)
+                | getattr(os, "O_NOFOLLOW", 0))
         tries = 0
         self.fh = -1
         while True:
@@ -477,13 +490,10 @@ class _MaildirMailboxAppendMessageTask:
             except OSError:
                 tries += 1
                 if tries > 500:
-                    self.defer.errback(
-                        RuntimeError(
-                            "Could not create tmp file for %s" % self.mbox.path
-                        )
-                    )
+                    self.defer.errback(RuntimeError("Could not create tmp file for %s" % self.mbox.path))
                     self.defer = None
                     return None
+
 
 
 class MaildirMailbox(pop3.Mailbox):
@@ -505,7 +515,6 @@ class MaildirMailbox(pop3.Mailbox):
         deleted to the full path name of the deleted file in the I{.Trash/}
         subfolder.
     """
-
     AppendFactory = _MaildirMailboxAppendMessageTask
 
     def __init__(self, path):
@@ -517,11 +526,12 @@ class MaildirMailbox(pop3.Mailbox):
         self.list = []
         self.deleted = {}
         initializeMaildir(path)
-        for name in ("cur", "new"):
+        for name in ('cur', 'new'):
             for file in os.listdir(os.path.join(path, name)):
                 self.list.append((file, os.path.join(path, name, file)))
         self.list.sort()
         self.list = [e[1] for e in self.list]
+
 
     def listMessages(self, i=None):
         """
@@ -550,6 +560,7 @@ class MaildirMailbox(pop3.Mailbox):
             return ret
         return self.list[i] and os.stat(self.list[i])[stat.ST_SIZE] or 0
 
+
     def getMessage(self, i):
         """
         Retrieve a file-like object with the contents of a message.
@@ -564,6 +575,7 @@ class MaildirMailbox(pop3.Mailbox):
             the mailbox.
         """
         return open(self.list[i])
+
 
     def getUidl(self, i):
         """
@@ -583,6 +595,7 @@ class MaildirMailbox(pop3.Mailbox):
         base = os.path.basename(self.list[i])
         return md5(base).hexdigest()
 
+
     def deleteMessage(self, i):
         """
         Mark a message for deletion.
@@ -597,11 +610,12 @@ class MaildirMailbox(pop3.Mailbox):
             the mailbox.
         """
         trashFile = os.path.join(
-            self.path, ".Trash", "cur", os.path.basename(self.list[i])
+            self.path, '.Trash', 'cur', os.path.basename(self.list[i])
         )
         os.rename(self.list[i], trashFile)
         self.deleted[self.list[i]] = trashFile
         self.list[i] = 0
+
 
     def undeleteMessages(self):
         """
@@ -616,7 +630,6 @@ class MaildirMailbox(pop3.Mailbox):
             except OSError as e:
                 (err, estr) = e.args
                 import errno
-
                 # If the file has been deleted from disk, oh well!
                 if err != errno.ENOENT:
                     raise
@@ -627,6 +640,7 @@ class MaildirMailbox(pop3.Mailbox):
                 except ValueError:
                     self.list.append(real)
         self.deleted.clear()
+
 
     def appendMessage(self, txt):
         """
@@ -645,6 +659,7 @@ class MaildirMailbox(pop3.Mailbox):
         return result
 
 
+
 @implementer(pop3.IMailbox)
 class StringListMailbox:
     """
@@ -655,7 +670,6 @@ class StringListMailbox:
     @type _delete: L{set} of L{int}
     @ivar _delete: The indices of messages which have been marked for deletion.
     """
-
     def __init__(self, msgs):
         """
         @type msgs: L{list} of L{bytes}
@@ -663,6 +677,7 @@ class StringListMailbox:
         """
         self.msgs = msgs
         self._delete = set()
+
 
     def listMessages(self, i=None):
         """
@@ -687,6 +702,7 @@ class StringListMailbox:
             return 0
         return len(self.msgs[i])
 
+
     def getMessage(self, i):
         """
         Return an in-memory file-like object with the contents of a message.
@@ -701,6 +717,7 @@ class StringListMailbox:
             the mailbox.
         """
         return StringIO.StringIO(self.msgs[i])
+
 
     def getUidl(self, i):
         """
@@ -717,6 +734,7 @@ class StringListMailbox:
         """
         return md5(self.msgs[i]).hexdigest()
 
+
     def deleteMessage(self, i):
         """
         Mark a message for deletion.
@@ -729,11 +747,13 @@ class StringListMailbox:
         """
         self._delete.add(i)
 
+
     def undeleteMessages(self):
         """
         Undelete any messages which have been marked for deletion.
         """
         self._delete = set()
+
 
     def sync(self):
         """
@@ -742,6 +762,7 @@ class StringListMailbox:
         for index in self._delete:
             self.msgs[index] = ""
         self._delete = set()
+
 
 
 @implementer(portal.IRealm)
@@ -761,7 +782,6 @@ class MaildirDirdbmDomain(AbstractMaildirDomain):
     @type dbm: L{DirDBM <dirdbm.DirDBM>}
     @ivar dbm: The authentication database for the domain.
     """
-
     portal = None
     _credcheckers = None
 
@@ -779,11 +799,12 @@ class MaildirDirdbmDomain(AbstractMaildirDomain):
             bounced (C{False}).
         """
         AbstractMaildirDomain.__init__(self, service, root)
-        dbm = os.path.join(root, "passwd")
+        dbm = os.path.join(root, 'passwd')
         if not os.path.exists(dbm):
             os.makedirs(dbm)
         self.dbm = dirdbm.open(dbm)
         self.postmaster = postmaster
+
 
     def userDirectory(self, name):
         """
@@ -800,11 +821,12 @@ class MaildirDirdbmDomain(AbstractMaildirDomain):
         if name not in self.dbm:
             if not self.postmaster:
                 return None
-            name = "postmaster"
+            name = 'postmaster'
         dir = os.path.join(self.root, name)
         if not os.path.exists(dir):
             initializeMaildir(dir)
         return dir
+
 
     def addUser(self, user, password):
         """
@@ -821,6 +843,7 @@ class MaildirDirdbmDomain(AbstractMaildirDomain):
         # Ensure it is initialized
         self.userDirectory(user)
 
+
     def getCredentialsCheckers(self):
         """
         Return credentials checkers for this domain.
@@ -832,6 +855,7 @@ class MaildirDirdbmDomain(AbstractMaildirDomain):
         if self._credcheckers is None:
             self._credcheckers = [DirdbmDatabase(self.dbm)]
         return self._credcheckers
+
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         """
@@ -869,7 +893,12 @@ class MaildirDirdbmDomain(AbstractMaildirDomain):
         else:
             mbox = MaildirMailbox(os.path.join(self.root, avatarId))
 
-        return (pop3.IMailbox, mbox, lambda: None)
+        return (
+            pop3.IMailbox,
+            mbox,
+            lambda: None
+        )
+
 
 
 @implementer(checkers.ICredentialsChecker)
@@ -881,11 +910,10 @@ class DirdbmDatabase:
     @type dirdbm: L{DirDBM <dirdbm.DirDBM>}
     @ivar dirdbm: An authentication database.
     """
-
     # credentialInterfaces is not used by the class
     credentialInterfaces = (
         credentials.IUsernamePassword,
-        credentials.IUsernameHashedPassword,
+        credentials.IUsernameHashedPassword
     )
 
     def __init__(self, dbm):
@@ -894,6 +922,7 @@ class DirdbmDatabase:
         @param dbm: An authentication database.
         """
         self.dirdbm = dbm
+
 
     def requestAvatarId(self, c):
         """

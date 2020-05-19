@@ -18,14 +18,17 @@ MIN_TIMEOUT = 0.000000001
 MAX_TIMEOUT = 0.1
 
 
+
 class _PollableResource:
     active = True
 
     def activate(self):
         self.active = True
 
+
     def deactivate(self):
         self.active = False
+
 
 
 class _PollingTimer:
@@ -71,7 +74,7 @@ class _PollingTimer:
             return self.reactor.callLater(self._currentTimeout, self._pollEvent)
 
     def _pollEvent(self):
-        workUnits = 0.0
+        workUnits = 0.
         anyActive = []
         for resource in self._resources:
             if resource.active:
@@ -82,11 +85,11 @@ class _PollingTimer:
 
         newTimeout = self._currentTimeout
         if workUnits:
-            newTimeout = self._currentTimeout / (workUnits + 1.0)
+            newTimeout = self._currentTimeout / (workUnits + 1.)
             if newTimeout < MIN_TIMEOUT:
                 newTimeout = MIN_TIMEOUT
         else:
-            newTimeout = self._currentTimeout * 2.0
+            newTimeout = self._currentTimeout * 2.
             if newTimeout > MAX_TIMEOUT:
                 newTimeout = MAX_TIMEOUT
         self._currentTimeout = newTimeout
@@ -102,9 +105,9 @@ import win32file
 import win32api
 import pywintypes
 
-
 @implementer(IPushProducer)
 class _PollableReadPipe(_PollableResource):
+
     def __init__(self, pipe, receivedCallback, lostCallback):
         # security attributes for pipes
         self.pipe = pipe
@@ -127,7 +130,7 @@ class _PollableReadPipe(_PollableResource):
                 finished = 1
                 break
 
-        dataBuf = b"".join(fullDataRead)
+        dataBuf = b''.join(fullDataRead)
         if dataBuf:
             self.receivedCallback(dataBuf)
         if finished:
@@ -157,9 +160,9 @@ class _PollableReadPipe(_PollableResource):
 
 FULL_BUFFER_SIZE = 64 * 1024
 
-
 @implementer(IConsumer)
 class _PollableWritePipe(_PollableResource):
+
     def __init__(self, writePipe, lostCallback):
         self.disconnecting = False
         self.producer = None
@@ -169,9 +172,10 @@ class _PollableWritePipe(_PollableResource):
         self.writePipe = writePipe
         self.lostCallback = lostCallback
         try:
-            win32pipe.SetNamedPipeHandleState(
-                writePipe, win32pipe.PIPE_NOWAIT, None, None
-            )
+            win32pipe.SetNamedPipeHandleState(writePipe,
+                                              win32pipe.PIPE_NOWAIT,
+                                              None,
+                                              None)
         except pywintypes.error:
             # Maybe it's an invalid handle.  Who knows.
             pass
@@ -185,9 +189,8 @@ class _PollableWritePipe(_PollableResource):
             self.producer.pauseProducing()
 
     def bufferEmpty(self):
-        if self.producer is not None and (
-            (not self.streamingProducer) or self.producerPaused
-        ):
+        if self.producer is not None and ((not self.streamingProducer) or
+                                          self.producerPaused):
             self.producer.producerPaused = False
             self.producer.resumeProducing()
             return True
@@ -208,8 +211,7 @@ class _PollableWritePipe(_PollableResource):
         if self.producer is not None:
             raise RuntimeError(
                 "Cannot register producer %s, because producer %s was never "
-                "unregistered." % (producer, self.producer)
-            )
+                "unregistered." % (producer, self.producer))
         if not self.active:
             producer.stopProducing()
         else:
@@ -232,6 +234,7 @@ class _PollableWritePipe(_PollableResource):
             pass
         self.lostCallback()
 
+
     def writeSequence(self, seq):
         """
         Append a C{list} or C{tuple} of bytes to the output buffer.
@@ -244,6 +247,7 @@ class _PollableWritePipe(_PollableResource):
         if unicode in map(type, seq):
             raise TypeError("Unicode not allowed in output buffer.")
         self.outQueue.extend(seq)
+
 
     def write(self, data):
         """
@@ -262,6 +266,7 @@ class _PollableWritePipe(_PollableResource):
         if sum(map(len, self.outQueue)) > FULL_BUFFER_SIZE:
             self.bufferFull()
 
+
     def checkWork(self):
         numBytesWritten = 0
         if not self.outQueue:
@@ -269,7 +274,7 @@ class _PollableWritePipe(_PollableResource):
                 self.writeConnectionLost()
                 return 0
             try:
-                win32file.WriteFile(self.writePipe, b"", None)
+                win32file.WriteFile(self.writePipe, b'', None)
             except pywintypes.error:
                 self.writeConnectionLost()
                 return numBytesWritten
@@ -277,7 +282,8 @@ class _PollableWritePipe(_PollableResource):
             data = self.outQueue.pop(0)
             errCode = 0
             try:
-                errCode, nBytesWritten = win32file.WriteFile(self.writePipe, data, None)
+                errCode, nBytesWritten = win32file.WriteFile(self.writePipe,
+                                                             data, None)
             except win32api.error:
                 self.writeConnectionLost()
                 break

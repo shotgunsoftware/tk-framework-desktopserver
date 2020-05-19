@@ -21,3 +21,4 @@ lift logs through SMB? or ship them via tcp beams to the VM host
 
 have a timeout on the test run
 if we time out, take a screenshot, save it, kill the VM
+

@@ -1,5 +1,4 @@
 from __future__ import absolute_import
-
 __author__ = "Jon Reid"
 __copyright__ = "Copyright 2011 hamcrest.org"
 __license__ = "BSD, see License.txt"
@@ -23,7 +22,7 @@ class BaseMatcher(Matcher):
         return tostring(self)
 
     def _matches(self, item):
-        raise NotImplementedError("_matches")
+        raise NotImplementedError('_matches')
 
     def matches(self, item, mismatch_description=None):
         match_result = self._matches(item)
@@ -32,4 +31,4 @@ class BaseMatcher(Matcher):
         return match_result
 
     def describe_mismatch(self, item, mismatch_description):
-        mismatch_description.append_text("was ").append_description_of(item)
+        mismatch_description.append_text('was ').append_description_of(item)

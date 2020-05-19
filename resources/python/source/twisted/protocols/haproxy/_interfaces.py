@@ -27,6 +27,7 @@ class IProxyInfo(zope.interface.Interface):
     )
 
 
+
 class IProxyParser(zope.interface.Interface):
     """
     Streaming parser that handles PROXY protocol headers.
@@ -46,6 +47,7 @@ class IProxyParser(zope.interface.Interface):
         @raises InvalidProxyHeader: If the bytes fed to the parser create an
             invalid PROXY header.
         """
+
 
     def parse(self, line):
         """

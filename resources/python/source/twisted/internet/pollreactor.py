@@ -26,6 +26,7 @@ from twisted.internet import posixbase
 from twisted.internet.interfaces import IReactorFDSet
 
 
+
 @implementer(IReactorFDSet)
 class PollReactor(posixbase.PosixReactorBase, posixbase._PollLikeMixin):
     """
@@ -53,7 +54,7 @@ class PollReactor(posixbase.PosixReactorBase, posixbase._PollLikeMixin):
         C{_selectables}.
     """
 
-    _POLL_DISCONNECTED = POLLHUP | POLLERR | POLLNVAL
+    _POLL_DISCONNECTED = (POLLHUP | POLLERR | POLLNVAL)
     _POLL_IN = POLLIN
     _POLL_OUT = POLLOUT
 
@@ -67,6 +68,7 @@ class PollReactor(posixbase.PosixReactorBase, posixbase._PollLikeMixin):
         self._reads = {}
         self._writes = {}
         posixbase.PosixReactorBase.__init__(self)
+
 
     def _updateRegistration(self, fd):
         """Register/unregister an fd with the poller."""
@@ -113,7 +115,7 @@ class PollReactor(posixbase.PosixReactorBase, posixbase._PollLikeMixin):
         fd = reader.fileno()
         if fd not in self._reads:
             self._selectables[fd] = reader
-            self._reads[fd] = 1
+            self._reads[fd] =  1
             self._updateRegistration(fd)
 
     def addWriter(self, writer):
@@ -122,7 +124,7 @@ class PollReactor(posixbase.PosixReactorBase, posixbase._PollLikeMixin):
         fd = writer.fileno()
         if fd not in self._writes:
             self._selectables[fd] = writer
-            self._writes[fd] = 1
+            self._writes[fd] =  1
             self._updateRegistration(fd)
 
     def removeReader(self, reader):
@@ -141,13 +143,13 @@ class PollReactor(posixbase.PosixReactorBase, posixbase._PollLikeMixin):
         """
         return self._removeAll(
             [self._selectables[fd] for fd in self._reads],
-            [self._selectables[fd] for fd in self._writes],
-        )
+            [self._selectables[fd] for fd in self._writes])
+
 
     def doPoll(self, timeout):
         """Poll the poller for new events."""
         if timeout is not None:
-            timeout = int(timeout * 1000)  # convert seconds to milliseconds
+            timeout = int(timeout * 1000) # convert seconds to milliseconds
 
         try:
             l = self._poller.poll(timeout)
@@ -171,15 +173,16 @@ class PollReactor(posixbase.PosixReactorBase, posixbase._PollLikeMixin):
     def getReaders(self):
         return [self._selectables[fd] for fd in self._reads]
 
+
     def getWriters(self):
         return [self._selectables[fd] for fd in self._writes]
+
 
 
 def install():
     """Install the poll() reactor."""
     p = PollReactor()
     from twisted.internet.main import installReactor
-
     installReactor(p)
 
 

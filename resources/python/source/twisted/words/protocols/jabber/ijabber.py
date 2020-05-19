@@ -7,7 +7,6 @@ Public Jabber Interfaces.
 
 from zope.interface import Attribute, Interface
 
-
 class IInitializer(Interface):
     """
     Interface for XML stream initializers.
@@ -15,6 +14,7 @@ class IInitializer(Interface):
     Initializers perform a step in getting the XML stream ready to be
     used for the exchange of XML stanzas.
     """
+
 
 
 class IInitiatingInitializer(IInitializer):
@@ -30,6 +30,7 @@ class IInitiatingInitializer(IInitializer):
 
         May return a deferred when the initialization is done asynchronously.
         """
+
 
 
 class IIQResponseTracker(Interface):
@@ -49,8 +50,9 @@ class IIQResponseTracker(Interface):
     keeps the said dictionary and sets observers on the iq stanzas of type
     C{result} and C{error} and lets the callback fire the associated deferred.
     """
+    iqDeferreds = Attribute("Dictionary of deferreds waiting for an iq "
+                             "response")
 
-    iqDeferreds = Attribute("Dictionary of deferreds waiting for an iq " "response")
 
 
 class IXMPPHandler(Interface):
@@ -71,12 +73,14 @@ class IXMPPHandler(Interface):
         @type parent: L{IXMPPHandlerCollection}
         """
 
+
     def disownHandlerParent(parent):
         """
         Remove the parent of the handler.
 
         @type parent: L{IXMPPHandlerCollection}
         """
+
 
     def makeConnection(xs):
         """
@@ -92,6 +96,7 @@ class IXMPPHandler(Interface):
                L{twisted.words.protocols.jabber.xmlstream.XmlStream}
         """
 
+
     def connectionMade():
         """
         Called after a connection has been established.
@@ -100,6 +105,7 @@ class IXMPPHandler(Interface):
         authenticator or the stream manager prior to stream initialization
         (including authentication).
         """
+
 
     def connectionInitialized():
         """
@@ -110,6 +116,7 @@ class IXMPPHandler(Interface):
         used to setup observers for incoming stanzas.
         """
 
+
     def connectionLost(reason):
         """
         The XML stream has been closed.
@@ -119,6 +126,7 @@ class IXMPPHandler(Interface):
 
         @type reason: L{twisted.python.failure.Failure}
         """
+
 
 
 class IXMPPHandlerCollection(Interface):
@@ -133,6 +141,7 @@ class IXMPPHandlerCollection(Interface):
         Get an iterator over all child handlers.
         """
 
+
     def addHandler(handler):
         """
         Add a child handler.
@@ -140,12 +149,14 @@ class IXMPPHandlerCollection(Interface):
         @type handler: L{IXMPPHandler}
         """
 
+
     def removeHandler(handler):
         """
         Remove a child handler.
 
         @type handler: L{IXMPPHandler}
         """
+
 
 
 class IService(Interface):
@@ -168,6 +179,7 @@ class IService(Interface):
         @type xs: L{xmlstream.XmlStream}
         """
 
+
     def componentDisconnected():
         """
         Parent component has lost the connection to the Jabber server.
@@ -175,6 +187,7 @@ class IService(Interface):
         Subsequent use of C{self.parent.send} will result in data being
         queued until a new connection has been established.
         """
+
 
     def transportConnected(xs):
         """

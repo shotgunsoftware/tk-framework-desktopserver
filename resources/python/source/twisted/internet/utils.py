@@ -18,16 +18,17 @@ from twisted.python.compat import reraise
 from io import BytesIO
 
 
-def _callProtocolWithDeferred(
-    protocol, executable, args, env, path, reactor=None, protoArgs=()
-):
+
+def _callProtocolWithDeferred(protocol, executable, args, env, path,
+                              reactor=None, protoArgs=()):
     if reactor is None:
         from twisted.internet import reactor
 
     d = defer.Deferred()
     p = protocol(d, *protoArgs)
-    reactor.spawnProcess(p, executable, (executable,) + tuple(args), env, path)
+    reactor.spawnProcess(p, executable, (executable,)+tuple(args), env, path)
     return d
+
 
 
 class _UnexpectedErrorOutput(IOError):
@@ -44,6 +45,7 @@ class _UnexpectedErrorOutput(IOError):
     def __init__(self, text, processEnded):
         IOError.__init__(self, "got stderr: %r" % (text,))
         self.processEnded = processEnded
+
 
 
 class _BackRelay(protocol.ProcessProtocol):
@@ -94,7 +96,9 @@ class _BackRelay(protocol.ProcessProtocol):
             self.onProcessEnded.errback(reason)
 
 
-def getProcessOutput(executable, args=(), env={}, path=None, reactor=None, errortoo=0):
+
+def getProcessOutput(executable, args=(), env={}, path=None, reactor=None,
+                     errortoo=0):
     """
     Spawn a process and return its output as a deferred returning a L{bytes}.
 
@@ -119,12 +123,14 @@ def getProcessOutput(executable, args=(), env={}, path=None, reactor=None, error
         C{processEnded} attribute refers to a L{Deferred} which fires when the
         executed process ends.
     """
-    return _callProtocolWithDeferred(
-        lambda d: _BackRelay(d, errortoo=errortoo), executable, args, env, path, reactor
-    )
+    return _callProtocolWithDeferred(lambda d:
+                                        _BackRelay(d, errortoo=errortoo),
+                                     executable, args, env, path,
+                                     reactor)
 
 
 class _ValueGetter(protocol.ProcessProtocol):
+
     def __init__(self, deferred):
         self.deferred = deferred
 
@@ -132,12 +138,16 @@ class _ValueGetter(protocol.ProcessProtocol):
         self.deferred.callback(reason.value.exitCode)
 
 
+
 def getProcessValue(executable, args=(), env={}, path=None, reactor=None):
     """Spawn a process and return its exit code as a Deferred."""
-    return _callProtocolWithDeferred(_ValueGetter, executable, args, env, path, reactor)
+    return _callProtocolWithDeferred(_ValueGetter, executable, args, env, path,
+                                     reactor)
+
 
 
 class _EverythingGetter(protocol.ProcessProtocol):
+
     def __init__(self, deferred, stdinBytes=None):
         self.deferred = deferred
         self.outBuf = BytesIO()
@@ -164,9 +174,9 @@ class _EverythingGetter(protocol.ProcessProtocol):
             self.deferred.callback((out, err, code))
 
 
-def getProcessOutputAndValue(
-    executable, args=(), env={}, path=None, reactor=None, stdinBytes=None
-):
+
+def getProcessOutputAndValue(executable, args=(), env={}, path=None,
+                             reactor=None, stdinBytes=None):
     """Spawn a process and returns a Deferred that will be called back with
     its output (from stdout and stderr) and it's exit code as (out, err, code)
     If a signal is raised, the Deferred will errback with the stdout and
@@ -181,6 +191,7 @@ def getProcessOutputAndValue(
         reactor,
         protoArgs=(stdinBytes,),
     )
+
 
 
 def _resetWarningFilters(passthrough, addedFilters):
@@ -201,7 +212,7 @@ def runWithWarningsSuppressed(suppressedWarnings, f, *a, **kw):
     """
     for args, kwargs in suppressedWarnings:
         warnings.filterwarnings(*args, **kwargs)
-    addedFilters = warnings.filters[: len(suppressedWarnings)]
+    addedFilters = warnings.filters[:len(suppressedWarnings)]
     try:
         result = f(*a, **kw)
     except:
@@ -222,18 +233,13 @@ def suppressWarnings(f, *suppressedWarnings):
     invoking C{f} and unsuppresses them afterwards.  If f returns a Deferred,
     warnings will remain suppressed until the Deferred fires.
     """
-
     @wraps(f)
     def warningSuppressingWrapper(*a, **kw):
         return runWithWarningsSuppressed(suppressedWarnings, f, *a, **kw)
-
     return warningSuppressingWrapper
 
 
 __all__ = [
-    "runWithWarningsSuppressed",
-    "suppressWarnings",
-    "getProcessOutput",
-    "getProcessValue",
-    "getProcessOutputAndValue",
-]
+    "runWithWarningsSuppressed", "suppressWarnings",
+    "getProcessOutput", "getProcessValue", "getProcessOutputAndValue",
+    ]

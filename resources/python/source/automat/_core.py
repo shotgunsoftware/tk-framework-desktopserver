@@ -43,12 +43,14 @@ class Automaton(object):
         self._initialState = _NO_STATE
         self._transitions = set()
 
+
     @property
     def initialState(self):
         """
         Return this automaton's initial state.
         """
         return self._initialState
+
 
     @initialState.setter
     def initialState(self, state):
@@ -59,10 +61,10 @@ class Automaton(object):
 
         if self._initialState is not _NO_STATE:
             raise ValueError(
-                "initial state already set to {}".format(self._initialState)
-            )
+                "initial state already set to {}".format(self._initialState))
 
         self._initialState = state
+
 
     def addTransition(self, inState, inputSymbol, outState, outputSymbols):
         """
@@ -73,13 +75,13 @@ class Automaton(object):
         # O(n^2), but state machines don't tend to have hundreds of
         # transitions.
         for (anInState, anInputSymbol, anOutState, _) in self._transitions:
-            if anInState == inState and anInputSymbol == inputSymbol:
+            if (anInState == inState and anInputSymbol == inputSymbol):
                 raise ValueError(
-                    "already have transition from {} via {}".format(
-                        inState, inputSymbol
-                    )
-                )
-        self._transitions.add((inState, inputSymbol, outState, tuple(outputSymbols)))
+                    "already have transition from {} via {}".format(inState, inputSymbol))
+        self._transitions.add(
+            (inState, inputSymbol, outState, tuple(outputSymbols))
+        )
+
 
     def allTransitions(self):
         """
@@ -87,14 +89,14 @@ class Automaton(object):
         """
         return frozenset(self._transitions)
 
+
     def inputAlphabet(self):
         """
         The full set of symbols acceptable to this automaton.
         """
-        return {
-            inputSymbol
-            for (inState, inputSymbol, outState, outputSymbol) in self._transitions
-        }
+        return {inputSymbol for (inState, inputSymbol, outState,
+                                 outputSymbol) in self._transitions}
+
 
     def outputAlphabet(self):
         """
@@ -102,10 +104,12 @@ class Automaton(object):
         """
         return set(
             chain.from_iterable(
-                outputSymbols
-                for (inState, inputSymbol, outState, outputSymbols) in self._transitions
+                outputSymbols for
+                (inState, inputSymbol, outState, outputSymbols)
+                in self._transitions
             )
         )
+
 
     def states(self):
         """
@@ -115,15 +119,19 @@ class Automaton(object):
         return frozenset(
             chain.from_iterable(
                 (inState, outState)
-                for (inState, inputSymbol, outState, outputSymbol) in self._transitions
+                for
+                (inState, inputSymbol, outState, outputSymbol)
+                in self._transitions
             )
         )
+
 
     def outputForInput(self, inState, inputSymbol):
         """
         A 2-tuple of (outState, outputSymbols) for inputSymbol.
         """
-        for (anInState, anInputSymbol, outState, outputSymbols) in self._transitions:
+        for (anInState, anInputSymbol,
+             outState, outputSymbols) in self._transitions:
             if (inState, inputSymbol) == (anInState, anInputSymbol):
                 return (outState, list(outputSymbols))
         raise NoTransition(state=inState, symbol=inputSymbol)
@@ -146,13 +154,12 @@ class Transitioner(object):
         """
         Transition between states, returning any outputs.
         """
-        outState, outputSymbols = self._automaton.outputForInput(
-            self._state, inputSymbol
-        )
+        outState, outputSymbols = self._automaton.outputForInput(self._state,
+                                                                 inputSymbol)
         outTracer = None
         if self._tracer:
-            outTracer = self._tracer(
-                self._state._name(), inputSymbol._name(), outState._name()
-            )
+            outTracer = self._tracer(self._state._name(),
+                                     inputSymbol._name(),
+                                     outState._name())
         self._state = outState
         return (outputSymbols, outTracer)
