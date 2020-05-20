@@ -13,6 +13,7 @@
 from . import api_v1
 from . import api_v2
 
+
 def get_shotgun_api(protocol_version, host, process_manager, wss_key):
     """
     A factory function that returns an rpc API instance. The given

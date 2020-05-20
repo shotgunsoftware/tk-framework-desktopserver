@@ -1,11 +1,11 @@
 # Copyright (c) 2017 Shotgun Software Inc.
-# 
+#
 # CONFIDENTIAL AND PROPRIETARY
-# 
-# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit 
+#
+# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
 # Source Code License included in this distribution package. See LICENSE.
-# By accessing, using, copying or modifying this work you indicate your 
-# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights 
+# By accessing, using, copying or modifying this work you indicate your
+# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import os
@@ -14,10 +14,12 @@ import sys
 from tank_test.tank_test_base import setUpModule
 from base_test import TestDesktopServerFramework, MockConfigDescriptor
 
+
 class TestCacheMethods(TestDesktopServerFramework):
     """
     Tests for various caching-related methods for api_v2.
     """
+
     def test_lookup_hash(self):
         """
         Tests to ensure that the lookup hash, which acts as the key for each
@@ -25,8 +27,7 @@ class TestCacheMethods(TestDesktopServerFramework):
         across invokations.
         """
         config_descriptor = MockConfigDescriptor(
-            path=self.config_root,
-            is_immutable=True,
+            path=self.config_root, is_immutable=True,
         )
         key_1 = self.api._get_lookup_hash(
             config_uri=config_descriptor.get_uri(),
@@ -110,16 +111,13 @@ class TestCacheMethods(TestDesktopServerFramework):
         in the same where a mutable config is in use.
         """
         config_descriptor = MockConfigDescriptor(
-            path=self.config_root,
-            is_immutable=True,
+            path=self.config_root, is_immutable=True,
         )
         hash_1 = self.api._get_contents_hash(
-            config_descriptor,
-            self.api._get_software_entities(),
+            config_descriptor, self.api._get_software_entities(),
         )
         hash_2 = self.api._get_contents_hash(
-            config_descriptor,
-            self.api._get_software_entities(),
+            config_descriptor, self.api._get_software_entities(),
         )
 
         # These should be the same since no input data changed.
@@ -127,22 +125,23 @@ class TestCacheMethods(TestDesktopServerFramework):
 
         # Change the Software entities, which should cause the hash
         # to change.
-        self.add_to_sg_mock_db([
-            dict(
-                code="Something New",
-                engine="tk_engine_tester",
-                id=8,
-                type="Software",
-                projects=[],
-            )
-        ])
+        self.add_to_sg_mock_db(
+            [
+                dict(
+                    code="Something New",
+                    engine="tk_engine_tester",
+                    id=8,
+                    type="Software",
+                    projects=[],
+                )
+            ]
+        )
 
         # We have to clear the entity cache, though, because the wss_key isn't
         # changing the way it would on a page refresh or navigation.
         self.api._cache = dict()
         hash_3 = self.api._get_contents_hash(
-            config_descriptor,
-            self.api._get_software_entities(),
+            config_descriptor, self.api._get_software_entities(),
         )
         self.assertNotEqual(hash_1, hash_3)
 
@@ -151,16 +150,14 @@ class TestCacheMethods(TestDesktopServerFramework):
         # be included in the hash.
         config_descriptor._is_immutable = False
         hash_4 = self.api._get_contents_hash(
-            config_descriptor,
-            self.api._get_software_entities(),
+            config_descriptor, self.api._get_software_entities(),
         )
         self.assertNotEqual(hash_3, hash_4)
 
         # Running it again should match, because the mtimes of the yml files
         # have not changed.
         hash_5 = self.api._get_contents_hash(
-            config_descriptor,
-            self.api._get_software_entities(),
+            config_descriptor, self.api._get_software_entities(),
         )
         self.assertEqual(hash_4, hash_5)
 
@@ -171,30 +168,6 @@ class TestCacheMethods(TestDesktopServerFramework):
         # changing the way it would on a page refresh or navigation.
         self.api._cache = dict()
         hash_6 = self.api._get_contents_hash(
-            config_descriptor,
-            self.api._get_software_entities(),
+            config_descriptor, self.api._get_software_entities(),
         )
         self.assertNotEqual(hash_5, hash_6)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -37,25 +37,16 @@ class ServerProtocol(WebSocketServerProtocol):
         USER_INFO_NOT_FOUND,
         UNAUTHORIZED_USER,
         ENCRYPTION_HANDSHAKE_NOT_COMPLETED,
-        ENCRYPTION_NOT_SUPPORTED
+        ENCRYPTION_NOT_SUPPORTED,
     ) = (
-        (
-            3000,
-            u"No user information was found in this request."
-        ),
+        (3000, u"No user information was found in this request."),
         (
             3001,
             u"You are not authorized to make browser integration requests. "
-            u"Please re-authenticate in your desktop application."
+            u"Please re-authenticate in your desktop application.",
         ),
-        (
-            3002,
-            u"Attempted to communicate without completing encryption handshake."
-        ),
-        (
-            3003,
-            u"Client asked for server id when encryption is not supported."
-        )
+        (3002, u"Attempted to communicate without completing encryption handshake."),
+        (3003, u"Client asked for server id when encryption is not supported."),
     )
 
     # Initial state is v2. This might change if we end up receiving a connection
@@ -97,12 +88,12 @@ class ServerProtocol(WebSocketServerProtocol):
             # are currently indistinguishable from lost connection. This is true as of July 21st, 2015.
             certificate_error = False
             certificate_error |= (
-                reason.type is OpenSSL.SSL.Error and
-                reason.value.message[0][2] == 'ssl handshake failure'
+                reason.type is OpenSSL.SSL.Error
+                and reason.value.message[0][2] == "ssl handshake failure"
             )
             certificate_error |= (
-                reason.type is OpenSSL.SSL.Error and
-                reason.value.message[0][2] == 'tlsv1 alert unknown ca'
+                reason.type is OpenSSL.SSL.Error
+                and reason.value.message[0][2] == "tlsv1 alert unknown ca"
             )
             certificate_error |= bool(reason.check(error.CertificateError))
 
@@ -158,7 +149,9 @@ class ServerProtocol(WebSocketServerProtocol):
             try:
                 payload = self._fernet.decrypt(payload)
             except Exception as e:
-                self.report_error("There was an error while decrypting the message: %s" % e)
+                self.report_error(
+                    "There was an error while decrypting the message: %s" % e
+                )
                 logger.exception("Unexpected error while decrypting:")
                 return
 
@@ -173,8 +166,10 @@ class ServerProtocol(WebSocketServerProtocol):
         # Extract json response (every message is expected to be in json format)
         try:
             message = json.loads(decoded_payload)
-        except ValueError, e:
-            self.report_error("Error in decoding the message's json data: %s" % e.message)
+        except ValueError as e:
+            self.report_error(
+                "Error in decoding the message's json data: %s" % e.message
+            )
             return
 
         message_host = MessageHost(self, message)
@@ -196,7 +191,9 @@ class ServerProtocol(WebSocketServerProtocol):
             try:
                 user_id = message["command"]["data"]["user"]["entity"]["id"]
             except Exception as e:
-                logger.exception("Unexpected error while trying to retrieve the user id:")
+                logger.exception(
+                    "Unexpected error while trying to retrieve the user id:"
+                )
                 self.sendClose(*self.USER_INFO_NOT_FOUND)
                 return
         else:
@@ -222,10 +219,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # a file. This will ensure the server is as responsive as possible. Twisted will take care
         # of the thread.
         reactor.callInThread(
-            self._process_message,
-            message_host,
-            message,
-            message["protocol_version"],
+            self._process_message, message_host, message, message["protocol_version"],
         )
 
     def _validate_user(self, user_id):
@@ -253,7 +247,10 @@ class ServerProtocol(WebSocketServerProtocol):
         # The user id is only going to be present with protocol v2.
         if user_id:
             # If we're on the right site and have the correct user, we're fine.
-            if origin_network in self.factory.host_aliases and user_id == self.factory.user_id:
+            if (
+                origin_network in self.factory.host_aliases
+                and user_id == self.factory.user_id
+            ):
                 return True
             else:
                 # Otherwise report an error and log some stats.
@@ -314,9 +311,7 @@ class ServerProtocol(WebSocketServerProtocol):
 
         # Build a response for the web app.
         message = Message(message["id"], self._protocol_version)
-        message.reply({
-            "ws_server_id": self.factory.ws_server_id
-        })
+        message.reply({"ws_server_id": self.factory.ws_server_id})
 
         # send the response.
         self.json_reply(message.data)
@@ -379,7 +374,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 self.process_manager,
                 wss_key=self._wss_key,
             )
-        except Exception, e:
+        except Exception as e:
             message_host.report_error("Unable to get a ShotgunAPI object: %s" % e)
             return
 
@@ -388,7 +383,7 @@ class ServerProtocol(WebSocketServerProtocol):
             # Call matching shotgun command
             try:
                 func = getattr(api, cmd_name)
-            except Exception, e:
+            except Exception as e:
                 message_host.report_error(
                     "Could not find API method %s: %s." % (cmd_name, e)
                 )
@@ -403,10 +398,12 @@ class ServerProtocol(WebSocketServerProtocol):
                 # copying/downloading files to disk in the same location.
                 try:
                     func(data)
-                except Exception, e:
+                except Exception as e:
                     import traceback
+
                     message_host.report_error(
-                        "Method call failed for %s: %s" % (cmd_name, traceback.format_exc())
+                        "Method call failed for %s: %s"
+                        % (cmd_name, traceback.format_exc())
                     )
         else:
             message_host.report_error("Command %s is not supported." % cmd_name)
@@ -438,9 +435,7 @@ class ServerProtocol(WebSocketServerProtocol):
         """
         # ensure_ascii allows unicode strings.
         payload = json.dumps(
-            data,
-            ensure_ascii=False,
-            default=self._json_date_handler,
+            data, ensure_ascii=False, default=self._json_date_handler,
         ).encode("utf8")
 
         if self._fernet:

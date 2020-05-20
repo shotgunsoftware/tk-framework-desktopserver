@@ -30,7 +30,10 @@ def get_certificate_file_names(root_folder):
 
     :returns: The tuple (public key path, private key path)
     """
-    return os.path.join(root_folder, "server.crt"), os.path.join(root_folder, "server.key")
+    return (
+        os.path.join(root_folder, "server.crt"),
+        os.path.join(root_folder, "server.key"),
+    )
 
 
 class _CertificateHandler(object):
@@ -58,7 +61,7 @@ class _CertificateHandler(object):
         backup_folder = os.path.join(
             parent_folder,
             "backups",
-            datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+            datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S"),
         )
         self._backup_file(self._cert_path, backup_folder)
         self._backup_file(self._key_path, backup_folder)
@@ -76,10 +79,7 @@ class _CertificateHandler(object):
             return
 
         # Move the original certificate into a backup folder.
-        dst_file = os.path.join(
-            dst_folder,
-            os.path.basename(src_file)
-        )
+        dst_file = os.path.join(dst_folder, os.path.basename(src_file))
         logger.debug("Backing up certificate from '%s' to '%s'.", src_file, dst_file)
 
         # If the backup folder does not exist, create it.
@@ -110,11 +110,9 @@ class _CertificateHandler(object):
         # https://textslashplain.com/2017/03/10/chrome-deprecates-subject-cn-matching/
         # This fixes the issue: http://stackoverflow.com/a/37440167/1074536
         san_list = ["DNS:localhost"]
-        cert.add_extensions([
-            crypto.X509Extension(
-                "subjectAltName", False, ", ".join(san_list)
-            )
-        ])
+        cert.add_extensions(
+            [crypto.X509Extension("subjectAltName", False, ", ".join(san_list))]
+        )
         cert.get_subject().C = "US"
         cert.get_subject().ST = "California"
         cert.get_subject().L = "San Rafael"
@@ -125,16 +123,18 @@ class _CertificateHandler(object):
         # serial number reuse.
         cert.set_serial_number(random.getrandbits(128))
         # Set the certificate version to 2, which supports X509 extensions.
-        cert.set_version(2) # 0 = version 1, 1 = version, 2 = version 3.
+        cert.set_version(2)  # 0 = version 1, 1 = version, 2 = version 3.
         cert.gmtime_adj_notBefore(0)
         # 10 years should be enough for everyone
         cert.gmtime_adj_notAfter(10 * 365 * 24 * 60 * 60)
         cert.set_issuer(cert.get_subject())
         cert.set_pubkey(k)
-        cert.sign(k, 'sha256')
+        cert.sign(k, "sha256")
 
         # Write the certificate and key back to disk.
-        self._write_file(self._cert_path, crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+        self._write_file(
+            self._cert_path, crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+        )
         self._write_file(self._key_path, crypto.dump_privatekey(crypto.FILETYPE_PEM, k))
 
     def register(self):
@@ -167,15 +167,20 @@ class _CertificateHandler(object):
         if sys.platform == "win32":
             # More on this Windows specific fix here: https://bugs.python.org/issue3905
             p = subprocess.Popen(
-                cmd, shell=True,
-                stderr=subprocess.STDOUT, stdout=subprocess.PIPE, stdin=subprocess.PIPE
+                cmd,
+                shell=True,
+                stderr=subprocess.STDOUT,
+                stdout=subprocess.PIPE,
+                stdin=subprocess.PIPE,
             )
             # Close the standard in as this can cause issues on Windows (Pixomondo in particular).
             # Closing it on other platforms makes p.communicate raise an error, so only
             # do this for Windows.
             p.stdin.close()
         else:
-            p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
+            p = subprocess.Popen(
+                cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True
+            )
         stdout, _ = p.communicate()
         logger.info("Stdout:\n%s" % stdout)
         if p.returncode != 0:
@@ -193,9 +198,13 @@ class _CertificateHandler(object):
         # good enough.
         # The 'security' tool on OSX 10.7 puts everything in upper case, so lower case everything
         # for testing.
-        return "shotgun" in self._check_call(
-            "validating if the certificate was installed", self._get_is_registered_cmd()
-        ).lower()
+        return (
+            "shotgun"
+            in self._check_call(
+                "validating if the certificate was installed",
+                self._get_is_registered_cmd(),
+            ).lower()
+        )
 
     def unregister(self):
         """
@@ -212,7 +221,9 @@ class _CertificateHandler(object):
 
         :retuns: The command string to execute.
         """
-        raise NotImplemented("'_CertificateInterface._get_is_registered_cmd' not implemented!")
+        raise NotImplemented(
+            "'_CertificateInterface._get_is_registered_cmd' not implemented!"
+        )
 
     def _write_file(self, path, content):
         """
@@ -221,7 +232,7 @@ class _CertificateHandler(object):
         :param path: Path to the file.
         :param content: Text to write to disl.
         """
-        old_umask = os.umask(0077)
+        old_umask = os.umask(0o077)
         try:
             with open(path, "wt") as f:
                 f.write(content)
@@ -248,8 +259,8 @@ class _LinuxCertificateHandler(_CertificateHandler):
     """
 
     _PKI_DB_PATH = os.path.expanduser("~/.pki/nssdb")
-    _SQL_PKI_DB_PATH = "\"sql:%s\"" % _PKI_DB_PATH
-    _CERTIFICATE_PRETTY_NAME = "\"Shotgun Desktop Integration\""
+    _SQL_PKI_DB_PATH = '"sql:%s"' % _PKI_DB_PATH
+    _CERTIFICATE_PRETTY_NAME = '"Shotgun Desktop Integration"'
 
     def __init__(self, certificate_folder):
         """
@@ -258,14 +269,22 @@ class _LinuxCertificateHandler(_CertificateHandler):
         super(_LinuxCertificateHandler, self).__init__(certificate_folder)
 
         # Ensure that the Chrome certificate registry folder exists
-        logger.info("Ensuring Chrome certificate registry folder '%s' exists.", self._PKI_DB_PATH)
+        logger.info(
+            "Ensuring Chrome certificate registry folder '%s' exists.",
+            self._PKI_DB_PATH,
+        )
         sgtk.util.filesystem.ensure_folder_exists(self._PKI_DB_PATH)
 
         # If the Chrome certificate registry is empty, create it. If there is already a database in
         # there, the folder won't be empty.
         if not os.listdir(self._PKI_DB_PATH):
-            logger.info("Initializing Chrome certificate registry at '%s'", self._PKI_DB_PATH)
-            self._check_call("initializing the database", "certutil -N --empty-password -d %s" % self._SQL_PKI_DB_PATH)
+            logger.info(
+                "Initializing Chrome certificate registry at '%s'", self._PKI_DB_PATH
+            )
+            self._check_call(
+                "initializing the database",
+                "certutil -N --empty-password -d %s" % self._SQL_PKI_DB_PATH,
+            )
 
     def _get_is_registered_cmd(self):
         """
@@ -289,9 +308,8 @@ class _LinuxCertificateHandler(_CertificateHandler):
         """
         return self._check_call(
             "registering the certificate",
-            "certutil -A -d %s -i \"%s\" -n %s -t \"TC,C,c\"" % (
-                self._SQL_PKI_DB_PATH, self._cert_path, self._CERTIFICATE_PRETTY_NAME
-            )
+            'certutil -A -d %s -i "%s" -n %s -t "TC,C,c"'
+            % (self._SQL_PKI_DB_PATH, self._cert_path, self._CERTIFICATE_PRETTY_NAME),
         )
 
     def unregister(self):
@@ -302,7 +320,8 @@ class _LinuxCertificateHandler(_CertificateHandler):
         """
         return self._check_call(
             "unregistering the certificate",
-            "certutil -D -d %s -n %s" % (self._SQL_PKI_DB_PATH, self._CERTIFICATE_PRETTY_NAME)
+            "certutil -D -d %s -n %s"
+            % (self._SQL_PKI_DB_PATH, self._CERTIFICATE_PRETTY_NAME),
         )
 
 
@@ -325,7 +344,13 @@ class _WindowsCertificateHandler(_CertificateHandler):
         """
         self._check_call(
             "registering the certificate",
-            ("certutil", "-user", "-addstore", "root", self._cert_path.replace("/", "\\"))
+            (
+                "certutil",
+                "-user",
+                "-addstore",
+                "root",
+                self._cert_path.replace("/", "\\"),
+            ),
         )
 
     def unregister(self):
@@ -339,7 +364,7 @@ class _WindowsCertificateHandler(_CertificateHandler):
         # a query (certutil -user -delstore root sha1).
         return self._check_call(
             "unregistering the certificate",
-            ("certutil", "-user", "-delstore", "root", "localhost")
+            ("certutil", "-user", "-delstore", "root", "localhost"),
         )
 
 
@@ -360,8 +385,8 @@ class _MacCertificateHandler(_CertificateHandler):
         # issue.
         return self._check_call(
             "registering the certificate",
-            "security add-trusted-cert -k ~/Library/Keychains/login.keychain -r trustRoot  \"%s\"" %
-            self._cert_path
+            'security add-trusted-cert -k ~/Library/Keychains/login.keychain -r trustRoot  "%s"'
+            % self._cert_path,
         )
 
     def _get_is_registered_cmd(self):
@@ -386,7 +411,7 @@ class _MacCertificateHandler(_CertificateHandler):
         if self.is_registered():
             return self._check_call(
                 "removing the trusted certificate",
-                "security delete-certificate -c localhost -t"
+                "security delete-certificate -c localhost -t",
             )
         else:
             return True

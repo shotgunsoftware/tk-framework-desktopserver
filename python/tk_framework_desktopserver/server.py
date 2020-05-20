@@ -36,8 +36,13 @@ class ChainedOpenSSLContextFactory(ssl.DefaultOpenSSLContextFactory):
     """
     Serves the entire public certificate chain.
     """
-    def __init__(self, private_key_file_name, certificate_chain_file_name,
-                 sslmethod=SSL.SSLv23_METHOD):
+
+    def __init__(
+        self,
+        private_key_file_name,
+        certificate_chain_file_name,
+        sslmethod=SSL.SSLv23_METHOD,
+    ):
         """
         @param private_key_file_name: Name of a file containing a private key
         @param certificate_chain_file_name: Name of a file containing a certificate chain
@@ -64,7 +69,16 @@ class Server(object):
     class Notifier(QtCore.QObject):
         different_user_requested = QtCore.Signal(str, int)
 
-    def __init__(self, keys_path, encrypt, host, user_id, host_aliases, port=None, uses_intermediate_certificate_chain=False):
+    def __init__(
+        self,
+        keys_path,
+        encrypt,
+        host,
+        user_id,
+        host_aliases,
+        port=None,
+        uses_intermediate_certificate_chain=False,
+    ):
         """
         Constructor.
 
@@ -121,7 +135,9 @@ class Server(object):
         :raises Exception: Thrown if the certificate file is missing.
         """
         if not os.path.exists(certificate_path):
-            raise MissingCertificateError("Missing certificate file: %s" % certificate_path)
+            raise MissingCertificateError(
+                "Missing certificate file: %s" % certificate_path
+            )
 
     def _start_server(self):
         """
@@ -129,7 +145,9 @@ class Server(object):
 
         :param debug: Boolean Show debug output. Will also Start local web server to test client pages.
         """
-        cert_crt_path, cert_key_path = certificates.get_certificate_file_names(self._keys_path)
+        cert_crt_path, cert_key_path = certificates.get_certificate_file_names(
+            self._keys_path
+        )
 
         self._raise_if_missing_certificate(cert_key_path)
         self._raise_if_missing_certificate(cert_crt_path)
@@ -139,16 +157,11 @@ class Server(object):
         else:
             ctx_factory = ssl.DefaultOpenSSLContextFactory
 
-        self.context_factory = ctx_factory(
-            cert_key_path,
-            cert_crt_path
-        )
+        self.context_factory = ctx_factory(cert_key_path, cert_crt_path)
 
         # FIXME: Seems like the debugging flags are gone from the initializer at the moment.
         # We should try to restore these.
-        self.factory = WebSocketServerFactory(
-            "wss://localhost:%d" % self._port
-        )
+        self.factory = WebSocketServerFactory("wss://localhost:%d" % self._port)
 
         self.factory.protocol = ServerProtocol
         self.factory.host = self._host
@@ -159,13 +172,14 @@ class Server(object):
         self.factory.setProtocolOptions(echoCloseCodeReason=True)
         try:
             self.listener = listenWS(self.factory, self.context_factory)
-        except error.CannotListenError, e:
+        except error.CannotListenError as e:
             raise PortBusyError(str(e))
 
     def _start_reactor(self):
         """
         Starts the reactor in a Python thread.
         """
+
         def start():
             reactor.run(installSignalHandlers=0)
 

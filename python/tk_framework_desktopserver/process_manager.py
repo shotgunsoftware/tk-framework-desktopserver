@@ -31,6 +31,7 @@ def _create_invoker():
         to the invoking thread as if it was the thread that actually executed
         the code.
         """
+
         def __init__(self):
             """
             Constructor.
@@ -53,7 +54,9 @@ def _create_invoker():
             self._fn = lambda: fn(*args, **kwargs)
             self._res = None
 
-            QtCore.QMetaObject.invokeMethod(self, "_do_invoke", QtCore.Qt.BlockingQueuedConnection)
+            QtCore.QMetaObject.invokeMethod(
+                self, "_do_invoke", QtCore.Qt.BlockingQueuedConnection
+            )
 
             # If an exception has been thrown, rethrow it.
             if self._exception:
@@ -67,7 +70,7 @@ def _create_invoker():
             """
             try:
                 self._res = self._fn()
-            except Exception, e:
+            except Exception as e:
                 self._exception = e
 
     return MainThreadInvoker()
@@ -117,10 +120,14 @@ class ProcessManager(object):
         :param pipeline_config_path: String Pipeline folder
         :return: String File path of toolkit script (eg: c:/temp/tank)
         """
-        exec_script = os.path.join(pipeline_config_path, self._get_toolkit_script_name())
+        exec_script = os.path.join(
+            pipeline_config_path, self._get_toolkit_script_name()
+        )
 
         if not os.path.isfile(exec_script):
-            exec_script = os.path.join(pipeline_config_path, self._get_toolkit_fallback_script_name())
+            exec_script = os.path.join(
+                pipeline_config_path, self._get_toolkit_fallback_script_name()
+            )
 
         return exec_script
 
@@ -132,13 +139,20 @@ class ProcessManager(object):
         :raises: Exception On invalid toolkit pipeline configuration.
         """
         if not os.path.isdir(pipeline_config_path):
-            raise ExecuteTankCommandError("Could not find the Pipeline Configuration on disk: " + pipeline_config_path)
+            raise ExecuteTankCommandError(
+                "Could not find the Pipeline Configuration on disk: "
+                + pipeline_config_path
+            )
 
         exec_script = self._get_full_toolkit_path(pipeline_config_path)
         if not os.path.isfile(exec_script):
-            raise ExecuteTankCommandError("Could not find the Toolkit command on disk: " + exec_script)
+            raise ExecuteTankCommandError(
+                "Could not find the Toolkit command on disk: " + exec_script
+            )
 
-    def _launch_process(self, launcher, filepath, message_error="Error executing command."):
+    def _launch_process(
+        self, launcher, filepath, message_error="Error executing command."
+    ):
         """
         Standard way of starting a process and handling errors.
 
@@ -153,8 +167,14 @@ class ProcessManager(object):
 
         if has_error:
             # Do not log the command line, it might contain sensitive information.
-            raise Exception("{message_error}\nReturn code: {return_code}\nOutput: {std_out}\nError: {std_err}"
-                            .format(message_error=message_error, return_code=return_code, std_out=out, std_err=err))
+            raise Exception(
+                "{message_error}\nReturn code: {return_code}\nOutput: {std_out}\nError: {std_err}".format(
+                    message_error=message_error,
+                    return_code=return_code,
+                    std_out=out,
+                    std_err=err,
+                )
+            )
 
         return True
 
@@ -179,7 +199,11 @@ class ProcessManager(object):
         self._verify_pipeline_configuration(pipeline_config_path)
 
         if not command.startswith("shotgun"):
-            raise ExecuteTankCommandError("ExecuteTankCommand error. Command needs to be a shotgun command [{command}]".format(command=command))
+            raise ExecuteTankCommandError(
+                "ExecuteTankCommand error. Command needs to be a shotgun command [{command}]".format(
+                    command=command
+                )
+            )
 
         try:
             #
@@ -195,7 +219,7 @@ class ProcessManager(object):
             return_code, out, err = Command.call_cmd(exec_command)
 
             return (out, err, return_code)
-        except Exception, e:
+        except Exception as e:
             # call_cmd is not including sentitive information in the error message, so this won't
             # either.
             raise Exception("Error executing toolkit command: " + e.message)
@@ -204,9 +228,9 @@ class ProcessManager(object):
         """
         Simple shortcut to quickly add process output to a dictionary
         """
-        actions['out'] = out
-        actions['err'] = err
-        actions['retcode'] = code
+        actions["out"] = out
+        actions["err"] = err
+        actions["retcode"] = code
 
     def get_project_actions(self, pipeline_config_paths):
         """
@@ -234,36 +258,54 @@ class ProcessManager(object):
                 env_files = glob.glob(env_glob)
 
                 project_actions[pipeline_config_path] = {}
-                shotgun_get_actions_dict = project_actions[pipeline_config_path]["shotgun_get_actions"] = {}
-                shotgun_cache_actions_dict = project_actions[pipeline_config_path]["shotgun_cache_actions"] = {}
+                shotgun_get_actions_dict = project_actions[pipeline_config_path][
+                    "shotgun_get_actions"
+                ] = {}
+                shotgun_cache_actions_dict = project_actions[pipeline_config_path][
+                    "shotgun_cache_actions"
+                ] = {}
 
                 for env_filepath in env_files:
                     env_filename = os.path.basename(env_filepath)
                     entity = os.path.splitext(env_filename.replace("shotgun_", ""))[0]
-                    cache_filename = "shotgun_" + self.platform_name + "_" + entity + ".txt"
+                    cache_filename = (
+                        "shotgun_" + self.platform_name + "_" + entity + ".txt"
+                    )
 
                     # Need to store where actions have occurred in order to give proper error message to client
                     # This could be made much better in the future by creating the actual final actions from here instead.
                     shotgun_get_actions_dict[env_filename] = {}
                     shotgun_cache_actions_dict[cache_filename] = {}
 
-                    (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
-                                                                    "shotgun_get_actions",
-                                                                    [cache_filename, env_filename])
-                    self._add_action_output(shotgun_get_actions_dict[env_filename], out, err, code)
+                    (out, err, code) = self.execute_toolkit_command(
+                        pipeline_config_path,
+                        "shotgun_get_actions",
+                        [cache_filename, env_filename],
+                    )
+                    self._add_action_output(
+                        shotgun_get_actions_dict[env_filename], out, err, code
+                    )
 
                     if code == 1:
-                        (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
-                                                                        "shotgun_cache_actions",
-                                                                        [entity, cache_filename])
-                        self._add_action_output(shotgun_cache_actions_dict[cache_filename], out, err, code)
+                        (out, err, code) = self.execute_toolkit_command(
+                            pipeline_config_path,
+                            "shotgun_cache_actions",
+                            [entity, cache_filename],
+                        )
+                        self._add_action_output(
+                            shotgun_cache_actions_dict[cache_filename], out, err, code
+                        )
 
                         if code == 0:
-                            (out, err, code) = self.execute_toolkit_command(pipeline_config_path,
-                                                                            "shotgun_get_actions",
-                                                                            [cache_filename, env_filename])
-                            self._add_action_output(shotgun_get_actions_dict[env_filename], out, err, code)
-            except ExecuteTankCommandError, e:
+                            (out, err, code) = self.execute_toolkit_command(
+                                pipeline_config_path,
+                                "shotgun_get_actions",
+                                [cache_filename, env_filename],
+                            )
+                            self._add_action_output(
+                                shotgun_get_actions_dict[env_filename], out, err, code
+                            )
+            except ExecuteTankCommandError as e:
                 # Something is wrong with the pipeline configuration,
                 # Clear any temporary result we might have accumulated for that pipeline
                 # contiguration.
@@ -306,7 +348,9 @@ class ProcessManager(object):
         :param multi: Boolean Allow selecting multiple elements.
         :returns: List of files that were selected with file browser.
         """
-        return _create_invoker()(self._pick_file_or_directory_in_main_thread, multi=multi)
+        return _create_invoker()(
+            self._pick_file_or_directory_in_main_thread, multi=multi
+        )
 
     @staticmethod
     def create():
@@ -318,12 +362,15 @@ class ProcessManager(object):
 
         if sys.platform == "darwin":
             from process_manager_mac import ProcessManagerMac
+
             return ProcessManagerMac()
         elif sys.platform == "win32":
             from process_manager_win import ProcessManagerWin
+
             return ProcessManagerWin()
         elif sys.platform.startswith("linux"):
             from process_manager_linux import ProcessManagerLinux
+
             return ProcessManagerLinux()
         else:
             raise RuntimeError("Unsupported platform: %s" % sys.platform)

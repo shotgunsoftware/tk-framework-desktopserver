@@ -32,6 +32,7 @@ class _Formatter(logging.Formatter, object):
     """
     Custom logging formatter that base64 encodes all log messages.
     """
+
     def format(self, *args, **kwargs):
         """
         Encodes log messages as base64. This allows us to collapse multiline
@@ -42,6 +43,7 @@ class _Formatter(logging.Formatter, object):
         """
         result = super(_Formatter, self).format(*args, **kwargs)
         return "%s%s" % (LOGGING_PREFIX, base64.b64encode(result))
+
 
 def app_upgrade_info(engine):
     """
@@ -68,6 +70,7 @@ def app_upgrade_info(engine):
 
     engine.log_info("*%s updates*" % tank_cmd)
 
+
 def core_info(engine):
     """
     Builds and logs a report on whether the currently-installed core is up to
@@ -78,18 +81,25 @@ def core_info(engine):
     try:
         from sgtk.commands.core_upgrade import TankCoreUpdater
     except ImportError:
-        engine.log_debug("Legacy core detected, importing from sgtk.deploy.tank_commands.")
+        engine.log_debug(
+            "Legacy core detected, importing from sgtk.deploy.tank_commands."
+        )
         try:
             from sgtk.deploy.tank_commands.core_upgrade import TankCoreUpdater
         except ImportError:
             # EVEN MORE LEGACY. In 0.16.x cores, the class is named differently.
             # We also have changes to method names, which we'll monkey patch.
             from sgtk.deploy.tank_commands.core_upgrade import TankCoreUpgrader
+
             TankCoreUpdater = TankCoreUpgrader
             TankCoreUpdater.UPDATE_BLOCKED_BY_SG = TankCoreUpdater.UPGRADE_BLOCKED_BY_SG
             TankCoreUpdater.UPDATE_POSSIBLE = TankCoreUpdater.UPGRADE_POSSIBLE
-            TankCoreUpdater.get_update_version_number = TankCoreUpdater.get_latest_version_number
-            TankCoreUpdater.get_required_sg_version_for_update = TankCoreUpdater.get_required_sg_version_for_upgrade
+            TankCoreUpdater.get_update_version_number = (
+                TankCoreUpdater.get_latest_version_number
+            )
+            TankCoreUpdater.get_required_sg_version_for_update = (
+                TankCoreUpdater.get_required_sg_version_for_upgrade
+            )
 
     # Create an upgrader instance that we can query if the install is up to date.
     install_root = engine.sgtk.pipeline_configuration.get_install_location()
@@ -100,10 +110,7 @@ def core_info(engine):
     # even dating back to v0.16.x. This is an approach that is warrented here,
     # given the backwards-compatibility requirements, and the fact that the
     # tk-shotgun engine is generally treated as "special" in general.
-    installer = TankCoreUpdater(
-        install_root,
-        engine.sgtk.log,
-    )
+    installer = TankCoreUpdater(install_root, engine.sgtk.log,)
 
     cv = installer.get_current_version_number()
 
@@ -144,9 +151,12 @@ def core_info(engine):
 
         engine.log_info("*A new version of the Toolkit API (%s) is available!*" % lv)
         engine.log_info(
-            "*Change Summary:* %s [Click for detailed Release Notes](%s)" % (summary, url)
+            "*Change Summary:* %s [Click for detailed Release Notes](%s)"
+            % (summary, url)
         )
-        engine.log_info("In order to upgrade, execute the following command in a shell:")
+        engine.log_info(
+            "In order to upgrade, execute the following command in a shell:"
+        )
 
         if sys.platform == "win32":
             tank_cmd = os.path.join(install_root, "tank.bat")
@@ -156,6 +166,7 @@ def core_info(engine):
         engine.log_info("*%s core*" % tank_cmd)
     else:
         raise sgtk.TankError("Unknown Upgrade state!")
+
 
 def pre_engine_start_callback(logger, context):
     """
@@ -171,7 +182,10 @@ def pre_engine_start_callback(logger, context):
     """
     context.sgtk.log = logger
 
-def bootstrap(config, base_configuration, entity, engine_name, bundle_cache_fallback_paths):
+
+def bootstrap(
+    config, base_configuration, entity, engine_name, bundle_cache_fallback_paths
+):
     """
     Executes an engine command in the desired environment.
 
@@ -228,8 +242,7 @@ def bootstrap(config, base_configuration, entity, engine_name, bundle_cache_fall
     # to the callback function, where it will become the first argument
     # at call time.
     manager.pre_engine_start_callback = functools.partial(
-        pre_engine_start_callback,
-        logger,
+        pre_engine_start_callback, logger,
     )
 
     if config:
@@ -241,7 +254,15 @@ def bootstrap(config, base_configuration, entity, engine_name, bundle_cache_fall
     return engine
 
 
-def execute(config, project, name, entities, base_configuration, engine_name, bundle_cache_fallback_paths):
+def execute(
+    config,
+    project,
+    name,
+    entities,
+    base_configuration,
+    engine_name,
+    bundle_cache_fallback_paths,
+):
     """
     Executes an engine command in the desired environment.
 
@@ -294,8 +315,7 @@ def execute(config, project, name, entities, base_configuration, engine_name, bu
         core_root = core_root.encode("utf-8")
 
     sgtk.util.prepend_path_to_env_var(
-        "PYTHONPATH",
-        core_root,
+        "PYTHONPATH", core_root,
     )
 
     command = engine.commands.get(name)
@@ -342,6 +362,7 @@ def execute(config, project, name, entities, base_configuration, engine_name, bu
     else:
         engine.execute_command(name)
 
+
 if __name__ == "__main__":
     arg_data_file = sys.argv[1]
 
@@ -367,8 +388,7 @@ if __name__ == "__main__":
         arg_data["entities"],
         arg_data["base_configuration"],
         arg_data["engine_name"],
-        arg_data["bundle_cache_fallback_paths"]
+        arg_data["bundle_cache_fallback_paths"],
     )
 
     sys.exit(0)
-

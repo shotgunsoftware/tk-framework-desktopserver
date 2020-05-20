@@ -1,5 +1,6 @@
 #!/Users/boismej/gitlocal/sg-jira-bridge/venv/bin/python
 
+from __future__ import print_function
 import argparse
 import code
 import sys
@@ -31,7 +32,6 @@ ENCODING = get_encoding()
 
 
 class VAction(argparse.Action):
-
     def __call__(self, parser, args, values, option_string=None):
         if values is None:
             values = "1"
@@ -44,36 +44,42 @@ class VAction(argparse.Action):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="WebSocket Simple Dump Tool")
-    parser.add_argument("url", metavar="ws_url",
-                        help="websocket url. ex. ws://echo.websocket.org/")
-    parser.add_argument("-p", "--proxy",
-                        help="proxy url. ex. http://127.0.0.1:8080")
-    parser.add_argument("-v", "--verbose", default=0, nargs='?', action=VAction,
-                        dest="verbose",
-                        help="set verbose mode. If set to 1, show opcode. "
-                        "If set to 2, enable to trace  websocket module")
-    parser.add_argument("-n", "--nocert", action='store_true',
-                        help="Ignore invalid SSL cert")
-    parser.add_argument("-r", "--raw", action="store_true",
-                        help="raw output")
-    parser.add_argument("-s", "--subprotocols", nargs='*',
-                        help="Set subprotocols")
-    parser.add_argument("-o", "--origin",
-                        help="Set origin")
-    parser.add_argument("--eof-wait", default=0, type=int,
-                        help="wait time(second) after 'EOF' received.")
-    parser.add_argument("-t", "--text",
-                        help="Send initial text")
-    parser.add_argument("--timings", action="store_true",
-                        help="Print timings in seconds")
-    parser.add_argument("--headers",
-                        help="Set custom headers. Use ',' as separator")
+    parser.add_argument(
+        "url", metavar="ws_url", help="websocket url. ex. ws://echo.websocket.org/"
+    )
+    parser.add_argument("-p", "--proxy", help="proxy url. ex. http://127.0.0.1:8080")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        default=0,
+        nargs="?",
+        action=VAction,
+        dest="verbose",
+        help="set verbose mode. If set to 1, show opcode. "
+        "If set to 2, enable to trace  websocket module",
+    )
+    parser.add_argument(
+        "-n", "--nocert", action="store_true", help="Ignore invalid SSL cert"
+    )
+    parser.add_argument("-r", "--raw", action="store_true", help="raw output")
+    parser.add_argument("-s", "--subprotocols", nargs="*", help="Set subprotocols")
+    parser.add_argument("-o", "--origin", help="Set origin")
+    parser.add_argument(
+        "--eof-wait",
+        default=0,
+        type=int,
+        help="wait time(second) after 'EOF' received.",
+    )
+    parser.add_argument("-t", "--text", help="Send initial text")
+    parser.add_argument(
+        "--timings", action="store_true", help="Print timings in seconds"
+    )
+    parser.add_argument("--headers", help="Set custom headers. Use ',' as separator")
 
     return parser.parse_args()
 
 
 class RawInput:
-
     def raw_input(self, prompt):
         if six.PY3:
             line = input(prompt)
@@ -89,7 +95,6 @@ class RawInput:
 
 
 class InteractiveConsole(RawInput, code.InteractiveConsole):
-
     def write(self, data):
         sys.stdout.write("\033[2K\033[E")
         # sys.stdout.write("\n")
@@ -102,7 +107,6 @@ class InteractiveConsole(RawInput, code.InteractiveConsole):
 
 
 class NonInteractive(RawInput):
-
     def write(self, data):
         sys.stdout.write(data)
         sys.stdout.write("\n")
@@ -130,7 +134,7 @@ def main():
     if args.nocert:
         opts = {"cert_reqs": ssl.CERT_NONE, "check_hostname": False}
     if args.headers:
-        options['header'] = map(str.strip, args.headers.split(','))
+        options["header"] = map(str.strip, args.headers.split(","))
     ws = websocket.create_connection(args.url, sslopt=opts, **options)
     if args.raw:
         console = NonInteractive()
@@ -160,7 +164,11 @@ def main():
         while True:
             opcode, data = recv()
             msg = None
-            if six.PY3 and opcode == websocket.ABNF.OPCODE_TEXT and isinstance(data, bytes):
+            if (
+                six.PY3
+                and opcode == websocket.ABNF.OPCODE_TEXT
+                and isinstance(data, bytes)
+            ):
                 data = str(data, "utf-8")
             if not args.verbose and opcode in OPCODE_DATA:
                 msg = data

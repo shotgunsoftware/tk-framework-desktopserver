@@ -9,6 +9,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 
+from __future__ import print_function
 import os
 import sys
 import base64
@@ -19,7 +20,7 @@ import websocket
 
 from mock import patch, Mock
 
-from tank_test.tank_test_base import setUpModule # noqa
+from tank_test.tank_test_base import setUpModule  # noqa
 
 import sgtk
 from tank_vendor.shotgun_api3.lib.mockgun import Shotgun
@@ -34,16 +35,21 @@ sgtk.platform.qt.QtCore = Mock()
 sgtk.platform.qt.QtGui = Mock()
 
 # Doing this import will add the twisted librairies
-import tk_framework_desktopserver # noqa
+import tk_framework_desktopserver  # noqa
 
 from twisted.trial import unittest
 from twisted.internet import ssl
-from autobahn.twisted.websocket import connectWS, WebSocketClientFactory, WebSocketClientProtocol
+from autobahn.twisted.websocket import (
+    connectWS,
+    WebSocketClientFactory,
+    WebSocketClientProtocol,
+)
 from twisted.internet.defer import Deferred
 from twisted.internet import reactor, threads
 from cryptography.fernet import Fernet
 
 from twisted.internet import base
+
 base.DelayedCall.debug = True
 
 
@@ -54,7 +60,7 @@ def find_free_port():
     """
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('localhost', 0))
+        s.bind(("localhost", 0))
         return s.getsockname()[1]
 
 
@@ -62,6 +68,7 @@ class MockShotgunApi(object):
     """
     Mocks the v2 protocol with a custom method.
     """
+
     PUBLIC_API_METHODS = ["repeat_value", "missing_attribute"]
 
     def __init__(self, host, process_manager, wss_key):
@@ -72,12 +79,11 @@ class MockShotgunApi(object):
 
 
 class TestServerBase(unittest.TestCase):
-
     def setUpClientServer(
         self,
         use_encryption=False,
         origin="https://site.shotgunstudio.com",
-        host_aliases=None
+        host_aliases=None,
     ):
 
         if not host_aliases:
@@ -90,7 +96,7 @@ class TestServerBase(unittest.TestCase):
         sg_host = "https://127.0.0.1"
         Shotgun.set_schema_paths(
             os.path.join(fixtures_root, "mockgun", "schema.pickle"),
-            os.path.join(fixtures_root, "mockgun", "schema_entity.pickle")
+            os.path.join(fixtures_root, "mockgun", "schema_entity.pickle"),
         )
         self._mockgun = Shotgun(sg_host)
         self._mockgun._call_rpc = self._call_rpc
@@ -107,7 +113,9 @@ class TestServerBase(unittest.TestCase):
         self._user = self._mockgun.create("HumanUser", {"name": "Gilles Pomerleau"})
 
         # Pretend there is a current bundle loaded.
-        patched = patch("sgtk.platform.current_bundle", return_value=Mock(shotgun=self._mockgun))
+        patched = patch(
+            "sgtk.platform.current_bundle", return_value=Mock(shotgun=self._mockgun)
+        )
         patched.start()
         self.addCleanup(patched.stop)
 
@@ -127,12 +135,15 @@ class TestServerBase(unittest.TestCase):
             user_id=self._user["id"],
             host_aliases=host_aliases,
             port=port,
-            uses_intermediate_certificate_chain=True
+            uses_intermediate_certificate_chain=True,
         )
 
         patched = patch.object(
-            shotgun, "get_shotgun_api",
-            new=lambda _, host, process_manager, wss_key: MockShotgunApi(host, process_manager, wss_key)
+            shotgun,
+            "get_shotgun_api",
+            new=lambda _, host, process_manager, wss_key: MockShotgunApi(
+                host, process_manager, wss_key
+            ),
         )
         patched.start()
         self.addCleanup(patched.stop)
@@ -144,7 +155,7 @@ class TestServerBase(unittest.TestCase):
         # Create the client connection to the websocket server.
         context_factory = ssl.DefaultOpenSSLContextFactory(
             os.path.join(fixtures_root, "certificates", "server.key"),
-            os.path.join(fixtures_root, "certificates", "server.crt")
+            os.path.join(fixtures_root, "certificates", "server.crt"),
         )
 
         # This will be returned by the setUp method to signify that we're done setuping the test.
@@ -156,6 +167,7 @@ class TestServerBase(unittest.TestCase):
             This class will use Deferred instances to notify that the test is ready to start
             and to notify the test that a payload has arrived.
             """
+
             def __init__(self):
                 super(ClientProtocol, self).__init__()
                 self._on_message_deferred = None
@@ -201,7 +213,9 @@ class TestServerBase(unittest.TestCase):
 
         # Create the websocket connection to the server.
         self._port = port
-        client_factory = WebSocketClientFactory("wss://shotgunlocalhost.com:%s" % self._port)
+        client_factory = WebSocketClientFactory(
+            "wss://shotgunlocalhost.com:%s" % self._port
+        )
         client_factory.origin = origin
         client_factory.protocol = ClientProtocol
         self.client = connectWS(client_factory, context_factory, timeout=2)
@@ -219,9 +233,7 @@ class TestServerBase(unittest.TestCase):
         Implements the retrieval of the websocket server secret.
         """
         if name == "retrieve_ws_server_secret":
-            return {
-                "ws_server_secret": self._ws_server_secret
-            }
+            return {"ws_server_secret": self._ws_server_secret}
         else:
             raise NotImplementedError("The RPC %s is not implemented." % name)
 
@@ -284,31 +296,29 @@ class TestServerBase(unittest.TestCase):
             payload = self._fernet.encrypt(payload)
         return self.client_protocol.sendMessage(payload, is_binary)
 
-    def _send_message(self, command, data, encrypt=False, is_binary=False, protocol_version=2, user_id=None):
+    def _send_message(
+        self,
+        command,
+        data,
+        encrypt=False,
+        is_binary=False,
+        protocol_version=2,
+        user_id=None,
+    ):
         """
         Sends a message to the websocket server in the expected format.
         """
         payload = {
             "id": 1,
             "protocol_version": protocol_version,
-
             "command": {
                 "name": command,
-                "data": {
-                    "user": {
-                        "entity": {
-                            "id": user_id or self._user["id"]
-                        }
-                    }
-                }
-            }
+                "data": {"user": {"entity": {"id": user_id or self._user["id"]}}},
+            },
         }
         if data:
             payload["command"]["data"].update(data)
-        return self._send_payload(
-            json.dumps(payload),
-            encrypt=encrypt
-        )
+        return self._send_payload(json.dumps(payload), encrypt=encrypt)
 
     def _is_error(self, payload, msg):
         """
@@ -317,7 +327,7 @@ class TestServerBase(unittest.TestCase):
         self.assertEqual(payload.get("error", False), True)
         self.assertTrue(
             payload["error_message"].startswith(msg),
-            "'%s' does not start with '%s'" % (payload["error_message"], msg)
+            "'%s' does not start with '%s'" % (payload["error_message"], msg),
         )
 
     def _is_not_error(self, payload):
@@ -340,7 +350,6 @@ class TestServerBase(unittest.TestCase):
 
 
 def CommonTestsMetaClass(class_name, class_parents, class_attr):
-
     def register(func):
         class_attr[func.__name__] = func
 
@@ -360,13 +369,18 @@ def CommonTestsMetaClass(class_name, class_parents, class_attr):
         # The websocket connection in the websocket module, contrary to Twisted's implementation,
         # requires the entire certificate chain to be available to connect to shotgunlocalhost.com
         # So we'll use that to validate that the cert chain is passed entirely on connection.
-        return threads.deferToThread(lambda: websocket.create_connection("wss://shotgunlocalhost.com:%s" % self._port).close())
+        return threads.deferToThread(
+            lambda: websocket.create_connection(
+                "wss://shotgunlocalhost.com:%s" % self._port
+            ).close()
+        )
 
     @register
     def test_binary_unsupported(self):
         """
         Makes sure any payload is rejected if it is sent in binary form.
         """
+
         def step1(_):
             return self._send_payload("not_valid_command", is_binary=True)
 
@@ -383,7 +397,9 @@ def CommonTestsMetaClass(class_name, class_parents, class_attr):
         """
 
         def step1(_):
-            return self._send_message("repeat_value", {"value": "hello"}, protocol_version=-1)
+            return self._send_message(
+                "repeat_value", {"value": "hello"}, protocol_version=-1
+            )
 
         def step2(payload):
             payload = json.loads(payload)
@@ -412,26 +428,22 @@ def CommonTestsMetaClass(class_name, class_parents, class_attr):
         Ensures that if the user is missing from a command that the command will be rejected
         accordingly.
         """
+
         def step1(_):
             return self._send_payload(
-                json.dumps({
-                    "id": 1,
-                    "protocol_version": 2,
-
-                    "command": {
-                        "name": "repeat_value",
-                        "data": {
-                            "value": "hello"
-                        }
+                json.dumps(
+                    {
+                        "id": 1,
+                        "protocol_version": 2,
+                        "command": {"name": "repeat_value", "data": {"value": "hello"}},
                     }
-                }),
-                encrypt=self._use_encryption
+                ),
+                encrypt=self._use_encryption,
             )
 
         def step2(payload):
             self.assertEqual(
-                payload,
-                (3000, "No user information was found in this request.")
+                payload, (3000, "No user information was found in this request.")
             )
 
         return self._chain_calls(self._activate_encryption_if_required, step1, step2)
@@ -441,8 +453,14 @@ def CommonTestsMetaClass(class_name, class_parents, class_attr):
         """
         Ensure incorrect user is caught
         """
+
         def step1(_):
-            return self._send_message("repeat_value", {"value": "hello"}, encrypt=self._use_encryption, user_id=666)
+            return self._send_message(
+                "repeat_value",
+                {"value": "hello"},
+                encrypt=self._use_encryption,
+                user_id=666,
+            )
 
         def step2(payload):
             self.assertEqual(
@@ -450,8 +468,8 @@ def CommonTestsMetaClass(class_name, class_parents, class_attr):
                 (
                     3001,
                     "You are not authorized to make browser integration requests. "
-                    "Please re-authenticate in your desktop application."
-                )
+                    "Please re-authenticate in your desktop application.",
+                ),
             )
 
         return self._chain_calls(self._activate_encryption_if_required, step1, step2)
@@ -461,8 +479,11 @@ def CommonTestsMetaClass(class_name, class_parents, class_attr):
         """
         Ensures that a method that is not in the supported list raises an error.
         """
+
         def step1(_):
-            return self._send_message("unknown_command", None, encrypt=self._use_encryption)
+            return self._send_message(
+                "unknown_command", None, encrypt=self._use_encryption
+            )
 
         def step2(payload):
             if self._use_encryption:
@@ -477,8 +498,11 @@ def CommonTestsMetaClass(class_name, class_parents, class_attr):
         """
         Ensures a public method that has a missing matching attribute raises an error.
         """
+
         def step1(_):
-            return self._send_message("missing_attribute", None, encrypt=self._use_encryption)
+            return self._send_message(
+                "missing_attribute", None, encrypt=self._use_encryption
+            )
 
         def step2(payload):
             if self._use_encryption:
@@ -495,6 +519,7 @@ class TestEncryptedServer(TestServerBase):
     """
     Tests for various caching-related methods for api_v2.
     """
+
     __metaclass__ = CommonTestsMetaClass
 
     def setUp(self):
@@ -505,6 +530,7 @@ class TestEncryptedServer(TestServerBase):
         """
         Ensures that calls are encrypted after get_ws_server_is is invoked.
         """
+
         def step1(payload):
             return self._send_message("repeat_value", {"value": "hello"}, encrypt=True)
 
@@ -528,13 +554,17 @@ class TestEncryptedServer(TestServerBase):
         """
         Calling an RPC before doing the encryption handshake should not work.
         """
+
         def step1(payload):
             return self._send_message("repeat_value", None)
 
         def step2(payload):
             self.assertEqual(
                 payload,
-                (3002, "Attempted to communicate without completing encryption handshake.")
+                (
+                    3002,
+                    "Attempted to communicate without completing encryption handshake.",
+                ),
             )
 
         return self._chain_calls(step1, step2)
@@ -555,13 +585,14 @@ class TestUnencryptedServer(TestServerBase):
         """
         Ensures get_ws_server_id does not work when not in encryption mode.
         """
+
         def step1(_):
             return self._send_message("get_ws_server_id", None)
 
         def step2(payload):
             self.assertEqual(
                 payload,
-                (3003, "Client asked for server id when encryption is not supported.")
+                (3003, "Client asked for server id when encryption is not supported."),
             )
 
         return self._chain_calls(step1, step2)
@@ -576,21 +607,21 @@ class DifferentHostBase(object):
     variables to be set that indicate if encryption is required or not, what are the aliases
     and if the test should fail or not.
     """
+
     class Impl(TestServerBase):
         def setUp(self):
             super(DifferentHostBase.Impl, self).setUp()
-            print(self.__class__)
+            print((self.__class__))
             return self.setUpClientServer(
                 use_encryption=self.use_encryption,
                 origin=self.origin,
-                host_aliases=self.host_aliases
+                host_aliases=self.host_aliases,
             )
 
         def test_origin(self):
             def step_send_message(payload):
                 return self._send_message(
-                    "repeat_value", {"value": "hello"},
-                    encrypt=self._use_encryption
+                    "repeat_value", {"value": "hello"}, encrypt=self._use_encryption
                 )
 
             def step_failure(payload):
@@ -599,8 +630,8 @@ class DifferentHostBase(object):
                     (
                         3001,
                         "You are not authorized to make browser integration "
-                        "requests. Please re-authenticate in your desktop application."
-                    )
+                        "requests. Please re-authenticate in your desktop application.",
+                    ),
                 )
 
             def step_validation(payload):
@@ -613,23 +644,27 @@ class DifferentHostBase(object):
                         payload = self._fernet.decrypt(payload)
 
                     payload = json.loads(payload)
-                    self.assertEqual(
-                        payload["reply"],
-                        {"value": "hellohellohello"}
-                    )
+                    self.assertEqual(payload["reply"], {"value": "hellohellohello"})
 
             # When using encryption, we won't even be able to enable it because we'll
             # be on the wrong side. So move straight away to the failure step.
             if self._use_encryption and self.should_fail:
-                return self._chain_calls(self._activate_encryption_if_required, step_failure)
+                return self._chain_calls(
+                    self._activate_encryption_if_required, step_failure
+                )
             else:
-                return self._chain_calls(self._activate_encryption_if_required, step_send_message, step_validation)
+                return self._chain_calls(
+                    self._activate_encryption_if_required,
+                    step_send_message,
+                    step_validation,
+                )
 
 
 class TestInvalidOriginEncrypted(DifferentHostBase.Impl):
     """
     Make sure that a different origin will fail when encryption is on.
     """
+
     should_fail = True
     use_encryption = True
     origin = "https://altsite.shotgunstudio.com"
@@ -640,6 +675,7 @@ class TestInvalidOriginUnencrypted(TestInvalidOriginEncrypted):
     """
     Make sure that a different origin will fail when encryption is off
     """
+
     use_encryption = False
 
 
@@ -647,6 +683,7 @@ class TestValidOriginEncrypted(DifferentHostBase.Impl):
     """
     Make sure that using an alias will succeed when encryption is on.
     """
+
     should_fail = False
     use_encryption = True
     origin = "https://altsite.shotgunstudio.com"
@@ -657,4 +694,5 @@ class TestValidOriginUnencrypted(TestValidOriginEncrypted):
     """
     Make sure that using an alias will succeed when encryption is off.
     """
+
     use_encryption = False

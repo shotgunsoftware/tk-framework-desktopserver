@@ -24,6 +24,7 @@ class ReadThread(Thread):
     """
     Thread that reads a pipe.
     """
+
     def __init__(self, p_out, target_queue):
         """
         Constructor.
@@ -41,14 +42,13 @@ class ReadThread(Thread):
         is closed.
         """
         while True:
-            line = self.pipe.readline()         # blocking read
-            if line == '':
+            line = self.pipe.readline()  # blocking read
+            if line == "":
                 break
             self.target_queue.put(line)
 
 
 class Command(object):
-
     @staticmethod
     def _create_temp_file():
         """
@@ -89,8 +89,8 @@ class Command(object):
         else:
             ret, stdout_lines, stderr_lines = Command._call_cmd_unix(args, env)
 
-        out = ''.join(stdout_lines)
-        err = ''.join(stderr_lines)
+        out = "".join(stdout_lines)
+        err = "".join(stderr_lines)
 
         return ret, out, err
 
@@ -113,8 +113,10 @@ class Command(object):
         try:
             process = subprocess.Popen(
                 args,
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                env=env
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
             )
             process.stdin.close()
 
@@ -218,11 +220,7 @@ class Command(object):
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
             process = subprocess.Popen(
-                args,
-                close_fds=True,
-                startupinfo=startupinfo,
-                env=env,
-                shell=True
+                args, close_fds=True, startupinfo=startupinfo, env=env, shell=True
             )
             process.wait()
 

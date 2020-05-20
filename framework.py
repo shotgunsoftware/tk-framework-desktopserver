@@ -58,8 +58,11 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         # Lazy-init because engine is initialized after its frameworks, so QtCore is not initialized yet.
         from sgtk.platform.qt import QtCore
+
         if self._server:
-            self._server.notifier.different_user_requested.connect(cb, type=QtCore.Qt.QueuedConnection)
+            self._server.notifier.different_user_requested.connect(
+                cb, type=QtCore.Qt.QueuedConnection
+            )
 
     ##########################################################################################
     # init and destroy
@@ -79,11 +82,15 @@ class DesktopserverFramework(sgtk.platform.Framework):
         # Twisted only runs on 64-bits.
         # No not even attempt to import the framework, as it will cause 64-bits DLLs to be loaded.
         if not self.__is_64bit_python():
-            self.logger.warning("The browser integration is only available with 64-bit versions of Python.")
+            self.logger.warning(
+                "The browser integration is only available with 64-bit versions of Python."
+            )
             self._integration_enabled = False
             return
 
-        self._tk_framework_desktopserver = self.import_module("tk_framework_desktopserver")
+        self._tk_framework_desktopserver = self.import_module(
+            "tk_framework_desktopserver"
+        )
 
         # Read the browser integration settings from disk. By passing in location=None, the Toolkit API will be
         # used to locate the settings instead of looking at a specific file.
@@ -94,14 +101,16 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 ),
                 "desktop",
                 "config",
-                "certificates"
+                "certificates",
             )
         )
         self._settings.dump(self.logger)
 
         # Did the user disable it?
         if not self._settings.integration_enabled:
-            self.logger.info("Browser integration has been disabled in the Toolkit settings.")
+            self.logger.info(
+                "Browser integration has been disabled in the Toolkit settings."
+            )
             self._integration_enabled = False
         else:
             self._integration_enabled = True
@@ -126,7 +135,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 user_id=user_id,
                 host_aliases=self._get_host_aliases(host),
                 port=self._settings.port,
-                uses_intermediate_certificate_chain=self._uses_intermediate_certificate_chain
+                uses_intermediate_certificate_chain=self._uses_intermediate_certificate_chain,
             )
 
             self._server.start()
@@ -168,15 +177,21 @@ class DesktopserverFramework(sgtk.platform.Framework):
 
         # If we don't have any aliases in the file.
         if not aliases:
-            self.logger.debug("No host aliases found in settings. '%s' will be used.", hostname)
+            self.logger.debug(
+                "No host aliases found in settings. '%s' will be used.", hostname
+            )
             return [hostname]
 
         for aliases_pool in aliases:
             if hostname in aliases_pool:
-                self.logger.debug("Host aliases were found. '%s' will be used", ",".join(aliases_pool))
+                self.logger.debug(
+                    "Host aliases were found. '%s' will be used", ",".join(aliases_pool)
+                )
                 return aliases_pool
 
-        self.logger.debug("There are no host aliases for this host. '%s' will be used.", hostname)
+        self.logger.debug(
+            "There are no host aliases for this host. '%s' will be used.", hostname
+        )
         return [hostname]
 
     def _write_cert(self, filename, cert):
@@ -187,14 +202,18 @@ class DesktopserverFramework(sgtk.platform.Framework):
         :param filename: Name of the file to save under the keys folder.
         :param cert: Certificate taken from Shotgun.
         """
-        with open(os.path.join(self._get_shotgunlocalhost_keys_folder(), filename), "w") as fw:
+        with open(
+            os.path.join(self._get_shotgunlocalhost_keys_folder(), filename), "w"
+        ) as fw:
             fw.write("\n".join(cert.split("\\n")))
 
     def _site_supports_shotgunlocalhost(self):
         """
         Checks if the site supports encryption.
         """
-        return self.shotgun.server_info.get("shotgunlocalhost_browser_integration_enabled", False)
+        return self.shotgun.server_info.get(
+            "shotgunlocalhost_browser_integration_enabled", False
+        )
 
     def can_regenerate_certificates(self):
         """
@@ -230,7 +249,9 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         self.logger.debug("Retrieving certificates from Shotgun")
         certs = self.shotgun._call_rpc("sg_desktop_certificates", {})
-        sgtk.util.filesystem.ensure_folder_exists(self._get_shotgunlocalhost_keys_folder())
+        sgtk.util.filesystem.ensure_folder_exists(
+            self._get_shotgunlocalhost_keys_folder()
+        )
 
         # This is valid case. One does not have to put the CA bundke if they signed
         # the cert with the root certificate directly. This can happen when people
@@ -259,7 +280,9 @@ class DesktopserverFramework(sgtk.platform.Framework):
         # it with the public cert so that on connection the client can always validate
         # the complete certification chain regardless of their ssl setup.
         if self._uses_intermediate_certificate_chain:
-            self._write_cert("server.crt", certs["sg_desktop_cert"] + "\n" + certs["sg_desktop_ca"])
+            self._write_cert(
+                "server.crt", certs["sg_desktop_cert"] + "\n" + certs["sg_desktop_ca"]
+            )
         else:
             self._write_cert("server.crt", certs["sg_desktop_cert"])
 
@@ -323,10 +346,12 @@ class DesktopserverFramework(sgtk.platform.Framework):
 
         :returns: String containing an error message formatted
         """
-        return ("The Shotgun Desktop needs to update the security certificate list from your %s before "
-                "it can turn on the browser integration.\n"
-                "\n"
-                "%s" % (keychain_name, action))
+        return (
+            "The Shotgun Desktop needs to update the security certificate list from your %s before "
+            "it can turn on the browser integration.\n"
+            "\n"
+            "%s" % (keychain_name, action)
+        )
 
     def __warn_for_prompt(self, parent):
         """
@@ -341,8 +366,8 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 self.__get_certificate_prompt(
                     "keychain",
                     "You will be prompted to enter your username and password by MacOS's keychain "
-                    "manager in order to proceed with the updates."
-                )
+                    "manager in order to proceed with the updates.",
+                ),
             )
         elif sys.platform == "win32":
             QtGui.QMessageBox.information(
@@ -350,8 +375,8 @@ class DesktopserverFramework(sgtk.platform.Framework):
                 "Shotgun browser integration",
                 self.__get_certificate_prompt(
                     "Windows certificate store",
-                    "Windows will now prompt you to accept one or more updates to your certificate store."
-                )
+                    "Windows will now prompt you to accept one or more updates to your certificate store.",
+                ),
             )
         # On Linux there's no need to prompt. It's all silent.
 
