@@ -10,8 +10,8 @@
 
 # Styles the code properly
 # Exclude the UI files, as they are auto-generated.
-# Exclude the resources folder
-exclude: "(resources\/.*)|(ui\/.*py)"
+# Exclude the resources folder and 3rd party modules in tests/python
+exclude: "(resources\/.*)|(tests\/python\/(websocket|websocket_client.*|six-.*)\/.*)|(ui\/.*py)"
 # List of super useful formatters.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

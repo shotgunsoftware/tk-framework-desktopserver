@@ -38,7 +38,7 @@ from ._socket import *
 from ._ssl_compat import *
 from ._utils import *
 
-__all__ = ["WebSocket", "create_connection"]
+__all__ = ['WebSocket', 'create_connection']
 
 """
 websocket python client.
@@ -77,16 +77,9 @@ class WebSocket(object):
     skip_utf8_validation: skip utf8 validation.
     """
 
-    def __init__(
-        self,
-        get_mask_key=None,
-        sockopt=None,
-        sslopt=None,
-        fire_cont_frame=False,
-        enable_multithread=False,
-        skip_utf8_validation=False,
-        **_
-    ):
+    def __init__(self, get_mask_key=None, sockopt=None, sslopt=None,
+                 fire_cont_frame=False, enable_multithread=False,
+                 skip_utf8_validation=False, **_):
         """
         Initialize WebSocket object.
         """
@@ -98,7 +91,8 @@ class WebSocket(object):
         self.get_mask_key = get_mask_key
         # These buffer over the build-up of a single frame.
         self.frame_buffer = frame_buffer(self._recv, skip_utf8_validation)
-        self.cont_frame = continuous_frame(fire_cont_frame, skip_utf8_validation)
+        self.cont_frame = continuous_frame(
+            fire_cont_frame, skip_utf8_validation)
 
         if enable_multithread:
             self.lock = threading.Lock()
@@ -224,23 +218,18 @@ class WebSocket(object):
         """
         # FIXME: "subprotocols" are getting lost, not passed down
         # FIXME: "header", "cookie", "origin" and "host" too
-        self.sock_opt.timeout = options.get("timeout", self.sock_opt.timeout)
-        self.sock, addrs = connect(
-            url, self.sock_opt, proxy_info(**options), options.pop("socket", None)
-        )
+        self.sock_opt.timeout = options.get('timeout', self.sock_opt.timeout)
+        self.sock, addrs = connect(url, self.sock_opt, proxy_info(**options),
+                                   options.pop('socket', None))
 
         try:
             self.handshake_response = handshake(self.sock, *addrs, **options)
-            for attempt in range(options.pop("redirect_limit", 3)):
+            for attempt in range(options.pop('redirect_limit', 3)):
                 if self.handshake_response.status in SUPPORTED_REDIRECT_STATUSES:
-                    url = self.handshake_response.headers["location"]
+                    url = self.handshake_response.headers['location']
                     self.sock.close()
-                    self.sock, addrs = connect(
-                        url,
-                        self.sock_opt,
-                        proxy_info(**options),
-                        options.pop("socket", None),
-                    )
+                    self.sock, addrs =  connect(url, self.sock_opt, proxy_info(**options),
+                                                options.pop('socket', None))
                     self.handshake_response = handshake(self.sock, *addrs, **options)
             self.connected = True
         except:
@@ -327,7 +316,7 @@ class WebSocket(object):
         elif opcode == ABNF.OPCODE_TEXT or opcode == ABNF.OPCODE_BINARY:
             return data
         else:
-            return ""
+            return ''
 
     def recv_data(self, control_frame=False):
         """
@@ -355,12 +344,9 @@ class WebSocket(object):
             if not frame:
                 # handle error:
                 # 'NoneType' object has no attribute 'opcode'
-                raise WebSocketProtocolException("Not a valid frame %s" % frame)
-            elif frame.opcode in (
-                ABNF.OPCODE_TEXT,
-                ABNF.OPCODE_BINARY,
-                ABNF.OPCODE_CONT,
-            ):
+                raise WebSocketProtocolException(
+                    "Not a valid frame %s" % frame)
+            elif frame.opcode in (ABNF.OPCODE_TEXT, ABNF.OPCODE_BINARY, ABNF.OPCODE_CONT):
                 self.cont_frame.validate(frame)
                 self.cont_frame.add(frame)
 
@@ -374,7 +360,8 @@ class WebSocket(object):
                 if len(frame.data) < 126:
                     self.pong(frame.data)
                 else:
-                    raise WebSocketProtocolException("Ping message is too long")
+                    raise WebSocketProtocolException(
+                        "Ping message is too long")
                 if control_frame:
                     return frame.opcode, frame
             elif frame.opcode == ABNF.OPCODE_PONG:
@@ -400,7 +387,7 @@ class WebSocket(object):
         if status < 0 or status >= ABNF.LENGTH_16:
             raise ValueError("code is invalid range")
         self.connected = False
-        self.send(struct.pack("!H", status) + reason, ABNF.OPCODE_CLOSE)
+        self.send(struct.pack('!H', status) + reason, ABNF.OPCODE_CLOSE)
 
     def close(self, status=STATUS_NORMAL, reason=six.b(""), timeout=3):
         """
@@ -419,7 +406,8 @@ class WebSocket(object):
 
             try:
                 self.connected = False
-                self.send(struct.pack("!H", status) + reason, ABNF.OPCODE_CLOSE)
+                self.send(struct.pack('!H', status) +
+                          reason, ABNF.OPCODE_CLOSE)
                 sock_timeout = self.sock.gettimeout()
                 self.sock.settimeout(timeout)
                 start_time = time.time()
@@ -518,14 +506,10 @@ def create_connection(url, timeout=None, class_=WebSocket, **options):
     fire_cont_frame = options.pop("fire_cont_frame", False)
     enable_multithread = options.pop("enable_multithread", False)
     skip_utf8_validation = options.pop("skip_utf8_validation", False)
-    websock = class_(
-        sockopt=sockopt,
-        sslopt=sslopt,
-        fire_cont_frame=fire_cont_frame,
-        enable_multithread=enable_multithread,
-        skip_utf8_validation=skip_utf8_validation,
-        **options
-    )
+    websock = class_(sockopt=sockopt, sslopt=sslopt,
+                     fire_cont_frame=fire_cont_frame,
+                     enable_multithread=enable_multithread,
+                     skip_utf8_validation=skip_utf8_validation, **options)
     websock.settimeout(timeout if timeout is not None else getdefaulttimeout())
     websock.connect(url, **options)
     return websock
