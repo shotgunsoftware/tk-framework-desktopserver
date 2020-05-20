@@ -10,7 +10,8 @@
 
 # Styles the code properly
 # Exclude the UI files, as they are auto-generated.
-exclude: "ui\/.*py$"
+# Exclude the resources folder
+exclude: "(resources\/.*)|(ui\/.*py)"
 # List of super useful formatters.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
