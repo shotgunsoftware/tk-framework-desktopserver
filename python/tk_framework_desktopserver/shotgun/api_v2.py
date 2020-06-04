@@ -36,6 +36,7 @@ from .. import command
 
 logger = sgtk.platform.get_logger(__name__)
 
+
 @contextlib.contextmanager
 def tk_in_python_path():
     """
@@ -52,6 +53,7 @@ def tk_in_python_path():
     finally:
         if backup:
             os.environ["PYTHONPATH"] = backup
+
 
 ###########################################################################
 # Classes
@@ -319,7 +321,9 @@ class ShotgunAPI(object):
         # message that wasn't on the first line of text before any newlines.
         for line in stdout.split("\n") + stderr.split("\n"):
             if line.startswith(tag):
-                filtered_output.append(six.ensure_str(base64.b64decode(line[tag_length:])))
+                filtered_output.append(
+                    six.ensure_str(base64.b64decode(line[tag_length:]))
+                )
 
         filtered_output_string = "\n".join(filtered_output)
 
@@ -1694,7 +1698,9 @@ class ShotgunAPI(object):
         :returns: A ToolkitManager object.
         """
         if self.TOOLKIT_MANAGER is None:
-            self.TOOLKIT_MANAGER = sgtk.bootstrap.ToolkitManager(sgtk.get_authenticated_user())
+            self.TOOLKIT_MANAGER = sgtk.bootstrap.ToolkitManager(
+                sgtk.get_authenticated_user()
+            )
             self.TOOLKIT_MANAGER.allow_config_overrides = False
             self.TOOLKIT_MANAGER.plugin_id = "basic.shotgun"
             self.TOOLKIT_MANAGER.base_configuration = constants.BASE_CONFIG_URI

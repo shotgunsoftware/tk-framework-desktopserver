@@ -79,9 +79,13 @@ class DesktopServerIntegrationTest(unittest2.TestCase):
         # runs the actions in a separate process
         sgtk.set_authenticated_user(cls.user)
         sgtk.authentication.session_cache.set_current_host(cls.user.host)
-        sgtk.authentication.session_cache.set_current_user(cls.user.host, cls.user.login)
+        sgtk.authentication.session_cache.set_current_user(
+            cls.user.host, cls.user.login
+        )
 
-        cls.fixtures_root = os.path.join(os.path.dirname(__file__), "..", "..", "tests", "fixtures")
+        cls.fixtures_root = os.path.join(
+            os.path.dirname(__file__), "..", "..", "tests", "fixtures"
+        )
         cls.bundles_root = os.path.join(cls.fixtures_root, "config", "bundles")
         os.environ["BUNDLES_ROOT"] = cls.bundles_root
 
@@ -105,7 +109,6 @@ class DesktopServerIntegrationTest(unittest2.TestCase):
         # Close the file logger so that the file is not in use on Windows.
         sgtk.LogManager().uninitialize_base_file_handler()
         safe_delete_folder(cls.temp_dir)
-
 
     @classmethod
     def _create_unique_name(cls, name):

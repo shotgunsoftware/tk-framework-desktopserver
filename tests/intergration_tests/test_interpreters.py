@@ -16,7 +16,6 @@ logger = sgtk.LogManager.get_logger(__name__)
 
 
 class Python3ProjectTests(DesktopServerIntegrationTest):
-
     @classmethod
     def get_python_executables(cls):
         """
@@ -30,7 +29,9 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
         else:
             # For Linux and Darwin use the 'which' command to discover possible python interpreter locations
             for alias in aliases:
-                p = subprocess.Popen(["which", alias], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+                p = subprocess.Popen(
+                    ["which", alias], stderr=subprocess.PIPE, stdout=subprocess.PIPE
+                )
                 out, err = p.communicate()
                 if out:
                     out = out.rstrip("\n\r")
@@ -40,7 +41,11 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
         for interp_path in interpreter_paths:
 
             # Get the version number for the interpreters
-            p = subprocess.Popen([interp_path, "--version"], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+            p = subprocess.Popen(
+                [interp_path, "--version"],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+            )
             out, err = p.communicate()
             pattern = re.compile("^Python (\d+)\.(\d+)\.(\d+)")
             m = pattern.match(out)
@@ -50,12 +55,14 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
                 m = pattern.match(err)
 
             if m:
-                interpreters.append({
-                    "major": int(m.group(1)),
-                    "minor": int(m.group(2)),
-                    "patch": int(m.group(3)),
-                    "path": interp_path,
-                })
+                interpreters.append(
+                    {
+                        "major": int(m.group(1)),
+                        "minor": int(m.group(2)),
+                        "patch": int(m.group(3)),
+                        "path": interp_path,
+                    }
+                )
         return interpreters
 
     @classmethod
@@ -74,12 +81,17 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
         """
         path = cls.get_python_interpreter_by_major_version(major_version)
         if not path:
-            raise Exception("Couldn't find a python interpreter with major version %s" % major_version)
+            raise Exception(
+                "Couldn't find a python interpreter with major version %s"
+                % major_version
+            )
         with open(cfg_path, "w") as f:
             f.write(path)
 
     @classmethod
-    def create_pipeline_config_for_python_version(cls, config_name, python_major_version):
+    def create_pipeline_config_for_python_version(
+        cls, config_name, python_major_version
+    ):
         """
         Copy the pipeline configuration from the fixtures folder and add the interpreter_*.cfg file that usese
         the specified version of python. Then create or update a pipeline configuration in Shotgun with the
@@ -87,20 +99,23 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
         """
         # Copy the fixture config into a temp location
         temp_folder = tempfile.mkdtemp()
-        config_source_path = os.path.abspath(os.path.join(cls.fixtures_root, "config", "interpreter_test"))
+        config_source_path = os.path.abspath(
+            os.path.join(cls.fixtures_root, "config", "interpreter_test")
+        )
         sgtk.util.filesystem.copy_folder(
-            config_source_path,
-            temp_folder,
+            config_source_path, temp_folder,
         )
 
         # Find the correct interpreter and update the interpreter config file in the temp config
         cfg_descriptor = create_descriptor(
-            None,
-            Descriptor.CONFIG,
-            dict(path=temp_folder, type="path"),
+            None, Descriptor.CONFIG, dict(path=temp_folder, type="path"),
         )
-        interpreter_cfg_path = cfg_descriptor._get_current_platform_interpreter_file_name(cfg_descriptor.get_path())
-        cls.write_interpreter_config_for_py_version(python_major_version, interpreter_cfg_path)
+        interpreter_cfg_path = cfg_descriptor._get_current_platform_interpreter_file_name(
+            cfg_descriptor.get_path()
+        )
+        cls.write_interpreter_config_for_py_version(
+            python_major_version, interpreter_cfg_path
+        )
 
         # Create or update the pipeline configuration in SG to point to the temp config folder
         config_descriptor_str = "sgtk:descriptor:path?path=%s" % temp_folder
@@ -130,7 +145,9 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
         manager.plugin_id = "basic.test"
         manager.pipeline_configuration = cls.python2_config["id"]
         engine = manager.bootstrap_engine("test_engine", cls.project)
-        cls.sg_user = engine.shotgun.find_one("HumanUser", [["login", "is", cls.user.login]], [])
+        cls.sg_user = engine.shotgun.find_one(
+            "HumanUser", [["login", "is", cls.user.login]], []
+        )
         cls.tk_fw_dekstopserver = engine.frameworks["tk-framework-desktopserver"]
         cls.tk_fw_dekstopclient = engine.frameworks["tk-framework-desktopclient"]
 
@@ -139,7 +156,9 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
             return ["shotgunlocalhost.com"]
 
         cls.tk_fw_dekstopserver._get_host_aliases = get_aliases
-        cls.tk_fw_dekstopserver.launch_desktop_server("shotgunlocalhost.com", cls.sg_user["id"])
+        cls.tk_fw_dekstopserver.launch_desktop_server(
+            "shotgunlocalhost.com", cls.sg_user["id"]
+        )
 
         # Launch the client
         create_client_module = cls.tk_fw_dekstopclient.import_module("create_client")
@@ -197,18 +216,26 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
             "project_id": self.project["id"],
         }
 
-        reply = json.loads(self.client._call_server_method("get_actions", data))["reply"]
+        reply = json.loads(self.client._call_server_method("get_actions", data))[
+            "reply"
+        ]
         assert "actions" in reply
 
         test_data = set()
         for pc in reply["actions"]:
-            test_data = test_data.union({(pc, x["app_name"], x["title"]) for x in reply["actions"][pc]["actions"]})
+            test_data = test_data.union(
+                {
+                    (pc, x["app_name"], x["title"])
+                    for x in reply["actions"][pc]["actions"]
+                }
+            )
         assert test_data == {
             ("python2", "test_app", "Command A"),
             ("python2", "test_app", "Command B"),
             ("python3", "test_app", "Command A"),
             ("python3", "test_app", "Command B"),
         }
+
 
 if __name__ == "__main__":
     ret_val = unittest2.main(failfast=True, verbosity=2)

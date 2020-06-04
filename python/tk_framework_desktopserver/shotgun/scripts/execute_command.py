@@ -43,7 +43,10 @@ class _Formatter(logging.Formatter, object):
         making output from a logger using this formatter easily identifiable.
         """
         result = super(_Formatter, self).format(*args, **kwargs)
-        return "%s%s" % (LOGGING_PREFIX, six.ensure_str(base64.b64encode(six.ensure_binary(result))))
+        return "%s%s" % (
+            LOGGING_PREFIX,
+            six.ensure_str(base64.b64encode(six.ensure_binary(result))),
+        )
 
 
 def app_upgrade_info(engine):
