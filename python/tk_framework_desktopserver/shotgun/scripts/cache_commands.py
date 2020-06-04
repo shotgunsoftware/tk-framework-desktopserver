@@ -10,9 +10,8 @@
 
 from __future__ import print_function
 import sys
-import cPickle
-import glob
-import os
+from tank_vendor import six
+import json
 import sqlite3
 import contextlib
 import traceback
@@ -163,7 +162,7 @@ def cache(
                 "Config is immutable: not registering core and app update commands."
             )
 
-    for cmd_name, data in engine.commands.iteritems():
+    for cmd_name, data in engine.commands.items():
         engine.log_debug("Processing command: %s" % cmd_name)
         props = data["properties"]
         app = props.get("app")
@@ -231,9 +230,7 @@ def cache(
 
                 connection.commit()
 
-        commands_blob = sqlite3.Binary(
-            cPickle.dumps(commands, cPickle.HIGHEST_PROTOCOL)
-        )
+        commands_blob = sqlite3.Binary(six.ensure_binary(json.dumps(commands)))
 
         # Since we're likely to be updating out-of-date cached data more
         # often than we're going to be inserting new rows into the cache,
@@ -261,8 +258,8 @@ def cache(
 if __name__ == "__main__":
     arg_data_file = sys.argv[1]
 
-    with open(arg_data_file, "rb") as fh:
-        arg_data = cPickle.load(fh)
+    with open(arg_data_file, "rt") as fh:
+        arg_data = json.load(fh)
 
     # The RPC api has given us the path to its tk-core to prepend
     # to our sys.path prior to importing sgtk. We'll prepent the

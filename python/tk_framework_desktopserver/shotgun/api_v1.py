@@ -31,6 +31,7 @@ class ShotgunAPI(object):
         "open",
         "executeToolkitCommand",
         "executeTankCommand",
+        "list_supported_commands",
         "pickFileOrDirectory",
         "pickFilesOrDirectories",
         "version",
@@ -175,6 +176,13 @@ class ShotgunAPI(object):
         reply["actions"] = actions
 
         self.host.reply(reply)
+
+    def list_supported_commands(self, data):
+        """
+        Get a list of all the commands this api supports
+        :param data: Message data {} (no data expected)
+        """
+        self.host.reply(self.PUBLIC_API_METHODS)
 
     def pickFileOrDirectory(self, data):
         """

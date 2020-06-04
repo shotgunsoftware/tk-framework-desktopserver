@@ -1,0 +1,17 @@
+engines:
+  test_engine:
+    location:
+      type: path
+      path: ${BUNDLES_ROOT}/test_engine
+    apps:
+
+frameworks:
+  tk-framework-desktopserver_v1.x.x:
+    location:
+      type: path
+      path: ${SHOTGUN_REPOS_ROOT}/tk-framework-desktopserver
+
+  tk-framework-desktopclient_v0.x.x:
+    location:
+      type: path
+      path: ${SHOTGUN_REPOS_ROOT}/tk-framework-desktopclient
