@@ -11,6 +11,7 @@
 from __future__ import print_function
 
 import os
+import sys
 import re
 import json
 import subprocess
@@ -21,6 +22,8 @@ import unittest2
 from sgtk_integration_test import SgtkIntegrationTest
 import sgtk
 from sgtk.descriptor import create_descriptor, Descriptor
+from sgtk.util.shotgun_path import ShotgunPath
+from sgtk.util import platforms
 from tank_vendor.shotgun_api3.lib import sgsix
 import tk_toolchain.authentication
 
@@ -29,62 +32,30 @@ logger = sgtk.LogManager.get_logger(__name__)
 
 class Python3ProjectTests(SgtkIntegrationTest):
     @classmethod
-    def get_python_executables(cls):
-        """
-        Find python interpreters and store them in a list along with their versions
-        """
-        aliases = ["python", "python2", "python3"]
-        interpreter_paths = []
-        interpreters = []
-        if sgsix.platform == "win32":
-            return interpreters
-        else:
-            # For Linux and Darwin use the 'which' command to discover possible python interpreter locations
-            for alias in aliases:
-                p = subprocess.Popen(
-                    ["which", alias], stderr=subprocess.PIPE, stdout=subprocess.PIPE
-                )
-                out, err = p.communicate()
-                if out:
-                    out = out.rstrip("\n\r")
-                    if os.path.exists(out):
-                        interpreter_paths.append(out)
-
-        for interp_path in interpreter_paths:
-
-            # Get the version number for the interpreters
-            p = subprocess.Popen(
-                [interp_path, "--version"],
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-            )
-            out, err = p.communicate()
-            pattern = re.compile(r"^Python (\d+)\.(\d+)\.(\d+)")
-            m = pattern.match(out)
-
-            # Some python versions write the output of --version to stderr
-            if not m:
-                m = pattern.match(err)
-
-            if m:
-                interpreters.append(
-                    {
-                        "major": int(m.group(1)),
-                        "minor": int(m.group(2)),
-                        "patch": int(m.group(3)),
-                        "path": interp_path,
-                    }
-                )
-        return interpreters
-
-    @classmethod
     def get_python_interpreter_by_major_version(cls, major):
         """
         Get the path to a python interpreter that matches the given major version
         """
-        for interp in cls.get_python_executables():
-            if interp["major"] == major:
-                return interp["path"]
+        paths = {
+            "Windows": {
+                2: "C:\\Program Files\\Shotgun\\Python\\python.exe",
+                3: "C:\\Program Files\\Shotgun\\Python3\\python.exe",
+            },
+            "Darwin": {
+                2: "/Applications/Shotgun.app/Contents/Resources/Python/bin/python",
+                3: "/Applications/Shotgun.app/Contents/Resources/Python3/bin/python",
+            },
+            "Linux": {
+                2: "/opt/Shotgun/Python/bin/python",
+                3: "/opt/Shotgun/Python3/bin/python",
+            },
+        }
+        if platforms.is_windows():
+            return paths["Windows"][major]
+        if platforms.is_macos():
+            return paths["Darwin"][major]
+        if platforms.is_linux():
+            return paths["Linux"][major]
 
     @classmethod
     def write_interpreter_config_for_py_version(cls, major_version, cfg_path):
@@ -122,9 +93,16 @@ class Python3ProjectTests(SgtkIntegrationTest):
         cfg_descriptor = create_descriptor(
             None, Descriptor.CONFIG, dict(path=temp_folder, type="path"),
         )
-        interpreter_cfg_path = cfg_descriptor._get_current_platform_interpreter_file_name(
-            cfg_descriptor.get_path()
+
+        # Get the location of the interpreter file
+        interpreter_config_filename = ShotgunPath.get_file_name_from_template(
+            "interpreter_%s.cfg", sys.platform
         )
+        interpreter_cfg_path = os.path.join(
+            cfg_descriptor.get_path(), "core", interpreter_config_filename
+        )
+
+        # Write to the interpreter file
         cls.write_interpreter_config_for_py_version(
             python_major_version, interpreter_cfg_path
         )
