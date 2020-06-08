@@ -10,6 +10,7 @@
 
 import sys
 from sgtk.util import json as sg_json
+from sgtk.authentication import deserialize_user
 from tank_vendor import six
 import os
 import logging
@@ -188,7 +189,7 @@ def pre_engine_start_callback(logger, context):
 
 
 def bootstrap(
-    config, base_configuration, entity, engine_name, bundle_cache_fallback_paths
+    config, base_configuration, entity, engine_name, bundle_cache_fallback_paths, user
 ):
     """
     Executes an engine command in the desired environment.
@@ -200,6 +201,7 @@ def bootstrap(
         uri.
     :param str engine_name: The name of the engine to bootstrap into. This
         is most likely going to be "tk-shotgun"
+    :param ShotgunUser user: The user that should be used in the bootstrap process
 
     :returns: The bootstrapped engine instance.
     """
@@ -230,7 +232,7 @@ def bootstrap(
 
     # Setup the bootstrap manager.
     logger.debug("Preparing ToolkitManager for bootstrap.")
-    manager = sgtk.bootstrap.ToolkitManager()
+    manager = sgtk.bootstrap.ToolkitManager(user)
 
     # Not allowing config resolution to be overridden by environment
     # variables. This is here mostly for dev environment purposes, as
@@ -266,6 +268,7 @@ def execute(
     base_configuration,
     engine_name,
     bundle_cache_fallback_paths,
+    user,
 ):
     """
     Executes an engine command in the desired environment.
@@ -279,6 +282,7 @@ def execute(
         uri.
     :param str engine_name: The name of the engine to bootstrap into. This
         is most likely going to be "tk-shotgun"
+    :param ShotgunUser user: The user that should be used during the bootstrap process
     """
     # We need a single, representative entity when we bootstrap. The fact that
     # we might have gotten multiple entities from the client due to a
@@ -290,7 +294,12 @@ def execute(
         entity = project
 
     engine = bootstrap(
-        config, base_configuration, entity, engine_name, bundle_cache_fallback_paths
+        config,
+        base_configuration,
+        entity,
+        engine_name,
+        bundle_cache_fallback_paths,
+        user,
     )
 
     # Handle the "special" commands that aren't tied to any registered engine
@@ -391,6 +400,7 @@ if __name__ == "__main__":
         arg_data["base_configuration"],
         arg_data["engine_name"],
         arg_data["bundle_cache_fallback_paths"],
+        deserialize_user(arg_data["user"]),
     )
 
     sys.exit(0)

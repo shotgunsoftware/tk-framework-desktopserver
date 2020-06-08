@@ -1,3 +1,13 @@
+# Copyright (c) 2020 Shotgun Software Inc.
+#
+# CONFIDENTIAL AND PROPRIETARY
+#
+# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
+# Source Code License included in this distribution package. See LICENSE.
+# By accessing, using, copying or modifying this work you indicate your
+# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
+# not expressly granted therein are reserved by Shotgun Software Inc.
+
 from __future__ import print_function
 
 import os
@@ -7,15 +17,17 @@ import subprocess
 import tempfile
 
 import unittest2
-from integration_test import DesktopServerIntegrationTest
+
+from sgtk_integration_test import SgtkIntegrationTest
 import sgtk
 from sgtk.descriptor import create_descriptor, Descriptor
 from tank_vendor.shotgun_api3.lib import sgsix
+import tk_toolchain.authentication
 
 logger = sgtk.LogManager.get_logger(__name__)
 
 
-class Python3ProjectTests(DesktopServerIntegrationTest):
+class Python3ProjectTests(SgtkIntegrationTest):
     @classmethod
     def get_python_executables(cls):
         """
@@ -47,7 +59,7 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
                 stdout=subprocess.PIPE,
             )
             out, err = p.communicate()
-            pattern = re.compile("^Python (\d+)\.(\d+)\.(\d+)")
+            pattern = re.compile(r"^Python (\d+)\.(\d+)\.(\d+)")
             m = pattern.match(out)
 
             # Some python versions write the output of --version to stderr
@@ -132,7 +144,20 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
 
     @classmethod
     def setUpClass(cls):
+
         super(Python3ProjectTests, cls).setUpClass()
+
+        cls.fixtures_root = os.path.join(
+            os.path.dirname(__file__), "..", "..", "tests", "fixtures"
+        )
+        cls.bundles_root = os.path.join(cls.fixtures_root, "config", "bundles")
+        os.environ["BUNDLES_ROOT"] = cls.bundles_root
+
+        # Create a user and connection to Shotgun.
+        sa = sgtk.authentication.ShotgunAuthenticator()
+        cls.user = tk_toolchain.authentication._get_toolkit_user(sa, os.environ)
+        cls.sg = cls.user.create_sg_connection()
+        sgtk.set_authenticated_user(cls.user)
 
         cls.project = cls.create_or_update_project("Python Interpreter Test Project")
 
@@ -144,20 +169,21 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
         manager = sgtk.bootstrap.ToolkitManager(cls.user)
         manager.plugin_id = "basic.test"
         manager.pipeline_configuration = cls.python2_config["id"]
-        engine = manager.bootstrap_engine("test_engine", cls.project)
-        cls.sg_user = engine.shotgun.find_one(
+
+        cls.engine = manager.bootstrap_engine(
+            "test_engine_with_frameworks", cls.project
+        )
+
+        cls.sg_user = cls.engine.shotgun.find_one(
             "HumanUser", [["login", "is", cls.user.login]], []
         )
-        cls.tk_fw_dekstopserver = engine.frameworks["tk-framework-desktopserver"]
-        cls.tk_fw_dekstopclient = engine.frameworks["tk-framework-desktopclient"]
+
+        cls.tk_fw_desktopserver = cls.engine.frameworks["tk-framework-desktopserver"]
+        cls.tk_fw_dekstopclient = cls.engine.frameworks["tk-framework-desktopclient"]
 
         # Launch the server
-        def get_aliases(x):
-            return ["shotgunlocalhost.com"]
-
-        cls.tk_fw_dekstopserver._get_host_aliases = get_aliases
-        cls.tk_fw_dekstopserver.launch_desktop_server(
-            "shotgunlocalhost.com", cls.sg_user["id"]
+        cls.tk_fw_desktopserver.launch_desktop_server(
+            "https://shotgunlocalhost.com", cls.sg_user["id"]
         )
 
         # Launch the client
@@ -166,7 +192,7 @@ class Python3ProjectTests(DesktopServerIntegrationTest):
 
     @classmethod
     def tearDownClass(cls):
-        cls.tk_fw_dekstopserver.destroy_framework()
+        cls.tk_fw_desktopserver.destroy_framework()
 
     def _test_execute_action(self, pipeline_config, command_name):
         """

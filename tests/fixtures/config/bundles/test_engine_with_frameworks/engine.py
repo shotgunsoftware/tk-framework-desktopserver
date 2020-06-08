@@ -1,4 +1,4 @@
-# Copyright (c) 2013 Shotgun Software Inc.
+# Copyright (c) 2017 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
 #
@@ -8,12 +8,15 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-# Metadata defining the behaviour and requirements for this engine
+"""
+A simple engine to support unit tests.
+"""
 
-# expected fields in the configuration file for this engine
-configuration:
+from tank.platform import Engine
+import tank
+import sys
 
-# the Shotgun fields that this engine needs in order to operate correctly
-requires_shotgun_fields:
 
-frameworks:
+class TestEngineWithFrameworks(Engine):
+    def init_engine(self):
+        pass

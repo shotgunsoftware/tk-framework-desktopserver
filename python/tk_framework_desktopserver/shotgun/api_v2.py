@@ -31,6 +31,7 @@ from sgtk.util import json as sg_json
 from tank_vendor import six
 from sgtk import TankFileDoesNotExistError
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
+from sgtk.authentication import serialize_user
 from . import constants
 from .. import command
 
@@ -259,6 +260,7 @@ class ShotgunAPI(object):
                 engine_name=constants.ENGINE_NAME,
                 logging_prefix=constants.LOGGING_PREFIX,
                 bundle_cache_fallback_paths=self._engine.sgtk.bundle_cache_fallback_paths,
+                user=serialize_user(sgtk.get_authenticated_user()),
             ),
         )
 
@@ -899,6 +901,7 @@ class ShotgunAPI(object):
                 config_data=arg_config_data,
                 config_is_mutable=(descriptor.is_immutable() is False),
                 bundle_cache_fallback_paths=self._engine.sgtk.bundle_cache_fallback_paths,
+                user=serialize_user(sgtk.get_authenticated_user()),
             )
         )
 

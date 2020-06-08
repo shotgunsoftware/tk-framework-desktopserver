@@ -26,6 +26,9 @@ class ShotgunAPI(object):
     Public API
     Callable methods from client. Every one of these methods can be called from the client.
     """
+
+    # list_supported_commands was added to allow the use of tk-fw-desktopclient and therefore needs
+    # to use the new camel case naming convention
     PUBLIC_API_METHODS = [
         "echo",
         "open",

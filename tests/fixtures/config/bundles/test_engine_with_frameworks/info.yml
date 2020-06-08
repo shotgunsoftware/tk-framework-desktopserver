@@ -17,3 +17,5 @@ configuration:
 requires_shotgun_fields:
 
 frameworks:
+  - {"name": "tk-framework-desktopserver", "version": "v1.x.x"}
+  - {"name": "tk-framework-desktopclient", "version": "v0.x.x"}

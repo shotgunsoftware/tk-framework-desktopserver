@@ -17,6 +17,8 @@ import contextlib
 import traceback
 import copy
 
+from sgtk.authentication import deserialize_user
+
 CORE_INFO_COMMAND = "__core_info"
 UPGRADE_CHECK_COMMAND = "__upgrade_check"
 LOGGER_NAME = "wss2.cache_commands"
@@ -24,7 +26,12 @@ ENGINE_INIT_ERROR_EXIT_CODE = 77
 
 
 def bootstrap(
-    data, base_configuration, engine_name, config_data, bundle_cache_fallback_paths
+    data,
+    base_configuration,
+    engine_name,
+    config_data,
+    bundle_cache_fallback_paths,
+    user,
 ):
     """
     Bootstraps into sgtk and returns the resulting engine instance.
@@ -38,6 +45,7 @@ def bootstrap(
         dict is keyed by pipeline config entity id, each containing a dict
         that contains, at a minimum, "entity", "lookup_hash", and
         "contents_hash" keys.
+    :param ShotgunUser user: The user that should be used in the bootstrap process
 
     :returns: Bootstrapped engine instance.
     """
@@ -53,7 +61,7 @@ def bootstrap(
     )
 
     # Setup the bootstrap manager.
-    manager = sgtk.bootstrap.ToolkitManager()
+    manager = sgtk.bootstrap.ToolkitManager(user)
     manager.caching_policy = manager.CACHE_FULL
     manager.allow_config_overrides = False
     manager.plugin_id = "basic.shotgun"
@@ -76,6 +84,7 @@ def cache(
     config_data,
     config_is_mutable,
     bundle_cache_fallback_paths,
+    user,
 ):
     """
     Populates the sqlite cache with a row representing the desired pipeline
@@ -93,6 +102,7 @@ def cache(
         "contents_hash" keys.
     :param bool config_is_mutable: Whether the pipeline config is mutable. If
         it is, then we include the __core_info and __upgrade_check commands.
+    :param ShotgunUser user: The user that should be used in the bootstrap process
     """
     try:
         engine = bootstrap(
@@ -101,6 +111,7 @@ def cache(
             engine_name,
             config_data,
             bundle_cache_fallback_paths,
+            user,
         )
     except Exception:
         # We need to give the server a way to know that this failed due
@@ -279,6 +290,7 @@ if __name__ == "__main__":
         arg_data["config_data"],
         arg_data["config_is_mutable"],
         arg_data["bundle_cache_fallback_paths"],
+        deserialize_user(arg_data["user"]),
     )
 
     sys.exit(0)
