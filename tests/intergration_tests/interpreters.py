@@ -12,9 +12,7 @@ from __future__ import print_function
 
 import os
 import sys
-import re
 import json
-import subprocess
 import tempfile
 
 import unittest2
@@ -24,7 +22,6 @@ import sgtk
 from sgtk.descriptor import create_descriptor, Descriptor
 from sgtk.util.shotgun_path import ShotgunPath
 from sgtk.util import platforms
-from tank_vendor.shotgun_api3.lib import sgsix
 import tk_toolchain.authentication
 
 logger = sgtk.LogManager.get_logger(__name__)

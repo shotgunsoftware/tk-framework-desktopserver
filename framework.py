@@ -19,6 +19,7 @@ except ImportError:
     import urllib.parse as urlparse
 
 from sgtk.util import LocalFileStorageManager
+from sgtk.util import platforms
 
 
 class DesktopserverFramework(sgtk.platform.Framework):
@@ -359,7 +360,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         from sgtk.platform.qt import QtGui
 
-        if sys.platform == "darwin":
+        if platforms.is_macos():
             QtGui.QMessageBox.information(
                 parent,
                 "Shotgun browser integration",
@@ -369,7 +370,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
                     "manager in order to proceed with the updates.",
                 ),
             )
-        elif sys.platform == "win32":
+        elif platforms.is_windows():
             QtGui.QMessageBox.information(
                 parent,
                 "Shotgun browser integration",
