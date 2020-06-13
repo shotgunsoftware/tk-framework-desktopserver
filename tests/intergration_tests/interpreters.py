@@ -145,16 +145,15 @@ class Python3ProjectTests(SgtkIntegrationTest):
         manager.plugin_id = "basic.test"
         manager.pipeline_configuration = cls.python2_config["id"]
 
-        cls.engine = manager.bootstrap_engine(
-            "test_engine_with_frameworks", cls.project
-        )
+        cls.engine = manager.bootstrap_engine("test_engine", cls.project)
 
         cls.sg_user = cls.engine.shotgun.find_one(
             "HumanUser", [["login", "is", cls.user.login]], []
         )
 
-        cls.tk_fw_desktopserver = cls.engine.frameworks["tk-framework-desktopserver"]
-        cls.tk_fw_dekstopclient = cls.engine.frameworks["tk-framework-desktopclient"]
+        app = cls.engine.apps["test_app"]
+        cls.tk_fw_desktopserver = app.frameworks["tk-framework-desktopserver"]
+        cls.tk_fw_dekstopclient = app.frameworks["tk-framework-desktopclient"]
 
         # Launch the server
         cls.tk_fw_desktopserver.launch_desktop_server(
