@@ -21,7 +21,7 @@ from sgtk_integration_test import SgtkIntegrationTest
 import sgtk
 from sgtk.descriptor import create_descriptor, Descriptor
 from sgtk.util.shotgun_path import ShotgunPath
-from sgtk.util import platforms
+import sgtk.util
 import tk_toolchain.authentication
 
 logger = sgtk.LogManager.get_logger(__name__)
@@ -47,11 +47,11 @@ class Python3ProjectTests(SgtkIntegrationTest):
                 3: "/opt/Shotgun/Python3/bin/python",
             },
         }
-        if platforms.is_windows():
+        if sgtk.util.is_windows():
             return paths["Windows"][major]
-        if platforms.is_macos():
+        if sgtk.util.is_macos():
             return paths["Darwin"][major]
-        if platforms.is_linux():
+        if sgtk.util.is_linux():
             return paths["Linux"][major]
 
     @classmethod

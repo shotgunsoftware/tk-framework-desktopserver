@@ -21,7 +21,9 @@ engines:
 
 frameworks:
   tk-framework-desktopserver_v1.x.x:
-    location: {type: path, path: '$FRAMEWORK_ROOT' }
+    location:
+      type: path
+      path: ${SHOTGUN_REPOS_ROOT}/tk-framework-desktopserver
 
   tk-framework-desktopclient_v0.x.x:
     location:

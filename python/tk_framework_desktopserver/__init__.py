@@ -11,18 +11,18 @@
 import os
 import sys
 
-from sgtk.util import platforms
+import sgtk.util
 
 python_path = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "../../resources/python")
 )
 
 binaries_path = os.path.join(python_path, "bin")
-if platforms.is_macos():
+if sgtk.util.is_macos():
     sys.path.insert(0, os.path.join(binaries_path, "mac"))
-elif platforms.is_windows():
+elif sgtk.util.is_windows():
     sys.path.insert(0, os.path.join(binaries_path, "win"))
-elif platforms.is_linux():
+elif sgtk.util.is_linux():
     sys.path.insert(0, os.path.join(binaries_path, "linux"))
 
 sys.path.insert(0, os.path.join(python_path, "source"))

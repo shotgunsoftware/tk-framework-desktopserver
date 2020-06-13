@@ -20,7 +20,7 @@ from .errors import CertificateRegistrationError
 from OpenSSL import crypto
 
 import sgtk
-from sgtk.util import platforms
+import sgtk.util
 
 logger = get_logger(__name__)
 
@@ -424,11 +424,11 @@ def get_certificate_handler(certificate_folder):
     :returns: The platform specific certificate handler to get, create or delete the websocket
         certificate.
     """
-    if platforms.is_linux():
+    if sgtk.util.is_linux():
         return _LinuxCertificateHandler(certificate_folder)
-    elif platforms.is_macos():
+    elif sgtk.util.is_macos():
         return _MacCertificateHandler(certificate_folder)
-    elif platforms.is_windows:
+    elif sgtk.util.is_windows:
         return _WindowsCertificateHandler(certificate_folder)
     else:
         raise RuntimeError("Platform '%s' not supported!" % sys.platform)
