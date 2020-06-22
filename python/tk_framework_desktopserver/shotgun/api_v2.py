@@ -463,7 +463,7 @@ class ShotgunAPI(object):
         if self._allow_legacy_workaround:
             legacy_config_data = dict()
 
-            for config_id, config_data in all_pc_data.iteritems():
+            for config_id, config_data in all_pc_data.items():
                 config = config_data["entity"]
 
                 if config["descriptor"].required_storages:
@@ -502,7 +502,7 @@ class ShotgunAPI(object):
                 did_legacy_lookup = True
 
         with self._db_connect() as (connection, cursor):
-            for pc_id, pc_data in all_pc_data.iteritems():
+            for pc_id, pc_data in all_pc_data.items():
                 pipeline_config = pc_data["entity"]
 
                 # The hash that acts as the key we'll use to look up our cached
@@ -604,7 +604,7 @@ class ShotgunAPI(object):
                 try:
                     decoded_data = None
                     try:
-                        decoded_data = sg_json.loads(str(cached_data[0]))
+                        decoded_data = sg_json.loads(six.ensure_str(cached_data[0]))
                     except Exception:
                         # Couldn't decode the data. This happens when loading an old pickled cache.
                         # We've switch to JSON for the Python 3 port.
@@ -1137,7 +1137,7 @@ class ShotgunAPI(object):
         logger.debug("Contents data to be used in hash generation: %s", json_data)
 
         hash_data = hashlib.md5()
-        hash_data.update(json_data)
+        hash_data.update(six.ensure_binary(json_data))
         # Base64 encode the digest, will is a binary string
         # in Python 3. This ensures we can always encode it to a str.
         return six.ensure_str(base64.b64encode(hash_data.digest()))
@@ -1902,10 +1902,10 @@ class ShotgunAPI(object):
         # The config_data is structured as dict(name=(path, entity)), so
         # to extract just the paths, we get index 0 of each tuple stored
         # in the dict.
-        config_paths = [p[0] for n, p in config_data.iteritems()]
+        config_paths = [p[0] for n, p in config_data.iems()]
         project_actions = self._legacy_get_project_actions(config_paths, project_id)
 
-        for config_name, config_data in config_data.iteritems():
+        for config_name, config_data in config_data.items():
             config_path, config_entity = config_data
             commands = []
 

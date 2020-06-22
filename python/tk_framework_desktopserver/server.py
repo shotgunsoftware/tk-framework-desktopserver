@@ -26,6 +26,7 @@ from . import certificates
 from .logger import get_logger
 
 from sgtk.platform.qt import QtCore
+from tank_vendor import six
 
 logger = get_logger(__name__)
 
@@ -102,7 +103,9 @@ class Server(object):
         if encrypt:
             # urandom is considered cryptographically secure as it calls the OS's CSRNG, so we can
             # use that to generate our own server id.
-            self._ws_server_id = base64.urlsafe_b64encode(os.urandom(16))
+            self._ws_server_id = six.ensure_str(
+                base64.urlsafe_b64encode(os.urandom(16))
+            )
         else:
             self._ws_server_id = None
 

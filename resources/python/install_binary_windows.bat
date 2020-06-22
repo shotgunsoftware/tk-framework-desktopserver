@@ -8,20 +8,32 @@
 :: agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 :: not expressly granted therein are reserved by Shotgun Software Inc.
 
-git rm -rf bin\win
-rmdir /s /q bin\win
 
-"C:\Program Files\Shotgun\Python\python.exe" build/pip install --target bin\win --no-deps -r bin\explicit_requirements.txt
+setlocal ENABLEDELAYEDEXPANSION
+@echo OFF
 
-# Remove tests to thin out the packages
-rmdir /s /q bin\win\Crypto\SelfTest
+FOR %%V IN (2.7 3.7) DO (
 
-rmdir /s /q bin\win\zope\interface\tests
+    IF %%V LSS 3 (
+        set PYTHON_EXE="C:\Program Files\Shotgun\Python\python.exe"
+    ) ELSE (
+        set PYTHON_EXE="C:\Program Files\Shotgun\Python3\python.exe"
+    )
 
-rmdir /s /q bin\win\zope\interface\common\tests
+    git rm -rf bin\win\%%V
+    rmdir /s /q bin\win\%%V
+    
+    !PYTHON_EXE! build/pip install --target bin\win\%%V --no-deps -r bin\explicit_requirements.txt
 
-:: For some reason zope is missing a top level init file when installed with
-:: pip, so we're adding it.
-copy nul bin\win\zope\__init__.py
+    :: Remove tests to thin out the packages
+    rmdir /s /q bin\win\%%V\Crypto\SelfTest
+    rmdir /s /q bin\win\%%V\zope\interface\tests
+    rmdir /s /q bin\win\%%V\zope\interface\common\tests
 
-git add bin\win
+    :: For some reason zope is missing a top level init file when installed with
+    :: pip, so we're adding it.
+    copy nul bin\win\%%V\zope\__init__.py
+
+    git add bin\win\%%V
+
+)

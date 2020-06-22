@@ -361,15 +361,15 @@ class ProcessManager(object):
         """
 
         if sys.platform == "darwin":
-            from process_manager_mac import ProcessManagerMac
+            from .process_manager_mac import ProcessManagerMac
 
             return ProcessManagerMac()
         elif sys.platform == "win32":
-            from process_manager_win import ProcessManagerWin
+            from .process_manager_win import ProcessManagerWin
 
             return ProcessManagerWin()
         elif sys.platform.startswith("linux"):
-            from process_manager_linux import ProcessManagerLinux
+            from .process_manager_linux import ProcessManagerLinux
 
             return ProcessManagerLinux()
         else:

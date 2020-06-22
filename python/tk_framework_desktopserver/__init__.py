@@ -18,12 +18,14 @@ python_path = os.path.normpath(
 )
 
 binaries_path = os.path.join(python_path, "bin")
+_py_version = sys.version_info
+_version_dir = "{}.{}".format(_py_version.major, _py_version.minor)
 if sgtk.util.is_macos():
-    sys.path.insert(0, os.path.join(binaries_path, "mac"))
+    sys.path.insert(0, os.path.join(binaries_path, "mac", _version_dir))
 elif sgtk.util.is_windows():
-    sys.path.insert(0, os.path.join(binaries_path, "win"))
+    sys.path.insert(0, os.path.join(binaries_path, "win", _version_dir))
 elif sgtk.util.is_linux():
-    sys.path.insert(0, os.path.join(binaries_path, "linux"))
+    sys.path.insert(0, os.path.join(binaries_path, "linux", _version_dir))
 
 sys.path.insert(0, os.path.join(python_path, "source"))
 

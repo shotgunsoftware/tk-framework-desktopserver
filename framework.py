@@ -173,7 +173,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         # return that pool.
         aliases = [
             [main_host] + alt_hosts
-            for main_host, alt_hosts in self._settings.host_aliases.iteritems()
+            for main_host, alt_hosts in self._settings.host_aliases.items()
         ]
 
         # If we don't have any aliases in the file.

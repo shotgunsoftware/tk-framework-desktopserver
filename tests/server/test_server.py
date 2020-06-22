@@ -24,6 +24,7 @@ from tank_test.tank_test_base import setUpModule  # noqa
 
 import sgtk
 from tank_vendor.shotgun_api3.lib.mockgun import Shotgun
+from tank_vendor import six
 
 repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 fixtures_root = os.path.join(repo_root, "tests", "fixtures")
@@ -318,7 +319,9 @@ class TestServerBase(unittest.TestCase):
         }
         if data:
             payload["command"]["data"].update(data)
-        return self._send_payload(json.dumps(payload), encrypt=encrypt)
+        return self._send_payload(
+            six.ensure_binary(json.dumps(payload)), encrypt=encrypt
+        )
 
     def _is_error(self, payload, msg):
         """
