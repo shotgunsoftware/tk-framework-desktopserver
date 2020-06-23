@@ -8,6 +8,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+from __future__ import absolute_import
 import json
 import datetime
 
@@ -157,7 +158,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 logger.exception("Unexpected error while decrypting:")
                 return
 
-        decoded_payload = payload.decode("utf8")
+        decoded_payload = six.ensure_str(payload)
 
         # Special message to get protocol version for this protocol. This message doesn't follow the
         # standard message format as it doesn't require a protocol version to be retrieved and is
@@ -436,9 +437,9 @@ class ServerProtocol(WebSocketServerProtocol):
         :param data: Object Data that will be converted to JSON and sent to client.
         """
         # ensure_ascii allows unicode strings.
-        payload = json.dumps(
-            data, ensure_ascii=False, default=self._json_date_handler,
-        ).encode("utf8")
+        payload = six.ensure_binary(
+            json.dumps(data, ensure_ascii=False, default=self._json_date_handler,)
+        )
 
         if self._fernet:
             payload = self._fernet.encrypt(payload)

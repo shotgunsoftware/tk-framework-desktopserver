@@ -8,6 +8,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+from __future__ import absolute_import
 import os
 import subprocess
 from threading import Thread
@@ -16,6 +17,7 @@ import sys
 import traceback
 from .logger import get_logger
 
+import sgtk.util
 from tank_vendor.six.moves.queue import Queue
 from tank_vendor import six
 
@@ -86,7 +88,7 @@ class Command(object):
         # Due to discrepencies on how child file descriptors and shell=True are
         # handled on Windows and Unix, we'll provide two implementations. See the Windows
         # implementation for more details.
-        if sys.platform == "win32":
+        if sgtk.util.is_windows():
             ret, stdout_lines, stderr_lines = Command._call_cmd_win32(args, env)
         else:
             ret, stdout_lines, stderr_lines = Command._call_cmd_unix(args, env)

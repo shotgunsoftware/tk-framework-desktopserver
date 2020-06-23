@@ -10,6 +10,7 @@
 
 # Constants here are in use in api_v2. The legacy api_v1 does not currently
 # make use of them.
+from __future__ import absolute_import
 import os
 
 # RPC return codes.

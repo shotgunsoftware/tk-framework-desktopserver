@@ -8,6 +8,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+from __future__ import absolute_import
 import sys
 import os
 import re
@@ -27,7 +28,7 @@ import time
 import fnmatch
 
 import sgtk
-from sgtk.util import json as sg_json
+import sgtk.util
 from tank_vendor import six
 from sgtk import TankFileDoesNotExistError
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
@@ -604,7 +605,9 @@ class ShotgunAPI(object):
                 try:
                     decoded_data = None
                     try:
-                        decoded_data = sg_json.loads(six.ensure_str(cached_data[0]))
+                        decoded_data = sgtk.util.json.loads(
+                            six.ensure_str(cached_data[0])
+                        )
                     except Exception:
                         # Couldn't decode the data. This happens when loading an old pickled cache.
                         # We've switch to JSON for the Python 3 port.
@@ -939,9 +942,9 @@ class ShotgunAPI(object):
         try:
             path_to_python = descriptor.python_interpreter
         except TankFileDoesNotExistError:
-            if sys.platform == "darwin":
+            if sgtk.util.is_macos():
                 path_to_python = os.path.join(sys.prefix, "bin", "python")
-            elif sys.platform == "win32":
+            elif sgtk.util.is_windows():
                 path_to_python = os.path.join(sys.prefix, "python.exe")
             else:
                 path_to_python = os.path.join(sys.prefix, "bin", "python")
@@ -1401,7 +1404,7 @@ class ShotgunAPI(object):
         )
 
         if self._global_debug:
-            message = cgi.escape(traceback.format_exc()).encode("utf8")
+            message = six.ensure_binary(cgi.escape(traceback.format_exc()))
 
         return message
 
@@ -2014,7 +2017,7 @@ class ShotgunAPI(object):
                 line = re.sub(bold_match, "*", line)
                 sanitized.append(line)
 
-        return cgi.escape("\n".join(sanitized)).encode("utf8")
+        return six.ensure_binary(cgi.escape("\n".join(sanitized)))
 
     @sgtk.LogManager.log_timing
     def _process_commands(self, commands, project, entities):

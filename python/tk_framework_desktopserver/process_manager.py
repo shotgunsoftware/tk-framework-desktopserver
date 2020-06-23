@@ -8,12 +8,14 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+from __future__ import absolute_import
 import sys
 import os
 import glob
 from .command import Command
 
 from sgtk.platform.qt import QtGui, QtCore
+import sgtk.util
 from .sgtk_file_dialog import SgtkFileDialog
 
 
@@ -360,15 +362,15 @@ class ProcessManager(object):
         :returns: ProcessManager
         """
 
-        if sys.platform == "darwin":
+        if sgtk.util.is_macos():
             from .process_manager_mac import ProcessManagerMac
 
             return ProcessManagerMac()
-        elif sys.platform == "win32":
+        elif sgtk.util.is_windows():
             from .process_manager_win import ProcessManagerWin
 
             return ProcessManagerWin()
-        elif sys.platform.startswith("linux"):
+        elif sgtk.util.is_linux():
             from .process_manager_linux import ProcessManagerLinux
 
             return ProcessManagerLinux()
