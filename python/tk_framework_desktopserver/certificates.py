@@ -20,7 +20,6 @@ from .errors import CertificateRegistrationError
 from OpenSSL import crypto
 
 import sgtk
-import sgtk.util
 
 logger = get_logger(__name__)
 
