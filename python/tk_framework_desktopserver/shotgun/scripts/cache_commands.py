@@ -10,13 +10,14 @@
 
 from __future__ import print_function
 import sys
-import cPickle
-import glob
-import os
+from tank_vendor import six
+import json
 import sqlite3
 import contextlib
 import traceback
 import copy
+
+from sgtk.authentication import deserialize_user
 
 CORE_INFO_COMMAND = "__core_info"
 UPGRADE_CHECK_COMMAND = "__upgrade_check"
@@ -25,7 +26,12 @@ ENGINE_INIT_ERROR_EXIT_CODE = 77
 
 
 def bootstrap(
-    data, base_configuration, engine_name, config_data, bundle_cache_fallback_paths
+    data,
+    base_configuration,
+    engine_name,
+    config_data,
+    bundle_cache_fallback_paths,
+    user,
 ):
     """
     Bootstraps into sgtk and returns the resulting engine instance.
@@ -39,6 +45,7 @@ def bootstrap(
         dict is keyed by pipeline config entity id, each containing a dict
         that contains, at a minimum, "entity", "lookup_hash", and
         "contents_hash" keys.
+    :param ShotgunUser user: The user that should be used in the bootstrap process
 
     :returns: Bootstrapped engine instance.
     """
@@ -54,7 +61,7 @@ def bootstrap(
     )
 
     # Setup the bootstrap manager.
-    manager = sgtk.bootstrap.ToolkitManager()
+    manager = sgtk.bootstrap.ToolkitManager(user)
     manager.caching_policy = manager.CACHE_FULL
     manager.allow_config_overrides = False
     manager.plugin_id = "basic.shotgun"
@@ -77,6 +84,7 @@ def cache(
     config_data,
     config_is_mutable,
     bundle_cache_fallback_paths,
+    user,
 ):
     """
     Populates the sqlite cache with a row representing the desired pipeline
@@ -94,6 +102,7 @@ def cache(
         "contents_hash" keys.
     :param bool config_is_mutable: Whether the pipeline config is mutable. If
         it is, then we include the __core_info and __upgrade_check commands.
+    :param ShotgunUser user: The user that should be used in the bootstrap process
     """
     try:
         engine = bootstrap(
@@ -102,6 +111,7 @@ def cache(
             engine_name,
             config_data,
             bundle_cache_fallback_paths,
+            user,
         )
     except Exception:
         # We need to give the server a way to know that this failed due
@@ -163,7 +173,7 @@ def cache(
                 "Config is immutable: not registering core and app update commands."
             )
 
-    for cmd_name, data in engine.commands.iteritems():
+    for cmd_name, data in engine.commands.items():
         engine.log_debug("Processing command: %s" % cmd_name)
         props = data["properties"]
         app = props.get("app")
@@ -231,9 +241,7 @@ def cache(
 
                 connection.commit()
 
-        commands_blob = sqlite3.Binary(
-            cPickle.dumps(commands, cPickle.HIGHEST_PROTOCOL)
-        )
+        commands_blob = sqlite3.Binary(six.ensure_binary(json.dumps(commands)))
 
         # Since we're likely to be updating out-of-date cached data more
         # often than we're going to be inserting new rows into the cache,
@@ -261,8 +269,8 @@ def cache(
 if __name__ == "__main__":
     arg_data_file = sys.argv[1]
 
-    with open(arg_data_file, "rb") as fh:
-        arg_data = cPickle.load(fh)
+    with open(arg_data_file, "rt") as fh:
+        arg_data = json.load(fh)
 
     # The RPC api has given us the path to its tk-core to prepend
     # to our sys.path prior to importing sgtk. We'll prepent the
@@ -282,6 +290,7 @@ if __name__ == "__main__":
         arg_data["config_data"],
         arg_data["config_is_mutable"],
         arg_data["bundle_cache_fallback_paths"],
+        deserialize_user(arg_data["user"]),
     )
 
     sys.exit(0)

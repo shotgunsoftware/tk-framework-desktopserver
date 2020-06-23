@@ -1,4 +1,4 @@
-# Copyright (c) 2013 Shotgun Software Inc.
+# Copyright (c) 2018 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
 #
@@ -8,12 +8,9 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-# Metadata defining the behaviour and requirements for this engine
+# this configuration file defines which version of the toolkit
+# core API that should be used at runtime.
 
-# expected fields in the configuration file for this engine
-configuration:
-
-# the Shotgun fields that this engine needs in order to operate correctly
-requires_shotgun_fields:
-
-frameworks:
+location:
+  type: path
+  path: ${SHOTGUN_REPOS_ROOT}/tk-core

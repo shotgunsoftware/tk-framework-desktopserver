@@ -8,14 +8,10 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-# Metadata defining the behaviour and requirements for this engine
 
-# expected fields in the configuration file for this engine
-configuration:
+from tank import Hook
 
-# the Shotgun fields that this engine needs in order to operate correctly
-requires_shotgun_fields:
 
-frameworks:
-  - {"name": "tk-framework-desktopserver", "version": "v1.x.x"}
-  - {"name": "tk-framework-desktopclient", "version": "v0.x.x"}
+class PickEnvironment(Hook):
+    def execute(self, context):
+        return "project"

@@ -164,7 +164,7 @@ class _CertificateHandler(object):
         # Do not use popen.check_call because it won't redirect stderr to stdout properly
         # and it can't close stdin which causes issues in certain configurations on Windows.
         logger.info("%s: %s" % (ctx.capitalize(), cmd))
-        if sys.platform == "win32":
+        if sgtk.util.is_windows():
             # More on this Windows specific fix here: https://bugs.python.org/issue3905
             p = subprocess.Popen(
                 cmd,
@@ -423,11 +423,11 @@ def get_certificate_handler(certificate_folder):
     :returns: The platform specific certificate handler to get, create or delete the websocket
         certificate.
     """
-    if sys.platform.startswith("linux"):
+    if sgtk.util.is_linux():
         return _LinuxCertificateHandler(certificate_folder)
-    elif sys.platform == "darwin":
+    elif sgtk.util.is_macos():
         return _MacCertificateHandler(certificate_folder)
-    elif sys.platform == "win32":
+    elif sgtk.util.is_windows():
         return _WindowsCertificateHandler(certificate_folder)
     else:
         raise RuntimeError("Platform '%s' not supported!" % sys.platform)

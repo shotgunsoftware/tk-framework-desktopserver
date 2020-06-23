@@ -26,11 +26,15 @@ class ShotgunAPI(object):
     Public API
     Callable methods from client. Every one of these methods can be called from the client.
     """
+
+    # list_supported_commands was added to allow the use of tk-fw-desktopclient and therefore needs
+    # to use the new camel case naming convention
     PUBLIC_API_METHODS = [
         "echo",
         "open",
         "executeToolkitCommand",
         "executeTankCommand",
+        "list_supported_commands",
         "pickFileOrDirectory",
         "pickFilesOrDirectories",
         "version",
@@ -175,6 +179,13 @@ class ShotgunAPI(object):
         reply["actions"] = actions
 
         self.host.reply(reply)
+
+    def list_supported_commands(self, data):
+        """
+        Get a list of all the commands this api supports
+        :param data: Message data {} (no data expected)
+        """
+        self.host.reply(self.PUBLIC_API_METHODS)
 
     def pickFileOrDirectory(self, data):
         """
