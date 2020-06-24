@@ -151,7 +151,8 @@ class Python3ProjectTests(SgtkIntegrationTest):
             "HumanUser", [["login", "is", cls.user.login]], []
         )
 
-        app = cls.engine.apps["test_app"]
+        cls.test_app_name = "test_app_fw"
+        app = cls.engine.apps[cls.test_app_name]
         cls.tk_fw_desktopserver = app.frameworks["tk-framework-desktopserver"]
         cls.tk_fw_dekstopclient = app.frameworks["tk-framework-desktopclient"]
 
@@ -230,10 +231,10 @@ class Python3ProjectTests(SgtkIntegrationTest):
                 }
             )
         assert test_data == {
-            ("python2", "test_app", "Command A"),
-            ("python2", "test_app", "Command B"),
-            ("python3", "test_app", "Command A"),
-            ("python3", "test_app", "Command B"),
+            ("python2", self.test_app_name, "Command A"),
+            ("python2", self.test_app_name, "Command B"),
+            ("python3", self.test_app_name, "Command A"),
+            ("python3", self.test_app_name, "Command B"),
         }
 
 
