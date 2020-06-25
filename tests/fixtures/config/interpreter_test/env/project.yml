@@ -14,10 +14,10 @@ engines:
       type: path
       path: ${SHOTGUN_TEST_ENGINE}
     apps:
-      test_app_fw:
+      test_app:
         location:
           type: path
-          path: ${BUNDLES_ROOT}/test_app_fw
+          path: ${BUNDLES_ROOT}/test_app
 
 frameworks:
   tk-framework-desktopserver_v1.x.x:

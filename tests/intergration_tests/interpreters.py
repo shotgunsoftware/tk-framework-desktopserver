@@ -151,7 +151,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
             "HumanUser", [["login", "is", cls.user.login]], []
         )
 
-        cls.test_app_name = "test_app_fw"
+        cls.test_app_name = "test_app"
         app = cls.engine.apps[cls.test_app_name]
         cls.tk_fw_desktopserver = app.frameworks["tk-framework-desktopserver"]
         cls.tk_fw_dekstopclient = app.frameworks["tk-framework-desktopclient"]
