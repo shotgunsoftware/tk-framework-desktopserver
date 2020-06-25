@@ -9,7 +9,6 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 from __future__ import print_function
-from __future__ import absolute_import
 import sys
 from tank_vendor import six
 import json

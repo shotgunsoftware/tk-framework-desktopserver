@@ -8,7 +8,6 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-from __future__ import absolute_import
 import json
 import datetime
 
@@ -438,7 +437,7 @@ class ServerProtocol(WebSocketServerProtocol):
         """
         # ensure_ascii allows unicode strings.
         payload = six.ensure_binary(
-            json.dumps(data, ensure_ascii=False, default=self._json_date_handler,)
+            json.dumps(data, ensure_ascii=True, default=self._json_date_handler,)
         )
 
         if self._fernet:

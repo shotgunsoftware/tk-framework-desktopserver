@@ -9,7 +9,6 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 
-from __future__ import absolute_import
 from sgtk.platform.qt import QtCore, QtGui
 import sgtk.util
 

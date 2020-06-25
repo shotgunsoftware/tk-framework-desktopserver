@@ -10,7 +10,6 @@
 
 # We want class-level variables to persist, so we'll setup a cache here
 # that the factory functuon below populates.
-from __future__ import absolute_import
 from . import api_v1
 from . import api_v2
 
