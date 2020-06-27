@@ -13,6 +13,7 @@ from __future__ import print_function
 import os
 import sys
 import json
+import platform
 import tempfile
 
 import unittest2
@@ -31,28 +32,47 @@ class Python3ProjectTests(SgtkIntegrationTest):
     @classmethod
     def get_python_interpreter_by_major_version(cls, major):
         """
-        Get the path to a python interpreter that matches the given major version
+        Get the path to a python interpreter on the current platform that matches the given major version
         """
-        paths = {
-            "Windows": {
-                2: "C:\\Program Files\\Shotgun\\Python\\python.exe",
-                3: "C:\\Program Files\\Shotgun\\Python3\\python.exe",
-            },
-            "Darwin": {
-                2: "/Applications/Shotgun.app/Contents/Resources/Python/bin/python",
-                3: "/Applications/Shotgun.app/Contents/Resources/Python3/bin/python",
-            },
-            "Linux": {
-                2: "/opt/Shotgun/Python/bin/python",
-                3: "/opt/Shotgun/Python3/bin/python",
-            },
+        win_paths = {
+            2: [
+                r"C:\Program Files\Shotgun\Python\python.exe",
+                r"C:\hostedtoolcache\windows\Python\2.7.18\x64\python.exe",  # Azure Path
+            ],
+            3: [
+                r"C:\Program Files\Shotgun\Python3\python.exe",
+                r"C:\hostedtoolcache\windows\Python\3.7.7\x64\python.exe",  # Azure Path
+            ],
         }
-        if sgtk.util.is_windows():
-            return paths["Windows"][major]
-        if sgtk.util.is_macos():
-            return paths["Darwin"][major]
-        if sgtk.util.is_linux():
-            return paths["Linux"][major]
+
+        linux_paths = {
+            2: ["/opt/Shotgun/Python/bin/python",],
+            3: [
+                "/opt/Shotgun/Python3/bin/python",
+                "/opt/hostedtoolcache/Python/3.7.7/x64/bin/python",  # Azure Path
+            ],
+        }
+
+        osx_paths = {
+            2: [
+                "/Applications/Shotgun.app/Contents/Resources/Python/bin/python",
+                "/Users/runner/hostedtoolcache/Python/2.7.18/x64/bin/python",  # Azure Path
+            ],
+            3: [
+                "/Applications/Shotgun.app/Contents/Resources/Python3/bin/python",
+                "/Users/runner/hostedtoolcache/Python/3.7.7/x64/bin/python",  # Azure Path
+            ],
+        }
+
+        paths = {
+            "Windows": win_paths,
+            "Linux": linux_paths,
+            "Darwin": osx_paths,
+        }
+
+        for path in paths[platform.system()][major]:
+            if os.path.exists(path):
+                return path
 
     @classmethod
     def write_interpreter_config_for_py_version(cls, major_version, cfg_path):
