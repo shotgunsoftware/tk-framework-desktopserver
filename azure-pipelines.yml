@@ -34,17 +34,8 @@ jobs:
     additional_repositories:
       - name: tk-framework-desktopclient
     post_tests_steps:
-      - bash: python2 -m pytest tests/integration_tests/interpreters.py
-        displayName: Run interpreter integeration tests with python2
-        env:
-          SHOTGUN_HOST: $(sg.ci.host)
-          SHOTGUN_SCRIPT_NAME: $(shotgun_script_name)
-          SHOTGUN_SCRIPT_KEY: $(shotgun_script_key)
-          TK_TOOLCHAIN_HOST: $(sg.ci.host)
-          TK_TOOLCHAIN_USER_LOGIN: $(sg.ci.human.login)
-          TK_TOOLCHAIN_USER_PASSWORD: $(sg.ci.human.password)
-      - bash: python3 -m pytest tests/integration_tests/interpreters.py
-        displayName: Run interpreter integeration tests with python3
+      - bash: python -m pytest tests/integration_tests/interpreters.py
+        displayName: Run interpreter integeration tests
         env:
           SHOTGUN_HOST: $(sg.ci.host)
           SHOTGUN_SCRIPT_NAME: $(shotgun_script_name)
