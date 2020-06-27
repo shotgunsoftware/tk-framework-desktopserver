@@ -222,14 +222,17 @@ class Python3ProjectTests(SgtkIntegrationTest):
         ]
         assert "actions" in reply
 
+        # The reply will hold actions from all pipelien configurations that apply to this project
+        # If the sandbox is not clean, we will get more actions that we have set up in these configs
+        # So we need to filter out the extras and just test that we get our expected result back from
+        # the test configs
+        test_config_ids = [self.python2_config["id"], self.python3_config["id"]]
         test_data = set()
-        for pc in reply["actions"]:
-            test_data = test_data.union(
-                {
-                    (pc, x["app_name"], x["title"])
-                    for x in reply["actions"][pc]["actions"]
-                }
-            )
+        for pc_name, pc_data in reply["actions"].items():
+            if pc_data["config"]["id"] in test_config_ids:
+                test_data = test_data.union(
+                    {(pc_name, x["app_name"], x["title"]) for x in pc_data["actions"]}
+                )
         assert test_data == {
             ("python2", self.test_app_name, "Command A"),
             ("python2", self.test_app_name, "Command B"),
