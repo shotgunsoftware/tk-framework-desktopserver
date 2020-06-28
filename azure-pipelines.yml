@@ -33,6 +33,7 @@ jobs:
   parameters:
     additional_repositories:
       - name: tk-framework-desktopclient
+      - name: tk-shotgun
     post_tests_steps:
       - bash: python -m pytest tests/integration_tests/interpreters.py
         displayName: Run interpreter integeration tests
