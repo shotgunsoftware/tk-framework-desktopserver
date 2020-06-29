@@ -74,17 +74,18 @@ class Python3ProjectTests(SgtkIntegrationTest):
             if os.path.exists(path):
                 return path
 
+        raise Exception(
+            "Could not find a python version {} executable for {}".format(
+                major, platform.system()
+            )
+        )
+
     @classmethod
     def write_interpreter_config_for_py_version(cls, major_version, cfg_path):
         """
         Write the path to the python interpreter matching a given version into the cfg_path file
         """
         path = cls.get_python_interpreter_by_major_version(major_version)
-        if not path:
-            raise Exception(
-                "Couldn't find a python interpreter with major version %s"
-                % major_version
-            )
         with open(cfg_path, "w") as f:
             f.write(path)
 
