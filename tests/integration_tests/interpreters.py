@@ -46,7 +46,10 @@ class Python3ProjectTests(SgtkIntegrationTest):
         }
 
         linux_paths = {
-            2: ["/opt/Shotgun/Python/bin/python",],
+            2: [
+                "/opt/Shotgun/Python/bin/python",
+                "/opt/hostedtoolcache/Python/2.7.18/x64/bin/python",  # Azure Path
+            ],
             3: [
                 "/opt/Shotgun/Python3/bin/python",
                 "/opt/hostedtoolcache/Python/3.7.7/x64/bin/python",  # Azure Path

@@ -35,7 +35,7 @@ jobs:
       - name: tk-framework-desktopclient
       - name: tk-shotgun
     post_tests_steps:
-      - bash: python -m pytest tests/integration_tests/interpreters.py
+      - bash: python -m pytest tests/integration_tests/interpreters.py -v
         displayName: Run interpreter integeration tests
         env:
           SHOTGUN_HOST: $(sg.ci.host)
