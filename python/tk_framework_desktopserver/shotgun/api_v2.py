@@ -603,14 +603,21 @@ class ShotgunAPI(object):
 
                 try:
                     decoded_data = None
-                    try:
-                        decoded_data = sgtk.util.json.loads(
-                            six.ensure_str(cached_data[0])
-                        )
-                    except Exception:
-                        # Couldn't decode the data. This happens when loading an old pickled cache.
-                        # We've switch to JSON for the Python 3 port.
-                        pass
+
+                    if cached_data:
+                        # The value can either be bytes (python 3) or a buffer (python2)
+                        # ensure_str doesn't accept a buffer as input
+                        try:
+                            string_data = six.ensure_str(cached_data[0])
+                        except TypeError:
+                            string_data = six.ensure_str(str(cached_data[0]))
+
+                        try:
+                            decoded_data = sgtk.util.json.loads(string_data)
+                        except Exception:
+                            # Couldn't decode the data. This happens when loading an old pickled cache.
+                            # We've switch to JSON for the Python 3 port.
+                            pass
 
                     if decoded_data:
                         # Cache hit.

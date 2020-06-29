@@ -18,6 +18,15 @@ engines:
         location:
           type: path
           path: ${BUNDLES_ROOT}/test_app
+  tk-shotgun:
+    location:
+      type: path
+      path: ${SHOTGUN_REPOS_ROOT}/tk-shotgun
+    apps:
+      test_app:
+        location:
+          type: path
+          path: ${BUNDLES_ROOT}/test_app
 
 frameworks:
   tk-framework-desktopserver_v1.x.x:
