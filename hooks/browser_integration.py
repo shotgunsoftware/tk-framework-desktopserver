@@ -12,7 +12,6 @@
 Hook that provides utilities used by Toolkit's browser integration.
 """
 
-from __future__ import absolute_import
 import sgtk
 
 HookBaseClass = sgtk.get_hook_baseclass()
