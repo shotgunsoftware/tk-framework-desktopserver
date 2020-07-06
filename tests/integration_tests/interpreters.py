@@ -32,7 +32,7 @@ logger = sgtk.LogManager.get_logger(__name__)
     os.environ.get("CI")
     and sys.version_info.major == 2
     and platform.system() == "Windows",
-    "Skipping On Windows/python2 because of error in authentication that needs to be investigated",
+    "Skipping On Windows/Python2 because of error in authentication that needs to be investigated",
 )
 @unittest2.skipIf(
     os.environ.get("CI") and platform.system() == "Linux",
@@ -44,6 +44,10 @@ class Python3ProjectTests(SgtkIntegrationTest):
         """
         Get the path to a python interpreter on the current platform that matches the given major version
         """
+        print("CI env var: % " % os.environ.get("CI"))
+        print("Platform: %s " % platform.system())
+        print("Python: %s " % sys.version_info.major)
+
         win_paths = {
             2: [
                 r"C:\Program Files\Shotgun\Python\python.exe",
