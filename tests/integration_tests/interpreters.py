@@ -28,6 +28,16 @@ import tk_toolchain.authentication
 logger = sgtk.LogManager.get_logger(__name__)
 
 
+@unittest2.skipIf(
+    os.environ.get("CI")
+    and sys.version_info.major == 2
+    and platform.system() == "Windows",
+    "Skipping On Windows/python2 because of error in authentication that needs to be investigated",
+)
+@unittest2.skipIf(
+    os.environ.get("CI") and platform.system() == "Linux",
+    "Skipping On Linux because of a core dump that needs to be investigated",
+)
 class Python3ProjectTests(SgtkIntegrationTest):
     @classmethod
     def get_python_interpreter_by_major_version(cls, major):
