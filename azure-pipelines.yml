@@ -38,6 +38,7 @@ jobs:
       - bash: python -m pytest tests/integration_tests/interpreters.py -v
         displayName: Run interpreter integeration tests
         env:
+          CI: 1  # Used to skip certain tests on Azure
           SHOTGUN_HOST: $(sg.ci.host)
           SHOTGUN_SCRIPT_NAME: $(shotgun_script_name)
           SHOTGUN_SCRIPT_KEY: $(shotgun_script_key)
