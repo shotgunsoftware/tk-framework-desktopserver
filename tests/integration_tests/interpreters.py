@@ -44,10 +44,6 @@ class Python3ProjectTests(SgtkIntegrationTest):
         """
         Get the path to a python interpreter on the current platform that matches the given major version
         """
-        print("CI env var: %s " % os.environ.get("CI"))
-        print("Platform: %s " % platform.system())
-        print("Python: %s " % sys.version_info.major)
-
         win_paths = {
             2: [
                 r"C:\Program Files\Shotgun\Python\python.exe",
