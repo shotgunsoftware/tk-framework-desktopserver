@@ -78,6 +78,7 @@ def bootstrap(
 
 def cache(
     cache_file,
+    output_file,
     data,
     base_configuration,
     engine_name,
@@ -91,6 +92,7 @@ def cache(
     configuration and entity type. If an entry already exists, it is updated.
 
     :param str cache_file: The path to the sqlite cache file on disk.
+    :param str output_file: The path to the file where the results should be stored
     :param dict data: The raw payload send down by the client.
     :param str base_configuration: The desired base pipeline configuration's
         uri.
@@ -206,64 +208,14 @@ def cache(
 
     engine.log_debug("Engine commands processed.")
 
-    # Connect to the database and get the hashes we need to include in
-    # the insert. Each of the lookups call out to the browser_integration
-    # core hook.
-    with sqlite3.connect(cache_file) as connection:
-        engine.log_debug("Inserting commands into cache...")
+    with open(output_file, "wt") as f:
+        json.dump(commands, f)
 
-        # This is to handle unicode properly - make sure that sqlite returns
-        # str objects for TEXT fields rather than unicode. Note that any unicode
-        # objects that are passed into the database will be automatically
-        # converted to UTF-8 strs, so this text_factory guarantees that any character
-        # representation will work for any language, as long as data is either input
-        # as UTF-8 (byte string) or unicode. And in the latter case, the returned data
-        # will always be unicode.
-        connection.text_factory = str
-        cursor = connection.cursor()
-
-        # First, let's make sure that the database is actually setup with
-        # the table we're expecting. If it isn't, then we can do that here.
-        with contextlib.closing(connection.cursor()) as c:
-            # Get a list of tables in the current database.
-            ret = c.execute("SELECT name FROM main.sqlite_master WHERE type='table';")
-            table_names = [x[0] for x in ret.fetchall()]
-
-            if not table_names:
-                engine.log_debug("Creating schema in sqlite db.")
-
-                # We have a brand new database. Create all tables and indices.
-                cursor.executescript(
-                    """
-                    CREATE TABLE engine_commands (lookup_hash text, contents_hash text, commands blob);
-                """
-                )
-
-                connection.commit()
-
-        commands_blob = sqlite3.Binary(six.ensure_binary(json.dumps(commands)))
-
-        # Since we're likely to be updating out-of-date cached data more
-        # often than we're going to be inserting new rows into the cache,
-        # we'll try an update first. If no rows were affected by the update,
-        # we move on to an insert.
-        cursor.execute(
-            "UPDATE engine_commands SET contents_hash=?, commands=? WHERE lookup_hash=?",
-            (contents_hash, commands_blob, lookup_hash),
-        )
-
-        if cursor.rowcount == 0:
-            engine.log_debug("Update did not result in any rows altered, inserting...")
-            cursor.execute(
-                "INSERT INTO engine_commands VALUES (?, ?, ?)",
-                (lookup_hash, contents_hash, commands_blob,),
-            )
-
-        # Tear down the engine. This is both good practice before we exit
-        # this process, but also necessary if there are multiple pipeline
-        # configs that we're iterating over.
-        engine.log_debug("Shutting down engine...")
-        engine.destroy()
+    # Tear down the engine. This is both good practice before we exit
+    # this process, but also necessary if there are multiple pipeline
+    # configs that we're iterating over.
+    engine.log_debug("Shutting down engine...")
+    engine.destroy()
 
 
 if __name__ == "__main__":
@@ -284,6 +236,7 @@ if __name__ == "__main__":
 
     cache(
         arg_data["cache_file"],
+        arg_data["output_file"],
         arg_data["data"],
         arg_data["base_configuration"],
         arg_data["engine_name"],
