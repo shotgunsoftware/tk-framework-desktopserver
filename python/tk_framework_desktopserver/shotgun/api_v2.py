@@ -524,7 +524,7 @@ class ShotgunAPI(object):
                 type=pipeline_config.get("type", "PipelineConfiguration"),
                 name=pipeline_config.get("name", "Primary"),
             )
-            all_pc_data[pc_id]["entity"] = pipeline_config
+            pc_data["entity"] = pipeline_config
 
             # We start with an empty action set for this config. If we end up finding
             # finding stuff for this entity type in this config, then the empty
@@ -614,6 +614,7 @@ class ShotgunAPI(object):
             try:
                 cached_data = pc_data["cached_data"]
                 lookup_hash = pc_data["lookup_hash"]
+                pipeline_config = pc_data["entity"]
                 decoded_data = None
 
                 if cached_data:
