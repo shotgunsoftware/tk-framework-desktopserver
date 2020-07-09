@@ -44,36 +44,45 @@ class Python3ProjectTests(SgtkIntegrationTest):
         """
         Get the path to a python interpreter on the current platform that matches the given major version
         """
+        azure_python2_version = "2.7.18"
+        azure_python3_version = "3.7.8"
+
         win_paths = {
             2: [
                 r"C:\Program Files\Shotgun\Python\python.exe",
-                r"C:\hostedtoolcache\windows\Python\2.7.18\x64\python.exe",  # Azure Path
+                r"C:\hostedtoolcache\windows\Python\%s\x64\python.exe"
+                % azure_python2_version,  # Azure Path
             ],
             3: [
                 r"C:\Program Files\Shotgun\Python3\python.exe",
-                r"C:\hostedtoolcache\windows\Python\3.7.7\x64\python.exe",  # Azure Path
+                r"C:\hostedtoolcache\windows\Python\%s\x64\python.exe"
+                % azure_python3_version,  # Azure Path
             ],
         }
 
         linux_paths = {
             2: [
                 "/opt/Shotgun/Python/bin/python",
-                "/opt/hostedtoolcache/Python/2.7.18/x64/bin/python",  # Azure Path
+                "/opt/hostedtoolcache/Python/%s/x64/bin/python"
+                % azure_python2_version,  # Azure Path
             ],
             3: [
                 "/opt/Shotgun/Python3/bin/python",
-                "/opt/hostedtoolcache/Python/3.7.7/x64/bin/python",  # Azure Path
+                "/opt/hostedtoolcache/Python/%s/x64/bin/python"
+                % azure_python3_version,  # Azure Path
             ],
         }
 
         osx_paths = {
             2: [
                 "/Applications/Shotgun.app/Contents/Resources/Python/bin/python",
-                "/Users/runner/hostedtoolcache/Python/2.7.18/x64/bin/python",  # Azure Path
+                "/Users/runner/hostedtoolcache/Python/%s/x64/bin/python"
+                % azure_python2_version,  # Azure Path
             ],
             3: [
                 "/Applications/Shotgun.app/Contents/Resources/Python3/bin/python",
-                "/Users/runner/hostedtoolcache/Python/3.7.7/x64/bin/python",  # Azure Path
+                "/Users/runner/hostedtoolcache/Python/%s/x64/bin/python"
+                % azure_python3_version,  # Azure Path
             ],
         }
 
