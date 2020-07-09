@@ -913,49 +913,49 @@ class ShotgunAPI(object):
         )
 
         # Create a temp file for the script to write the command data into
-        actions_file = tempfile.mkstemp()[1]
-
-        args_file = self._get_arguments_file(
-            dict(
-                cache_file=self._cache_path,
-                output_file=actions_file,
-                data=data,
-                sys_path=self._compute_sys_path(),
-                base_configuration=constants.BASE_CONFIG_URI,
-                engine_name=constants.ENGINE_NAME,
-                config_data=arg_config_data,
-                config_is_mutable=(descriptor.is_immutable() is False),
-                bundle_cache_fallback_paths=self._engine.sgtk.bundle_cache_fallback_paths,
-                user=serialize_user(sgtk.get_authenticated_user()),
+        with tempfile.NamedTemporaryFile() as f:
+            actions_file = f.name
+            args_file = self._get_arguments_file(
+                dict(
+                    cache_file=self._cache_path,
+                    output_file=actions_file,
+                    data=data,
+                    sys_path=self._compute_sys_path(),
+                    base_configuration=constants.BASE_CONFIG_URI,
+                    engine_name=constants.ENGINE_NAME,
+                    config_data=arg_config_data,
+                    config_is_mutable=(descriptor.is_immutable() is False),
+                    bundle_cache_fallback_paths=self._engine.sgtk.bundle_cache_fallback_paths,
+                    user=serialize_user(sgtk.get_authenticated_user()),
+                )
             )
-        )
 
-        args = [python_exe, script, args_file]
-        logger.debug("Command arguments: %s", args)
+            args = [python_exe, script, args_file]
+            logger.debug("Command arguments: %s", args)
 
-        # We lock here because we cannot allow concurrent bootstraps to
-        # occur. We potentially have other threads wanting to cache, so
-        # we protect ourselves from spawning concurrent caching subprocesses
-        # that might end up stepping on each other.
-        with self._LOCK:
-            with tk_in_python_path():
-                retcode, stdout, stderr = command.Command.call_cmd(args)
+            # We lock here because we cannot allow concurrent bootstraps to
+            # occur. We potentially have other threads wanting to cache, so
+            # we protect ourselves from spawning concurrent caching subprocesses
+            # that might end up stepping on each other.
+            with self._LOCK:
+                with tk_in_python_path():
+                    retcode, stdout, stderr = command.Command.call_cmd(args)
 
-        if retcode == 0:
-            logger.debug("Command stdout: %s", stdout)
-            logger.debug("Command stderr: %s", stderr)
-        elif retcode == constants.ENGINE_INIT_ERROR_EXIT_CODE:
-            logger.debug("Caching subprocess reported a problem during bootstrap.")
-            raise TankCachingEngineBootstrapError("%s\n\n%s" % (stdout, stderr))
-        else:
-            logger.error("Command failed: %s", args)
-            logger.error("Failed command stdout: %s", stdout)
-            logger.error("Failed command stderr: %s", stderr)
-            logger.error("Failed command retcode: %s", retcode)
-            raise TankCachingSubprocessFailed("%s\n\n%s" % (stdout, stderr))
+            if retcode == 0:
+                logger.debug("Command stdout: %s", stdout)
+                logger.debug("Command stderr: %s", stderr)
+            elif retcode == constants.ENGINE_INIT_ERROR_EXIT_CODE:
+                logger.debug("Caching subprocess reported a problem during bootstrap.")
+                raise TankCachingEngineBootstrapError("%s\n\n%s" % (stdout, stderr))
+            else:
+                logger.error("Command failed: %s", args)
+                logger.error("Failed command stdout: %s", stdout)
+                logger.error("Failed command stderr: %s", stderr)
+                logger.error("Failed command retcode: %s", retcode)
+                raise TankCachingSubprocessFailed("%s\n\n%s" % (stdout, stderr))
 
-        with open(actions_file, "rt") as f:
-            commands = json.load(f)
+            with open(actions_file, "rt") as f:
+                commands = json.load(f)
 
         self._write_commands_to_db(commands, config_data, contents_hash)
         logger.debug("Caching complete.")
