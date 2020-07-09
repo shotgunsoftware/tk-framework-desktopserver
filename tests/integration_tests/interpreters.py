@@ -44,47 +44,38 @@ class Python3ProjectTests(SgtkIntegrationTest):
         """
         Get the path to a python interpreter on the current platform that matches the given major version
         """
-        azure_python2_version = "2.7.18"
-        azure_python3_version = ("3.7.7",)
+        azure_python2_versions = ["2.7.18"]
+        azure_python3_versions = ["3.7.7", "3.7.8"]
 
         win_paths = {
-            2: [
-                r"C:\Program Files\Shotgun\Python\python.exe",
-                r"C:\hostedtoolcache\windows\Python\%s\x64\python.exe"
-                % azure_python2_version,  # Azure Path
-            ],
-            3: [
-                r"C:\Program Files\Shotgun\Python3\python.exe",
-                r"C:\hostedtoolcache\windows\Python\%s\x64\python.exe"
-                % azure_python3_version,  # Azure Path
-            ],
+            2: [r"C:\Program Files\Shotgun\Python\python.exe"],
+            3: [r"C:\Program Files\Shotgun\Python3\python.exe"],
         }
+
+        for version in azure_python2_versions + azure_python3_versions:
+            win_paths[int(version[0])].append(
+                r"C:\hostedtoolcache\windows\Python\%s\x64\python.exe" % version
+            )
 
         linux_paths = {
-            2: [
-                "/opt/Shotgun/Python/bin/python",
-                "/opt/hostedtoolcache/Python/%s/x64/bin/python"
-                % azure_python2_version,  # Azure Path
-            ],
-            3: [
-                "/opt/Shotgun/Python3/bin/python",
-                "/opt/hostedtoolcache/Python/%s/x64/bin/python"
-                % azure_python3_version,  # Azure Path
-            ],
+            2: ["/opt/Shotgun/Python/bin/python"],
+            3: ["/opt/Shotgun/Python3/bin/python"],
         }
 
+        for version in azure_python2_versions + azure_python3_versions:
+            linux_paths[int(version[0])].append(
+                r"/opt/hostedtoolcache/Python/%s/x64/bin/python" % version
+            )
+
         osx_paths = {
-            2: [
-                "/Applications/Shotgun.app/Contents/Resources/Python/bin/python",
-                "/Users/runner/hostedtoolcache/Python/%s/x64/bin/python"
-                % azure_python2_version,  # Azure Path
-            ],
-            3: [
-                "/Applications/Shotgun.app/Contents/Resources/Python3/bin/python",
-                "/Users/runner/hostedtoolcache/Python/%s/x64/bin/python"
-                % azure_python3_version,  # Azure Path
-            ],
+            2: ["/Applications/Shotgun.app/Contents/Resources/Python/bin/python"],
+            3: ["/Applications/Shotgun.app/Contents/Resources/Python3/bin/python"],
         }
+
+        for version in azure_python2_versions + azure_python3_versions:
+            osx_paths[int(version[0])].append(
+                r"/Users/runner/hostedtoolcache/Python/%s/x64/bin/python" % version
+            )
 
         paths = {
             "Windows": win_paths,
