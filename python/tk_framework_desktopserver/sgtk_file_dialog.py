@@ -29,6 +29,12 @@ class SgtkFileDialog(QtGui.QFileDialog):
         """
         QtGui.QFileDialog.__init__(self, *args, **kwargs)
 
+        # When using the native dialog, We don't have access to the child widgets that we
+        # want to modify. We need to use the widget based implementation.
+        # PySide seems to ignore this flag and always use the widget based one. But PySide2
+        # respects the flag so we need to set it explicitly
+        self.setOption(QtGui.QFileDialog.DontUseNativeDialog, True)
+
         if multi:
             selection_mode = QtGui.QAbstractItemView.ExtendedSelection
         else:
