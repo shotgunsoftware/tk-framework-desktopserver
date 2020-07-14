@@ -17,6 +17,7 @@ import logging
 import base64
 import functools
 import copy
+import traceback
 
 # Special, non-engine commands that we'll need to handle ourselves.
 CORE_INFO_COMMAND = "__core_info"
@@ -366,12 +367,15 @@ def execute(
 
     os.environ["TANK_CURRENT_PC"] = config_path
 
-    if old_style:
-        entity_ids = [e["id"] for e in entities]
-        entity_type = entity["type"]
-        engine.execute_old_style_command(name, entity_type, entity_ids)
-    else:
-        engine.execute_command(name)
+    try:
+        if old_style:
+            entity_ids = [e["id"] for e in entities]
+            entity_type = entity["type"]
+            engine.execute_old_style_command(name, entity_type, entity_ids)
+        else:
+            engine.execute_command(name)
+    except Exception:
+        engine.log_error(traceback.format_exc())
 
 
 if __name__ == "__main__":
