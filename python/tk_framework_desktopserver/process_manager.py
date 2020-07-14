@@ -14,6 +14,7 @@ import glob
 from .command import Command
 
 from sgtk.platform.qt import QtGui, QtCore
+import sgtk.util
 from .sgtk_file_dialog import SgtkFileDialog
 
 
@@ -360,16 +361,16 @@ class ProcessManager(object):
         :returns: ProcessManager
         """
 
-        if sys.platform == "darwin":
-            from process_manager_mac import ProcessManagerMac
+        if sgtk.util.is_macos():
+            from .process_manager_mac import ProcessManagerMac
 
             return ProcessManagerMac()
-        elif sys.platform == "win32":
-            from process_manager_win import ProcessManagerWin
+        elif sgtk.util.is_windows():
+            from .process_manager_win import ProcessManagerWin
 
             return ProcessManagerWin()
-        elif sys.platform.startswith("linux"):
-            from process_manager_linux import ProcessManagerLinux
+        elif sgtk.util.is_linux():
+            from .process_manager_linux import ProcessManagerLinux
 
             return ProcessManagerLinux()
         else:

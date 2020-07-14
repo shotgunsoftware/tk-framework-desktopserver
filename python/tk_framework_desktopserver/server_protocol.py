@@ -10,7 +10,6 @@
 
 import json
 import datetime
-import urlparse
 
 import OpenSSL
 from cryptography.fernet import Fernet
@@ -24,6 +23,9 @@ from .message_host import MessageHost
 from .process_manager import ProcessManager
 from .message import Message
 from .logger import get_logger
+
+from tank_vendor.six.moves.urllib.parse import urlparse
+from tank_vendor import six
 
 logger = get_logger(__name__)
 
@@ -127,7 +129,7 @@ class ServerProtocol(WebSocketServerProtocol):
         """
         try:
             return self._on_message(payload, is_binary)
-        except Exception:
+        except Exception as e:
             logger.exception("Unexpected error:")
             self.report_error("Unexpected server error.")
 
@@ -155,7 +157,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 logger.exception("Unexpected error while decrypting:")
                 return
 
-        decoded_payload = payload.decode("utf8")
+        decoded_payload = six.ensure_str(payload)
 
         # Special message to get protocol version for this protocol. This message doesn't follow the
         # standard message format as it doesn't require a protocol version to be retrieved and is
@@ -237,7 +239,7 @@ class ServerProtocol(WebSocketServerProtocol):
         # origin is formatted such as https://xyz.shotgunstudio.com:port_number
         # host is https://xyz.shotgunstudio.com:port_number
         host_network = self.factory.host.lower()
-        parsed_host = urlparse.urlparse(self._origin)
+        parsed_host = urlparse(self._origin)
         # When the network location has a port number, the hostname and port
         # members are not None, in which case we want just the hostname and don't
         # care about the port number. If hostname is not set, then we can grab
@@ -346,7 +348,7 @@ class ServerProtocol(WebSocketServerProtocol):
             response = shotgun._call_rpc(
                 "retrieve_ws_server_secret", {"ws_server_id": self.factory.ws_server_id}
             )
-            ws_server_secret = response["ws_server_secret"]
+            ws_server_secret = six.ensure_str(response["ws_server_secret"])
             # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
             # doesn't seem to complain however, so I'm not sure whose implementation is broken.
             if ws_server_secret[-1] != "=":
@@ -434,9 +436,9 @@ class ServerProtocol(WebSocketServerProtocol):
         :param data: Object Data that will be converted to JSON and sent to client.
         """
         # ensure_ascii allows unicode strings.
-        payload = json.dumps(
-            data, ensure_ascii=False, default=self._json_date_handler,
-        ).encode("utf8")
+        payload = six.ensure_binary(
+            json.dumps(data, ensure_ascii=True, default=self._json_date_handler,)
+        )
 
         if self._fernet:
             payload = self._fernet.encrypt(payload)

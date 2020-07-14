@@ -8,18 +8,26 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-git rm -rf bin/mac
-rm -rf bin/mac
-/Applications/Shotgun.app/Contents/Resources/Python/bin/python build/pip install --target bin/mac --no-deps -r bin/explicit_requirements.txt
+for PY_VERSION in 2.7 3.7
+do
+  case "$PY_VERSION" in
+    2.7) PYTHON_BIN="/Applications/Shotgun.app/Contents/Resources/Python/bin/python" ;;
+    3.7) PYTHON_BIN="/Applications/Shotgun.app/Contents/Resources/Python3/bin/python" ;;
+  esac
 
-# For some reason zope is missing a top level init file when installed with
-# pip, so we're adding it.
-touch bin/mac/zope/__init__.py
+  git rm -rf bin/mac/$PY_VERSION
+  rm -rf bin/mac/$PY_VERSION
+  $PYTHON_BIN build/pip install --target bin/mac/$PY_VERSION --no-deps -r bin/explicit_requirements.txt
 
-# Remove tests to thin out the packages
-rm -rf bin/mac/Crypto/SelfTest
+  # For some reason zope is missing a top level init file when installed with
+  # pip, so we're adding it.
+  touch bin/mac/$PY_VERSION/zope/__init__.py
 
-rm -rf bin/mac/zope/interface/tests
-rm -rf bin/mac/zope/interface/*/tests
+  # Remove tests to thin out the packages
+  rm -rf bin/mac/$PY_VERSION/Crypto/SelfTest
+  rm -rf bin/mac/$PY_VERSIONzope/interface/tests
+  rm -rf bin/mac/$PY_VERSION/zope/interface/*/tests
 
-git add bin/mac
+  git add bin/mac/$PY_VERSION
+
+done

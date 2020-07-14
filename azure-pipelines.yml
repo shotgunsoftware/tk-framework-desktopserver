@@ -31,4 +31,20 @@ variables:
 jobs:
 - template: build-pipeline.yml@templates
   parameters:
-    skip_tests: true
+    additional_repositories:
+      - name: tk-framework-desktopclient
+      - name: tk-shotgun
+    post_tests_steps:
+      - bash: python -m pytest tests/integration_tests/interpreters.py -v
+        displayName: Run interpreter integeration tests
+        env:
+          CI: 1  # Used to skip certain tests on Azure
+          SHOTGUN_HOST: $(sg.ci.host)
+          SHOTGUN_SCRIPT_NAME: $(shotgun_script_name)
+          SHOTGUN_SCRIPT_KEY: $(shotgun_script_key)
+          TK_TOOLCHAIN_HOST: $(sg.ci.host)
+          TK_TOOLCHAIN_USER_LOGIN: $(sg.ci.human.login)
+          TK_TOOLCHAIN_USER_PASSWORD: $(sg.ci.human.password)
+          # Sandbox each test executing based on the Azure agent name. Those are
+          # Azure Pipelines 1-10
+          SHOTGUN_TEST_ENTITY_SUFFIX: '$(Agent.Name)'

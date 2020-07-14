@@ -81,7 +81,7 @@ class Settings(object):
         # Ensure we have a string, and then split the string on commas, make sure we're stripping
         # out beginning and end of string whitespaces and then lowercase everything.
         # Also skip empty tokens.
-        for main_host, secondary_hosts in raw_host_aliases.iteritems():
+        for main_host, secondary_hosts in raw_host_aliases.items():
             main_host = main_host.strip().lower()
             # Skip empty hosts.
             if not main_host:

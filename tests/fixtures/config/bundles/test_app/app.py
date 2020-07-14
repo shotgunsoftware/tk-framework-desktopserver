@@ -12,7 +12,6 @@
 A dummy app
 """
 import os
-
 from sgtk.platform import Application
 
 

@@ -8,9 +8,9 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import sys
 
 from sgtk.platform.qt import QtCore, QtGui
+import sgtk.util
 
 
 class SgtkFileDialog(QtGui.QFileDialog):
@@ -29,6 +29,12 @@ class SgtkFileDialog(QtGui.QFileDialog):
         """
         QtGui.QFileDialog.__init__(self, *args, **kwargs)
 
+        # When using the native dialog, We don't have access to the child widgets that we
+        # want to modify. We need to use the widget based implementation.
+        # PySide seems to ignore this flag and always use the widget based one. But PySide2
+        # respects the flag so we need to set it explicitly
+        self.setOption(QtGui.QFileDialog.DontUseNativeDialog, True)
+
         if multi:
             selection_mode = QtGui.QAbstractItemView.ExtendedSelection
         else:
@@ -44,7 +50,7 @@ class SgtkFileDialog(QtGui.QFileDialog):
 
         # FIXME: On MacOS the QFileDialog hides all hidden files. Unfortunately /Volumes is hidden.
         # As a quick hack to unblock our clients, we'll add /Volumes to the sidebar.
-        if sys.platform == "darwin":
+        if sgtk.util.is_macos():
             sidebar_urls = self.sidebarUrls()
             if self._VOLUMES_URL not in sidebar_urls:
                 sidebar_urls.append(self._VOLUMES_URL)
@@ -54,7 +60,7 @@ class SgtkFileDialog(QtGui.QFileDialog):
         c = self.findChild(QtGui.QComboBox, "lookInCombo")
         c.setEditable(True)
         # Search for the line edit widget, it has no name so scan for it.
-        line_edits = filter(lambda x: isinstance(x, QtGui.QLineEdit), c.children())
+        line_edits = list([x for x in c.children() if isinstance(x, QtGui.QLineEdit)])
         if len(line_edits) != 1:
             raise Exception("Expected to find a line edit widget.")
         self._path_editor = line_edits[0]

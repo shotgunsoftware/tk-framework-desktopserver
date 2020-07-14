@@ -11,11 +11,14 @@
 import os
 import subprocess
 from threading import Thread
-from Queue import Queue
 import tempfile
 import sys
 import traceback
 from .logger import get_logger
+
+import sgtk.util
+from tank_vendor.six.moves.queue import Queue
+from tank_vendor import six
 
 logger = get_logger(__name__)
 
@@ -42,7 +45,7 @@ class ReadThread(Thread):
         is closed.
         """
         while True:
-            line = self.pipe.readline()  # blocking read
+            line = six.ensure_str(self.pipe.readline())  # blocking read
             if line == "":
                 break
             self.target_queue.put(line)
@@ -84,7 +87,7 @@ class Command(object):
         # Due to discrepencies on how child file descriptors and shell=True are
         # handled on Windows and Unix, we'll provide two implementations. See the Windows
         # implementation for more details.
-        if sys.platform == "win32":
+        if sgtk.util.is_windows():
             ret, stdout_lines, stderr_lines = Command._call_cmd_win32(args, env)
         else:
             ret, stdout_lines, stderr_lines = Command._call_cmd_unix(args, env)
@@ -156,7 +159,7 @@ class Command(object):
                 stderr_lines.append(stderr_q.get())
 
             ret = process.returncode
-        except StandardError:
+        except Exception:
             # Do not log the command line, it might contain sensitive information!
             logger.exception("Error running subprocess:")
 
@@ -225,16 +228,16 @@ class Command(object):
             process.wait()
 
             # Read back the output from the two.
-            with open(stdout_path) as stdout_file:
-                stdout_lines = [l for l in stdout_file]
+            with open(stdout_path, "rt") as stdout_file:
+                stdout_lines = [six.ensure_str(l) for l in stdout_file]
 
             with open(stderr_path) as stderr_file:
-                stderr_lines = [l for l in stderr_file]
+                stderr_lines = [six.ensure_str(l) for l in stderr_file]
 
             # Track the result code.
             ret = process.returncode
 
-        except StandardError:
+        except Exception:
             logger.exception("Error running subprocess:")
 
             ret = 1

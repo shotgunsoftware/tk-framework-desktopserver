@@ -8,18 +8,13 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import sgtk
-import sys
+from __future__ import absolute_import
 import os
 import struct
 
-try:
-    import urlparse
-except ImportError:
-    import urllib.parse as urlparse
-
-from sgtk.util import LocalFileStorageManager
+import sgtk
 import sgtk.util
+from tank_vendor.six.moves.urllib.parse import urlparse
 
 
 class DesktopserverFramework(sgtk.platform.Framework):
@@ -97,8 +92,9 @@ class DesktopserverFramework(sgtk.platform.Framework):
         # used to locate the settings instead of looking at a specific file.
         self._settings = self._tk_framework_desktopserver.Settings(
             default_certificate_folder=os.path.join(
-                LocalFileStorageManager.get_global_root(
-                    LocalFileStorageManager.CACHE, LocalFileStorageManager.CORE_V18
+                sgtk.util.LocalFileStorageManager.get_global_root(
+                    sgtk.util.LocalFileStorageManager.CACHE,
+                    sgtk.util.LocalFileStorageManager.CORE_V18,
                 ),
                 "desktop",
                 "config",
@@ -160,7 +156,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         self.logger.debug("Looking for an alias for host %s.", host)
         # parse the host and keep only the network location, no need for the rest.
-        parsed_host = urlparse.urlparse(host)
+        parsed_host = urlparse(host)
         # When the network location has a port number, the hostname and port
         # members are not None, in which case we want just the hostname and don't
         # care about the port number. If hostname is not set, then we can grab
@@ -173,7 +169,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         # return that pool.
         aliases = [
             [main_host] + alt_hosts
-            for main_host, alt_hosts in self._settings.host_aliases.iteritems()
+            for main_host, alt_hosts in self._settings.host_aliases.items()
         ]
 
         # If we don't have any aliases in the file.

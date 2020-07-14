@@ -9,7 +9,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sys
-from sgtk.util import json as sg_json
+import sgtk.util
 from sgtk.authentication import deserialize_user
 from tank_vendor import six
 import os
@@ -68,7 +68,7 @@ def app_upgrade_info(engine):
 
     config_root = engine.sgtk.pipeline_configuration.get_path()
 
-    if sys.platform == "win32":
+    if sgtk.util.is_windows():
         tank_cmd = os.path.join(config_root, "tank.bat")
     else:
         tank_cmd = os.path.join(config_root, "tank")
@@ -163,7 +163,7 @@ def core_info(engine):
             "In order to upgrade, execute the following command in a shell:"
         )
 
-        if sys.platform == "win32":
+        if sgtk_util.is_windows():
             tank_cmd = os.path.join(install_root, "tank.bat")
         else:
             tank_cmd = os.path.join(install_root, "tank")
@@ -378,7 +378,7 @@ if __name__ == "__main__":
     arg_data_file = sys.argv[1]
 
     with open(arg_data_file, "rt") as fh:
-        arg_data = sg_json.load(fh)
+        arg_data = sgtk.util.json.load(fh)
 
     # The RPC api has given us the path to its tk-core to prepend
     # to our sys.path prior to importing sgtk. We'll prepent the

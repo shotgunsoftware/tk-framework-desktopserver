@@ -27,7 +27,7 @@ import time
 import fnmatch
 
 import sgtk
-from sgtk.util import json as sg_json
+import sgtk.util
 from tank_vendor import six
 from sgtk import TankFileDoesNotExistError
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
@@ -463,7 +463,7 @@ class ShotgunAPI(object):
         if self._allow_legacy_workaround:
             legacy_config_data = dict()
 
-            for config_id, config_data in all_pc_data.iteritems():
+            for config_id, config_data in all_pc_data.items():
                 config = config_data["entity"]
 
                 if config["descriptor"].required_storages:
@@ -501,93 +501,101 @@ class ShotgunAPI(object):
                 )
                 did_legacy_lookup = True
 
+        # Pass 1: Calculate and store lookup hash on all pipeline configurations
+        for pc_id, pc_data in all_pc_data.items():
+
+            pc_data["lookup_hash"] = None
+            pipeline_config = pc_data["entity"]
+
+            # The hash that acts as the key we'll use to look up our cached
+            # data will be based on the entity type and the pipeline config's
+            # descriptor uri. We can get the descriptor from the toolkit
+            # manager and pass that through along with the entity type from SG
+            # to the core hook that computes the hash.
+            pc_descriptor = pipeline_config["descriptor"]
+
+            # We'll rebuild this pipeline_config dict to only include the keys
+            # that we know we want to pass back to the client. In the event that
+            # the interface to getting these config dicts changes in the future,
+            # it will help us keep from passing back uneeded data or, even worse,
+            # data that can't be serialized, which would cause an exception.
+            pipeline_config = dict(
+                id=pipeline_config["id"],
+                type=pipeline_config.get("type", "PipelineConfiguration"),
+                name=pipeline_config.get("name", "Primary"),
+            )
+            pc_data["entity"] = pipeline_config
+
+            # We start with an empty action set for this config. If we end up finding
+            # finding stuff for this entity type in this config, then the empty
+            # entry here will be replaced prior to replying to the client.
+            all_actions[pipeline_config["name"]] = dict(
+                actions=[], config=pipeline_config,
+            )
+
+            # Let's see if this is even an entity type that we need to worry
+            # about. If it isn't, we can just move on to the next config.
+            #
+            # Note: The entity type whitelist contains entity type names that
+            # have been lower cased.
+            supported_entity_type = data[
+                "entity_type"
+            ].lower() in self._get_entity_type_whitelist(
+                data.get("project_id"), pc_descriptor,
+            )
+
+            if not supported_entity_type and not did_legacy_lookup:
+                logger.debug(
+                    "Entity type %s is not supported by %r, no actions will be returned.",
+                    data["entity_type"],
+                    pc_descriptor,
+                )
+                continue
+
+            # In all cases except for Task entities, we'll already have a
+            # lookup hash computed. If we're dealing with a Task, though,
+            # it'll be a None and we'll need to compute it live. This is
+            # because the lookup hash depends on what the specific Task
+            # entity we're dealing with is linked to.
+            try:
+                lookup_hash = pc_data["lookup_hash"] or self._get_lookup_hash(
+                    pc_descriptor.get_uri(),
+                    project_entity,
+                    entity["type"],
+                    entity["id"],
+                )
+            except TankTaskNotLinkedError:
+                # If we're dealing with a Task entity, it needs to be linked
+                # to something. If it's not, then we have nothing to pass
+                # back to the client, so we should inform the user as to
+                # how to proceed.
+                logger.debug("Task entity %s is not linked to an entity.", entity)
+                self.host.reply(
+                    dict(
+                        err="Link this Task to an entity and refresh to get Toolkit actions!",
+                        retcode=constants.CACHING_ERROR,
+                        out="",
+                    ),
+                )
+                return
+
+            pc_data["lookup_hash"] = lookup_hash
+            pc_data["descriptor"] = pc_descriptor
+
+        # Pass 2: Read the cached values from the database and store them in memory
         with self._db_connect() as (connection, cursor):
-            for pc_id, pc_data in all_pc_data.iteritems():
-                pipeline_config = pc_data["entity"]
+            for pc_id, pc_data in all_pc_data.items():
 
-                # The hash that acts as the key we'll use to look up our cached
-                # data will be based on the entity type and the pipeline config's
-                # descriptor uri. We can get the descriptor from the toolkit
-                # manager and pass that through along with the entity type from SG
-                # to the core hook that computes the hash.
-                pc_descriptor = pipeline_config["descriptor"]
-
-                # We'll rebuild this pipeline_config dict to only include the keys
-                # that we know we want to pass back to the client. In the event that
-                # the interface to getting these config dicts changes in the future,
-                # it will help us keep from passing back uneeded data or, even worse,
-                # data that can't be serialized, which would cause an exception.
-                pipeline_config = dict(
-                    id=pipeline_config["id"],
-                    type=pipeline_config.get("type", "PipelineConfiguration"),
-                    name=pipeline_config.get("name", "Primary"),
-                )
-                all_pc_data[pc_id]["entity"] = pipeline_config
-
-                # We start with an empty action set for this config. If we end up finding
-                # finding stuff for this entity type in this config, then the empty
-                # entry here will be replaced prior to replying to the client.
-                all_actions[pipeline_config["name"]] = dict(
-                    actions=[], config=pipeline_config,
-                )
-
-                # Let's see if this is even an entity type that we need to worry
-                # about. If it isn't, we can just move on to the next config.
-                #
-                # Note: The entity type whitelist contains entity type names that
-                # have been lower cased.
-                supported_entity_type = data[
-                    "entity_type"
-                ].lower() in self._get_entity_type_whitelist(
-                    data.get("project_id"), pc_descriptor,
-                )
-
-                if not supported_entity_type and not did_legacy_lookup:
-                    logger.debug(
-                        "Entity type %s is not supported by %r, no actions will be returned.",
-                        data["entity_type"],
-                        pc_descriptor,
-                    )
-                    continue
-
-                # In all cases except for Task entities, we'll already have a
-                # lookup hash computed. If we're dealing with a Task, though,
-                # it'll be a None and we'll need to compute it live. This is
-                # because the lookup hash depends on what the specific Task
-                # entity we're dealing with is linked to.
-                try:
-                    lookup_hash = pc_data["lookup_hash"] or self._get_lookup_hash(
-                        pc_descriptor.get_uri(),
-                        project_entity,
-                        entity["type"],
-                        entity["id"],
-                    )
-                except TankTaskNotLinkedError:
-                    # If we're dealing with a Task entity, it needs to be linked
-                    # to something. If it's not, then we have nothing to pass
-                    # back to the client, so we should inform the user as to
-                    # how to proceed.
-                    logger.debug("Task entity %s is not linked to an entity.", entity)
-                    self.host.reply(
-                        dict(
-                            err="Link this Task to an entity and refresh to get Toolkit actions!",
-                            retcode=constants.CACHING_ERROR,
-                            out="",
-                        ),
-                    )
-                    return
-
-                pc_data["lookup_hash"] = lookup_hash
-                pc_data["descriptor"] = pc_descriptor
-                cached_data = []
+                lookup_hash = pc_data["lookup_hash"]
                 logger.debug("Querying: %s", lookup_hash)
 
+                pc_data["cached_data"] = []
                 try:
                     cursor.execute(
                         "SELECT commands, contents_hash FROM engine_commands WHERE lookup_hash=?",
                         (lookup_hash,),
                     )
-                    cached_data = list(cursor.fetchone() or [])
+                    pc_data["cached_data"] = list(cursor.fetchone() or [])
                 except sqlite3.OperationalError:
                     # This means the sqlite database hasn't been setup at all.
                     # In that case, we just continue on with cached_data set
@@ -597,73 +605,87 @@ class ShotgunAPI(object):
                     # is the same as if we ended up with a cache miss or an
                     # invalidated result due to a contents_hash mismatch.
                     logger.debug(
-                        "Cache query failed due to missing table. "
-                        "Triggering caching subprocess..."
+                        "Cache query failed for pipeline configuration id %s. Likely due to a missing table. "
+                        "Will Triggering caching subprocess..." % (pc_id,)
                     )
 
-                try:
-                    decoded_data = None
+        # Pass 3: Decode cached data or trigger the caching process
+        for pc_id, pc_data in all_pc_data.items():
+            try:
+                cached_data = pc_data["cached_data"]
+                lookup_hash = pc_data["lookup_hash"]
+                pipeline_config = pc_data["entity"]
+                decoded_data = None
+
+                if cached_data:
+                    # The value can either be bytes (python 3) or a buffer (python2)
+                    # ensure_str doesn't accept a buffer as input
                     try:
-                        decoded_data = sg_json.loads(str(cached_data[0]))
+                        string_data = six.ensure_str(cached_data[0])
+                    except TypeError:
+                        string_data = six.ensure_str(str(cached_data[0]))
+
+                    try:
+                        decoded_data = sgtk.util.json.loads(string_data)
                     except Exception:
                         # Couldn't decode the data. This happens when loading an old pickled cache.
                         # We've switch to JSON for the Python 3 port.
                         pass
 
-                    if decoded_data:
-                        # Cache hit.
-                        cached_contents_hash = cached_data[1]
+                if decoded_data:
+                    # Cache hit.
+                    cached_contents_hash = cached_data[1]
 
-                        # We check the validity of the cache asynchronously in this
-                        # situation. We want to go ahead and return the list of actions
-                        # that we have cached, but in the background check to see whether
-                        # the cache should be updated. This gives us the situation where
-                        # this one invokation of get_actions returns old data, but all
-                        # future requests will be correct until the next time the cache
-                        # must be invalidated.
-                        self._async_check_and_cache_actions(
-                            data, pc_data, cached_contents_hash,
-                        )
-
-                        logger.debug("Cached contents hash is %s", cached_contents_hash)
-                        logger.debug("Cache key was %s", lookup_hash)
-
-                        actions = self._process_commands(
-                            commands=decoded_data,
-                            project=project_entity,
-                            entities=entities,
-                        )
-
-                        logger.debug("Actions found in cache: %s", actions)
-
-                        all_actions[pipeline_config["name"]] = dict(
-                            actions=self._filter_by_project(
-                                actions, self._get_software_entities(), project_entity,
-                            ),
-                            config=pipeline_config,
-                        )
-                        logger.debug("Actions after project filtering: %s", actions)
-                    else:
-                        # Cache miss.
-                        logger.debug("Commands not found in cache, caching now...")
-                        # Caching is performed synchronously in this situation. We don't
-                        # have anything to give to the client until it's done, so we do
-                        # it in the main thread and wait for it to complete.
-                        self._cache_actions(data, pc_data)
-                        self._get_actions(data)
-                        return
-                except TankCachingSubprocessFailed as exc:
-                    logger.error(str(exc))
-                    raise
-                except TankCachingEngineBootstrapError:
-                    logger.error(
-                        "The Shotgun engine failed to initialize in the caching "
-                        "subprocess. This most likely corresponds to a configuration "
-                        "problem in the config %r as it relates to entity type %s."
-                        % (pc_descriptor, entity["type"])
+                    # We check the validity of the cache asynchronously in this
+                    # situation. We want to go ahead and return the list of actions
+                    # that we have cached, but in the background check to see whether
+                    # the cache should be updated. This gives us the situation where
+                    # this one invokation of get_actions returns old data, but all
+                    # future requests will be correct until the next time the cache
+                    # must be invalidated.
+                    self._async_check_and_cache_actions(
+                        data, pc_data, cached_contents_hash,
                     )
-                    logger.debug(traceback.format_exc())
-                    continue
+
+                    logger.debug("Cached contents hash is %s", cached_contents_hash)
+                    logger.debug("Cache key was %s", lookup_hash)
+
+                    actions = self._process_commands(
+                        commands=decoded_data,
+                        project=project_entity,
+                        entities=entities,
+                    )
+
+                    logger.debug("Actions found in cache: %s", actions)
+
+                    all_actions[pipeline_config["name"]] = dict(
+                        actions=self._filter_by_project(
+                            actions, self._get_software_entities(), project_entity,
+                        ),
+                        config=pipeline_config,
+                    )
+                    logger.debug("Actions after project filtering: %s", actions)
+                else:
+                    # Cache miss.
+                    logger.debug("Commands not found in cache, caching now...")
+                    # Caching is performed synchronously in this situation. We don't
+                    # have anything to give to the client until it's done, so we do
+                    # it in the main thread and wait for it to complete.
+                    self._cache_actions(data, pc_data)
+                    self._get_actions(data)
+                    return
+            except TankCachingSubprocessFailed as exc:
+                logger.error(str(exc))
+                raise
+            except TankCachingEngineBootstrapError:
+                logger.error(
+                    "The Shotgun engine failed to initialize in the caching "
+                    "subprocess. This most likely corresponds to a configuration "
+                    "problem in the config %r as it relates to entity type %s."
+                    % (pc_descriptor, entity["type"])
+                )
+                logger.debug(traceback.format_exc())
+                continue
 
         # Combine the config names processed by the v2 flow with those handled
         # by the legacy pathway.
@@ -858,7 +880,7 @@ class ShotgunAPI(object):
         logger.debug("Caching engine commands...")
         descriptor = config_data["descriptor"]
 
-        script = os.path.join(os.path.dirname(__file__), "scripts", "cache_commands.py")
+        script = os.path.join(os.path.dirname(__file__), "scripts", "get_commands.py")
 
         contents_hash = self._get_contents_hash(
             descriptor, self._get_site_state_data(),
@@ -891,9 +913,12 @@ class ShotgunAPI(object):
             entity=config_data["entity"],
         )
 
+        # Create a temp file for the script to write the command data into
+        actions_file = tempfile.mktemp()
         args_file = self._get_arguments_file(
             dict(
                 cache_file=self._cache_path,
+                output_file=actions_file,
                 data=data,
                 sys_path=self._compute_sys_path(),
                 base_configuration=constants.BASE_CONFIG_URI,
@@ -920,7 +945,7 @@ class ShotgunAPI(object):
             logger.debug("Command stdout: %s", stdout)
             logger.debug("Command stderr: %s", stderr)
         elif retcode == constants.ENGINE_INIT_ERROR_EXIT_CODE:
-            logger.debug("Caching subprocess reported a problem buring bootstrap.")
+            logger.debug("Caching subprocess reported a problem during bootstrap.")
             raise TankCachingEngineBootstrapError("%s\n\n%s" % (stdout, stderr))
         else:
             logger.error("Command failed: %s", args)
@@ -929,7 +954,68 @@ class ShotgunAPI(object):
             logger.error("Failed command retcode: %s", retcode)
             raise TankCachingSubprocessFailed("%s\n\n%s" % (stdout, stderr))
 
+        with open(actions_file, "rt") as f:
+            commands = json.load(f)
+
+        # Clean up the temp file
+        os.remove(actions_file)
+
+        self._write_commands_to_db(commands, config_data, contents_hash)
         logger.debug("Caching complete.")
+
+    def _write_commands_to_db(self, commands, config_data, contents_hash):
+        """
+        Writes the commands dictionary to the cache database
+
+        :param dict commands: Dictionary containing information about toolkit commands
+        :param dict config_data: Dictionary containing information about the pipeline configuration
+        :param str contents_hash: The hash to be stored in the database
+
+        :returns: List of entity software available for the given project.
+        """
+        with self._db_connect() as (connection, cursor):
+            self._engine.log_debug("Inserting commands into cache...")
+
+            # First, let's make sure that the database is actually setup with
+            # the table we're expecting. If it isn't, then we can do that here.
+            with contextlib.closing(connection.cursor()) as c:
+                # Get a list of tables in the current database.
+                ret = c.execute(
+                    "SELECT name FROM main.sqlite_master WHERE type='table';"
+                )
+                table_names = [x[0] for x in ret.fetchall()]
+
+                if not table_names:
+                    self._engine.log_debug("Creating schema in sqlite db.")
+
+                    # We have a brand new database. Create all tables and indices.
+                    cursor.executescript(
+                        """
+                        CREATE TABLE engine_commands (lookup_hash text, contents_hash text, commands blob);
+                    """
+                    )
+
+                    connection.commit()
+
+            commands_blob = sqlite3.Binary(six.ensure_binary(json.dumps(commands)))
+
+            # Since we're likely to be updating out-of-date cached data more
+            # often than we're going to be inserting new rows into the cache,
+            # we'll try an update first. If no rows were affected by the update,
+            # we move on to an insert.
+            cursor.execute(
+                "UPDATE engine_commands SET contents_hash=?, commands=? WHERE lookup_hash=?",
+                (contents_hash, commands_blob, config_data["lookup_hash"]),
+            )
+
+            if cursor.rowcount == 0:
+                self._engine.log_debug(
+                    "Update did not result in any rows altered, inserting..."
+                )
+                cursor.execute(
+                    "INSERT INTO engine_commands VALUES (?, ?, ?)",
+                    (config_data["lookup_hash"], contents_hash, commands_blob,),
+                )
 
     def _get_python_interpreter(self, descriptor):
         """
@@ -939,9 +1025,9 @@ class ShotgunAPI(object):
         try:
             path_to_python = descriptor.python_interpreter
         except TankFileDoesNotExistError:
-            if sys.platform == "darwin":
+            if sgtk.util.is_macos():
                 path_to_python = os.path.join(sys.prefix, "bin", "python")
-            elif sys.platform == "win32":
+            elif sgtk.util.is_windows():
                 path_to_python = os.path.join(sys.prefix, "python.exe")
             else:
                 path_to_python = os.path.join(sys.prefix, "bin", "python")
@@ -1137,7 +1223,7 @@ class ShotgunAPI(object):
         logger.debug("Contents data to be used in hash generation: %s", json_data)
 
         hash_data = hashlib.md5()
-        hash_data.update(json_data)
+        hash_data.update(six.ensure_binary(json_data))
         # Base64 encode the digest, will is a binary string
         # in Python 3. This ensures we can always encode it to a str.
         return six.ensure_str(base64.b64encode(hash_data.digest()))
@@ -1401,7 +1487,7 @@ class ShotgunAPI(object):
         )
 
         if self._global_debug:
-            message = cgi.escape(traceback.format_exc()).encode("utf8")
+            message = six.ensure_binary(cgi.escape(traceback.format_exc()))
 
         return message
 
@@ -1902,10 +1988,10 @@ class ShotgunAPI(object):
         # The config_data is structured as dict(name=(path, entity)), so
         # to extract just the paths, we get index 0 of each tuple stored
         # in the dict.
-        config_paths = [p[0] for n, p in config_data.iteritems()]
+        config_paths = [p[0] for n, p in config_data.iems()]
         project_actions = self._legacy_get_project_actions(config_paths, project_id)
 
-        for config_name, config_data in config_data.iteritems():
+        for config_name, config_data in config_data.items():
             config_path, config_entity = config_data
             commands = []
 
@@ -2014,7 +2100,7 @@ class ShotgunAPI(object):
                 line = re.sub(bold_match, "*", line)
                 sanitized.append(line)
 
-        return cgi.escape("\n".join(sanitized)).encode("utf8")
+        return six.ensure_binary(cgi.escape("\n".join(sanitized)))
 
     @sgtk.LogManager.log_timing
     def _process_commands(self, commands, project, entities):
