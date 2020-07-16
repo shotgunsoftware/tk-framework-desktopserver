@@ -564,6 +564,7 @@ class ShotgunAPI(object):
                     entity["type"],
                     entity["id"],
                 )
+                logger.debug("SG-16894: Calculated lookup hash: %s" % lookup_hash)
             except TankTaskNotLinkedError:
                 # If we're dealing with a Task entity, it needs to be linked
                 # to something. If it's not, then we have nothing to pass
@@ -1003,6 +1004,9 @@ class ShotgunAPI(object):
             # often than we're going to be inserting new rows into the cache,
             # we'll try an update first. If no rows were affected by the update,
             # we move on to an insert.
+            self._engine.log_debug(
+                "SG-16894: Lookup hash search: %s" % config_data["lookup_hash"]
+            )
             cursor.execute(
                 "UPDATE engine_commands SET contents_hash=?, commands=? WHERE lookup_hash=?",
                 (contents_hash, commands_blob, config_data["lookup_hash"]),
@@ -1011,6 +1015,9 @@ class ShotgunAPI(object):
             if cursor.rowcount == 0:
                 self._engine.log_debug(
                     "Update did not result in any rows altered, inserting..."
+                )
+                self._engine.log_debug(
+                    "SG-16894: Lookup hash not found %s" % config_data["lookup_hash"]
                 )
                 cursor.execute(
                     "INSERT INTO engine_commands VALUES (?, ?, ?)",
