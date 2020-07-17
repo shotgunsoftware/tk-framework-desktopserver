@@ -504,6 +504,7 @@ class ShotgunAPI(object):
         # Pass 1: Calculate and store lookup hash on all pipeline configurations
         for pc_id, pc_data in all_pc_data.items():
 
+            pc_data["lookup_hash"] = None
             pipeline_config = pc_data["entity"]
 
             # The hash that acts as the key we'll use to look up our cached
