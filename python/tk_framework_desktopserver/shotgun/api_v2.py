@@ -501,10 +501,13 @@ class ShotgunAPI(object):
                 )
                 did_legacy_lookup = True
 
+        # We will process the configs in 3 passes. The first pass decides whether a config should be process
+        # or not. We need to keep a list of the ids that the later passes will need to skip
+        config_ids_to_skip = set()
+
         # Pass 1: Calculate and store lookup hash on all pipeline configurations
         for pc_id, pc_data in all_pc_data.items():
 
-            pc_data["lookup_hash"] = None
             pipeline_config = pc_data["entity"]
 
             # The hash that acts as the key we'll use to look up our cached
@@ -550,6 +553,7 @@ class ShotgunAPI(object):
                     data["entity_type"],
                     pc_descriptor,
                 )
+                config_ids_to_skip.add(pc_id)
                 continue
 
             # In all cases except for Task entities, we'll already have a
@@ -558,7 +562,7 @@ class ShotgunAPI(object):
             # because the lookup hash depends on what the specific Task
             # entity we're dealing with is linked to.
             try:
-                lookup_hash = pc_data["lookup_hash"] or self._get_lookup_hash(
+                lookup_hash = pc_data.get("lookup_hash") or self._get_lookup_hash(
                     pc_descriptor.get_uri(),
                     project_entity,
                     entity["type"],
@@ -586,7 +590,11 @@ class ShotgunAPI(object):
         with self._db_connect() as (connection, cursor):
             for pc_id, pc_data in all_pc_data.items():
 
-                lookup_hash = pc_data["lookup_hash"]
+                # If the config doesn't support the current entity_type we don't need to cache it
+                if pc_id in config_ids_to_skip:
+                    continue
+
+                lookup_hash = pc_data.get("lookup_hash")
                 logger.debug("Querying: %s", lookup_hash)
 
                 pc_data["cached_data"] = []
@@ -611,9 +619,14 @@ class ShotgunAPI(object):
 
         # Pass 3: Decode cached data or trigger the caching process
         for pc_id, pc_data in all_pc_data.items():
+
+            # If the config doesn't support the current entity_type we don't need to cache it
+            if pc_id in config_ids_to_skip:
+                continue
+
             try:
                 cached_data = pc_data["cached_data"]
-                lookup_hash = pc_data["lookup_hash"]
+                lookup_hash = pc_data.get("lookup_hash")
                 pipeline_config = pc_data["entity"]
                 decoded_data = None
 
