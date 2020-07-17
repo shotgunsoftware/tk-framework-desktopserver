@@ -557,7 +557,7 @@ class ShotgunAPI(object):
             # because the lookup hash depends on what the specific Task
             # entity we're dealing with is linked to.
             try:
-                lookup_hash = pc_data["lookup_hash"] or self._get_lookup_hash(
+                lookup_hash = pc_data.get("lookup_hash") or self._get_lookup_hash(
                     pc_descriptor.get_uri(),
                     project_entity,
                     entity["type"],
