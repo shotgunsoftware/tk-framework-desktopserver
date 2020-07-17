@@ -1397,13 +1397,6 @@ class ShotgunAPI(object):
         :returns: A set of lowercased string entity types.
         :rtype: set
         """
-
-        import pydevd_pycharm
-
-        pydevd_pycharm.settrace(
-            "localhost", port=1234, stdoutToServer=True, stderrToServer=True
-        )
-
         if project_id is None:
             logger.debug("Project id is None, looking up site schema.")
             project_entity = None
