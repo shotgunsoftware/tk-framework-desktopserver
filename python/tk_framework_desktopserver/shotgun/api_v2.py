@@ -504,7 +504,6 @@ class ShotgunAPI(object):
         # Pass 1: Calculate and store lookup hash on all pipeline configurations
         for pc_id, pc_data in all_pc_data.items():
 
-            pc_data["lookup_hash"] = None
             pipeline_config = pc_data["entity"]
 
             # The hash that acts as the key we'll use to look up our cached
@@ -586,13 +585,13 @@ class ShotgunAPI(object):
         with self._db_connect() as (connection, cursor):
             for pc_id, pc_data in all_pc_data.items():
 
-                lookup_hash = pc_data["lookup_hash"]
+                lookup_hash = pc_data.get("lookup_hash")
                 logger.debug("Querying: %s", lookup_hash)
 
                 pc_data["cached_data"] = []
 
                 # If the config doesn't support the current entity_type we don't need to cache it
-                if not lookup_hash:
+                if lookup_hash is None:
                     continue
 
                 try:
@@ -618,12 +617,12 @@ class ShotgunAPI(object):
         for pc_id, pc_data in all_pc_data.items():
             try:
                 cached_data = pc_data["cached_data"]
-                lookup_hash = pc_data["lookup_hash"]
+                lookup_hash = pc_data.get("lookup_hash")
                 pipeline_config = pc_data["entity"]
                 decoded_data = None
 
                 # If the config doesn't support the current entity_type we don't need to cache it
-                if not lookup_hash:
+                if lookup_hash is None:
                     continue
 
                 if cached_data:
