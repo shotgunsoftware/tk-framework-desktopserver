@@ -591,7 +591,7 @@ class ShotgunAPI(object):
 
                 pc_data["cached_data"] = []
 
-                # If the entity is not supported we don't need to cache it
+                # If the config doesn't support the current entity_type we don't need to cache it
                 if not lookup_hash:
                     continue
 
@@ -622,7 +622,7 @@ class ShotgunAPI(object):
                 pipeline_config = pc_data["entity"]
                 decoded_data = None
 
-                # If the entity is not supported we don't need to cache it
+                # If the config doesn't support the current entity_type we don't need to cache it
                 if not lookup_hash:
                     continue
 
@@ -1397,6 +1397,13 @@ class ShotgunAPI(object):
         :returns: A set of lowercased string entity types.
         :rtype: set
         """
+
+        import pydevd_pycharm
+
+        pydevd_pycharm.settrace(
+            "localhost", port=1234, stdoutToServer=True, stderrToServer=True
+        )
+
         if project_id is None:
             logger.debug("Project id is None, looking up site schema.")
             project_entity = None
