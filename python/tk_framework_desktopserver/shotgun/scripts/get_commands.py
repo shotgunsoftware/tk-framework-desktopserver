@@ -10,15 +10,9 @@
 
 from __future__ import print_function
 import sys
-from tank_vendor import six
 import json
-import sqlite3
-import contextlib
 import traceback
 import copy
-
-from sgtk.authentication import deserialize_user
-from sgtk.util import json as sg_json
 
 CORE_INFO_COMMAND = "__core_info"
 UPGRADE_CHECK_COMMAND = "__upgrade_check"
@@ -223,7 +217,7 @@ if __name__ == "__main__":
     arg_data_file = sys.argv[1]
 
     with open(arg_data_file, "rt") as fh:
-        arg_data = sg_json.load(fh)
+        arg_data = json.load(fh)
 
     # The RPC api has given us the path to its tk-core to prepend
     # to our sys.path prior to importing sgtk. We'll prepent the
@@ -235,6 +229,9 @@ if __name__ == "__main__":
     finally:
         sys.path = original_sys_path
 
+    # Now that we have sgtk.util loaded, use it to make sure we have only utf-8 data in the args
+    arg_data = sgtk.util.json.loads(json.dumps(arg_data))
+
     cache(
         arg_data["cache_file"],
         arg_data["output_file"],
@@ -244,7 +241,7 @@ if __name__ == "__main__":
         arg_data["config_data"],
         arg_data["config_is_mutable"],
         arg_data["bundle_cache_fallback_paths"],
-        deserialize_user(arg_data["user"]),
+        sgtk.authentication.deserialize_user(arg_data["user"]),
     )
 
     sys.exit(0)

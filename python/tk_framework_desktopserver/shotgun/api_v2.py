@@ -38,24 +38,6 @@ from .. import command
 logger = sgtk.platform.get_logger(__name__)
 
 
-@contextlib.contextmanager
-def tk_in_python_path():
-    """
-    Context manager that ensures that Toolkit is in the PYTHONPATH.
-    This is necessary so six and sgtk.util.json can be used early on
-    when launching a subprocess.
-    The PYTHONPATH is restored to it's previous value after the call.
-    :yields: None.
-    """
-    backup = os.environ.get("PYTHONPATH")
-    try:
-        sgtk.util.prepend_path_to_env_var("PYTHONPATH", sgtk.get_sgtk_module_path())
-        yield
-    finally:
-        if backup:
-            os.environ["PYTHONPATH"] = backup
-
-
 ###########################################################################
 # Classes
 
@@ -950,8 +932,7 @@ class ShotgunAPI(object):
         # we protect ourselves from spawning concurrent caching subprocesses
         # that might end up stepping on each other.
         with self._LOCK:
-            with tk_in_python_path():
-                retcode, stdout, stderr = command.Command.call_cmd(args)
+            retcode, stdout, stderr = command.Command.call_cmd(args)
 
         if retcode == 0:
             logger.debug("Command stdout: %s", stdout)
