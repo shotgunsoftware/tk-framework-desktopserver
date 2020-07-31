@@ -302,7 +302,6 @@ class ShotgunAPI(object):
         if sgtk.get_authenticated_user():
             sgtk.get_authenticated_user().refresh_credentials()
 
-        # with tk_in_python_path():
         retcode, stdout, stderr = command.Command.call_cmd(args)
 
         # We need to filter stdout before we send it to the client.
