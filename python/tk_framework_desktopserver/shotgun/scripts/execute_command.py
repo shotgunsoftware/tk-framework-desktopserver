@@ -389,8 +389,6 @@ if __name__ == "__main__":
     try:
         sys.path = [arg_data["sys_path"]] + sys.path
         import sgtk
-        import sgtk.util
-        from sgtk.authentication import deserialize_user
         from tank_vendor import six
     finally:
         sys.path = original_sys_path
@@ -408,7 +406,7 @@ if __name__ == "__main__":
         arg_data["base_configuration"],
         arg_data["engine_name"],
         arg_data["bundle_cache_fallback_paths"],
-        deserialize_user(arg_data["user"]),
+        sgtk.authentication.deserialize_user(arg_data["user"]),
     )
 
     sys.exit(0)
