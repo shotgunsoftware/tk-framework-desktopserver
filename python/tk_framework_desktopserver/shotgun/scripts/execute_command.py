@@ -9,10 +9,8 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import sys
-import sgtk.util
-from sgtk.authentication import deserialize_user
-from tank_vendor import six
 import os
+import json
 import logging
 import base64
 import functools
@@ -382,7 +380,7 @@ if __name__ == "__main__":
     arg_data_file = sys.argv[1]
 
     with open(arg_data_file, "rt") as fh:
-        arg_data = sgtk.util.json.load(fh)
+        arg_data = json.load(fh)
 
     # The RPC api has given us the path to its tk-core to prepend
     # to our sys.path prior to importing sgtk. We'll prepent the
@@ -391,8 +389,14 @@ if __name__ == "__main__":
     try:
         sys.path = [arg_data["sys_path"]] + sys.path
         import sgtk
+        import sgtk.util
+        from sgtk.authentication import deserialize_user
+        from tank_vendor import six
     finally:
         sys.path = original_sys_path
+
+    # Now that we have sgtk.util loaded, use it to make sure we have only utf-8 data in the args
+    arg_data = sgtk.util.json.loads(json.dumps(arg_data))
 
     LOGGING_PREFIX = arg_data["logging_prefix"]
 
