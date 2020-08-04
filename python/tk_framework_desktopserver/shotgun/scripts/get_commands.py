@@ -220,7 +220,7 @@ if __name__ == "__main__":
         arg_data = json.load(fh)
 
     # The RPC api has given us the path to its tk-core to prepend
-    # to our sys.path prior to importing sgtk. We'll prepent the
+    # to our sys.path prior to importing sgtk. We'll prepend the
     # the path, import sgtk, and then clean up after ourselves.
     original_sys_path = copy.copy(sys.path)
     try:
