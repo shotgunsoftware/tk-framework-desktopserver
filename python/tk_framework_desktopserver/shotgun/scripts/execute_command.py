@@ -394,7 +394,7 @@ if __name__ == "__main__":
         sys.path = original_sys_path
 
     # Now that we have sgtk.util loaded, use it to make sure we have only utf-8 data in the args
-    arg_data = sgtk.util.json.loads(json.dumps(arg_data))
+    arg_data = sgtk.util.unicode.ensure_contains_str(arg_data)
 
     LOGGING_PREFIX = arg_data["logging_prefix"]
 
