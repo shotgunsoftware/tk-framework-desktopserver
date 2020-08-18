@@ -10,10 +10,11 @@
 
 import os
 
+import pytest
+import sgtk
+
 from tank_test.tank_test_base import setUpModule, interactive
 from base_test import TestDesktopServerFramework
-
-import pytest
 
 skip_on_ci = pytest.mark.skipif("CI" in os.environ, reason="These tests require manual intervention to execute.")
 
@@ -24,6 +25,14 @@ class TestCertificates(TestDesktopServerFramework):
         """
         Ensure certificates registration and creation work.
         """
+
+        from sgtk.platform.qt import QtGui
+
+        if QtGui.QApplication.instance() is None:
+            self.app = QtGui.QApplication([])
+
+        QtGui.QMessageBox.warning(None, "", "You will be prompted to accept updates to the keychain during this test.")
+
         # Get the certificate handle. We pass in the current test's temporary folder
         # for the location of the cert, which means they do not exist at the moment.
         handler = self.framework_module.certificates.get_certificate_handler(self.tank_temp)
