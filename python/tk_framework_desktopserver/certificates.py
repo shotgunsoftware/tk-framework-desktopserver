@@ -109,9 +109,9 @@ class _CertificateHandler(object):
         # Chrome deprecated CN matching
         # https://textslashplain.com/2017/03/10/chrome-deprecates-subject-cn-matching/
         # This fixes the issue: http://stackoverflow.com/a/37440167/1074536
-        san_list = ["DNS:localhost"]
+        san_list = [b"DNS:localhost"]
         cert.add_extensions(
-            [crypto.X509Extension("subjectAltName", False, ", ".join(san_list))]
+            [crypto.X509Extension(b"subjectAltName", False, b", ".join(san_list))]
         )
         cert.get_subject().C = "US"
         cert.get_subject().ST = "California"
@@ -199,7 +199,7 @@ class _CertificateHandler(object):
         # The 'security' tool on OSX 10.7 puts everything in upper case, so lower case everything
         # for testing.
         return (
-            "shotgun"
+            b"shotgun"
             in self._check_call(
                 "validating if the certificate was installed",
                 self._get_is_registered_cmd(),
@@ -234,7 +234,7 @@ class _CertificateHandler(object):
         """
         old_umask = os.umask(0o077)
         try:
-            with open(path, "wt") as f:
+            with open(path, "wb") as f:
                 f.write(content)
         finally:
             os.umask(old_umask)
