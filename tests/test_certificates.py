@@ -34,24 +34,23 @@ class TestCertificates(TestDesktopServerFramework):
         if handler.is_registered():
             handler.unregister()
 
-        try:
-            # Make sure the certificates are nowhere on disk. That's expected
-            # as we're working from tank_temp.
-            assert handler.exists() is False
-            # No cert should be registered with the OS now.
-            assert handler.is_registered() is False
-            # Let's create the certs and make sure they are now on disk
-            handler.create()
-            assert handler.exists()
-            # However, they should not be registered with the OS at the moment
-            assert handler.is_registered() is False
-            # Now register them
-            handler.register()
-            # and they should be registered.
-            assert handler.is_registered()
-        finally:
-            # Let's unregister them when the test ends, as the person
-            # running the test likely doesn't need them. Most users
-            # use shotgunlocalhost.com
-            handler.unregister()
-
+        # Make sure the certificates are nowhere on disk. That's expected
+        # as we're working from tank_temp.
+        assert handler.exists() is False
+        # No cert should be registered with the OS now.
+        assert handler.is_registered() is False
+        # Let's create the certs and make sure they are now on disk
+        handler.create()
+        assert handler.exists()
+        # However, they should not be registered with the OS at the moment
+        assert handler.is_registered() is False
+        # Now register them
+        handler.register()
+        # and they should be registered.
+        assert handler.is_registered()
+        # Now we unregister with the OS.
+        handler.unregister()
+        # It should still exist on disk...
+        assert handler.exists()
+        # ...but not be registered with the OS.
+        assert handler.is_registered() is False
