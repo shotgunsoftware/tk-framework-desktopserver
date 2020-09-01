@@ -46,13 +46,6 @@ class TestDesktopServerFramework(TankTestBase):
         # now make a context
         context = self.tk.context_from_entity(self.project["type"], self.project["id"])
 
-        patched = patch(
-            "sgtk.platform.Engine._define_qt_base",
-            return_value={"qt_core": Mock(), "qt_gui": Mock()},
-        )
-        patched.start()
-        self.addCleanup(patched.stop)
-
         # and start the engine
         self.engine = sgtk.platform.start_engine("test_engine", self.tk, context)
 
