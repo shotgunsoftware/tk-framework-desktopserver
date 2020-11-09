@@ -9,7 +9,7 @@ service_identity==18.1.0
 # modules and rebuild the binaries
 attrs==19.3.0
 cffi==1.14.0
-cryptography==2.9.2
+cryptography==3.2
 hyperlink==19.0.0
 idna==2.9
 six==1.14.0
