@@ -40,8 +40,8 @@ jobs:
         env:
           CI: 1  # Used to skip certain tests on Azure
           SHOTGUN_HOST: $(sg.ci.host)
-          SHOTGUN_SCRIPT_NAME: $(shotgun_script_name)
-          SHOTGUN_SCRIPT_KEY: $(shotgun_script_key)
+          SHOTGUN_SCRIPT_NAME: $(sg.ci.script.name)
+          SHOTGUN_SCRIPT_KEY: $(sg.ci.script.key)
           TK_TOOLCHAIN_HOST: $(sg.ci.host)
           TK_TOOLCHAIN_USER_LOGIN: $(sg.ci.human.login)
           TK_TOOLCHAIN_USER_PASSWORD: $(sg.ci.human.password)
