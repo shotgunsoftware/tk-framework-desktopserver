@@ -1400,7 +1400,7 @@ class ShotgunAPI(object):
             # environment. Those files contain entity type names that are lower cased,
             # so it's easiest just to do everything that way.
             type_whitelist = set(
-                [t.lower() for t in constants.BASE_ENTITY_TYPE_WHITELIST]
+                [t.lower() for t in constants.BASE_ENTITY_TYPE_ALLOW_LIST]
             )
 
             # This will only ever happen once per unique connection. That means

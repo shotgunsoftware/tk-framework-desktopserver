@@ -42,9 +42,9 @@ PUBLISHED_FILE_ENTITY = "PublishedFile"
 # Once combined with the PublishedFile's entity link types, this
 # forms the list of entity types that we provide action menu items
 # for. Any entity type requesting action menu items that is not in
-# the whitelist is informed that none will be provided.
-BASE_ENTITY_TYPE_WHITELIST = set(
-    ["Project", PUBLISHED_FILE_ENTITY, "Sequence", "Task", "Version",]
+# the allow list is informed that none will be provided.
+BASE_ENTITY_TYPE_ALLOW_LIST = set(
+    ["Project", PUBLISHED_FILE_ENTITY, "Sequence", "Task", "Version", "Playlist"]
 )
 
 # The execute_command.py script creates a custom log handler that
