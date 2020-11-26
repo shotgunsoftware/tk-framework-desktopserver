@@ -264,13 +264,13 @@ class DesktopserverFramework(sgtk.platform.Framework):
         if not certs["sg_desktop_cert"]:
             self.logger.error(
                 "shotgunlocalhost.com public key is not set in Shotgun. "
-                "Please contact support@shotgunsoftware.com"
+                "Please contact support at {}".format(sgtk.support_url)
             )
 
         if not certs["sg_desktop_key"]:
             self.logger.error(
                 "shotgunlocalhost.com private key is not set in Shotgun. "
-                "Please contact support@shotgunsoftware.com"
+                "Please contact support at {}".format(sgtk.support_url)
             )
 
         # When the shotgun website provides the certificate chain, we'll concatenate
