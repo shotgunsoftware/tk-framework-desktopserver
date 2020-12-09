@@ -18,6 +18,7 @@ CORE_INFO_COMMAND = "__core_info"
 UPGRADE_CHECK_COMMAND = "__upgrade_check"
 LOGGER_NAME = "wss2.cache_commands"
 ENGINE_INIT_ERROR_EXIT_CODE = 77
+UNRESOLVED_ENV_ERROR_EXIT_CORE = 78
 
 
 def bootstrap(
@@ -110,12 +111,26 @@ def cache(
             bundle_cache_fallback_paths,
             user,
         )
-    except Exception:
+    except Exception as e:
+        exit_code = ENGINE_INIT_ERROR_EXIT_CODE
+
+        # Store the original exception information so we don't report any possible exceptions from below
+        exc_info = sys.exc_info()
+
+        # Try to use a more specific exit code if possible
+        try:
+            import tank
+
+            if isinstance(e, tank.platform.TankUnresolvedEnvironmentError):
+                exit_code = UNRESOLVED_ENV_ERROR_EXIT_CORE
+        except Exception:
+            pass
+
         # We need to give the server a way to know that this failed due
         # to an engine initialization issue. That will allow it to skip
         # this config gracefully and log appropriately.
-        print(traceback.format_exc())
-        sys.exit(ENGINE_INIT_ERROR_EXIT_CODE)
+        print("".join(traceback.format_exception(*exc_info)))
+        sys.exit(exit_code)
 
     # Note that from here on out, we have to use the legacy log_* methods
     # that the engine provides. This is because we're now operating in the

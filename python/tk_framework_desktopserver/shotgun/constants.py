@@ -22,6 +22,7 @@ COMMAND_FAILED = 1
 
 # Subprocess return codes.
 ENGINE_INIT_ERROR_EXIT_CODE = 77
+UNRESOLVED_ENV_ERROR_EXIT_CORE = 78
 
 # Pipeline configurations.
 OVERRIDE_CONFIG_PATH = os.environ.get("TK_BOOTSTRAP_CONFIG_OVERRIDE")

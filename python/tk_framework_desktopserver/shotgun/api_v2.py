@@ -671,6 +671,9 @@ class ShotgunAPI(object):
             except TankCachingSubprocessFailed as exc:
                 logger.error(str(exc))
                 raise
+            except TankCachingUnresolvedEnvError as exc:
+                # logger.debug(traceback.format_exc())
+                continue
             except TankCachingEngineBootstrapError:
                 logger.error(
                     "The Shotgun engine failed to initialize in the caching "
@@ -937,6 +940,18 @@ class ShotgunAPI(object):
         if retcode == 0:
             logger.debug("Command stdout: %s", stdout)
             logger.debug("Command stderr: %s", stderr)
+        elif retcode == constants.UNRESOLVED_ENV_ERROR_EXIT_CORE:
+            import sys
+
+            sys.path.append("/Users/shokrge/.local/lib/python2.7/site-packages")
+            import pydevd_pycharm
+
+            pydevd_pycharm.settrace(
+                "localhost", port=1234, stdoutToServer=True, stderrToServer=True
+            )
+
+            logger.debug("Caching process was not able to resolve an environment.")
+            raise TankCachingUnresolvedEnvError("%s\n\n%s" % (stdout, stderr))
         elif retcode == constants.ENGINE_INIT_ERROR_EXIT_CODE:
             logger.debug("Caching subprocess reported a problem during bootstrap.")
             raise TankCachingEngineBootstrapError("%s\n\n%s" % (stdout, stderr))
@@ -1475,8 +1490,8 @@ class ShotgunAPI(object):
         """
         message = (
             "An unhandled exception has occurred. To see the full error, "
-            "refer to the console in Shotgun Desktop, or contact %s for "
-            "additional help with this issue." % sgtk.constants.SUPPORT_EMAIL
+            "refer to the console in Shotgun Desktop, or contact us via %s for "
+            "additional help with this issue." % sgtk.support_url
         )
 
         if self._global_debug:
@@ -2167,6 +2182,15 @@ class TankCachingSubprocessFailed(sgtk.TankError):
 
 
 class TankCachingEngineBootstrapError(sgtk.TankError):
+    """
+    Raised when the caching subprocess reports that the engine failed to initialize
+    during bootstrap.
+    """
+
+    pass
+
+
+class TankCachingUnresolvedEnvError(sgtk.TankError):
     """
     Raised when the caching subprocess reports that the engine failed to initialize
     during bootstrap.
