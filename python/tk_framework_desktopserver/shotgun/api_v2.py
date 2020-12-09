@@ -1475,8 +1475,8 @@ class ShotgunAPI(object):
         """
         message = (
             "An unhandled exception has occurred. To see the full error, "
-            "refer to the console in Shotgun Desktop, or contact %s for "
-            "additional help with this issue." % sgtk.constants.SUPPORT_EMAIL
+            "refer to the console in Shotgun Desktop, or contact us via %s for "
+            "additional help with this issue." % sgtk.support_url
         )
 
         if self._global_debug:
