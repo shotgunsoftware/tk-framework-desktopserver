@@ -672,16 +672,16 @@ class ShotgunAPI(object):
                 logger.error(str(exc))
                 raise
             except TankCachingUnresolvedEnvError as exc:
-                # logger.debug(traceback.format_exc())
+                logger.warning(exc)
                 continue
-            except TankCachingEngineBootstrapError:
+            except TankCachingEngineBootstrapError as exc:
                 logger.error(
                     "The Shotgun engine failed to initialize in the caching "
                     "subprocess. This most likely corresponds to a configuration "
                     "problem in the config %r as it relates to entity type %s."
                     % (pc_descriptor, entity["type"])
                 )
-                logger.debug(traceback.format_exc())
+                logger.debug(exc)
                 continue
 
         # Combine the config names processed by the v2 flow with those handled
@@ -941,17 +941,16 @@ class ShotgunAPI(object):
             logger.debug("Command stdout: %s", stdout)
             logger.debug("Command stderr: %s", stderr)
         elif retcode == constants.UNRESOLVED_ENV_ERROR_EXIT_CORE:
-            import sys
-
-            sys.path.append("/Users/shokrge/.local/lib/python2.7/site-packages")
-            import pydevd_pycharm
-
-            pydevd_pycharm.settrace(
-                "localhost", port=1234, stdoutToServer=True, stderrToServer=True
-            )
-
             logger.debug("Caching process was not able to resolve an environment.")
-            raise TankCachingUnresolvedEnvError("%s\n\n%s" % (stdout, stderr))
+            msg = (
+                "Could not resolve an environment for '{entity_type}' entity in pipeline configuration "
+                "'{config_name}' with id {config_id}.".format(
+                    entity_type=data["entity_type"],
+                    config_name=config_data["entity"]["name"],
+                    config_id=config_data["entity"]["id"],
+                )
+            )
+            raise TankCachingUnresolvedEnvError(msg)
         elif retcode == constants.ENGINE_INIT_ERROR_EXIT_CODE:
             logger.debug("Caching subprocess reported a problem during bootstrap.")
             raise TankCachingEngineBootstrapError("%s\n\n%s" % (stdout, stderr))
