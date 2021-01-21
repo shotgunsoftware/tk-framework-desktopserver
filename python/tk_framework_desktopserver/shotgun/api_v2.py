@@ -626,7 +626,7 @@ class ShotgunAPI(object):
                         # We've switch to JSON for the Python 3 port.
                         pass
 
-                if decoded_data:
+                if decoded_data is not None:
                     # Cache hit.
                     cached_contents_hash = cached_data[1]
 
