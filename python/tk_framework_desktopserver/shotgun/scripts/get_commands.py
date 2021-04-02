@@ -119,9 +119,9 @@ def cache(
 
         # Try to use a more specific exit code if possible
         try:
-            import tank
+            import sgtk
 
-            if isinstance(e, tank.platform.TankUnresolvedEnvironmentError):
+            if isinstance(e, sgtk.platform.TankUnresolvedEnvironmentError):
                 exit_code = UNRESOLVED_ENV_ERROR_EXIT_CORE
         except Exception:
             pass
