@@ -10,7 +10,7 @@
 
 # Metadata defining the behavior and requirements for this framework
 
-# expected fields in the configuration file for this engine
+# Expected fields in the configuration file for this engine
 configuration:
     browser_integration_hook:
         type: hook

@@ -671,14 +671,17 @@ class ShotgunAPI(object):
             except TankCachingSubprocessFailed as exc:
                 logger.error(str(exc))
                 raise
-            except TankCachingEngineBootstrapError:
+            except TankCachingUnresolvedEnvError as exc:
+                logger.warning(exc)
+                continue
+            except TankCachingEngineBootstrapError as exc:
                 logger.error(
                     "The Shotgun engine failed to initialize in the caching "
                     "subprocess. This most likely corresponds to a configuration "
                     "problem in the config %r as it relates to entity type %s."
                     % (pc_descriptor, entity["type"])
                 )
-                logger.debug(traceback.format_exc())
+                logger.debug(exc)
                 continue
 
         # Combine the config names processed by the v2 flow with those handled
@@ -937,6 +940,17 @@ class ShotgunAPI(object):
         if retcode == 0:
             logger.debug("Command stdout: %s", stdout)
             logger.debug("Command stderr: %s", stderr)
+        elif retcode == constants.UNRESOLVED_ENV_ERROR_EXIT_CORE:
+            logger.debug("Caching process was not able to resolve an environment.")
+            msg = (
+                "Could not resolve an environment for '{entity_type}' entity in pipeline configuration "
+                "'{config_name}' with id {config_id}.".format(
+                    entity_type=data["entity_type"],
+                    config_name=config_data["entity"]["name"],
+                    config_id=config_data["entity"]["id"],
+                )
+            )
+            raise TankCachingUnresolvedEnvError(msg)
         elif retcode == constants.ENGINE_INIT_ERROR_EXIT_CODE:
             logger.debug("Caching subprocess reported a problem during bootstrap.")
             raise TankCachingEngineBootstrapError("%s\n\n%s" % (stdout, stderr))
@@ -1400,7 +1414,7 @@ class ShotgunAPI(object):
             # environment. Those files contain entity type names that are lower cased,
             # so it's easiest just to do everything that way.
             type_whitelist = set(
-                [t.lower() for t in constants.BASE_ENTITY_TYPE_WHITELIST]
+                [t.lower() for t in constants.BASE_ENTITY_TYPE_ALLOW_LIST]
             )
 
             # This will only ever happen once per unique connection. That means
@@ -2167,6 +2181,15 @@ class TankCachingSubprocessFailed(sgtk.TankError):
 
 
 class TankCachingEngineBootstrapError(sgtk.TankError):
+    """
+    Raised when the caching subprocess reports that the engine failed to initialize
+    during bootstrap.
+    """
+
+    pass
+
+
+class TankCachingUnresolvedEnvError(sgtk.TankError):
     """
     Raised when the caching subprocess reports that the engine failed to initialize
     during bootstrap.
