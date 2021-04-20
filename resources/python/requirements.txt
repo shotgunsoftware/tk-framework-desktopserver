@@ -1,6 +1,6 @@
 Twisted==20.3.0
 certifi==2020.06.20
-autobahn==19.11.2
+autobahn==20.12.3
 pyOpenSSL==19.0.0
 service_identity==18.1.0
 
