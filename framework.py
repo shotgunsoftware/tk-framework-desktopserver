@@ -244,7 +244,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         Retrieves certificates from Shotgun.
         """
-        self.logger.debug("Retrieving certificates from Shotgun")
+        self.logger.debug("Retrieving certificates from ShotGrid")
         certs = self.shotgun._call_rpc("sg_desktop_certificates", {})
         sgtk.util.filesystem.ensure_folder_exists(
             self._get_shotgunlocalhost_keys_folder()
@@ -255,7 +255,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         # are running Shotgun locally.
         if not certs["sg_desktop_ca"]:
             self.logger.debug(
-                "shotgunlocalhost.com certificate authority is not set in Shotgun. "
+                "shotgunlocalhost.com certificate authority is not set in ShotGrid. "
             )
         else:
             self._uses_intermediate_certificate_chain = True
@@ -263,13 +263,13 @@ class DesktopserverFramework(sgtk.platform.Framework):
         # These two however, are really bad and should raise an error if missing.
         if not certs["sg_desktop_cert"]:
             self.logger.error(
-                "shotgunlocalhost.com public key is not set in Shotgun. "
+                "shotgunlocalhost.com public key is not set in ShotGrid. "
                 "Please contact support at {}".format(sgtk.support_url)
             )
 
         if not certs["sg_desktop_key"]:
             self.logger.error(
-                "shotgunlocalhost.com private key is not set in Shotgun. "
+                "shotgunlocalhost.com private key is not set in ShotGrid. "
                 "Please contact support at {}".format(sgtk.support_url)
             )
 
@@ -344,7 +344,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         :returns: String containing an error message formatted
         """
         return (
-            "The Shotgun Desktop needs to update the security certificate list from your %s before "
+            "The ShotGrid Desktop needs to update the security certificate list from your %s before "
             "it can turn on the browser integration.\n"
             "\n"
             "%s" % (keychain_name, action)
@@ -359,7 +359,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         if sgtk.util.is_macos():
             QtGui.QMessageBox.information(
                 parent,
-                "Shotgun browser integration",
+                "ShotGrid browser integration",
                 self.__get_certificate_prompt(
                     "keychain",
                     "You will be prompted to enter your username and password by MacOS's keychain "
@@ -369,7 +369,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         elif sgtk.util.is_windows():
             QtGui.QMessageBox.information(
                 parent,
-                "Shotgun browser integration",
+                "ShotGrid browser integration",
                 self.__get_certificate_prompt(
                     "Windows certificate store",
                     "Windows will now prompt you to accept one or more updates to your certificate store.",

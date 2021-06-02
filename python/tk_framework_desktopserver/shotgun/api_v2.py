@@ -676,7 +676,7 @@ class ShotgunAPI(object):
                 continue
             except TankCachingEngineBootstrapError as exc:
                 logger.error(
-                    "The Shotgun engine failed to initialize in the caching "
+                    "The ShotGrid engine failed to initialize in the caching "
                     "subprocess. This most likely corresponds to a configuration "
                     "problem in the config %r as it relates to entity type %s."
                     % (pc_descriptor, entity["type"])
@@ -729,23 +729,23 @@ class ShotgunAPI(object):
             # case.
             if filepath is None:
                 logger.warning(
-                    "Shotgun requested a file open via local file linking, "
+                    "ShotGrid requested a file open via local file linking, "
                     "but the provided file path is None."
                 )
             else:
                 logger.debug(
-                    "Shotgun requested a file open via local file linking. "
+                    "ShotGrid requested a file open via local file linking. "
                     "The file path is: %s",
                     filepath,
                 )
 
             if local_storages is None:
                 logger.debug(
-                    "Local storages were not provided by Shotgun for the current file open request."
+                    "Local storages were not provided by ShotGrid for the current file open request."
                 )
             else:
                 logger.debug(
-                    "Local storages were reported by Shotgun: %s", local_storages
+                    "Local storages were reported by ShotGrid: %s", local_storages
                 )
 
             result = self.process_manager.open(filepath)
@@ -1489,7 +1489,7 @@ class ShotgunAPI(object):
         """
         message = (
             "An unhandled exception has occurred. To see the full error, "
-            "refer to the console in Shotgun Desktop, or contact us via %s for "
+            "refer to the console in ShotGrid Desktop, or contact us via %s for "
             "additional help with this issue." % sgtk.support_url
         )
 
