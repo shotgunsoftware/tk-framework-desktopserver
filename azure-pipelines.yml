@@ -36,7 +36,7 @@ jobs:
       - name: tk-shotgun
     post_tests_steps:
       - bash: python -m pytest tests/integration_tests/interpreters.py -v
-        displayName: Run interpreter integeration tests
+        displayName: Run interpreter integration tests
         env:
           CI: 1  # Used to skip certain tests on Azure
           SHOTGUN_HOST: $(sg.ci.host)
