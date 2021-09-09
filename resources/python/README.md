@@ -4,6 +4,11 @@ This framework manages the integration between SG Desktop with SG Web (browser i
 
 ## Dependencies
 
+Python Versions:
+- Mac: 2.7.18, 3.7.11
+- Windows: 2.7.18, 3.7.9
+- Linux: 2.7.18, 3.7.11
+
 | Package             | MAC PY2   | MAC PY3   | WIN PY2   | WIN PY3   | LINUX PY2 | LINUX PY3 |
 | ------------------- | --------- | --------- | --------- | --------- | --------- | --------- |
 | Automat             | 20.2.0    | 20.2.0    | 20.2.0    | 20.2.0    | 20.2.0    | 20.2.0    |
@@ -36,15 +41,16 @@ This framework manages the integration between SG Desktop with SG Web (browser i
 | typing-extensions   |           | 3.10.0.2  |           |           |           | 3.10.0.2  |
 | twisted-iocpsupport |           |           |           | 1.0.2     |           |           |
 
-## How to update 3rd party packages for the browser integration
+## How to update dependencies
 
-- Update the high-level list of packages to use inside `requirements.txt`
-- Run `update_requirements.py`. This will bake the official versions of each
-   package we need to install for each platform and in which folder.
-- Run `install_source_only.sh`
-- Run the `install_binary_*.*` scripts on their respective platform.
+1. Update the packages to use inside:
+   - `resources/python/requirements/2/requirements.txt`
+   - `resources/python/requirements/3/requirements.txt`
 
-# Updating the list of package to use.
+   This will bake the official versions of each package we need to install for each platform and in which folder.
+ 
 
-The list of top level dependencies is inside `requirements.txt`. Update this list if a security
-issue is flagged and a module needs to be updated.
+2. Run `resources/python/install_source_only.sh`
+
+
+3. Run the `resources/python/install_binary_*.*` scripts on their respective platform.
