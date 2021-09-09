@@ -1,6 +1,6 @@
 # Toolkit Framework Desktop Server
 
-This framework manages the integration between SG Desktop with SG Web (browser integration).
+This framework manages the integration between SG Desktop and SG Web (browser integration).
 
 ## Dependencies
 
