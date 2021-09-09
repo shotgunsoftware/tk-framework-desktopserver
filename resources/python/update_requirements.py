@@ -10,16 +10,13 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 """
-This script will update the list of requirements to install in the bin and source
-folders.
+This script will update the list of requirements to install in the bin and
+source folders.
 """
 
-import subprocess
-import shutil
-import sys
-import os
-import glob
 import datetime
+import subprocess
+import sys
 
 copyright = """
 # Copyright (c) {} Shotgun Software Inc.
@@ -31,9 +28,7 @@ copyright = """
 # By accessing, using, copying or modifying this work you indicate your
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
-""".format(
-    datetime.datetime.now().year
-)
+""".format(datetime.datetime.now().year)
 
 
 class UpdateException(Exception):
@@ -55,7 +50,8 @@ def clean_pip():
     """
     Uninstalls all package with pip
     """
-    # No matter why we are leaving this method, we should be removing what was installed.
+    # No matter why we are leaving this method, we should be removing what was
+    # installed.
     for dep in pip_freeze():
         pip("uninstall -y {}".format(dep))
 
@@ -74,24 +70,16 @@ def git(cmd):
     subprocess.check_output(["git"] + cmd.split())
 
 
-def main():
-    """
-    Updates the source_only_requirements.txt and binary_requirements.txt
-    files.
-    """
-    dependencies = get_dependencies_to_install()
-    update_requirements_file(dependencies)
-
-
 def get_dependencies_to_install():
     """
     Retrieves the complete list of dependencies and their dependencies.
     """
     if pip_freeze():
         raise UpdateException(
-            "Please clean up your Python installation from any dependencies by uninstalling"
-            "all of them or pip freeze will contain too many dependencies.\n"
-            "You can clean pip using `update_requirements.py --clean-pip`"
+            "Please clean up your Python installation from any dependencies "
+            "by uninstalling all of them or pip freeze will contain too many "
+            "dependencies.\nYou can clean pip using "
+            "`update_requirements.py --clean-pip`"
         )
 
     try:
@@ -102,8 +90,9 @@ def get_dependencies_to_install():
         freeze_list = pip_freeze()
     finally:
         clean_pip()
-    # autobahn needs to be installed AFTER Twisted, so sorts in alphanumerical order.
-    # uppercase T is before lowercase A, so that's good enough.
+
+    # autobahn needs to be installed AFTER Twisted, so sorts in alphanumerical
+    # order. Uppercase T is before lowercase A, so that's good enough.
     return sorted(freeze_list)
 
 
@@ -126,6 +115,15 @@ def update_requirements_file(dependencies):
                     binary.writelines([package_locator + "\n"])
                 else:
                     source.writelines([package_locator + "\n"])
+
+
+def main():
+    """
+    Updates the source_only_requirements.txt and binary_requirements.txt
+    files.
+    """
+    dependencies = get_dependencies_to_install()
+    update_requirements_file(dependencies)
 
 
 if __name__ == "__main__":

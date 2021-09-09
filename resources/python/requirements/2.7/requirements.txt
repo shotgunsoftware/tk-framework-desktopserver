@@ -9,8 +9,8 @@ service_identity==21.1.0
 # modules and rebuild the binaries
 attrs==21.2.0
 cffi==1.14.6
-cryptography==2.9.2
+cryptography==3.3.2
 hyperlink==21.0.0
-idna==2.9
+idna==2.10
 six==1.16.0
 zope.interface==5.4.0
