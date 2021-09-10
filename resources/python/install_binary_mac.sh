@@ -19,6 +19,7 @@ do
   requirements="bin/$PY_VERSION/explicit_requirements.txt"
 
   rm -rf $bin_dir
+  mkdir $bin_dir
   $PYTHON_BIN build/pip install --target $bin_dir --no-deps -r $requirements
 
   # For some reason zope is missing a top level init file when installed with

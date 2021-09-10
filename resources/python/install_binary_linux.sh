@@ -16,6 +16,7 @@ do
   esac
 
   rm -rf bin/$PY_VERSION/linux
+  mkdir bin/$PY_VERSION/linux
 
   # gcc has trouble finding out libpython2.7.so, we're adding its folder
   # to the link library path before invoking pip. Also, we're not using the

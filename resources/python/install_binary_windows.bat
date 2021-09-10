@@ -21,6 +21,7 @@ FOR %%V IN (2.7 3.7) DO (
     )
 
     rmdir /s /q bin\%%V\win
+    mkdir bin\%%V\win
     
     !PYTHON_EXE! build/pip install --target bin\%%V\win --no-deps -r bin\%%V\explicit_requirements.txt
 
