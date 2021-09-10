@@ -20,20 +20,18 @@ FOR %%V IN (2.7 3.7) DO (
         set PYTHON_EXE="C:\Program Files\Shotgun\Python3\python.exe"
     )
 
-    git rm -rf bin\win\%%V
-    rmdir /s /q bin\win\%%V
+    rmdir /s /q bin\%%V\win
     
-    !PYTHON_EXE! build/pip install --target bin\win\%%V --no-deps -r bin\explicit_requirements.txt
+    !PYTHON_EXE! build/pip install --target bin\%%V\win --no-deps -r bin\%%V\explicit_requirements.txt
 
     :: Remove tests to thin out the packages
-    rmdir /s /q bin\win\%%V\Crypto\SelfTest
-    rmdir /s /q bin\win\%%V\zope\interface\tests
-    rmdir /s /q bin\win\%%V\zope\interface\common\tests
+    rmdir /s /q bin\%%V\win\Crypto\SelfTest
+    rmdir /s /q bin\%%V\win\zope\interface\tests
+    rmdir /s /q bin\%%V\win\zope\interface\common\tests
 
     :: For some reason zope is missing a top level init file when installed with
     :: pip, so we're adding it.
-    copy nul bin\win\%%V\zope\__init__.py
+    copy nul bin\%%V\win\zope\__init__.py
 
-    git add bin\win\%%V
-
+    git add bin\%%V\win
 )
