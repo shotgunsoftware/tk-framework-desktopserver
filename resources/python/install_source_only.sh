@@ -8,28 +8,62 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-git rm -rf source
-rm -rf source
-git reset HEAD source/explicit_requirements.txt
-git checkout HEAD -- source/explicit_requirements.txt
-PYTHONPATH=$PWD/build /Applications/Shotgun.app/Contents/Resources/Python/bin/python build/pip install --target source --no-deps -r source/explicit_requirements.txt
+echo "----------------------------------------------------"
+echo "Set base paths"
 
-# We're thinning out the packages by removing unit tests.
-rm -rf source/autobahn/test
-rm -rf source/autobahn/*/test
+requirements_filename="explicit_requirements.txt"
+build_dir=$PWD/build
+python_2_executable="/Applications/Shotgun.app/Contents/Resources/Python/bin/python"
+python_3_executable="/Applications/Shotgun.app/Contents/Resources/Python3/bin/python"
 
-rm -rf source/twisted/test
-rm -rf source/twisted/*/test
-rm -rf source/twisted/*/*/test
+for py_version in 2.7 3.7
+do
+  echo "===================================================="
+  echo "Set paths for $py_version"
 
-rm -rf source/automat/_test
+  source_dir="source/$py_version"
+  source_requirements="$source_dir/$requirements_filename"
 
-rm -rf source/hyperlink/test
+  if [ "$py_version" = "2.7" ]
+  then
+    python_executable=$python_2_executable
+  elif [ "$py_version" = "3.7" ]
+  then
+    python_executable=$python_3_executable
+  fi
 
-rm -rf source/incremental/tests
+  echo "----------------------------------------------------"
+  echo "Remove current packages"
 
-# In twisted.internet.unix, there is a mixin which we don't use that allows to copy file descriptors
-# into other processes, which we don't require. That module is compiled, so we'll delete it.
-rm source/twisted/python/_sendmsg.so
+  find $source_dir/* ! -name $requirements_filename -maxdepth 1 -exec rm -rf {} +
 
-git add source
+  echo "----------------------------------------------------"
+  echo "Install new packages"
+
+  PYTHONPATH=$build_dir \
+    $python_executable \
+    build/pip install \
+    --target $source_dir \
+    --no-deps \
+    -r $source_requirements
+
+  echo "----------------------------------------------------"
+  echo "Remove unnecessary files"
+
+  rm -rf $source_dir/autobahn/test
+  rm -rf $source_dir/autobahn/*/test
+  rm -rf $source_dir/twisted/test
+  rm -rf $source_dir/twisted/*/test
+  rm -rf $source_dir/twisted/*/*/test
+  rm -rf $source_dir/automat/_test
+  rm -rf $source_dir/hyperlink/test
+  rm -rf $source_dir/incremental/tests
+
+  # In twisted.internet.unix, there is a mixin which we don't use that allows to copy file descriptors
+  # into other processes, which we don't require. That module is compiled, so we'll delete it.
+  rm -rf $source_dir/twisted/python/_sendmsg.so
+
+  echo "----------------------------------------------------"
+  echo "Adding new files to git"
+  git add $source_dir
+done

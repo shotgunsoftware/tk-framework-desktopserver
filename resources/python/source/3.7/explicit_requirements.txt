@@ -1,0 +1,27 @@
+
+# Copyright (c) 2021 Shotgun Software Inc.
+#
+# CONFIDENTIAL AND PROPRIETARY
+#
+# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
+# Source Code License included in this distribution package. See LICENSE.
+# By accessing, using, copying or modifying this work you indicate your
+# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
+# not expressly granted therein are reserved by Shotgun Software Inc.
+Automat==20.2.0
+Twisted==21.7.0
+attrs==21.2.0
+autobahn==21.3.1
+certifi==2021.5.30
+constantly==15.1.0
+hyperlink==21.0.0
+idna==3.2
+incremental==21.3.0
+pyOpenSSL==20.0.1
+pyasn1-modules==0.2.8
+pyasn1==0.4.8
+pycparser==2.20
+service-identity==21.1.0
+six==1.16.0
+txaio==21.2.1
+typing-extensions==3.10.0.2

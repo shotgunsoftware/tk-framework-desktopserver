@@ -44,13 +44,15 @@ Python Versions:
 ## How to update dependencies
 
 1. Update the packages to use inside:
-   - `resources/python/requirements/2/requirements.txt`
-   - `resources/python/requirements/3/requirements.txt`
+   - `resources/python/requirements/2.7/requirements.txt`
+   - `resources/python/requirements/3.7/requirements.txt`
+
+2. Execute the script `resources/python/update_requirements.py --clean-pip` with python 2.7 and 3.7 (we highly recommend to use virtualenv and upgrade pip version).
 
    This will bake the official versions of each package we need to install for each platform and in which folder.
- 
 
-2. Run `resources/python/install_source_only.sh`
+3. Run `resources/python/install_source_only.sh`
 
+4. Push changes to the repository 
 
-3. Run the `resources/python/install_binary_*.*` scripts on their respective platform.
+5. Run the `resources/python/install_binary_*.*` scripts on their respective platform and push the changes to the repository in every one.
