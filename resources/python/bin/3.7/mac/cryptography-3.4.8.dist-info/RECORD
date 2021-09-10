@@ -5,6 +5,7 @@ cryptography-3.4.8.dist-info/LICENSE.BSD,sha256=YCxMdILeZHndLpeTzaJ15eY9dz2s0eym
 cryptography-3.4.8.dist-info/LICENSE.PSF,sha256=aT7ApmKzn5laTyUrA6YiKUVHDBtvEsoCkY5O_g32S58,2415
 cryptography-3.4.8.dist-info/METADATA,sha256=z7LCyAZ0lUONyS_TNbUaBFhKASg_zdtuSwOFkEm-osY,5068
 cryptography-3.4.8.dist-info/RECORD,,
+cryptography-3.4.8.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
 cryptography-3.4.8.dist-info/WHEEL,sha256=rHoBo0xCFsMk6-ZyihIGcz7XOPZ8pldps-6iILV4wP4,110
 cryptography-3.4.8.dist-info/top_level.txt,sha256=rR2wh6A6juD02TBZNJqqonh8x9UP9Sa5Z9Hl1pCPCiM,31
 cryptography/__about__.py,sha256=Gma4uMyERDaqXMloHsN56Lo-XunkiH9-joZKZJPG5a8,805

@@ -5,28 +5,38 @@ from __future__ import absolute_import, division, print_function
 
 import re
 
+from ._typing import TYPE_CHECKING, cast
 from .version import InvalidVersion, Version
 
+if TYPE_CHECKING:  # pragma: no cover
+    from typing import NewType, Union
+
+    NormalizedName = NewType("NormalizedName", str)
+else:
+    NormalizedName = str
 
 _canonicalize_regex = re.compile(r"[-_.]+")
 
 
 def canonicalize_name(name):
+    # type: (str) -> NormalizedName
     # This is taken from PEP 503.
-    return _canonicalize_regex.sub("-", name).lower()
+    value = _canonicalize_regex.sub("-", name).lower()
+    return cast("NormalizedName", value)
 
 
 def canonicalize_version(version):
+    # type: (Union[Version, str]) -> Union[Version, str]
     """
-    This is very similar to Version.__str__, but has one subtle differences
+    This is very similar to Version.__str__, but has one subtle difference
     with the way it handles the release segment.
     """
-
-    try:
-        version = Version(version)
-    except InvalidVersion:
-        # Legacy versions cannot be normalized
-        return version
+    if not isinstance(version, Version):
+        try:
+            version = Version(version)
+        except InvalidVersion:
+            # Legacy versions cannot be normalized
+            return version
 
     parts = []
 
@@ -36,13 +46,7 @@ def canonicalize_version(version):
 
     # Release segment
     # NB: This strips trailing '.0's to normalize
-    parts.append(
-        re.sub(
-            r'(\.0)+$',
-            '',
-            ".".join(str(x) for x in version.release)
-        )
-    )
+    parts.append(re.sub(r"(\.0)+$", "", ".".join(str(x) for x in version.release)))
 
     # Pre-release
     if version.pre is not None:
