@@ -372,6 +372,13 @@ def CommonTestsMetaClass(class_name, class_parents, class_attr):
         # The websocket connection in the websocket module, contrary to Twisted's implementation,
         # requires the entire certificate chain to be available to connect to shotgunlocalhost.com
         # So we'll use that to validate that the cert chain is passed entirely on connection.
+
+        # If this test ever fails someone needs to update the copy of the
+        # certificates in the cache:
+        #     OS X: ~/Library/Caches/Shotgun/<site_name>/site.basic.desktop/fw-desktopserver/keys
+        #     Windows: %APPDATA%\Shotgun\<site_name>\site.basic.desktop\fw-desktopserver\keys
+        #     Linux: ~/.shotgun/<site_name>/site.basic.desktop/tk-desktopfw-desktopserver/keys
+        # To the folder: tests/fixtures/certificates
         return threads.deferToThread(
             lambda: websocket.create_connection(
                 "wss://shotgunlocalhost.com:%s" % self._port
