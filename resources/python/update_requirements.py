@@ -67,7 +67,7 @@ class Updater(object):
         # dir of packages distributed as source
         self._sources_dir = os.path.join(
             self._python_resources_dir,
-            "source",
+            "src",
         )
 
         # dir of packages distributed as binary

@@ -21,7 +21,7 @@ do
   echo "===================================================="
   echo "Set paths for $py_version"
 
-  source_dir="source/$py_version"
+  source_dir="src/$py_version"
   source_requirements="$source_dir/$requirements_filename"
 
   if [ "$py_version" = "2.7" ]

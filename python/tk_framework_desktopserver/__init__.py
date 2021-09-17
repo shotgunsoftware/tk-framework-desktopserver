@@ -31,7 +31,7 @@ elif sgtk.util.is_windows():
 elif sgtk.util.is_linux():
     sys.path.insert(0, os.path.join(binaries_path, _version_dir, "linux"))
 
-sys.path.insert(0, os.path.join(python_path, "source", _version_dir))
+sys.path.insert(0, os.path.join(python_path, "src", _version_dir))
 
 from .server import Server
 from .server import ServerProtocol
