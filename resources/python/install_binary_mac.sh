@@ -15,19 +15,21 @@ do
     3.7) PYTHON_BIN="/Applications/Shotgun.app/Contents/Resources/Python3/bin/python" ;;
   esac
 
-  git rm -rf bin/mac/$PY_VERSION
-  rm -rf bin/mac/$PY_VERSION
-  $PYTHON_BIN build/pip install --target bin/mac/$PY_VERSION --no-deps -r bin/explicit_requirements.txt
+  bin_dir="bin/$PY_VERSION/mac"
+  requirements="bin/$PY_VERSION/explicit_requirements.txt"
+
+  rm -rf $bin_dir
+  mkdir $bin_dir
+  $PYTHON_BIN build/pip install --target $bin_dir --no-deps -r $requirements
 
   # For some reason zope is missing a top level init file when installed with
   # pip, so we're adding it.
-  touch bin/mac/$PY_VERSION/zope/__init__.py
+  touch $bin_dir/zope/__init__.py
 
   # Remove tests to thin out the packages
-  rm -rf bin/mac/$PY_VERSION/Crypto/SelfTest
-  rm -rf bin/mac/$PY_VERSIONzope/interface/tests
-  rm -rf bin/mac/$PY_VERSION/zope/interface/*/tests
+  rm -rf $bin_dir/Crypto/SelfTest
+  rm -rf $bin_dir/zope/interface/tests
+  rm -rf $bin_dir/zope/interface/*/tests
 
-  git add bin/mac/$PY_VERSION
-
+  git add $bin_dir
 done

@@ -1,0 +1,16 @@
+Twisted==20.3.0
+certifi==2021.5.30
+autobahn==19.11.2
+pyOpenSSL==20.0.1
+service_identity==21.1.0
+
+# When updating certifi to match the version released with Desktop, some other unrelated modules (that are second
+# level dependencies) were updating. The list below pins these versions for now until the next time we need to update
+# modules and rebuild the binaries
+attrs==21.2.0
+cffi==1.14.6
+cryptography==3.3.2
+hyperlink==21.0.0
+idna==2.10
+six==1.16.0
+zope.interface==5.4.0

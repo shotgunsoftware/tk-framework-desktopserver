@@ -13,21 +13,25 @@ import sys
 
 import sgtk.util
 
-python_path = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "../../resources/python")
+# framework path
+base_path = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 )
 
+python_path = os.path.join(base_path, "resources", "python")
 binaries_path = os.path.join(python_path, "bin")
+
 _py_version = sys.version_info
 _version_dir = "{}.{}".format(_py_version.major, _py_version.minor)
-if sgtk.util.is_macos():
-    sys.path.insert(0, os.path.join(binaries_path, "mac", _version_dir))
-elif sgtk.util.is_windows():
-    sys.path.insert(0, os.path.join(binaries_path, "win", _version_dir))
-elif sgtk.util.is_linux():
-    sys.path.insert(0, os.path.join(binaries_path, "linux", _version_dir))
 
-sys.path.insert(0, os.path.join(python_path, "source"))
+if sgtk.util.is_macos():
+    sys.path.insert(0, os.path.join(binaries_path, _version_dir, "mac"))
+elif sgtk.util.is_windows():
+    sys.path.insert(0, os.path.join(binaries_path, _version_dir, "win"))
+elif sgtk.util.is_linux():
+    sys.path.insert(0, os.path.join(binaries_path, _version_dir, "linux"))
+
+sys.path.insert(0, os.path.join(python_path, "src", _version_dir))
 
 from .server import Server
 from .server import ServerProtocol
