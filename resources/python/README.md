@@ -21,8 +21,12 @@ Officially Supported Python Versions:
 
 ### Create virtualenvs
 
-For Windows 10, Centos 7 and Mac, create 3 virtualenvs with every python 
-version 2.7, 3.7, 3.9. We highly recommend use [pyenv](https://github.com/pyenv/pyenv).
+For Windows 10, Centos 7 and Mac, create 3 virtualenvs:
+- tk-framework-desktopserver-2-7-18 with python version 2.7.18
+- tk-framework-desktopserver-3-7-12 with python version 3.7.12 (could be different version in windows)
+- tk-framework-desktopserver-3-9-10 with python version 3.9.10 (could be different version in windows)
+
+We highly recommend use [pyenv](https://github.com/pyenv/pyenv).
 
 **Note for Windows:** 
 - Use an admin powershell console.
@@ -47,30 +51,25 @@ pyenv install 3.9.10
 .pyenv/versions/3.9.10 -m pip install -U pip virtualenv
 .pyenv/versions/3.9.10 -m virtualenv $HOME/venv/tk-framework-desktopserver-3-9-10 
 ```
+### Update requirements
 
+Update the packages inside:
+
+- `resources/python/requirements/2.7/requirements.txt`
+- `resources/python/requirements/3.7/requirements.txt`
+- `resources/python/requirements/3.9/requirements.txt`
+
+### Execute the script `update_requirements.py` 
+
+Execute the script `update_requirements.py` with every virtualenv:
+
+```shell
 cd resources/python
 python update_requirements.py --clean-pip
 ```
 
-
-### The following steps must be executed in Mac.
-
-
-2. Update the packages to use inside:
-   - `resources/python/requirements/2.7/requirements.txt`
-   - `resources/python/requirements/3.7/requirements.txt`
-   - `resources/python/requirements/3.9/requirements.txt`
-
-3. Execute the script `update_requirements.py` with every python version
-   2.7, 3.7, 3.9.
-
-   ```shell
-   cd resources/python
-   python update_requirements.py --clean-pip
-   ```
-
-   This will bake the official versions of each package we need to install in 
-   every platform (Python Version, Operating System).
+This will bake the official versions of each package we need to install in 
+every platform (Python Version, Operating System).
 
 4. Execute the script `install_source_only.sh` with every python version
    2.7, 3.7, 3.9.
