@@ -36,24 +36,24 @@ Example for Mac and Linux:
 
 ```shell
 pyenv install 2.7.18
-.pyenv/versions/2.7.18 -m pip install -U pip virtualenv
-.pyenv/versions/2.7.18 -m virtualenv $HOME/venv/tk-framework-desktopserver-2-7-18 
+$HOME/.pyenv/versions/2.7.18/bin/python -m pip install -U pip virtualenv
+$HOME/.pyenv/versions/2.7.18/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-2-7-18 
 ```
 
 ```shell
 pyenv install 3.7.12
-.pyenv/versions/3.7.12 -m pip install -U pip virtualenv
-.pyenv/versions/3.7.12 -m virtualenv $HOME/venv/tk-framework-desktopserver-3-7-12 
+$HOME/.pyenv/versions/3.7.12/bin/python -m pip install -U pip virtualenv
+$HOME/.pyenv/versions/3.7.12/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-3-7-12 
 ```
 
 ```shell
 pyenv install 3.9.10
-.pyenv/versions/3.9.10 -m pip install -U pip virtualenv
-.pyenv/versions/3.9.10 -m virtualenv $HOME/venv/tk-framework-desktopserver-3-9-10 
+$HOME/.pyenv/versions/3.9.10/bin/python -m pip install -U pip virtualenv
+$HOME/.pyenv/versions/3.9.10/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-3-9-10 
 ```
 ### Update requirements
 
-Update the packages inside:
+In MAC, update the packages in requirements files:
 
 - `resources/python/requirements/2.7/requirements.txt`
 - `resources/python/requirements/3.7/requirements.txt`
@@ -61,7 +61,7 @@ Update the packages inside:
 
 ### Execute the script `update_requirements.py` 
 
-Execute the script `update_requirements.py` with every virtualenv:
+In MAC, execute the script `update_requirements.py` with every virtualenv:
 
 ```shell
 cd resources/python
@@ -71,8 +71,9 @@ python update_requirements.py --clean-pip
 This will bake the official versions of each package we need to install in 
 every platform (Python Version, Operating System).
 
-4. Execute the script `install_source_only.sh` with every python version
-   2.7, 3.7, 3.9.
+### Execute the script `install_source_only.sh`
+
+
 
     ```shell
     cd resources/python
