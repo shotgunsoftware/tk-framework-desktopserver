@@ -19,7 +19,7 @@ Officially Supported Python Versions:
 
 ## How to update dependencies
 
-1. Create virtualenvs
+### Create virtualenvs
 
 For Windows 10, Centos 7 and Mac, create 3 virtualenvs with every python 
 version 2.7, 3.7, 3.9. We highly recommend use (pyenv)[https://github.com/pyenv/pyenv].
