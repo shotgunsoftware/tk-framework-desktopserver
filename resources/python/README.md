@@ -90,9 +90,27 @@ bash install_source_only.sh
 - Git commit
 - Git push
 
-### The following steps must be executed in Mac, Windows and Linux
+### Install binary in Mac
 
-#### In Windows
+- In MAC, execute the script `install_binary_mac.sh` with every virtualenv:
+
+```shell
+cd resources/python
+bash install_binary_mac.sh
+```
+
+- Push changes to the repository
+
+### Install binary in Windows 10
+
+In an admin powershell console run:
+
+```shell
+cd resources/python
+install_binary_winsource_only.sh
+```
+
+### Install binary in CentOS 7.6
 
 In an admin powershell console run:
 
