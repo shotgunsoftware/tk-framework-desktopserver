@@ -93,11 +93,10 @@ bash install_source_only.sh
 ### Install binary in Mac
 
 - In MAC, execute the script `install_binary_mac.sh` with every virtualenv:
-
-```shell
-cd resources/python
-bash install_binary_mac.sh
-```
+  ```shell
+  cd resources/python
+  bash install_binary_mac.sh
+  ```
 
 - Push changes to the repository
 
