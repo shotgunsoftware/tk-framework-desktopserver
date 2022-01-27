@@ -1,5 +1,5 @@
 
-# Copyright (c) 2021 Shotgun Software Inc.
+# Copyright (c) 2022 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
 #
@@ -23,7 +23,7 @@ ipaddress==1.0.23
 pyOpenSSL==20.0.1
 pyasn1-modules==0.2.8
 pyasn1==0.4.8
-pycparser==2.20
+pycparser==2.21
 service-identity==21.1.0
 six==1.16.0
 txaio==18.8.1

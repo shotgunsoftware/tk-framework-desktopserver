@@ -18,6 +18,7 @@ import os
 import subprocess
 import sys
 
+
 copyright = """
 # Copyright (c) {} Shotgun Software Inc.
 #
@@ -39,12 +40,16 @@ class Updater(object):
     def __init__(self):
         # python version
         self._python_version_info = sys.version_info
+
         self._python_version_dot_format = "{}.{}".format(
             self._python_version_info.major, self._python_version_info.minor)
         self._python_version_underscore_format = "{}_{}".format(
             self._python_version_info.major, self._python_version_info.minor)
+
         self._is_python_3 = self._python_version_info.major == 3
         self._is_python_2 = self._python_version_info.major == 2
+        self._is_python_37 = self._is_python_3 and self._python_version_info.minor == 7
+        self._is_python_39 = self._is_python_3 and self._python_version_info.minor == 9
 
         # packages containing binaries like pyd, so, dll
         self._binary_distributions = [
@@ -95,6 +100,15 @@ class Updater(object):
             "explicit_requirements.txt"
         )
 
+        self._source_reqs_3_9_dir = os.path.join(
+            self._sources_dir,
+            "3.9",
+        )
+        self._source_reqs_3_9_path = os.path.join(
+            self._source_reqs_3_9_dir,
+            "explicit_requirements.txt"
+        )
+
         self._bin_reqs_2_7_dir = os.path.join(
             self._bin_dir,
             "2.7",
@@ -110,6 +124,15 @@ class Updater(object):
         )
         self._bin_reqs_3_7_path = os.path.join(
             self._bin_reqs_3_7_dir,
+            "explicit_requirements.txt"
+        )
+
+        self._bin_reqs_3_9_dir = os.path.join(
+            self._bin_dir,
+            "3.9",
+        )
+        self._bin_reqs_3_9_path = os.path.join(
+            self._bin_reqs_3_9_dir,
             "explicit_requirements.txt"
         )
 
@@ -139,7 +162,8 @@ class Updater(object):
 
         return output
 
-    def _git(self, cmd):
+    @staticmethod
+    def _git(cmd):
         """Run the git command."""
         git_cmd = ["git"] + cmd.split()
         subprocess.check_output(git_cmd)
@@ -201,7 +225,8 @@ class Updater(object):
                 else:
                     source_handler.writelines(requirement_to_add)
 
-    def _clean_before_update(self):
+    @staticmethod
+    def _clean_before_update():
         return "--clean-pip" in sys.argv
 
     def go(self):

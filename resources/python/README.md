@@ -19,6 +19,11 @@ Officially Supported Python Versions:
 
 ## How to update dependencies
 
+### Create Jira ticket and git branch
+
+- Create a Jira in `Ecosystem ShotGrid` board https://jira.autodesk.com/secure/RapidBoard.jspa?projectKey=SG&rapidView=12718
+- Create a branch in  https://github.com/shotgunsoftware/tk-framework-desktopserver
+
 ### Create virtualenvs
 
 For Windows 10, Centos 7 and Mac, create 3 virtualenvs:
@@ -73,14 +78,17 @@ every platform (Python Version, Operating System).
 
 ### Execute the script `install_source_only.sh`
 
+In MAC, execute the script `install_source_only.sh` with every virtualenv:
 
+```shell
+cd resources/python
+bash install_source_only.sh
+```
 
-    ```shell
-    cd resources/python
-    bash install_source_only.sh
-    ```
+### Push changes to the repository
 
-5. Push changes to the repository 
+- Git commit
+- Git push
 
 ### The following steps must be executed in Mac, Windows and Linux
 
