@@ -45,7 +45,8 @@ class Python3ProjectTests(SgtkIntegrationTest):
         Get the path to a python interpreter on the current platform that matches the given major version
         """
         azure_python2_versions = ["2.7.18"]
-        azure_python3_versions = ["3.7.7", "3.7.8", "3.7.9", "3.7.11", "3.7.12"]
+        azure_python3_versions = ["3.7.7", "3.7.8", "3.7.9", "3.7.11",
+                                  "3.7.12", "3.9.10"]
 
         win_paths = {
             2: [r"C:\Program Files\Shotgun\Python\python.exe"],
