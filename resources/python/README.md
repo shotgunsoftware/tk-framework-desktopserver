@@ -24,7 +24,9 @@ Officially Supported Python Versions:
 For Windows 10, Centos 7 and Mac, create 3 virtualenvs with every python 
 version 2.7, 3.7, 3.9. We highly recommend use (pyenv)[https://github.com/pyenv/pyenv].
 
-**Note for Windows:** please use an admin powershell console.  
+**Note for Windows:** 
+- Use an admin powershell console.
+- Install pyenv with https://pyenv-win.github.io/pyenv-win/
 
 Example for Mac and Linux:
 
