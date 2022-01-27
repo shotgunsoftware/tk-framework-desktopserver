@@ -26,7 +26,7 @@ version 2.7, 3.7, 3.9. We highly recommend use (pyenv)[https://github.com/pyenv/
 
 **Note for Windows:** please use an admin powershell console.  
 
-Example:
+Example for Mac and Linux:
 
 ```shell
 pyenv install 2.7.18
