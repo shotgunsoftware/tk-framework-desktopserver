@@ -183,9 +183,13 @@ class Python3ProjectTests(SgtkIntegrationTest):
 
         # Create a config for python2 and one for python3
         if sys.version_info.major == 2:
-            cls.python_config = cls.create_pipeline_config_for_python_version("python2", 2)
+            cls.python_config = cls.create_pipeline_config_for_python_version(
+                "python2", 2
+            )
         if sys.version_info.major == 3:
-            cls.python_config = cls.create_pipeline_config_for_python_version("python3", 3)
+            cls.python_config = cls.create_pipeline_config_for_python_version(
+                "python3", 3
+            )
 
         # Bootstrap the test_engine and use it to get the client and server frameworks
         manager = sgtk.bootstrap.ToolkitManager(cls.user)
@@ -243,8 +247,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
         assert content == command_name
 
     @unittest2.skipIf(
-        sys.version_info.major == 3,
-        "Skipping if major version of python is 3",
+        sys.version_info.major == 3, "Skipping if major version of python is 3",
     )
     def test_execute_action_python2(self):
         """
@@ -253,8 +256,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
         self._test_execute_action(self.python_config, "Command A")
 
     @unittest2.skipIf(
-        sys.version_info.major == 2,
-        "Skipping if major version of python is 2",
+        sys.version_info.major == 2, "Skipping if major version of python is 2",
     )
     def test_execute_action_python3(self):
         """
