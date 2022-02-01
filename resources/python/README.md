@@ -102,20 +102,17 @@ bash install_source_only.sh
 
 ### Install binary in Windows 10
 
-In an admin powershell console run:
+- In Windows inside a powershell as admin, execute the script `install_binary_windows.bat` with every virtualenv:
 
 ```shell
 cd resources/python
-install_binary_winsource_only.sh
+install_binary_windows.ps1
 ```
 
-### Install binary in CentOS 7.6
+### Install binary in CentOS 7
 
-In an admin powershell console run:
-
-```shell
-cd resources/python
-install_binary_winsource_only.sh
-```
-
-Run the script `resources/python/install_binary_*.*` scripts on their respective platform and push the changes to the repository in every one.
+- In CentOS, execute the script `install_binary_linux.sh` with every virtualenv:
+  ```shell
+  cd resources/python
+  bash install_binary_linux.sh
+  ```

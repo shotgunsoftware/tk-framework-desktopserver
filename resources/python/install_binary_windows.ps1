@@ -9,29 +9,29 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 # Get python version
-python_major_version=$(python -c "import sys; print(sys.version_info.major)")
-python_minor_version=$(python -c "import sys; print(sys.version_info.minor)")
-python_version="$python_major_version.$python_minor_version"
+$python_major_version = python -c "import sys; print(sys.version_info.major)"
+$python_minor_version = python -c "import sys; print(sys.version_info.minor)"
+$python_version = $python_major_version  + "." + $python_minor_version
 
 # Set paths
-bin_dir="bin/$python_version/mac"
-requirements="bin/$python_version/explicit_requirements.txt"
+$bin_dir = "bin/$python_version/win"
+$requirements = "bin/$python_version/explicit_requirements.txt"
 
 # Delete current files
-rm -rf $bin_dir
+Remove-Item -LiteralPath $bin_dir -Force -Recurse -ErrorAction Ignore
 mkdir $bin_dir
 
 # Install packages
 python build/pip install --target $bin_dir --no-deps -r $requirements
 
+# Remove tests to thin out the packages
+Remove-Item -LiteralPath $bin_dir\Crypto\SelfTest -Force -Recurse -ErrorAction Ignore
+Remove-Item -LiteralPath $bin_dir\zope\interface\tests -Force -Recurse -ErrorAction Ignore
+Remove-Item -LiteralPath $bin_dir\zope\interface\common\tests -Force -Recurse -ErrorAction Ignore
+
 # For some reason zope is missing a top level init file when installed with
 # pip, so we're adding it.
-touch $bin_dir/zope/__init__.py
-
-# Remove tests to thin out the packages
-rm -rf $bin_dir/Crypto/SelfTest
-rm -rf $bin_dir/zope/interface/tests
-rm -rf $bin_dir/zope/interface/*/tests
+ni $bin_dir\zope\__init__.py
 
 # Add bin dir to repo
 git add $bin_dir
