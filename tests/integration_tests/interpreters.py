@@ -42,8 +42,10 @@ class Python3ProjectTests(SgtkIntegrationTest):
     @classmethod
     def get_python_interpreter_by_major_version(cls, major):
         """
-        Get the path to a python interpreter on the current platform that matches the given major version
+        Get the path to a python interpreter on the current platform that
+        matches the given major version.
         """
+        # python versions
         azure_python2_versions = ["2.7.18"]
         azure_python3_versions = [
             "3.7.7",
@@ -54,6 +56,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
             "3.9.10",
         ]
 
+        # windows paths
         win_paths = {
             2: [r"C:\Program Files\Shotgun\Python\python.exe"],
             3: [r"C:\Program Files\Shotgun\Python3\python.exe"],
@@ -64,6 +67,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
                 r"C:\hostedtoolcache\windows\Python\%s\x64\python.exe" % version
             )
 
+        # linux paths
         linux_paths = {
             2: ["/opt/Shotgun/Python/bin/python"],
             3: ["/opt/Shotgun/Python3/bin/python"],
@@ -74,6 +78,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
                 r"/opt/hostedtoolcache/Python/%s/x64/bin/python" % version
             )
 
+        # mac paths
         osx_paths = {
             2: ["/Applications/Shotgun.app/Contents/Resources/Python/bin/python"],
             3: ["/Applications/Shotgun.app/Contents/Resources/Python3/bin/python"],

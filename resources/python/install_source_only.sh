@@ -43,23 +43,22 @@ PYTHONPATH=$build_dir \
   --no-deps \
   -r $source_requirements
 
-#  echo "----------------------------------------------------"
-#  echo "Remove unnecessary files"
-#
-#  rm -rf $source_dir/autobahn/test
-#  rm -rf $source_dir/autobahn/*/test
-#  rm -rf $source_dir/twisted/test
-#  rm -rf $source_dir/twisted/*/test
-#  rm -rf $source_dir/twisted/*/*/test
-#  rm -rf $source_dir/automat/_test
-#  rm -rf $source_dir/hyperlink/test
-#  rm -rf $source_dir/incremental/tests
-#
-#  # In twisted.internet.unix, there is a mixin which we don't use that allows to copy file descriptors
-#  # into other processes, which we don't require. That module is compiled, so we'll delete it.
-#  rm -rf $source_dir/twisted/python/_sendmsg.so
-#
-#  echo "----------------------------------------------------"
-#  echo "Adding new files to git"
-#  git add $source_dir
-#done
+echo "----------------------------------------------------"
+echo "Remove unnecessary files"
+
+rm -Rf $source_dir/autobahn/test
+rm -Rf $source_dir/autobahn/*/test
+rm -Rf $source_dir/twisted/test
+rm -Rf $source_dir/twisted/*/test
+rm -Rf $source_dir/twisted/*/*/test
+rm -Rf $source_dir/automat/_test
+rm -Rf $source_dir/hyperlink/test
+rm -Rf $source_dir/incremental/tests
+
+# In twisted.internet.unix, there is a mixin which we don't use that allows to copy file descriptors
+# into other processes, which we don't require. That module is compiled, so we'll delete it.
+rm -Rf $source_dir/twisted/python/_sendmsg.so
+
+echo "----------------------------------------------------"
+echo "Adding new files to git"
+git add $source_dir
