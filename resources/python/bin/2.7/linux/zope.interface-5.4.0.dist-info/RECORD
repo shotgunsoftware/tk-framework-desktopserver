@@ -4,7 +4,7 @@ zope.interface-5.4.0.dist-info/LICENSE.txt,sha256=PmcdsR32h1FswdtbPWXkqjg-rKPCDO
 zope.interface-5.4.0.dist-info/METADATA,sha256=zkoU-kTshIqvr_lcTZhotYmbQQ9XRtNlxouF0dXOejo,40632
 zope.interface-5.4.0.dist-info/RECORD,,
 zope.interface-5.4.0.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
-zope.interface-5.4.0.dist-info/WHEEL,sha256=qNw3B0eKttb5G_TzXpR5KBvI5KyPUc20qBcT5NzaZAE,112
+zope.interface-5.4.0.dist-info/WHEEL,sha256=PngPnaXTX2MykTXP9n0F7DS2ostOsGEYg4EiSG1fUJk,113
 zope.interface-5.4.0.dist-info/namespace_packages.txt,sha256=QpUHvpO4wIuZDeEgKY8qZCtD-tAukB0fn_f6utzlb98,5
 zope.interface-5.4.0.dist-info/top_level.txt,sha256=QpUHvpO4wIuZDeEgKY8qZCtD-tAukB0fn_f6utzlb98,5
 zope/interface/__init__.py,sha256=n3r9PajonfuD_4EJn_XT9DwRtt3JcgU9-ebbTgV17rA,3623
@@ -14,7 +14,7 @@ zope/interface/_compat.pyc,,
 zope/interface/_flatten.py,sha256=nY3YJjWfeslmcWfjfxVYkoZb2lFrVGbw30xF_sAyQ60,1056
 zope/interface/_flatten.pyc,,
 zope/interface/_zope_interface_coptimizations.c,sha256=Hqz-ObWSJIUgTN7NtFWInG5NUuLI5WwosNmFaAjyk9g,58093
-zope/interface/_zope_interface_coptimizations.so,sha256=yFmbUczgzD2QAHFnQYQHb8fbksCipzJmks41zlJgfDo,142936
+zope/interface/_zope_interface_coptimizations.so,sha256=pYF9StGYnlYG77fpE3h0YwUA8Yz0vsec4NP_p_1waHo,142936
 zope/interface/adapter.py,sha256=sNiGpxPMsBTblkb_gK_LxCK8fgDqCX6ZWy7I_cMecPE,36498
 zope/interface/adapter.pyc,,
 zope/interface/advice.py,sha256=CpHhuAT8nbaaymDBEXuxvJv9ZRMEtq7fgTmoUOwsS3g,7612
