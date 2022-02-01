@@ -200,7 +200,10 @@ class Server(object):
         """
         :returns: True if the server is up and running, False otherwise.
         """
-        return self._reactor_thread.isAlive()
+        if six.PY2:
+            return self._reactor_thread.isAlive()
+
+        return self._reactor_thread.is_alive()
 
     def tear_down(self):
         """
