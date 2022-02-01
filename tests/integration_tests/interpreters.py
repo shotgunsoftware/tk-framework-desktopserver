@@ -250,7 +250,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
         """
         Make sure that calling "execute_action" of a python2 project works
         """
-        self._test_execute_action(self.python2_config, "Command A")
+        self._test_execute_action(self.python_config, "Command A")
 
     @unittest2.skipIf(
         sys.version_info.major == 2,
@@ -260,7 +260,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
         """
         Make sure that calling "execute_action" of a python3 project works
         """
-        self._test_execute_action(self.python3_config, "Command B")
+        self._test_execute_action(self.python_config, "Command B")
 
     def test_get_actions(self):
         """
