@@ -8,9 +8,9 @@ Author-email: twisted-python@twistedmatrix.com
 Maintainer: Glyph Lefkowitz
 Maintainer-email: glyph@twistedmatrix.com
 License: MIT
-Project-URL: Issues, https://twistedmatrix.com/trac/report
 Project-URL: Source, https://github.com/twisted/twisted
 Project-URL: Documentation, https://twistedmatrix.com/documents/current/
+Project-URL: Issues, https://twistedmatrix.com/trac/report
 Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
