@@ -9,7 +9,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 Automat==20.2.0
-Twisted==21.7.0
+Twisted==22.1.0
 attrs==21.2.0
 autobahn==21.11.1
 certifi==2021.10.8
@@ -23,5 +23,5 @@ pyasn1==0.4.8
 pycparser==2.21
 service-identity==21.1.0
 six==1.16.0
-txaio==21.2.1
-typing_extensions==4.0.1
+txaio==22.2.1
+typing_extensions==4.1.1

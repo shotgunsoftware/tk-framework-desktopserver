@@ -1,4 +1,4 @@
-Twisted==21.7.0
+Twisted==22.1.0
 certifi==2021.10.8
 autobahn==21.11.1
 pyOpenSSL==21.0.0
