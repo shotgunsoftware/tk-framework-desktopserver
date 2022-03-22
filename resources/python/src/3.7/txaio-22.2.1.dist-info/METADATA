@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: txaio
-Version: 21.2.1
+Version: 22.2.1
 Summary: Compatibility API between asyncio/Twisted/Trollius
 Home-page: https://github.com/crossbario/txaio
 Author: Crossbar.io Technologies GmbH
@@ -39,7 +39,6 @@ Requires-Dist: pyenchant (>=1.6.6) ; extra == 'dev'
 Requires-Dist: sphinxcontrib-spelling (>=2.1.2) ; extra == 'dev'
 Requires-Dist: sphinx-rtd-theme (>=0.1.9) ; extra == 'dev'
 Requires-Dist: tox (>=2.1.1) ; extra == 'dev'
-Requires-Dist: mock (==1.3.0) ; extra == 'dev'
 Requires-Dist: twine (>=1.6.5) ; extra == 'dev'
 Requires-Dist: tox-gh-actions (>=2.2.0) ; extra == 'dev'
 Provides-Extra: twisted
