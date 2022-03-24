@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: Twisted
-Version: 22.1.0
+Version: 22.2.0
 Summary: An asynchronous networking framework written in Python
 Home-page: https://twistedmatrix.com/
 Author: Twisted Matrix Laboratories
@@ -168,6 +168,7 @@ Twisted
 =======
 
 |gitter|_
+|rtd|_
 |pypi|_
 |mypy|_
 
@@ -282,5 +283,8 @@ Again, see the included `LICENSE <https://github.com/twisted/twisted/blob/trunk/
 
 .. |mypy| image:: https://github.com/twisted/twisted/workflows/mypy/badge.svg
 .. _mypy: https://github.com/twisted/twisted
+
+.. |rtd| image:: https://readthedocs.org/projects/twisted/badge/?version=latest&style=flat
+.. _rtd: https://docs.twistedmatrix.com
 
 
