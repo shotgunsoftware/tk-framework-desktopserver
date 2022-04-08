@@ -41,3 +41,4 @@ repos:
     hooks:
     - id: black
       language_version: python3
+      exclude: ^python/tk_framework_desktopserver/server_protocol\.py$

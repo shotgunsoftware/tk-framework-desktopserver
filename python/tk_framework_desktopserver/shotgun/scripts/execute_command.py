@@ -114,7 +114,10 @@ def core_info(engine):
     # even dating back to v0.16.x. This is an approach that is warrented here,
     # given the backwards-compatibility requirements, and the fact that the
     # tk-shotgun engine is generally treated as "special" in general.
-    installer = TankCoreUpdater(install_root, engine.sgtk.log,)
+    installer = TankCoreUpdater(
+        install_root,
+        engine.sgtk.log,
+    )
 
     cv = installer.get_current_version_number()
 
@@ -247,7 +250,8 @@ def bootstrap(
     # to the callback function, where it will become the first argument
     # at call time.
     manager.pre_engine_start_callback = functools.partial(
-        pre_engine_start_callback, logger,
+        pre_engine_start_callback,
+        logger,
     )
 
     if config:
@@ -326,7 +330,8 @@ def execute(
     core_root = six.ensure_str(core_root)
 
     sgtk.util.prepend_path_to_env_var(
-        "PYTHONPATH", core_root,
+        "PYTHONPATH",
+        core_root,
     )
 
     command = engine.commands.get(name)

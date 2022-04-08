@@ -27,7 +27,8 @@ class TestCacheMethods(TestDesktopServerFramework):
         across invokations.
         """
         config_descriptor = MockConfigDescriptor(
-            path=self.config_root, is_immutable=True,
+            path=self.config_root,
+            is_immutable=True,
         )
         key_1 = self.api._get_lookup_hash(
             config_uri=config_descriptor.get_uri(),
@@ -111,13 +112,16 @@ class TestCacheMethods(TestDesktopServerFramework):
         in the same where a mutable config is in use.
         """
         config_descriptor = MockConfigDescriptor(
-            path=self.config_root, is_immutable=True,
+            path=self.config_root,
+            is_immutable=True,
         )
         hash_1 = self.api._get_contents_hash(
-            config_descriptor, self.api._get_software_entities(),
+            config_descriptor,
+            self.api._get_software_entities(),
         )
         hash_2 = self.api._get_contents_hash(
-            config_descriptor, self.api._get_software_entities(),
+            config_descriptor,
+            self.api._get_software_entities(),
         )
 
         # These should be the same since no input data changed.
@@ -141,7 +145,8 @@ class TestCacheMethods(TestDesktopServerFramework):
         # changing the way it would on a page refresh or navigation.
         self.api._cache = dict()
         hash_3 = self.api._get_contents_hash(
-            config_descriptor, self.api._get_software_entities(),
+            config_descriptor,
+            self.api._get_software_entities(),
         )
         self.assertNotEqual(hash_1, hash_3)
 
@@ -150,14 +155,16 @@ class TestCacheMethods(TestDesktopServerFramework):
         # be included in the hash.
         config_descriptor._is_immutable = False
         hash_4 = self.api._get_contents_hash(
-            config_descriptor, self.api._get_software_entities(),
+            config_descriptor,
+            self.api._get_software_entities(),
         )
         self.assertNotEqual(hash_3, hash_4)
 
         # Running it again should match, because the mtimes of the yml files
         # have not changed.
         hash_5 = self.api._get_contents_hash(
-            config_descriptor, self.api._get_software_entities(),
+            config_descriptor,
+            self.api._get_software_entities(),
         )
         self.assertEqual(hash_4, hash_5)
 
@@ -168,6 +175,7 @@ class TestCacheMethods(TestDesktopServerFramework):
         # changing the way it would on a page refresh or navigation.
         self.api._cache = dict()
         hash_6 = self.api._get_contents_hash(
-            config_descriptor, self.api._get_software_entities(),
+            config_descriptor,
+            self.api._get_software_entities(),
         )
         self.assertNotEqual(hash_5, hash_6)

@@ -129,12 +129,15 @@ class Python3ProjectTests(SgtkIntegrationTest):
             os.path.join(cls.fixtures_root, "config", "interpreter_test")
         )
         sgtk.util.filesystem.copy_folder(
-            config_source_path, temp_folder,
+            config_source_path,
+            temp_folder,
         )
 
         # Find the correct interpreter and update the interpreter config file in the temp config
         cfg_descriptor = create_descriptor(
-            None, Descriptor.CONFIG, dict(path=temp_folder, type="path"),
+            None,
+            Descriptor.CONFIG,
+            dict(path=temp_folder, type="path"),
         )
 
         # Get the location of the interpreter file
@@ -247,7 +250,8 @@ class Python3ProjectTests(SgtkIntegrationTest):
         assert content == command_name
 
     @unittest2.skipIf(
-        sys.version_info.major == 3, "Skipping if major version of python is 3",
+        sys.version_info.major == 3,
+        "Skipping if major version of python is 3",
     )
     def test_execute_action_python2(self):
         """
@@ -256,7 +260,8 @@ class Python3ProjectTests(SgtkIntegrationTest):
         self._test_execute_action(self.python_config, "Command A")
 
     @unittest2.skipIf(
-        sys.version_info.major == 2, "Skipping if major version of python is 2",
+        sys.version_info.major == 2,
+        "Skipping if major version of python is 2",
     )
     def test_execute_action_python3(self):
         """

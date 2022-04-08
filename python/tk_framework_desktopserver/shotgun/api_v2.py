@@ -181,7 +181,13 @@ class ShotgunAPI(object):
             logger.debug("Clone configuration command received.")
             self._clone_configuration(data)
             logger.debug("Clone configuration successful.")
-            self.host.reply(dict(retcode=constants.COMMAND_SUCCEEDED, err="", out="",),)
+            self.host.reply(
+                dict(
+                    retcode=constants.COMMAND_SUCCEEDED,
+                    err="",
+                    out="",
+                ),
+            )
             return
 
         project_entity, entities = self._get_entities_from_payload(data)
@@ -263,7 +269,9 @@ class ShotgunAPI(object):
                 self._engine.sgtk.bundle_cache_fallback_paths
             )
             all_pc_data = self._get_pipeline_configuration_data(
-                manager, project_entity, data,
+                manager,
+                project_entity,
+                data,
             )
 
         python_exe = self._get_python_interpreter(
@@ -326,7 +334,9 @@ class ShotgunAPI(object):
 
         self.host.reply(
             dict(
-                retcode=constants.COMMAND_SUCCEEDED, out=filtered_output_string, err="",
+                retcode=constants.COMMAND_SUCCEEDED,
+                out=filtered_output_string,
+                err="",
             ),
         )
 
@@ -429,7 +439,9 @@ class ShotgunAPI(object):
                 self._engine.sgtk.bundle_cache_fallback_paths
             )
             all_pc_data = self._get_pipeline_configuration_data(
-                manager, project_entity, data,
+                manager,
+                project_entity,
+                data,
             )
 
         # The first thing we do is check to see if we're dealing with a
@@ -514,7 +526,8 @@ class ShotgunAPI(object):
             # finding stuff for this entity type in this config, then the empty
             # entry here will be replaced prior to replying to the client.
             all_actions[pipeline_config["name"]] = dict(
-                actions=[], config=pipeline_config,
+                actions=[],
+                config=pipeline_config,
             )
 
             # Let's see if this is even an entity type that we need to worry
@@ -525,7 +538,8 @@ class ShotgunAPI(object):
             supported_entity_type = data[
                 "entity_type"
             ].lower() in self._get_entity_type_whitelist(
-                data.get("project_id"), pc_descriptor,
+                data.get("project_id"),
+                pc_descriptor,
             )
 
             if not supported_entity_type and not did_legacy_lookup:
@@ -638,7 +652,9 @@ class ShotgunAPI(object):
                     # future requests will be correct until the next time the cache
                     # must be invalidated.
                     self._async_check_and_cache_actions(
-                        data, pc_data, cached_contents_hash,
+                        data,
+                        pc_data,
+                        cached_contents_hash,
                     )
 
                     logger.debug("Cached contents hash is %s", cached_contents_hash)
@@ -654,7 +670,9 @@ class ShotgunAPI(object):
 
                     all_actions[pipeline_config["name"]] = dict(
                         actions=self._filter_by_project(
-                            actions, self._get_software_entities(), project_entity,
+                            actions,
+                            self._get_software_entities(),
+                            project_entity,
                         ),
                         config=pipeline_config,
                     )
@@ -853,7 +871,12 @@ class ShotgunAPI(object):
 
         logger.debug("Cache actions executing asynchronously...")
         thread = threading.Thread(
-            target=self._cache_actions, args=(data, config_data, cached_contents_hash,),
+            target=self._cache_actions,
+            args=(
+                data,
+                config_data,
+                cached_contents_hash,
+            ),
         )
         thread.start()
         logger.debug("Cache actions thread started.")
@@ -880,7 +903,8 @@ class ShotgunAPI(object):
         script = os.path.join(os.path.dirname(__file__), "scripts", "get_commands.py")
 
         contents_hash = self._get_contents_hash(
-            descriptor, self._get_site_state_data(),
+            descriptor,
+            self._get_site_state_data(),
         )
         logger.debug("The new contents hash is %s", contents_hash)
 
@@ -1021,7 +1045,11 @@ class ShotgunAPI(object):
                 )
                 cursor.execute(
                     "INSERT INTO engine_commands VALUES (?, ?, ?)",
-                    (config_data["lookup_hash"], contents_hash, commands_blob,),
+                    (
+                        config_data["lookup_hash"],
+                        contents_hash,
+                        commands_blob,
+                    ),
                 )
 
     def _get_python_interpreter(self, descriptor):
@@ -1211,7 +1239,10 @@ class ShotgunAPI(object):
         """
         # We dump the entities out as json, sorting on keys to ensure
         # consistent ordering of data.
-        hashable_data = dict(entities=entities, modtimes="",)
+        hashable_data = dict(
+            entities=entities,
+            modtimes="",
+        )
 
         if config_descriptor and config_descriptor.is_immutable() is False:
             yml_files = self._get_yml_file_data(config_descriptor)
@@ -1224,7 +1255,9 @@ class ShotgunAPI(object):
         # data structure. The quickest way to do that is to json encode
         # everything, sorting on keys to stabilize the results.
         json_data = json.dumps(
-            hashable_data, sort_keys=True, default=self.__json_default,
+            hashable_data,
+            sort_keys=True,
+            default=self.__json_default,
         )
 
         logger.debug("Contents data to be used in hash generation: %s", json_data)
@@ -1270,14 +1303,20 @@ class ShotgunAPI(object):
         #     we fall back on querying it when we need to.
         #
         if data.get("project_id") is not None:
-            project_entity = dict(type="Project", id=data["project_id"],)
+            project_entity = dict(
+                type="Project",
+                id=data["project_id"],
+            )
         else:
             project_entity = None
 
         # Single entity passed down from the web app. This is the most common
         # case.
         if "entity_id" in data:
-            entity = dict(type=data["entity_type"], id=data["entity_id"],)
+            entity = dict(
+                type=data["entity_type"],
+                id=data["entity_id"],
+            )
 
             # If we were passed a usable project entity from the web app, we
             # can trust that and add it to our entity. If we didn't, then we'll
@@ -1314,7 +1353,10 @@ class ShotgunAPI(object):
 
                     entities.append(entity)
                 else:
-                    entity = dict(type=data["entity_type"], id=entity,)
+                    entity = dict(
+                        type=data["entity_type"],
+                        id=entity,
+                    )
                     # If we were passed a usable project entity from the web app, we
                     # can trust that and add it to our entity. If we didn't, then we'll
                     # have to query it.
@@ -1364,7 +1406,9 @@ class ShotgunAPI(object):
             project = None
             try:
                 sg_entity = self._engine.shotgun.find_one(
-                    entity["type"], [["id", "is", entity["id"]]], fields=["project"],
+                    entity["type"],
+                    [["id", "is", entity["id"]]],
+                    fields=["project"],
                 )
             except Exception:
                 pass
@@ -1432,7 +1476,8 @@ class ShotgunAPI(object):
                 )
             else:
                 schema = self._engine.shotgun.schema_field_read(
-                    constants.PUBLISHED_FILE_ENTITY, field_name="entity",
+                    constants.PUBLISHED_FILE_ENTITY,
+                    field_name="entity",
                 )
             linkable_types = schema["entity"]["properties"]["valid_types"]["value"]
             linkable_types = [t.lower() for t in linkable_types]
@@ -1574,7 +1619,8 @@ class ShotgunAPI(object):
             config_data = dict()
 
             pipeline_configs = self._get_pipeline_configurations(
-                manager, project_entity,
+                manager,
+                project_entity,
             )
 
             # If there are no configs that we got back, then we just operate on
@@ -1640,7 +1686,10 @@ class ShotgunAPI(object):
                     pc_data["lookup_hash"] = None
                 else:
                     pc_data["lookup_hash"] = self._get_lookup_hash(
-                        pc_key, project_entity, data["entity_type"], data["entity_id"],
+                        pc_key,
+                        project_entity,
+                        data["entity_type"],
+                        data["entity_id"],
                     )
                 pc_data["descriptor"] = pc_descriptor
                 pc_data["entity"] = pipeline_config
@@ -1653,7 +1702,8 @@ class ShotgunAPI(object):
             cache.setdefault(self.CONFIG_DATA, dict())
             cache[self.CONFIG_DATA].setdefault(entity_type, dict())
             cache[self.CONFIG_DATA][entity_type].setdefault(
-                project_entity["id"], dict(),
+                project_entity["id"],
+                dict(),
             ).update(config_data)
 
         # We'll deepcopy the data before returning it. That will ensure that
@@ -1718,7 +1768,8 @@ class ShotgunAPI(object):
             self._cache[self.SITE_STATE_DATA] = self._get_software_entities()
 
             requested_data_specs = self._bundle.execute_hook_method(
-                "browser_integration_hook", "get_site_state_data",
+                "browser_integration_hook",
+                "get_site_state_data",
             )
 
             for spec in requested_data_specs:
@@ -1752,7 +1803,9 @@ class ShotgunAPI(object):
             )
 
             cache[self.SOFTWARE_ENTITIES] = self._engine.shotgun.find(
-                "Software", [], fields=self.SOFTWARE_FIELDS,
+                "Software",
+                [],
+                fields=self.SOFTWARE_FIELDS,
             )
         else:
             logger.debug("Cached software entities found for %s", self._wss_key)
@@ -1777,7 +1830,11 @@ class ShotgunAPI(object):
         if self.TASK_PARENT_TYPES in cache and task_id in cache[self.TASK_PARENT_TYPES]:
             logger.debug("Parent entity type found in cache for Task %s.", task_id)
         else:
-            context = sgtk.context.from_entity(self._engine.sgtk, "Task", task_id,)
+            context = sgtk.context.from_entity(
+                self._engine.sgtk,
+                "Task",
+                task_id,
+            )
 
             if context.entity is None:
                 raise TankTaskNotLinkedError("Task is not linked to an entity.")
@@ -1899,7 +1956,8 @@ class ShotgunAPI(object):
                         yml_files[full_path] = os.path.getmtime(full_path)
 
             logger.debug(
-                "Contents hash computed using %s yml files.", len(yml_files),
+                "Contents hash computed using %s yml files.",
+                len(yml_files),
             )
 
             logger.debug("Files checked for mtime: %s", sorted(yml_files.keys()))
@@ -1963,7 +2021,9 @@ class ShotgunAPI(object):
         if project_not_cached:
             self._cache[self.LEGACY_PROJECT_ACTIONS][
                 project_id
-            ] = self.process_manager.get_project_actions(config_paths,)
+            ] = self.process_manager.get_project_actions(
+                config_paths,
+            )
 
         # We'll deepcopy the data before returning it. That will ensure that
         # any destructive operations on the contents won't bubble up to the
@@ -2038,7 +2098,10 @@ class ShotgunAPI(object):
                     config_path,
                 )
 
-                all_actions[config_name] = dict(actions=[], config=config_entity,)
+                all_actions[config_name] = dict(
+                    actions=[],
+                    config=config_entity,
+                )
 
                 continue
 
@@ -2047,7 +2110,10 @@ class ShotgunAPI(object):
                     "A shotgun_get_actions call did not succeed: %s", raw_actions_data
                 )
 
-                all_actions[config_name] = dict(actions=[], config=config_entity,)
+                all_actions[config_name] = dict(
+                    actions=[],
+                    config=config_entity,
+                )
 
                 continue
 
@@ -2083,7 +2149,10 @@ class ShotgunAPI(object):
             except Exception:
                 logger.error("Unable to parse legacy cache file: %s", env_file_name)
 
-            all_actions[config_name] = dict(actions=commands, config=config_entity,)
+            all_actions[config_name] = dict(
+                actions=commands,
+                config=config_entity,
+            )
 
     def _legacy_sanitize_output(self, out):
         """

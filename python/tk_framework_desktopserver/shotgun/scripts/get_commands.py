@@ -53,7 +53,10 @@ def bootstrap(
     entity = dict(
         type=data["entity_type"],
         id=data["entity_id"],
-        project=dict(type="Project", id=data["project_id"],),
+        project=dict(
+            type="Project",
+            id=data["project_id"],
+        ),
     )
 
     # Setup the bootstrap manager.
