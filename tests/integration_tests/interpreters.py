@@ -42,11 +42,21 @@ class Python3ProjectTests(SgtkIntegrationTest):
     @classmethod
     def get_python_interpreter_by_major_version(cls, major):
         """
-        Get the path to a python interpreter on the current platform that matches the given major version
+        Get the path to a python interpreter on the current platform that
+        matches the given major version.
         """
+        # python versions
         azure_python2_versions = ["2.7.18"]
-        azure_python3_versions = ["3.7.7", "3.7.8", "3.7.9", "3.7.11", "3.7.12"]
+        azure_python3_versions = [
+            "3.7.7",
+            "3.7.8",
+            "3.7.9",
+            "3.7.11",
+            "3.7.12",
+            "3.9.10",
+        ]
 
+        # windows paths
         win_paths = {
             2: [r"C:\Program Files\Shotgun\Python\python.exe"],
             3: [r"C:\Program Files\Shotgun\Python3\python.exe"],
@@ -57,6 +67,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
                 r"C:\hostedtoolcache\windows\Python\%s\x64\python.exe" % version
             )
 
+        # linux paths
         linux_paths = {
             2: ["/opt/Shotgun/Python/bin/python"],
             3: ["/opt/Shotgun/Python3/bin/python"],
@@ -67,6 +78,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
                 r"/opt/hostedtoolcache/Python/%s/x64/bin/python" % version
             )
 
+        # mac paths
         osx_paths = {
             2: ["/Applications/Shotgun.app/Contents/Resources/Python/bin/python"],
             3: ["/Applications/Shotgun.app/Contents/Resources/Python3/bin/python"],
@@ -117,12 +129,15 @@ class Python3ProjectTests(SgtkIntegrationTest):
             os.path.join(cls.fixtures_root, "config", "interpreter_test")
         )
         sgtk.util.filesystem.copy_folder(
-            config_source_path, temp_folder,
+            config_source_path,
+            temp_folder,
         )
 
         # Find the correct interpreter and update the interpreter config file in the temp config
         cfg_descriptor = create_descriptor(
-            None, Descriptor.CONFIG, dict(path=temp_folder, type="path"),
+            None,
+            Descriptor.CONFIG,
+            dict(path=temp_folder, type="path"),
         )
 
         # Get the location of the interpreter file
@@ -153,7 +168,6 @@ class Python3ProjectTests(SgtkIntegrationTest):
 
     @classmethod
     def setUpClass(cls):
-
         super(Python3ProjectTests, cls).setUpClass()
 
         cls.fixtures_root = os.path.join(
@@ -171,13 +185,19 @@ class Python3ProjectTests(SgtkIntegrationTest):
         cls.project = cls.create_or_update_project("Python Interpreter Test Project")
 
         # Create a config for python2 and one for python3
-        cls.python2_config = cls.create_pipeline_config_for_python_version("python2", 2)
-        cls.python3_config = cls.create_pipeline_config_for_python_version("python3", 3)
+        if sys.version_info.major == 2:
+            cls.python_config = cls.create_pipeline_config_for_python_version(
+                "python2", 2
+            )
+        if sys.version_info.major == 3:
+            cls.python_config = cls.create_pipeline_config_for_python_version(
+                "python3", 3
+            )
 
         # Bootstrap the test_engine and use it to get the client and server frameworks
         manager = sgtk.bootstrap.ToolkitManager(cls.user)
         manager.plugin_id = "basic.test"
-        manager.pipeline_configuration = cls.python2_config["id"]
+        manager.pipeline_configuration = cls.python_config["id"]
 
         cls.engine = manager.bootstrap_engine("test_engine", cls.project)
 
@@ -229,17 +249,25 @@ class Python3ProjectTests(SgtkIntegrationTest):
             content = f.read()
         assert content == command_name
 
+    @unittest2.skipIf(
+        sys.version_info.major == 3,
+        "Skipping if major version of python is 3",
+    )
     def test_execute_action_python2(self):
         """
         Make sure that calling "execute_action" of a python2 project works
         """
-        self._test_execute_action(self.python2_config, "Command A")
+        self._test_execute_action(self.python_config, "Command A")
 
+    @unittest2.skipIf(
+        sys.version_info.major == 2,
+        "Skipping if major version of python is 2",
+    )
     def test_execute_action_python3(self):
         """
         Make sure that calling "execute_action" of a python3 project works
         """
-        self._test_execute_action(self.python3_config, "Command B")
+        self._test_execute_action(self.python_config, "Command B")
 
     def test_get_actions(self):
         """
@@ -256,23 +284,27 @@ class Python3ProjectTests(SgtkIntegrationTest):
         ]
         assert "actions" in reply
 
-        # The reply will hold actions from all pipelien configurations that apply to this project
+        # The reply will hold actions from all pipeline configurations that apply to this project
         # If the sandbox is not clean, we will get more actions that we have set up in these configs
         # So we need to filter out the extras and just test that we get our expected result back from
         # the test configs
-        test_config_ids = [self.python2_config["id"], self.python3_config["id"]]
+        test_config_ids = [self.python_config["id"]]
         test_data = set()
         for pc_name, pc_data in reply["actions"].items():
             if pc_data["config"]["id"] in test_config_ids:
                 test_data = test_data.union(
                     {(pc_name, x["app_name"], x["title"]) for x in pc_data["actions"]}
                 )
-        assert test_data == {
-            ("python2", self.test_app_name, "Command A"),
-            ("python2", self.test_app_name, "Command B"),
-            ("python3", self.test_app_name, "Command A"),
-            ("python3", self.test_app_name, "Command B"),
-        }
+        if sys.version_info.major == 2:
+            assert test_data == {
+                ("python2", self.test_app_name, "Command A"),
+                ("python2", self.test_app_name, "Command B"),
+            }
+        else:
+            assert test_data == {
+                ("python3", self.test_app_name, "Command A"),
+                ("python3", self.test_app_name, "Command B"),
+            }
 
 
 if __name__ == "__main__":

@@ -8,28 +8,30 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-for PY_VERSION in 2.7 3.7
-do
-  case "$PY_VERSION" in
-    2.7) PYTHON_BIN="/Applications/Shotgun.app/Contents/Resources/Python/bin/python" ;;
-    3.7) PYTHON_BIN="/Applications/Shotgun.app/Contents/Resources/Python3/bin/python" ;;
-  esac
+# Get python version
+python_major_version=$(python -c "import sys; print(sys.version_info.major)")
+python_minor_version=$(python -c "import sys; print(sys.version_info.minor)")
+python_version="$python_major_version.$python_minor_version"
 
-  bin_dir="bin/$PY_VERSION/mac"
-  requirements="bin/$PY_VERSION/explicit_requirements.txt"
+# Set paths
+bin_dir="bin/$python_version/mac"
+requirements="bin/$python_version/explicit_requirements.txt"
 
-  rm -rf $bin_dir
-  mkdir $bin_dir
-  $PYTHON_BIN build/pip install --target $bin_dir --no-deps -r $requirements
+# Delete current files
+rm -rf $bin_dir
+mkdir $bin_dir
 
-  # For some reason zope is missing a top level init file when installed with
-  # pip, so we're adding it.
-  touch $bin_dir/zope/__init__.py
+# Install packages
+python build/pip install --target $bin_dir --no-deps -r $requirements
 
-  # Remove tests to thin out the packages
-  rm -rf $bin_dir/Crypto/SelfTest
-  rm -rf $bin_dir/zope/interface/tests
-  rm -rf $bin_dir/zope/interface/*/tests
+# For some reason zope is missing a top level init file when installed with
+# pip, so we're adding it.
+touch $bin_dir/zope/__init__.py
 
-  git add $bin_dir
-done
+# Remove tests to thin out the packages
+rm -rf $bin_dir/Crypto/SelfTest
+rm -rf $bin_dir/zope/interface/tests
+rm -rf $bin_dir/zope/interface/*/tests
+
+# Add bin dir to repo
+git add $bin_dir

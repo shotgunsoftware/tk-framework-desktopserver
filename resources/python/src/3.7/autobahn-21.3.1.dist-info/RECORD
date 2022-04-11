@@ -1,9 +1,10 @@
-../../bin/wamp,sha256=Z_TqJ9iSon_gXzz5NUXxRTJo8olGQL4G2Hb-q0jNtFc,269
-../../bin/xbrnetwork,sha256=MwlqKCno4k4KMG6eTAFPd9_C2GFZnAUkWD95msHh260,269
+../../bin/wamp,sha256=LTgjlXFZaTDm6INoBRGLLlgvic9F7bJNTq0hJmGZkLE,272
+../../bin/xbrnetwork,sha256=xU9Vf-nQDJ5QlHawmsdm1R-jUk817dMqR3zkddfUFEY,272
 autobahn-21.3.1.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
 autobahn-21.3.1.dist-info/LICENSE,sha256=A4fu_OVwRT2qpgYz8oZ2ADcx7soostCgBxxijjoABO8,1091
 autobahn-21.3.1.dist-info/METADATA,sha256=kYMpmH9Rx0wCyj_Lax-6ZU0IlElbYBvT9jLTNBC3Esc,17097
 autobahn-21.3.1.dist-info/RECORD,,
+autobahn-21.3.1.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
 autobahn-21.3.1.dist-info/WHEEL,sha256=Z-nyYpwrcSqxfdux5Mbn_DQ525iP7J2DG3JgGvOYyTQ,110
 autobahn-21.3.1.dist-info/entry_points.txt,sha256=wMAmvXFMn1Cs2I09-HO3YGDuWr_kghKISRRa7_oKHJ8,87
 autobahn-21.3.1.dist-info/top_level.txt,sha256=i67H6_FOEnZCuafCKor2-4scMopj2B4VZiqG_K2709g,17

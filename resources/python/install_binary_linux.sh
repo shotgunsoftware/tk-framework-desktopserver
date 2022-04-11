@@ -8,31 +8,30 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-for PY_VERSION in 2.7 3.7
-do
-  case "$PY_VERSION" in
-    2.7) PYTHON_BIN="/opt/Shotgun/Python/bin/python" ;;
-    3.7) PYTHON_BIN="/opt/Shotgun/Python3/bin/python" ;;
-  esac
+# Get python version
+python_major_version=$(python -c "import sys; print(sys.version_info.major)")
+python_minor_version=$(python -c "import sys; print(sys.version_info.minor)")
+python_version="$python_major_version.$python_minor_version"
 
-  rm -rf bin/$PY_VERSION/linux
-  mkdir bin/$PY_VERSION/linux
+# Set paths
+bin_dir="bin/$python_version/linux"
+requirements="bin/$python_version/explicit_requirements.txt"
 
-  # gcc has trouble finding out libpython2.7.so, we're adding its folder
-  # to the link library path before invoking pip. Also, we're not using the
-  # OS python because CentOS 5/6 do not ship with a version of SSL/TLS supported
-  # by pypi.
-  LDFLAGS=-L/opt/Shotgun/Python/lib $PYTHON_BIN build/pip install --target bin/$PY_VERSION/linux --no-deps -r bin/$PY_VERSION/explicit_requirements.txt
+# Delete current files
+rm -rf $bin_dir
+mkdir $bin_dir
 
-  # For some reason zope is missing a top level init file when installed with
-  # pip, so we're adding it.
-  touch bin/$PY_VERSION/linux/zope/__init__.py
+# Install packages
+python build/pip install --target $bin_dir --no-deps -r $requirements
 
-  # Remove tests to thin out the packages
-  rm -rf bin/$PY_VERSION/linux/Crypto/SelfTest
-  rm -rf bin/$PY_VERSION/linux/zope/interface/tests
-  rm -rf bin/$PY_VERSION/linux/zope/interface/*/tests
+# For some reason zope is missing a top level init file when installed with
+# pip, so we're adding it.
+touch $bin_dir/zope/__init__.py
 
-  git add bin/$PY_VERSION/linux
+# Remove tests to thin out the packages
+rm -rf $bin_dir/Crypto/SelfTest
+rm -rf $bin_dir/zope/interface/tests
+rm -rf $bin_dir/zope/interface/*/tests
 
-done
+# Add bin dir to repo
+git add $bin_dir

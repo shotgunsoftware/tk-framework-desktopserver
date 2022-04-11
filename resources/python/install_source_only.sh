@@ -9,61 +9,56 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 echo "----------------------------------------------------"
+echo "Get python version"
+
+python_major_version=$(python -c "import sys; print(sys.version_info.major)")
+python_minor_version=$(python -c "import sys; print(sys.version_info.minor)")
+python_version="$python_major_version.$python_minor_version"
+
+echo "Python version is $python_version"
+
+echo "----------------------------------------------------"
 echo "Set base paths"
 
 requirements_filename="explicit_requirements.txt"
 build_dir=$PWD/build
-python_2_executable="/Applications/Shotgun.app/Contents/Resources/Python/bin/python"
-python_3_executable="/Applications/Shotgun.app/Contents/Resources/Python3/bin/python"
+source_dir="src/$python_version"
+source_requirements="$source_dir/$requirements_filename"
 
-for py_version in 2.7 3.7
-do
-  echo "===================================================="
-  echo "Set paths for $py_version"
+echo "Source Dir: $source_dir"
+echo "Source Requirements: $source_requirements"
 
-  source_dir="src/$py_version"
-  source_requirements="$source_dir/$requirements_filename"
+echo "----------------------------------------------------"
+echo "Remove current packages"
 
-  if [ "$py_version" = "2.7" ]
-  then
-    python_executable=$python_2_executable
-  elif [ "$py_version" = "3.7" ]
-  then
-    python_executable=$python_3_executable
-  fi
+find $source_dir/* ! -name $requirements_filename -maxdepth 1 -exec rm -rf {} +
 
-  echo "----------------------------------------------------"
-  echo "Remove current packages"
+echo "----------------------------------------------------"
+echo "Install new packages"
 
-  find $source_dir/* ! -name $requirements_filename -maxdepth 1 -exec rm -rf {} +
+PYTHONPATH=$build_dir \
+  python \
+  build/pip install \
+  --target $source_dir \
+  --no-deps \
+  -r $source_requirements
 
-  echo "----------------------------------------------------"
-  echo "Install new packages"
+echo "----------------------------------------------------"
+echo "Remove unnecessary files"
 
-  PYTHONPATH=$build_dir \
-    $python_executable \
-    build/pip install \
-    --target $source_dir \
-    --no-deps \
-    -r $source_requirements
+rm -Rf $source_dir/autobahn/test
+rm -Rf $source_dir/autobahn/*/test
+rm -Rf $source_dir/twisted/test
+rm -Rf $source_dir/twisted/*/test
+rm -Rf $source_dir/twisted/*/*/test
+rm -Rf $source_dir/automat/_test
+rm -Rf $source_dir/hyperlink/test
+rm -Rf $source_dir/incremental/tests
 
-  echo "----------------------------------------------------"
-  echo "Remove unnecessary files"
+# In twisted.internet.unix, there is a mixin which we don't use that allows to copy file descriptors
+# into other processes, which we don't require. That module is compiled, so we'll delete it.
+rm -Rf $source_dir/twisted/python/_sendmsg.so
 
-  rm -rf $source_dir/autobahn/test
-  rm -rf $source_dir/autobahn/*/test
-  rm -rf $source_dir/twisted/test
-  rm -rf $source_dir/twisted/*/test
-  rm -rf $source_dir/twisted/*/*/test
-  rm -rf $source_dir/automat/_test
-  rm -rf $source_dir/hyperlink/test
-  rm -rf $source_dir/incremental/tests
-
-  # In twisted.internet.unix, there is a mixin which we don't use that allows to copy file descriptors
-  # into other processes, which we don't require. That module is compiled, so we'll delete it.
-  rm -rf $source_dir/twisted/python/_sendmsg.so
-
-  echo "----------------------------------------------------"
-  echo "Adding new files to git"
-  git add $source_dir
-done
+echo "----------------------------------------------------"
+echo "Adding new files to git"
+git add $source_dir
