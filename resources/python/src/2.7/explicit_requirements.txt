@@ -10,7 +10,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 Automat==20.2.0
 PyHamcrest==1.10.1
-Twisted==20.3.0
+Twisted==22.10.0
 attrs==21.2.0
 autobahn==19.11.2
 certifi==2021.5.30
