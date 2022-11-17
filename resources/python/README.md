@@ -11,11 +11,11 @@ Officially Supported Python Versions:
 - Windows 
   - 2.7.18
   - 3.7.9
-  - 3.9.10
+  - 3.9.13
 - Linux: 
   - 2.7.18
-  - 3.7.12
-  - 3.9.10
+  - 3.7.15
+  - 3.9.15
 
 ## How to update dependencies
 
