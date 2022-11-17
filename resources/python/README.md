@@ -6,8 +6,8 @@ This framework manages the integration between SG Desktop and SG Web
 Officially Supported Python Versions:
 - Mac 
   - 2.7.18
-  - 3.7.12
-  - 3.9.10
+  - 3.7.15
+  - 3.9.15
 - Windows 
   - 2.7.18
   - 3.7.9
