@@ -8,19 +8,19 @@
 # By accessing, using, copying or modifying this work you indicate your
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
-Automat==20.2.0
+Automat==22.10.0
 PyHamcrest==1.10.1
 Twisted==20.3.0
-attrs==21.2.0
+attrs==21.4.0
 autobahn==19.11.2
-certifi==2021.5.30
+certifi==2021.10.8
 constantly==15.1.0
 enum34==1.1.10
 hyperlink==21.0.0
 idna==2.10
-incremental==21.3.0
+incremental==22.10.0
 ipaddress==1.0.23
-pyOpenSSL==20.0.1
+pyOpenSSL==21.0.0
 pyasn1-modules==0.2.8
 pyasn1==0.4.8
 pycparser==2.21
