@@ -20,6 +20,7 @@ from zope.interface.interface import Interface
 from zope.interface.declarations import implementer
 
 __all__ = [
+    'ComponentLookupError',
     'IAdapterRegistration',
     'IAdapterRegistry',
     'IAttribute',
@@ -32,6 +33,7 @@ __all__ = [
     'IInterface',
     'IInterfaceDeclaration',
     'IMethod',
+    'Invalid',
     'IObjectEvent',
     'IRegistered',
     'IRegistration',
@@ -40,6 +42,9 @@ __all__ = [
     'ISubscriptionAdapterRegistration',
     'IUnregistered',
     'IUtilityRegistration',
+    'ObjectEvent',
+    'Registered',
+    'Unregistered',
 ]
 
 # pylint:disable=inherit-non-class,no-method-argument,no-self-argument
@@ -1071,7 +1076,7 @@ class IObjectEvent(Interface):
     """An event related to an object.
 
     The object that generated this event is not necessarily the object
-    refered to by location.
+    referred to by location.
     """
 
     object = Attribute("The subject of the event.")
@@ -1134,7 +1139,7 @@ class IComponentLookup(Interface):
         """Get subscribers
 
         Subscribers are returned that provide the provided interface
-        and that depend on and are comuted from the sequence of
+        and that depend on and are computed from the sequence of
         required objects.
         """
 

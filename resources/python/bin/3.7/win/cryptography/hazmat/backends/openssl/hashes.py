@@ -2,14 +2,20 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+import typing
 
-from cryptography import utils
 from cryptography.exceptions import UnsupportedAlgorithm, _Reasons
 from cryptography.hazmat.primitives import hashes
 
 
+if typing.TYPE_CHECKING:
+    from cryptography.hazmat.backends.openssl.backend import Backend
+
+
 class _HashContext(hashes.HashContext):
-    def __init__(self, backend, algorithm: hashes.HashAlgorithm, ctx=None):
+    def __init__(
+        self, backend: "Backend", algorithm: hashes.HashAlgorithm, ctx=None
+    ) -> None:
         self._algorithm = algorithm
 
         self._backend = backend
@@ -34,7 +40,9 @@ class _HashContext(hashes.HashContext):
 
         self._ctx = ctx
 
-    algorithm = utils.read_only_property("_algorithm")
+    @property
+    def algorithm(self) -> hashes.HashAlgorithm:
+        return self._algorithm
 
     def copy(self) -> "_HashContext":
         copied_ctx = self._backend._lib.EVP_MD_CTX_new()

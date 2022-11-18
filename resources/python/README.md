@@ -102,7 +102,7 @@ bash install_source_only.sh
 
 ### Install binary in Windows 10
 
-- In Windows inside a powershell as admin, execute the script `install_binary_windows.bat` with every virtualenv:
+- In Windows inside a powershell as admin, execute the script `install_binary_windows.ps1` with every virtualenv:
 
 ```shell
 cd resources/python
