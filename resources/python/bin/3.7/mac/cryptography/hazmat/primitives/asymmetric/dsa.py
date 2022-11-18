@@ -6,12 +6,8 @@
 import abc
 import typing
 
-from cryptography import utils
-from cryptography.hazmat.backends import _get_backend
 from cryptography.hazmat.primitives import _serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import (
-    AsymmetricSignatureContext,
-    AsymmetricVerificationContext,
     utils as asym_utils,
 )
 
@@ -50,15 +46,6 @@ class DSAPrivateKey(metaclass=abc.ABCMeta):
     def parameters(self) -> DSAParameters:
         """
         The DSAParameters object associated with this private key.
-        """
-
-    @abc.abstractmethod
-    def signer(
-        self,
-        signature_algorithm: hashes.HashAlgorithm,
-    ) -> AsymmetricSignatureContext:
-        """
-        Returns an AsymmetricSignatureContext used for signing data.
         """
 
     @abc.abstractmethod
@@ -106,16 +93,6 @@ class DSAPublicKey(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def verifier(
-        self,
-        signature: bytes,
-        signature_algorithm: hashes.HashAlgorithm,
-    ) -> AsymmetricVerificationContext:
-        """
-        Returns an AsymmetricVerificationContext used for signing data.
-        """
-
-    @abc.abstractmethod
     def public_numbers(self) -> "DSAPublicNumbers":
         """
         Returns a DSAPublicNumbers.
@@ -137,7 +114,7 @@ class DSAPublicKey(metaclass=abc.ABCMeta):
         signature: bytes,
         data: bytes,
         algorithm: typing.Union[asym_utils.Prehashed, hashes.HashAlgorithm],
-    ):
+    ) -> None:
         """
         Verifies the signature of the data.
         """
@@ -146,7 +123,7 @@ class DSAPublicKey(metaclass=abc.ABCMeta):
 DSAPublicKeyWithSerialization = DSAPublicKey
 
 
-class DSAParameterNumbers(object):
+class DSAParameterNumbers:
     def __init__(self, p: int, q: int, g: int):
         if (
             not isinstance(p, int)
@@ -161,31 +138,39 @@ class DSAParameterNumbers(object):
         self._q = q
         self._g = g
 
-    p = utils.read_only_property("_p")
-    q = utils.read_only_property("_q")
-    g = utils.read_only_property("_g")
+    @property
+    def p(self) -> int:
+        return self._p
 
-    def parameters(self, backend=None) -> DSAParameters:
-        backend = _get_backend(backend)
-        return backend.load_dsa_parameter_numbers(self)
+    @property
+    def q(self) -> int:
+        return self._q
 
-    def __eq__(self, other):
+    @property
+    def g(self) -> int:
+        return self._g
+
+    def parameters(self, backend: typing.Any = None) -> DSAParameters:
+        from cryptography.hazmat.backends.openssl.backend import (
+            backend as ossl,
+        )
+
+        return ossl.load_dsa_parameter_numbers(self)
+
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, DSAParameterNumbers):
             return NotImplemented
 
         return self.p == other.p and self.q == other.q and self.g == other.g
 
-    def __ne__(self, other):
-        return not self == other
-
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             "<DSAParameterNumbers(p={self.p}, q={self.q}, "
             "g={self.g})>".format(self=self)
         )
 
 
-class DSAPublicNumbers(object):
+class DSAPublicNumbers:
     def __init__(self, y: int, parameter_numbers: DSAParameterNumbers):
         if not isinstance(y, int):
             raise TypeError("DSAPublicNumbers y argument must be an integer.")
@@ -198,14 +183,22 @@ class DSAPublicNumbers(object):
         self._y = y
         self._parameter_numbers = parameter_numbers
 
-    y = utils.read_only_property("_y")
-    parameter_numbers = utils.read_only_property("_parameter_numbers")
+    @property
+    def y(self) -> int:
+        return self._y
 
-    def public_key(self, backend=None) -> DSAPublicKey:
-        backend = _get_backend(backend)
-        return backend.load_dsa_public_numbers(self)
+    @property
+    def parameter_numbers(self) -> DSAParameterNumbers:
+        return self._parameter_numbers
 
-    def __eq__(self, other):
+    def public_key(self, backend: typing.Any = None) -> DSAPublicKey:
+        from cryptography.hazmat.backends.openssl.backend import (
+            backend as ossl,
+        )
+
+        return ossl.load_dsa_public_numbers(self)
+
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, DSAPublicNumbers):
             return NotImplemented
 
@@ -214,17 +207,14 @@ class DSAPublicNumbers(object):
             and self.parameter_numbers == other.parameter_numbers
         )
 
-    def __ne__(self, other):
-        return not self == other
-
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             "<DSAPublicNumbers(y={self.y}, "
             "parameter_numbers={self.parameter_numbers})>".format(self=self)
         )
 
 
-class DSAPrivateNumbers(object):
+class DSAPrivateNumbers:
     def __init__(self, x: int, public_numbers: DSAPublicNumbers):
         if not isinstance(x, int):
             raise TypeError("DSAPrivateNumbers x argument must be an integer.")
@@ -236,14 +226,22 @@ class DSAPrivateNumbers(object):
         self._public_numbers = public_numbers
         self._x = x
 
-    x = utils.read_only_property("_x")
-    public_numbers = utils.read_only_property("_public_numbers")
+    @property
+    def x(self) -> int:
+        return self._x
 
-    def private_key(self, backend=None) -> DSAPrivateKey:
-        backend = _get_backend(backend)
-        return backend.load_dsa_private_numbers(self)
+    @property
+    def public_numbers(self) -> DSAPublicNumbers:
+        return self._public_numbers
 
-    def __eq__(self, other):
+    def private_key(self, backend: typing.Any = None) -> DSAPrivateKey:
+        from cryptography.hazmat.backends.openssl.backend import (
+            backend as ossl,
+        )
+
+        return ossl.load_dsa_private_numbers(self)
+
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, DSAPrivateNumbers):
             return NotImplemented
 
@@ -251,21 +249,24 @@ class DSAPrivateNumbers(object):
             self.x == other.x and self.public_numbers == other.public_numbers
         )
 
-    def __ne__(self, other):
-        return not self == other
+
+def generate_parameters(
+    key_size: int, backend: typing.Any = None
+) -> DSAParameters:
+    from cryptography.hazmat.backends.openssl.backend import backend as ossl
+
+    return ossl.generate_dsa_parameters(key_size)
 
 
-def generate_parameters(key_size: int, backend=None) -> DSAParameters:
-    backend = _get_backend(backend)
-    return backend.generate_dsa_parameters(key_size)
+def generate_private_key(
+    key_size: int, backend: typing.Any = None
+) -> DSAPrivateKey:
+    from cryptography.hazmat.backends.openssl.backend import backend as ossl
+
+    return ossl.generate_dsa_private_key_and_parameters(key_size)
 
 
-def generate_private_key(key_size: int, backend=None) -> DSAPrivateKey:
-    backend = _get_backend(backend)
-    return backend.generate_dsa_private_key_and_parameters(key_size)
-
-
-def _check_dsa_parameters(parameters: DSAParameterNumbers):
+def _check_dsa_parameters(parameters: DSAParameterNumbers) -> None:
     if parameters.p.bit_length() not in [1024, 2048, 3072, 4096]:
         raise ValueError(
             "p must be exactly 1024, 2048, 3072, or 4096 bits long"
@@ -277,7 +278,7 @@ def _check_dsa_parameters(parameters: DSAParameterNumbers):
         raise ValueError("g, p don't satisfy 1 < g < p.")
 
 
-def _check_dsa_private_numbers(numbers: DSAPrivateNumbers):
+def _check_dsa_private_numbers(numbers: DSAPrivateNumbers) -> None:
     parameters = numbers.public_numbers.parameter_numbers
     _check_dsa_parameters(parameters)
     if numbers.x <= 0 or numbers.x >= parameters.q:
