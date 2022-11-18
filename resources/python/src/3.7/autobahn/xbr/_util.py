@@ -24,9 +24,10 @@
 #
 ###############################################################################
 
-import inspect
+import struct
+from binascii import a2b_hex, b2a_hex
+from typing import Union, Dict, List
 
-import click
 import web3
 
 
@@ -62,6 +63,17 @@ def make_w3(gateway_config=None):
 
             # inject the poa compatibility middleware to the innermost layer
             w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+    # FIXME
+    elif gateway_config['type'] == 'cloudflare':
+        # https://developers.cloudflare.com/web3/ethereum-gateway/reference/supported-networks/
+        raise NotImplementedError()
+
+    # FIXME
+    elif gateway_config['type'] == 'zksync':
+        # https://v2-docs.zksync.io/dev/testnet/important-links.html
+        raise NotImplementedError()
+
     else:
         raise RuntimeError('invalid blockchain gateway type "{}"'.format(gateway_config['type']))
 
@@ -110,53 +122,54 @@ def pack_uint256(value):
         return b'\x00' * 32
 
 
-def hl(text, bold=False, color='yellow'):
-    if not isinstance(text, str):
-        text = '{}'.format(text)
-    return click.style(text, fg=color, bold=bold)
+def pack_ethadr(value: Union[bytes, str], return_dict: bool = False) -> Union[List[int], Dict[str, int]]:
+    """
 
-
-def _qn(obj):
-    if inspect.isclass(obj) or inspect.isfunction(obj) or inspect.ismethod(obj):
-        qn = '{}.{}'.format(obj.__module__, obj.__qualname__)
+    :param value:
+    :param return_dict:
+    :return:
+    """
+    if type(value) == str:
+        if value.startswith('0x'):
+            value_bytes = a2b_hex(value[2:])
+        else:
+            value_bytes = a2b_hex(value)
+    elif type(value) == bytes:
+        value_bytes = value
     else:
-        qn = 'unknown'
-    return qn
+        assert False, 'invalid type {} for value'.format(type(value))
+    assert len(value_bytes) == 20
+
+    w = []
+    for i in range(5):
+        w.append(struct.unpack('<I', value_bytes[0 + i * 4:4 + i * 4])[0])
+
+    if return_dict:
+        packed_value = {'w0': w[0], 'w1': w[1], 'w2': w[2], 'w3': w[3], 'w4': w[4]}
+    else:
+        packed_value = w
+
+    return packed_value
 
 
-def hltype(obj):
-    qn = _qn(obj).split('.')
-    text = hl(qn[0], color='yellow', bold=True) + hl('.' + '.'.join(qn[1:]), color='yellow', bold=False)
-    return '<' + text + '>'
+def unpack_ethadr(packed_value: Union[List[int], Dict[str, int]], return_str=False) -> Union[bytes, str]:
+    """
 
+    :param packed_value:
+    :param return_str:
+    :return:
+    """
+    w = []
+    if type(packed_value) == dict:
+        for i in range(5):
+            w.append(struct.pack('<I', packed_value['w{}'.format(i)]))
+    elif type(packed_value) == list:
+        for i in range(5):
+            w.append(struct.pack('<I', packed_value[i]))
+    else:
+        assert False, 'should not arrive here'
 
-def hlid(oid):
-    return hl('{}'.format(oid), color='blue', bold=True)
-
-
-def hluserid(oid):
-    if not isinstance(oid, str):
-        oid = '{}'.format(oid)
-    return hl('"{}"'.format(oid), color='yellow', bold=True)
-
-
-def hlval(val, color='green'):
-    return hl('{}'.format(val), color=color, bold=True)
-
-
-def hlcontract(oid):
-    if not isinstance(oid, str):
-        oid = '{}'.format(oid)
-    return hl('<{}>'.format(oid), color='magenta', bold=True)
-
-
-def with_0x(address):
-    if address and not address.startswith('0x'):
-        return '0x{address}'.format(address=address)
-    return address
-
-
-def without_0x(address):
-    if address and address.startswith('0x'):
-        return address[2:]
-    return address
+    if return_str:
+        return web3.Web3.toChecksumAddress('0x' + b2a_hex(b''.join(w)).decode())
+    else:
+        return b''.join(w)

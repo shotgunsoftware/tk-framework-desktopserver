@@ -3,17 +3,23 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class Register(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsRegister(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = Register()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsRegister(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # Register
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -61,10 +67,26 @@ class Register(object):
         return False
 
 def RegisterStart(builder): builder.StartObject(6)
+def Start(builder):
+    return RegisterStart(builder)
 def RegisterAddRequest(builder, request): builder.PrependUint64Slot(0, request, 0)
+def AddRequest(builder, request):
+    return RegisterAddRequest(builder, request)
 def RegisterAddProcedure(builder, procedure): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(procedure), 0)
+def AddProcedure(builder, procedure):
+    return RegisterAddProcedure(builder, procedure)
 def RegisterAddMatch(builder, match): builder.PrependUint8Slot(2, match, 0)
+def AddMatch(builder, match):
+    return RegisterAddMatch(builder, match)
 def RegisterAddInvoke(builder, invoke): builder.PrependUint8Slot(3, invoke, 0)
+def AddInvoke(builder, invoke):
+    return RegisterAddInvoke(builder, invoke)
 def RegisterAddConcurrency(builder, concurrency): builder.PrependUint16Slot(4, concurrency, 0)
+def AddConcurrency(builder, concurrency):
+    return RegisterAddConcurrency(builder, concurrency)
 def RegisterAddForceReregister(builder, forceReregister): builder.PrependBoolSlot(5, forceReregister, 0)
+def AddForceReregister(builder, forceReregister):
+    return RegisterAddForceReregister(builder, forceReregister)
 def RegisterEnd(builder): return builder.EndObject()
+def End(builder):
+    return RegisterEnd(builder)

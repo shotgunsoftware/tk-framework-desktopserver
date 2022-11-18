@@ -3,17 +3,23 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class PublisherFeatures(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsPublisherFeatures(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = PublisherFeatures()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsPublisherFeatures(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # PublisherFeatures
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -61,10 +67,26 @@ class PublisherFeatures(object):
         return False
 
 def PublisherFeaturesStart(builder): builder.StartObject(6)
+def Start(builder):
+    return PublisherFeaturesStart(builder)
 def PublisherFeaturesAddPublisherIdentification(builder, publisherIdentification): builder.PrependBoolSlot(0, publisherIdentification, 0)
+def AddPublisherIdentification(builder, publisherIdentification):
+    return PublisherFeaturesAddPublisherIdentification(builder, publisherIdentification)
 def PublisherFeaturesAddPublisherExclusion(builder, publisherExclusion): builder.PrependBoolSlot(1, publisherExclusion, 0)
+def AddPublisherExclusion(builder, publisherExclusion):
+    return PublisherFeaturesAddPublisherExclusion(builder, publisherExclusion)
 def PublisherFeaturesAddSubscriberBlackwhiteListing(builder, subscriberBlackwhiteListing): builder.PrependBoolSlot(2, subscriberBlackwhiteListing, 0)
+def AddSubscriberBlackwhiteListing(builder, subscriberBlackwhiteListing):
+    return PublisherFeaturesAddSubscriberBlackwhiteListing(builder, subscriberBlackwhiteListing)
 def PublisherFeaturesAddAcknowledgeEventReceived(builder, acknowledgeEventReceived): builder.PrependBoolSlot(3, acknowledgeEventReceived, 0)
+def AddAcknowledgeEventReceived(builder, acknowledgeEventReceived):
+    return PublisherFeaturesAddAcknowledgeEventReceived(builder, acknowledgeEventReceived)
 def PublisherFeaturesAddPayloadTransparency(builder, payloadTransparency): builder.PrependBoolSlot(4, payloadTransparency, 0)
+def AddPayloadTransparency(builder, payloadTransparency):
+    return PublisherFeaturesAddPayloadTransparency(builder, payloadTransparency)
 def PublisherFeaturesAddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox): builder.PrependBoolSlot(5, payloadEncryptionCryptobox, 0)
+def AddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox):
+    return PublisherFeaturesAddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox)
 def PublisherFeaturesEnd(builder): return builder.EndObject()
+def End(builder):
+    return PublisherFeaturesEnd(builder)

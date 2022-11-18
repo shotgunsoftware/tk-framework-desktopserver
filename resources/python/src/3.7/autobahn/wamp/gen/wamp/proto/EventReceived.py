@@ -3,17 +3,23 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class EventReceived(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsEventReceived(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = EventReceived()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsEventReceived(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # EventReceived
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -46,6 +52,11 @@ class EventReceived(object):
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
+
+    # EventReceived
+    def PayloadIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        return o == 0
 
     # EventReceived
     def EncAlgo(self):
@@ -83,12 +94,35 @@ class EventReceived(object):
             return self._tab.VectorLen(o)
         return 0
 
+    # EventReceived
+    def EncKeyIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        return o == 0
+
 def EventReceivedStart(builder): builder.StartObject(5)
+def Start(builder):
+    return EventReceivedStart(builder)
 def EventReceivedAddPublication(builder, publication): builder.PrependUint64Slot(0, publication, 0)
+def AddPublication(builder, publication):
+    return EventReceivedAddPublication(builder, publication)
 def EventReceivedAddPayload(builder, payload): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(payload), 0)
+def AddPayload(builder, payload):
+    return EventReceivedAddPayload(builder, payload)
 def EventReceivedStartPayloadVector(builder, numElems): return builder.StartVector(1, numElems, 1)
+def StartPayloadVector(builder, numElems):
+    return EventReceivedStartPayloadVector(builder, numElems)
 def EventReceivedAddEncAlgo(builder, encAlgo): builder.PrependUint8Slot(2, encAlgo, 0)
+def AddEncAlgo(builder, encAlgo):
+    return EventReceivedAddEncAlgo(builder, encAlgo)
 def EventReceivedAddEncSerializer(builder, encSerializer): builder.PrependUint8Slot(3, encSerializer, 0)
+def AddEncSerializer(builder, encSerializer):
+    return EventReceivedAddEncSerializer(builder, encSerializer)
 def EventReceivedAddEncKey(builder, encKey): builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(encKey), 0)
+def AddEncKey(builder, encKey):
+    return EventReceivedAddEncKey(builder, encKey)
 def EventReceivedStartEncKeyVector(builder, numElems): return builder.StartVector(1, numElems, 1)
+def StartEncKeyVector(builder, numElems):
+    return EventReceivedStartEncKeyVector(builder, numElems)
 def EventReceivedEnd(builder): return builder.EndObject()
+def End(builder):
+    return EventReceivedEnd(builder)

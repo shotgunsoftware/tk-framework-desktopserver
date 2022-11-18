@@ -25,13 +25,16 @@
 ###############################################################################
 
 import os
+import re
 import struct
 import platform
 import math
+import decimal
 from binascii import b2a_hex, a2b_hex
+from typing import Optional, List, Tuple
 
 from txaio import time_ns
-from autobahn.wamp.interfaces import IObjectSerializer, ISerializer
+from autobahn.wamp.interfaces import IObjectSerializer, ISerializer, IMessage
 from autobahn.wamp.exception import ProtocolError
 from autobahn.wamp import message
 
@@ -245,7 +248,7 @@ class Serializer(object):
             self._stats_reset = time_ns()
         return data
 
-    def serialize(self, msg):
+    def serialize(self, msg: IMessage) -> Tuple[bytes, bool]:
         """
         Implements :func:`autobahn.wamp.interfaces.ISerializer.serialize`
         """
@@ -263,7 +266,7 @@ class Serializer(object):
 
         return data, is_binary
 
-    def unserialize(self, payload, isBinary=None):
+    def unserialize(self, payload: bytes, isBinary: Optional[bool] = None) -> List[IMessage]:
         """
         Implements :func:`autobahn.wamp.interfaces.ISerializer.unserialize`
         """
@@ -292,8 +295,6 @@ class Serializer(object):
                 message_type = raw_msg[0]
 
                 if type(message_type) != int:
-                    # CBOR doesn't roundtrip number types
-                    # https://bitbucket.org/bodhisnarkva/cbor/issues/6/number-types-dont-roundtrip
                     raise ProtocolError("invalid type {0} for WAMP message type".format(type(message_type)))
 
                 Klass = self.MESSAGE_TYPE_MAP.get(message_type)
@@ -358,6 +359,8 @@ else:
                     return '0x' + b2a_hex(obj).decode('ascii')
                 else:
                     return '\x00' + base64.b64encode(obj).decode('ascii')
+            elif isinstance(obj, decimal.Decimal):
+                return str(obj)
             else:
                 return json.JSONEncoder.default(self, obj)
 
@@ -368,6 +371,8 @@ else:
     from json import scanner
     from json.decoder import scanstring
 
+    _DEC_MATCH = re.compile(r'^[\+\-E\.0-9]+$')
+
     class _WAMPJsonDecoder(json.JSONDecoder):
 
         def __init__(self, *args, **kwargs):
@@ -377,6 +382,20 @@ else:
             else:
                 self._use_binary_hex_encoding = False
 
+            if 'use_decimal_from_str' in kwargs:
+                self._use_decimal_from_str = kwargs['use_decimal_from_str']
+                del kwargs['use_decimal_from_str']
+            else:
+                self._use_decimal_from_str = False
+
+            if 'use_decimal_from_float' in kwargs:
+                self._use_decimal_from_float = kwargs['use_decimal_from_float']
+                del kwargs['use_decimal_from_float']
+                if self._use_decimal_from_float:
+                    kwargs['parse_float'] = decimal.Decimal
+            else:
+                self._use_decimal_from_str = False
+
             json.JSONDecoder.__init__(self, *args, **kwargs)
 
             def _parse_string(*args, **kwargs):
@@ -384,9 +403,17 @@ else:
                 if self._use_binary_hex_encoding:
                     if s and s[0:2] == '0x':
                         s = a2b_hex(s[2:])
+                        return s, idx
                 else:
                     if s and s[0] == '\x00':
                         s = base64.b64decode(s[1:])
+                        return s, idx
+                if self._use_decimal_from_str and _DEC_MATCH.match(s):
+                    try:
+                        s = decimal.Decimal(s)
+                        return s, idx
+                    except decimal.InvalidOperation:
+                        pass
                 return s, idx
 
             self.parse_string = _parse_string
@@ -398,9 +425,11 @@ else:
             # not the C version, as the latter won't work
             # self.scan_once = scanner.make_scanner(self)
 
-    def _loads(s, use_binary_hex_encoding=False):
+    def _loads(s, use_binary_hex_encoding=False, use_decimal_from_str=False, use_decimal_from_float=False):
         return json.loads(s,
                           use_binary_hex_encoding=use_binary_hex_encoding,
+                          use_decimal_from_str=use_decimal_from_str,
+                          use_decimal_from_float=use_decimal_from_float,
                           cls=_WAMPJsonDecoder)
 
     def _dumps(obj, use_binary_hex_encoding=False):
@@ -425,14 +454,24 @@ class JsonObjectSerializer(object):
 
     BINARY = False
 
-    def __init__(self, batched=False, use_binary_hex_encoding=False):
+    def __init__(self, batched=False, use_binary_hex_encoding=False, use_decimal_from_str=False, use_decimal_from_float=False):
         """
 
         :param batched: Flag that controls whether serializer operates in batched mode.
         :type batched: bool
+
+        :param use_binary_hex_encoding: Flag to enable HEX encoding prefixed with ``"0x"``,
+            otherwise prefix binaries with a ``\0`` byte.
+        :type use_binary_hex_encoding: bool
+
+        :param use_decimal_from_str: Flag to automatically encode Decimals as strings, and
+            to try to parse strings as Decimals.
+        :type use_decimal_from_str: bool
         """
         self._batched = batched
         self._use_binary_hex_encoding = use_binary_hex_encoding
+        self._use_decimal_from_str = use_decimal_from_str
+        self._use_decimal_from_float = use_decimal_from_float
 
     def serialize(self, obj):
         """
@@ -456,7 +495,10 @@ class JsonObjectSerializer(object):
             chunks = [payload]
         if len(chunks) == 0:
             raise Exception("batch format error")
-        return [_loads(data.decode('utf8'), use_binary_hex_encoding=self._use_binary_hex_encoding) for data in chunks]
+        return [_loads(data.decode('utf8'),
+                       use_binary_hex_encoding=self._use_binary_hex_encoding,
+                       use_decimal_from_str=self._use_decimal_from_str,
+                       use_decimal_from_float=self._use_decimal_from_float) for data in chunks]
 
 
 IObjectSerializer.register(JsonObjectSerializer)
@@ -483,14 +525,16 @@ class JsonSerializer(Serializer):
     WAMP-over-Longpoll HTTP fallback.
     """
 
-    def __init__(self, batched=False):
+    def __init__(self, batched=False, use_binary_hex_encoding=False, use_decimal_from_str=False):
         """
         Ctor.
 
         :param batched: Flag to control whether to put this serialized into batched mode.
         :type batched: bool
         """
-        Serializer.__init__(self, JsonObjectSerializer(batched=batched))
+        Serializer.__init__(self, JsonObjectSerializer(batched=batched,
+                                                       use_binary_hex_encoding=use_binary_hex_encoding,
+                                                       use_decimal_from_str=use_decimal_from_str))
         if batched:
             self.SERIALIZER_ID = "json.batched"
 
@@ -640,37 +684,29 @@ if _HAS_MSGPACK:
 
 
 _HAS_CBOR = False
-if 'AUTOBAHN_USE_CBOR2' in os.environ:
-    try:
-        # https://pypi.org/project/cbor2/
-        # https://github.com/agronholm/cbor2
-        import cbor2
-    except ImportError:
-        pass
-    else:
-        _HAS_CBOR = True
-        _cbor_loads = cbor2.loads
-        _cbor_dumps = cbor2.dumps
-        _cbor = cbor2
-        # print('Notice: Autobahn is using cbor2 library for CBOR serialization')
+
+
+try:
+    import cbor2
+except ImportError:
+    pass
 else:
-    try:
-        # https://pypi.python.org/pypi/cbor
-        # https://bitbucket.org/bodhisnarkva/cbor
-        import cbor
-    except ImportError:
-        pass
-    else:
-        _HAS_CBOR = True
-        _cbor_loads = cbor.loads
-        _cbor_dumps = cbor.dumps
-        _cbor = cbor
-        # print('Notice: Autobahn is using cbor library for CBOR serialization')
+    _HAS_CBOR = True
+    _cbor_loads = cbor2.loads
+    _cbor_dumps = cbor2.dumps
+    _cbor = cbor2
 
 
 if _HAS_CBOR:
 
     class CBORObjectSerializer(object):
+        """
+        CBOR serializer based on `cbor2 <https://github.com/agronholm/cbor2>`_.
+
+        This CBOR serializer has proper support for arbitrary precision decimals,
+        via tagged decimal fraction encoding, as described in
+        `RFC7049 section 2.4.3 <https://datatracker.ietf.org/doc/html/rfc7049#section-2.4.3>`_.
+        """
 
         NAME = 'cbor'
 
@@ -683,7 +719,6 @@ if _HAS_CBOR:
 
         def __init__(self, batched=False):
             """
-            Ctor.
 
             :param batched: Flag that controls whether serializer operates in batched mode.
             :type batched: bool

@@ -43,12 +43,19 @@ try:
     # https://github.com/ethereum/eth-abi/pull/88
     from eth_abi import abi
 
+    import eth_account
+
     from autobahn.xbr._abi import XBR_TOKEN_ABI, XBR_NETWORK_ABI, XBR_MARKET_ABI, XBR_CATALOG_ABI, XBR_CHANNEL_ABI  # noqa
     from autobahn.xbr._abi import XBR_DEBUG_TOKEN_ADDR, XBR_DEBUG_NETWORK_ADDR, XBR_DEBUG_MARKET_ADDR, XBR_DEBUG_CATALOG_ADDR, XBR_DEBUG_CHANNEL_ADDR  # noqa
     from autobahn.xbr._abi import XBR_DEBUG_TOKEN_ADDR_SRC, XBR_DEBUG_NETWORK_ADDR_SRC, XBR_DEBUG_MARKET_ADDR_SRC, XBR_DEBUG_CATALOG_ADDR_SRC, XBR_DEBUG_CHANNEL_ADDR_SRC  # noqa
     from autobahn.xbr._interfaces import IMarketMaker, IProvider, IConsumer, ISeller, IBuyer, IDelegate  # noqa
-    from autobahn.xbr._util import make_w3, pack_uint256, unpack_uint256, with_0x, without_0x  # noqa
-
+    from autobahn.xbr._util import make_w3, pack_uint256, unpack_uint256  # noqa
+    from autobahn.xbr._eip712_certificate import EIP712Certificate  # noqa
+    from autobahn.xbr._eip712_certificate_chain import parse_certificate_chain  # noqa
+    from autobahn.xbr._eip712_authority_certificate import sign_eip712_authority_certificate, \
+        recover_eip712_authority_certificate, create_eip712_authority_certificate, EIP712AuthorityCertificate  # noqa
+    from autobahn.xbr._eip712_delegate_certificate import sign_eip712_delegate_certificate, \
+        recover_eip712_delegate_certificate, create_eip712_delegate_certificate, EIP712DelegateCertificate  # noqa
     from autobahn.xbr._eip712_member_register import sign_eip712_member_register, recover_eip712_member_register  # noqa
     from autobahn.xbr._eip712_member_login import sign_eip712_member_login, recover_eip712_member_login  # noqa
     from autobahn.xbr._eip712_market_create import sign_eip712_market_create, recover_eip712_market_create  # noqa
@@ -62,17 +69,19 @@ try:
         recover_eip712_market_member_login  # noqa
     from autobahn.xbr._eip712_base import is_address, is_chain_id, is_block_number, is_signature, \
         is_cs_pubkey, is_bytes16, is_eth_privkey  # noqa
-
     from autobahn.xbr._blockchain import SimpleBlockchain  # noqa
     from autobahn.xbr._seller import SimpleSeller, KeySeries  # noqa
     from autobahn.xbr._buyer import SimpleBuyer  # noqa
-
     from autobahn.xbr._config import load_or_create_profile, UserConfig, Profile  # noqa
-
     from autobahn.xbr._schema import FbsSchema, FbsObject, FbsType, FbsRPCCall, FbsEnum, FbsService, FbsEnumValue, \
-        FbsAttribute, FbsField, FbsRepository  # noqa
+    FbsAttribute, FbsField, FbsRepository  # noqa
+    from autobahn.xbr._wallet import stretch_argon2_secret, expand_argon2_secret, pkm_from_argon2_secret  # noqa
 
     HAS_XBR = True
+
+    from autobahn.xbr._frealm import FederatedRealm, Seeder  # noqa
+    from autobahn.xbr._secmod import EthereumKey  # noqa
+    from autobahn.xbr._userkey import UserKey  # noqa
 
     if not hasattr(abi, 'collapse_type'):
 
@@ -238,27 +247,57 @@ try:
         Actor is both a XBR Provider and XBR Consumer.
         """
 
-    def generate_seedphrase(strength=128, language='english'):
+    def generate_seedphrase(strength=128, language='english') -> str:
         """
         Generate a new BIP-39 mnemonic seed phrase for use in Ethereum (Metamask, etc).
+
+        See:
+        * https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
+        * https://github.com/trezor/python-mnemonic
 
         :param strength: Strength of seed phrase in bits, one of the following ``[128, 160, 192, 224, 256]``,
             generating seed phrase of 12 - 24 words inlength.
 
         :return: Newly generated seed phrase (in english).
-        :rtype: string
         """
         return Mnemonic(language).generate(strength)
 
-    def check_seedphrase(seedphrase, language='english'):
+    def check_seedphrase(seedphrase: str, language: str = 'english'):
+        """
+        Check a BIP-39 mnemonic seed phrase.
+
+        :param seedphrase: The BIP-39 seedphrase from which to derive the account.
+        :param language: The BIP-39 user language to generate the seedphrase for.
+        :return:
+        """
         return Mnemonic(language).check(seedphrase)
 
-    def account_from_seedphrase(seephrase, index=0):
+    def account_from_seedphrase(seedphrase: str, index: int = 0) -> eth_account.account.Account:
+        """
+        Create an account from the given BIP-39 mnemonic seed phrase.
+
+        :param seedphrase: The BIP-39 seedphrase from which to derive the account.
+        :param index: The account index in account hierarchy defined by the seedphrase.
+        :return: The new Eth account object
+        """
         from web3.auto import w3
 
         derivation_path = "m/44'/60'/0'/0/{}".format(index)
-        key = mnemonic_to_private_key(seephrase, str_derivation_path=derivation_path)
+        key = mnemonic_to_private_key(seedphrase, str_derivation_path=derivation_path)
         account = w3.eth.account.privateKeyToAccount(key)
+        return account
+
+    def account_from_ethkey(ethkey: bytes) -> eth_account.account.Account:
+        """
+        Create an account from the private key seed.
+
+        :param ethkey: The Ethereum private key seed (32 octets).
+        :return: The new Eth account object
+        """
+        from web3.auto import w3
+
+        assert len(ethkey) == 32
+        account = w3.eth.account.privateKeyToAccount(ethkey)
         return account
 
     ASCII_BOMB = r"""
@@ -290,12 +329,22 @@ try:
         'make_w3',
         'pack_uint256',
         'unpack_uint256',
-        'with_0x',
-        'without_0x',
         'generate_seedphrase',
         'check_seedphrase',
         'account_from_seedphrase',
         'ASCII_BOMB',
+
+        'EIP712Certificate',
+        'EIP712AuthorityCertificate',
+        'EIP712DelegateCertificate',
+        'parse_certificate_chain',
+
+        'create_eip712_authority_certificate',
+        'sign_eip712_authority_certificate',
+        'recover_eip712_authority_certificate',
+        'create_eip712_delegate_certificate',
+        'sign_eip712_delegate_certificate',
+        'recover_eip712_delegate_certificate',
 
         'sign_eip712_member_register',
         'recover_eip712_member_register',
@@ -329,6 +378,7 @@ try:
         'load_or_create_profile',
         'UserConfig',
         'Profile',
+        'UserKey',
 
         'MemberLevel',
         'ActorType',
@@ -347,6 +397,7 @@ try:
         'IBuyer',
         'IDelegate',
 
+        'FbsRepository',
         'FbsSchema',
         'FbsService',
         'FbsType',
@@ -356,7 +407,13 @@ try:
         'FbsRPCCall',
         'FbsAttribute',
         'FbsField',
-        'FbsRepository',
+        'stretch_argon2_secret',
+        'expand_argon2_secret',
+        'pkm_from_argon2_secret',
+
+        'FederatedRealm',
+        'Seeder',
+        'EthereumKey',
     )
 
 except (ImportError, FileNotFoundError) as e:

@@ -3,17 +3,23 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class Registered(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsRegistered(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = Registered()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsRegistered(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # Registered
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -33,6 +39,14 @@ class Registered(object):
         return 0
 
 def RegisteredStart(builder): builder.StartObject(2)
+def Start(builder):
+    return RegisteredStart(builder)
 def RegisteredAddRequest(builder, request): builder.PrependUint64Slot(0, request, 0)
+def AddRequest(builder, request):
+    return RegisteredAddRequest(builder, request)
 def RegisteredAddRegistration(builder, registration): builder.PrependUint64Slot(1, registration, 0)
+def AddRegistration(builder, registration):
+    return RegisteredAddRegistration(builder, registration)
 def RegisteredEnd(builder): return builder.EndObject()
+def End(builder):
+    return RegisteredEnd(builder)

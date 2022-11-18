@@ -3,17 +3,23 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class Subscribed(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsSubscribed(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = Subscribed()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsSubscribed(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # Subscribed
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -33,6 +39,14 @@ class Subscribed(object):
         return 0
 
 def SubscribedStart(builder): builder.StartObject(2)
+def Start(builder):
+    return SubscribedStart(builder)
 def SubscribedAddRequest(builder, request): builder.PrependUint64Slot(0, request, 0)
+def AddRequest(builder, request):
+    return SubscribedAddRequest(builder, request)
 def SubscribedAddSubscription(builder, subscription): builder.PrependUint64Slot(1, subscription, 0)
+def AddSubscription(builder, subscription):
+    return SubscribedAddSubscription(builder, subscription)
 def SubscribedEnd(builder): return builder.EndObject()
+def End(builder):
+    return SubscribedEnd(builder)

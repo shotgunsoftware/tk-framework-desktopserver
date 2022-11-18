@@ -32,6 +32,7 @@ import binascii
 import hmac
 import hashlib
 import random
+from typing import Optional, Dict
 
 from autobahn.util import public
 from autobahn.util import xor as xor_array
@@ -57,12 +58,17 @@ __all__ = (
     'AuthScram',
     'AuthCryptoSign',
     'AuthWampCra',
+    'AuthTicket',
+    'create_authenticator',
     'pbkdf2',
     'generate_totp_secret',
     'compute_totp',
+    'check_totp',
+    'qrcode_from_totp',
     'derive_key',
     'generate_wcs',
     'compute_wcs',
+    'derive_scram_credential',
 )
 
 
@@ -79,8 +85,10 @@ def create_authenticator(name, **kwargs):
         klass = {
             AuthScram.name: AuthScram,
             AuthCryptoSign.name: AuthCryptoSign,
+            AuthCryptoSignProxy.name: AuthCryptoSignProxy,
             AuthWampCra.name: AuthWampCra,
             AuthAnonymous.name: AuthAnonymous,
+            AuthAnonymousProxy.name: AuthAnonymousProxy,
             AuthTicket.name: AuthTicket,
         }[name]
     except KeyError:
@@ -113,6 +121,13 @@ class AuthAnonymous(object):
 
 
 IAuthenticator.register(AuthAnonymous)
+
+
+class AuthAnonymousProxy(AuthAnonymous):
+    name = 'anonymous-proxy'
+
+
+IAuthenticator.register(AuthAnonymousProxy)
 
 
 class AuthTicket(object):
@@ -158,8 +173,8 @@ class AuthCryptoSign(object):
                     "Must provide '{}' for cryptosign".format(key)
                 )
 
-        from autobahn.wamp.cryptosign import SigningKey
-        self._privkey = SigningKey.from_key_bytes(
+        from autobahn.wamp.cryptosign import CryptosignKey
+        self._privkey = CryptosignKey.from_bytes(
             binascii.a2b_hex(kw['privkey'])
         )
 
@@ -172,6 +187,8 @@ class AuthCryptoSign(object):
         else:
             kw['authextra'] = kw.get('authextra', dict())
             kw['authextra']['pubkey'] = self._privkey.public_key()
+
+        self._channel_binding = kw.get('authextra', dict()).get('channel_binding', None)
         self._args = kw
 
     @property
@@ -179,13 +196,23 @@ class AuthCryptoSign(object):
         return self._args.get('authextra', dict())
 
     def on_challenge(self, session, challenge):
-        return self._privkey.sign_challenge(session, challenge)
+        channel_id = session._transport.transport_details.channel_id.get(self._channel_binding, None)
+        return self._privkey.sign_challenge(challenge,
+                                            channel_id=channel_id,
+                                            channel_id_type=self._channel_binding)
 
     def on_welcome(self, msg, authextra):
         return None
 
 
 IAuthenticator.register(AuthCryptoSign)
+
+
+class AuthCryptoSignProxy(AuthCryptoSign):
+    name = 'cryptosign-proxy'
+
+
+IAuthenticator.register(AuthCryptoSignProxy)
 
 
 def _hash_argon2id13_secret(password, salt, iterations, memory):
@@ -452,17 +479,15 @@ def qrcode_from_totp(secret, label, issuer):
         raise Exception('label must be of type unicode, not {}'.format(type(label)))
 
     try:
-        import pyqrcode
+        import qrcode
+        import qrcode.image.svg
     except ImportError:
-        raise Exception('pyqrcode not installed')
+        raise Exception('qrcode not installed')
 
-    import io
-    buffer = io.BytesIO()
-
-    data = pyqrcode.create('otpauth://totp/{}?secret={}&issuer={}'.format(label, secret, issuer))
-    data.svg(buffer, omithw=True)
-
-    return buffer.getvalue()
+    return qrcode.make(
+        'otpauth://totp/{}?secret={}&issuer={}'.format(label, secret, issuer),
+        box_size=3,
+        image_factory=qrcode.image.svg.SvgImage).to_string()
 
 
 @public
@@ -599,3 +624,69 @@ def compute_wcs(key, challenge):
         challenge = challenge.encode('utf8')
     sig = hmac.new(key, challenge, hashlib.sha256).digest()
     return binascii.b2a_base64(sig).strip()
+
+
+def derive_scram_credential(email: str, password: str, salt: Optional[bytes] = None) -> Dict:
+    """
+    Derive WAMP-SCRAM credentials from user email and password. The SCRAM parameters used
+    are the following (these are also contained in the returned credentials):
+
+    * kdf ``argon2id-13``
+    * time cost ``4096``
+    * memory cost ``512``
+    * parallelism ``1``
+
+    See `draft-irtf-cfrg-argon2 <https://datatracker.ietf.org/doc/draft-irtf-cfrg-argon2/>`__ and
+    `argon2-cffi <https://argon2-cffi.readthedocs.io/en/stable/>`__.
+
+    :param email: User email.
+    :param password: User password.
+    :param salt: Optional salt to use (must be 16 bytes long). If none is given, compute salt
+        from email as ``salt = SHA256(email)[:16]``.
+    :return: WAMP-SCRAM credentials. When serialized, the returned credentials can be copy-pasted
+        into the ``config.json`` node configuration for a Crossbar.io node.
+    """
+    assert HAS_ARGON, 'missing dependency argon2'
+    from argon2.low_level import hash_secret
+    from argon2.low_level import Type
+
+    # derive salt from email
+    if not salt:
+        m = hashlib.sha256()
+        m.update(email.encode('utf8'))
+        salt = m.digest()[:16]
+    assert len(salt) == 16
+
+    hash_data = hash_secret(
+        secret=password.encode('utf8'),
+        salt=salt,
+        time_cost=4096,
+        memory_cost=512,
+        parallelism=1,
+        hash_len=32,
+        type=Type.ID,
+        version=19,
+    )
+    _, tag, v, params, _, salted_password = hash_data.decode('ascii').split('$')
+    assert tag == 'argon2id'
+    assert v == 'v=19'  # argon's version 1.3 is represented as 0x13, which is 19 decimal...
+    params = {
+        k: v
+        for k, v in
+        [x.split('=') for x in params.split(',')]
+    }
+
+    salted_password = salted_password.encode('ascii')
+    client_key = hmac.new(salted_password, b"Client Key", hashlib.sha256).digest()
+    stored_key = hashlib.new('sha256', client_key).digest()
+    server_key = hmac.new(salted_password, b"Server Key", hashlib.sha256).digest()
+
+    credential = {
+        "kdf": "argon2id-13",
+        "memory": int(params['m']),
+        "iterations": int(params['t']),
+        "salt": binascii.b2a_hex(salt).decode('ascii'),
+        "stored-key": binascii.b2a_hex(stored_key).decode('ascii'),
+        "server-key": binascii.b2a_hex(server_key).decode('ascii'),
+    }
+    return credential

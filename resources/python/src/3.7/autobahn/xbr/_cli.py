@@ -26,16 +26,12 @@
 
 import os
 import sys
-import json
 import pkg_resources
-from pprint import pprint
 
 from jinja2 import Environment, FileSystemLoader
 
 from autobahn import xbr
 from autobahn import __version__
-from autobahn.xbr import FbsType
-
 
 if not xbr.HAS_XBR:
     print("\nYou must install the [xbr] extra to use xbrnetwork")
@@ -48,7 +44,7 @@ from autobahn.xbr._abi import XBR_DEBUG_TOKEN_ADDR, XBR_DEBUG_NETWORK_ADDR, XBR_
 from autobahn.xbr._abi import XBR_DEBUG_TOKEN_ADDR_SRC, XBR_DEBUG_NETWORK_ADDR_SRC, XBR_DEBUG_DOMAIN_ADDR_SRC, \
     XBR_DEBUG_CATALOG_ADDR_SRC, XBR_DEBUG_MARKET_ADDR_SRC, XBR_DEBUG_CHANNEL_ADDR_SRC
 
-from autobahn.xbr import FbsSchema, FbsRepository
+from autobahn.xbr import FbsRepository
 
 import uuid
 import binascii
@@ -65,9 +61,11 @@ import cbor2
 import numpy as np
 
 import txaio
+
 txaio.use_twisted()
 
 from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks
 from twisted.internet.threads import deferToThread
 from twisted.internet.error import ReactorNotRunning
 
@@ -81,8 +79,7 @@ from autobahn.xbr import sign_eip712_member_register, sign_eip712_market_create,
 from autobahn.xbr import ActorType, ChannelType
 
 from autobahn.xbr._config import load_or_create_profile
-from autobahn.xbr._util import hlval, hlid, hltype
-
+from autobahn.util import hltype, hlid, hlval
 
 _COMMANDS = ['version', 'get-member', 'register-member', 'register-member-verify',
              'get-market', 'create-market', 'create-market-verify',
@@ -93,6 +90,9 @@ _COMMANDS = ['version', 'get-member', 'register-member', 'register-member-verify
 
 class Client(ApplicationSession):
 
+    # when running over TLS, require TLS channel binding
+    CHANNEL_BINDING = 'tls-unique'
+
     def __init__(self, config=None):
         ApplicationSession.__init__(self, config)
 
@@ -100,33 +100,46 @@ class Client(ApplicationSession):
         self._default_gas = 100000
         self._chain_id = 4
 
-        profile = config.extra['profile']
+        profile = config.extra.get('profile', None)
 
-        if 'ethkey' in config.extra and config.extra['ethkey']:
-            self._ethkey_raw = config.extra['ethkey']
+        if profile and profile.cskey:
+            assert type(profile.cskey) == bytes and len(profile.cskey) == 32
+            self._cskey_raw = profile.cskey
+            self._key = cryptosign.CryptosignKey.from_bytes(self._cskey_raw)
+            self.log.info('WAMP-Cryptosign keys with public key {public_key} loaded', public_key=self._key.public_key)
         else:
-            self._ethkey_raw = profile.ethkey
+            self._cskey_raw = os.urandom(32)
+            self._key = cryptosign.CryptosignKey.from_bytes(self._cskey_raw)
+            self.log.info('WAMP-Cryptosign keys initialized randomly')
 
-        self._ethkey = eth_keys.keys.PrivateKey(self._ethkey_raw)
-        self._ethadr = web3.Web3.toChecksumAddress(self._ethkey.public_key.to_canonical_address())
-        self._ethadr_raw = binascii.a2b_hex(self._ethadr[2:])
-
-        self.log.info('Client Ethereum key loaded, public address is {adr}',
-                      func=hltype(self.__init__), adr=hlid(self._ethadr))
-
-        if 'cskey' in config.extra and config.extra['cskey']:
-            cskey = config.extra['cskey']
+        if profile and profile.ethkey:
+            self.set_ethkey_from_profile(profile)
+            self.log.info('XBR ETH keys loaded from profile')
         else:
-            cskey = profile.cskey
-        self._key = cryptosign.SigningKey.from_key_bytes(cskey)
-        self.log.info('Client WAMP authentication key loaded, public key is {pubkey}',
-                      func=hltype(self.__init__), pubkey=hlid('0x' + self._key.public_key()))
+            self._ethkey_raw = None
+            self._ethkey = None
+            self._ethadr = None
+            self._ethadr_raw = None
+            self.log.info('XBR ETH keys left unset')
 
         self._running = True
 
-    def onUserError(self, fail, msg):
-        self.log.error(msg)
-        self.leave('wamp.error', msg)
+    def set_ethkey_from_profile(self, profile):
+        """
+
+        :param profile:
+        :return:
+        """
+        assert type(
+            profile.ethkey) == bytes, 'set_ethkey_from_profile::profile invalid type "{}" - must be bytes'.format(
+            type(profile.ethkey))
+        assert len(profile.ethkey) == 32, 'set_ethkey_from_profile::profile invalid length {} - must be 32'.format(
+            len(profile.ethkey))
+        self._ethkey_raw = profile.ethkey
+        self._ethkey = eth_keys.keys.PrivateKey(self._ethkey_raw)
+        self._ethadr = web3.Web3.toChecksumAddress(self._ethkey.public_key.to_canonical_address())
+        self._ethadr_raw = binascii.a2b_hex(self._ethadr[2:])
+        self.log.info('ETH keys with address {ethadr} loaded', ethadr=self._ethadr)
 
     def onConnect(self):
         if self.config.realm == 'xbrnetwork':
@@ -134,7 +147,7 @@ class Client(ApplicationSession):
                 'pubkey': self._key.public_key(),
                 'trustroot': None,
                 'challenge': None,
-                'channel_binding': 'tls-unique'
+                'channel_binding': self.CHANNEL_BINDING,
             }
             self.log.info('Client connected, now joining realm "{realm}" with WAMP-cryptosign authentication ..',
                           realm=hlid(self.config.realm))
@@ -146,37 +159,45 @@ class Client(ApplicationSession):
 
     def onChallenge(self, challenge):
         if challenge.method == 'cryptosign':
-            signed_challenge = self._key.sign_challenge(self, challenge)
+            signed_challenge = self._key.sign_challenge(challenge,
+                                                        channel_id=self.transport.transport_details.channel_id.get(self.CHANNEL_BINDING, None),
+                                                        channel_id_type=self.CHANNEL_BINDING)
             return signed_challenge
         else:
             raise RuntimeError('unable to process authentication method {}'.format(challenge.method))
 
     async def onJoin(self, details):
-        self.log.info('Ok, client joined on realm "{realm}" [session={session}, authid="{authid}", authrole="{authrole}"]',
-                      realm=hlid(details.realm),
-                      session=hlid(details.session),
-                      authid=hlid(details.authid),
-                      authrole=hlid(details.authrole),
-                      details=details)
-        try:
-            if details.realm == 'xbrnetwork':
-                await self._do_xbrnetwork_realm(details)
-            else:
-                await self._do_market_realm(details)
-        except Exception as e:
-            self.log.failure()
-            self.config.extra['error'] = e
-        finally:
-            self.leave()
+        self.log.info(
+            'Ok, client joined on realm "{realm}" [session={session}, authid="{authid}", authrole="{authrole}"]',
+            realm=hlid(details.realm),
+            session=hlid(details.session),
+            authid=hlid(details.authid),
+            authrole=hlid(details.authrole),
+            details=details)
+        if 'ready' in self.config.extra:
+            txaio.resolve(self.config.extra['ready'], (self, details))
+
+        if 'command' in self.config.extra:
+            try:
+                if details.realm == 'xbrnetwork':
+                    await self._do_xbrnetwork_realm(details)
+                else:
+                    await self._do_market_realm(details)
+            except Exception as e:
+                self.log.failure()
+                self.config.extra['error'] = e
+            finally:
+                self.leave()
 
     def onLeave(self, details):
         self.log.info('Client left realm (reason="{reason}")', reason=hlval(details.reason))
         self._running = False
 
         if details.reason == 'wamp.close.normal':
-            # user initiated leave => end the program
-            self.config.runner.stop()
-            self.disconnect()
+            if self.config and self.config.runner:
+                # user initiated leave => end the program
+                self.config.runner.stop()
+                self.disconnect()
 
     def onDisconnect(self):
         self.log.info('Client disconnected')
@@ -330,6 +351,7 @@ class Client(ApplicationSession):
                           member_level=hlval(member_data['level']),
                           member_oid=hlid(member_data['oid']),
                           member_adr=hlval(member_data['address']))
+            return member_data
         else:
             self.log.warn('Address 0x{member_adr} is not a member in the XBR network',
                           member_adr=hlval(binascii.b2a_hex(member_adr).decode()))
@@ -343,11 +365,12 @@ class Client(ApplicationSession):
             actor_level = actor['level']
             actor_balance_eth = web3.Web3.fromWei(unpack_uint256(actor['balance']['eth']), 'ether')
             actor_balance_xbr = web3.Web3.fromWei(unpack_uint256(actor['balance']['xbr']), 'ether')
-            self.log.info('Found member with address {member_adr} (member level {member_level}, balances: {member_balance_eth} ETH, {member_balance_xbr} XBR)',
-                          member_adr=hlid(actor_adr),
-                          member_level=hlval(actor_level),
-                          member_balance_eth=hlval(actor_balance_eth),
-                          member_balance_xbr=hlval(actor_balance_xbr))
+            self.log.info(
+                'Found member with address {member_adr} (member level {member_level}, balances: {member_balance_eth} ETH, {member_balance_xbr} XBR)',
+                member_adr=hlid(actor_adr),
+                member_level=hlval(actor_level),
+                member_balance_eth=hlval(actor_balance_eth),
+                member_balance_xbr=hlval(actor_balance_xbr))
 
             if market_oid:
                 market_oids = [market_oid.bytes]
@@ -363,8 +386,10 @@ class Client(ApplicationSession):
                         actor['timestamp'] = np.datetime64(actor['timestamp'], 'ns')
                         actor['joined'] = unpack_uint256(actor['joined']) if actor['joined'] else None
                         actor['market'] = uuid.UUID(bytes=actor['market'])
-                        actor['security'] = web3.Web3.fromWei(unpack_uint256(actor['security']), 'ether') if actor['security'] else None
-                        actor['signature'] = '0x' + binascii.b2a_hex(actor['signature']).decode() if actor['signature'] else None
+                        actor['security'] = web3.Web3.fromWei(unpack_uint256(actor['security']), 'ether') if actor[
+                            'security'] else None
+                        actor['signature'] = '0x' + binascii.b2a_hex(actor['signature']).decode() if actor[
+                            'signature'] else None
                         actor['tid'] = '0x' + binascii.b2a_hex(actor['tid']).decode() if actor['tid'] else None
 
                         actor_type = actor['actor_type']
@@ -386,7 +411,8 @@ class Client(ApplicationSession):
             self.log.warn('Address 0x{member_adr} is not a member in the XBR network',
                           member_adr=binascii.b2a_hex(actor_adr).decode())
 
-    async def _do_onboard_member(self, member_username, member_email):
+    @inlineCallbacks
+    def _do_onboard_member(self, member_username, member_email, member_password=None):
         client_pubkey = binascii.a2b_hex(self._key.public_key())
 
         # fake wallet type "metamask"
@@ -399,8 +425,8 @@ class Client(ApplicationSession):
         # delegate ethereum account canonical address
         wallet_adr = wallet_key.public_key.to_canonical_address()
 
-        config = await self.call('xbr.network.get_config')
-        status = await self.call('xbr.network.get_status')
+        config = yield self.call('xbr.network.get_config')
+        status = yield self.call('xbr.network.get_status')
 
         verifyingChain = config['verifying_chain_id']
         verifyingContract = binascii.a2b_hex(config['verifying_contract_adr'][2:])
@@ -429,7 +455,7 @@ class Client(ApplicationSession):
 
         # https://xbr.network/docs/network/api.html#xbrnetwork.XbrNetworkApi.onboard_member
         try:
-            result = await self.call('xbr.network.onboard_member',
+            result = yield self.call('xbr.network.onboard_member',
                                      member_username, member_email, client_pubkey, wallet_type, wallet_adr,
                                      verifyingChain, registered, verifyingContract, eula, profile, profile_data,
                                      signature)
@@ -448,12 +474,15 @@ class Client(ApplicationSession):
         vaction_oid = uuid.UUID(bytes=result['vaction_oid'])
         self.log.info('On-boarding member - verification "{vaction_oid}" created', vaction_oid=vaction_oid)
 
-    async def _do_onboard_member_verify(self, vaction_oid, vaction_code):
+        return result
+
+    @inlineCallbacks
+    def _do_onboard_member_verify(self, vaction_oid, vaction_code):
 
         self.log.info('Verifying member using vaction_oid={vaction_oid}, vaction_code={vaction_code} ..',
                       vaction_oid=vaction_oid, vaction_code=vaction_code)
         try:
-            result = await self.call('xbr.network.verify_onboard_member', vaction_oid.bytes, vaction_code)
+            result = yield self.call('xbr.network.verify_onboard_member', vaction_oid.bytes, vaction_code)
         except ApplicationError as e:
             self.log.error('ApplicationError: {error}', error=e)
             raise e
@@ -466,6 +495,8 @@ class Client(ApplicationSession):
         self.log.info('SUCCESS! New XBR Member onboarded: member_oid={member_oid}, transaction={transaction}',
                       member_oid=hlid(uuid.UUID(bytes=member_oid)),
                       transaction=hlval('0x' + binascii.b2a_hex(result['transaction']).decode()))
+
+        return result
 
     async def _do_create_market(self, member_oid, market_oid, marketmaker, title=None, label=None, homepage=None,
                                 provider_security=0, consumer_security=0, market_fee=0):
@@ -660,8 +691,9 @@ class Client(ApplicationSession):
         request_verified = await self.call('xbr.network.verify_join_market', vaction_oid.bytes, vaction_code)
         market_oid = request_verified['market_oid']
         actor_type = request_verified['actor_type']
-        self.log.info('SUCCESS! XBR market joined: member_oid={member_oid}, market_oid={market_oid}, actor_type={actor_type}',
-                      member_oid=member_oid, market_oid=market_oid, actor_type=actor_type)
+        self.log.info(
+            'SUCCESS! XBR market joined: member_oid={member_oid}, market_oid={market_oid}, actor_type={actor_type}',
+            member_oid=member_oid, market_oid=market_oid, actor_type=actor_type)
 
     async def _do_get_active_payment_channel(self, market_oid, delegate_adr):
         channel = await self.call('xbr.marketmaker.get_active_payment_channel', delegate_adr)
@@ -824,6 +856,12 @@ def _main():
                         type=str,
                         help='FlatBuffers binary schema file to read (.bfbs)')
 
+    parser.add_argument('-b',
+                        '--basemodule',
+                        dest='basemodule',
+                        type=str,
+                        help='Render to this base module')
+
     _LANGUAGES = ['python', 'json']
     parser.add_argument('-l',
                         '--language',
@@ -962,33 +1000,30 @@ def _main():
     if args.command == 'version':
         print_version()
 
+    # describe schema in WAMP IDL FlatBuffers schema files
     elif args.command == 'describe-schema':
-        schema = FbsSchema.load(args.schema)
-        obj = schema.marshal()
-        data = json.dumps(obj,
-                          separators=(',', ':'),
-                          ensure_ascii=False,
-                          sort_keys=False, )
-        print('json data generated ({} bytes)'.format(len(data)))
-        for svc_key, svc in schema.services.items():
-            print('API "{}"'.format(svc_key))
-            for uri in sorted(svc.calls.keys()):
-                ep = svc.calls[uri]
-                ep_type = ep.attrs['type']
-                print('   {:<10} {:<26}: {}'.format(ep_type, ep.name, ep.docs))
-        for obj_name, obj in schema.objs.items():
-            print(obj_name)
+        repo = FbsRepository(basemodule=args.basemodule)
+        repo.load(args.schema)
+
+        total_count = len(repo.objs) + len(repo.enums) + len(repo.services)
+        print('ok, loaded {} types ({} structs and tables, {} enums and {} service interfaces)'.format(
+            hlval(total_count),
+            hlval(len(repo.objs)),
+            hlval(len(repo.enums)),
+            hlval(len(repo.services))))
+        print()
+
+        repo.print_summary()
 
     # generate code from WAMP IDL FlatBuffers schema files
-    #
     elif args.command == 'codegen-schema':
 
         # load repository from flatbuffers schema files
-        repo = FbsRepository()
+        repo = FbsRepository(basemodule=args.basemodule)
         repo.load(args.schema)
 
         # print repository summary
-        pprint(repo.summary(keys=True))
+        print(repo.summary(keys=True))
 
         # folder with jinja2 templates for python code sections
         templates = pkg_resources.resource_filename('autobahn', 'xbr/templates')
@@ -1001,155 +1036,9 @@ def _main():
         if not os.path.isdir(args.output):
             os.mkdir(args.output)
 
-        # type categories in schemata in the repository
-        #
-        work = {
-            'obj': repo.objs.values(),
-            'enum': repo.enums.values(),
-            'service': repo.services.values(),
-        }
+        # render python source code files
+        repo.render(env, args.output, 'python')
 
-        # collect code sections by module
-        #
-        code_modules = {}
-        test_code_modules = {}
-        is_first_by_category_modules = {}
-
-        for category, values in work.items():
-            # generate and collect code for all FlatBuffers items in the given category
-            # and defined in schemata previously loaded int
-
-            for item in values:
-                # metadata = item.marshal()
-                # pprint(item.marshal())
-                metadata = item
-
-                # com.example.device.HomeDeviceVendor => com.example.device
-                modulename = '.'.join(metadata.name.split('.')[0:-1])
-                metadata.modulename = modulename
-
-                # com.example.device.HomeDeviceVendor => HomeDeviceVendor
-                metadata.classname = metadata.name.split('.')[-1].strip()
-
-                # com.example.device => device
-                metadata.module_relimport = modulename.split('.')[-1]
-
-                is_first = modulename not in code_modules
-                is_first_by_category = (modulename, category) not in is_first_by_category_modules
-
-                if is_first_by_category:
-                    is_first_by_category_modules[(modulename, category)] = True
-
-                # render template into python code section
-                if args.language == 'python':
-                    # render obj|enum|service.py.jinja2 template
-                    tmpl = env.get_template('{}.py.jinja2'.format(category))
-                    code = tmpl.render(repo=repo, metadata=metadata, FbsType=FbsType, render_imports=is_first, is_first_by_category=is_first_by_category)
-
-                    # render test_obj|enum|service.py.jinja2 template
-                    test_tmpl = env.get_template('test_{}.py.jinja2'.format(category))
-                    test_code = test_tmpl.render(repo=repo, metadata=metadata, FbsType=FbsType, render_imports=is_first, is_first_by_category=is_first_by_category)
-                elif args.language == 'json':
-                    code = json.dumps(metadata.marshal(),
-                                      separators=(', ', ': '),
-                                      ensure_ascii=False,
-                                      indent=4,
-                                      sort_keys=True)
-                    test_code = None
-                else:
-                    raise RuntimeError('invalid language "{}" for code generation'.format(args.languages))
-
-                # collect code sections per-module
-                if modulename not in code_modules:
-                    code_modules[modulename] = []
-                    test_code_modules[modulename] = []
-                code_modules[modulename].append(code)
-                if test_code:
-                    test_code_modules[modulename].append(test_code)
-                else:
-                    test_code_modules[modulename].append(None)
-
-        # write out code modules
-        #
-        i = 0
-        initialized = set()
-        for code_file, code_sections in code_modules.items():
-            code = '\n\n\n'.join(code_sections)
-            if code_file:
-                code_file_dir = [''] + code_file.split('.')[0:-1]
-            else:
-                code_file_dir = ['']
-
-            for i in range(len(code_file_dir)):
-                d = os.path.join(args.output, *(code_file_dir[:i + 1]))
-                if not os.path.isdir(d):
-                    os.mkdir(d)
-                    if args.language == 'python':
-                        fn = os.path.join(d, '__init__.py')
-                        if not os.path.exists(fn):
-                            _modulename = '.'.join(code_file_dir[:i + 1])[1:]
-                            with open(fn, 'wb') as f:
-                                tmpl = env.get_template('module.py.jinja2')
-                                init_code = tmpl.render(repo=repo, modulename=_modulename)
-                                f.write(init_code.encode('utf8'))
-                            initialized.add(fn)
-
-            if args.language == 'python':
-                if code_file:
-                    code_file_name = '{}.py'.format(code_file.split('.')[-1])
-                    test_code_file_name = 'test_{}.py'.format(code_file.split('.')[-1])
-                else:
-                    code_file_name = '__init__.py'
-                    test_code_file_name = None
-            elif args.language == 'json':
-                if code_file:
-                    code_file_name = '{}.json'.format(code_file.split('.')[-1])
-                else:
-                    code_file_name = 'init.json'
-                test_code_file_name = None
-            else:
-                code_file_name = None
-                test_code_file_name = None
-
-            # write out code modules
-            #
-            if code_file_name:
-                data = code.encode('utf8')
-
-                fn = os.path.join(*(code_file_dir + [code_file_name]))
-                fn = os.path.join(args.output, fn)
-
-                if fn not in initialized and os.path.exists(fn):
-                    os.remove(fn)
-                    with open(fn, 'wb') as fd:
-                        fd.write('# Generated by Autobahn v{}\n'.format(__version__).encode('utf8'))
-                    initialized.add(fn)
-
-                with open(fn, 'ab') as fd:
-                    fd.write(data)
-
-                print('Ok, written {} bytes to {}'.format(len(data), fn))
-
-            # write out unit test code modules
-            #
-            if test_code_file_name:
-                test_code_sections = test_code_modules[code_file]
-                test_code = '\n\n\n'.join(test_code_sections)
-                data = test_code.encode('utf8')
-
-                fn = os.path.join(*(code_file_dir + [test_code_file_name]))
-                fn = os.path.join(args.output, fn)
-
-                if fn not in initialized and os.path.exists(fn):
-                    os.remove(fn)
-                    with open(fn, 'wb') as fd:
-                        fd.write('# Copyright (c) ...'.encode('utf8'))
-                    initialized.add(fn)
-
-                with open(fn, 'ab') as fd:
-                    fd.write(data)
-
-                print('Ok, written {} bytes to {}'.format(len(data), fn))
     else:
         if args.command is None or args.command == 'noop':
             print('no command given. select from: {}'.format(', '.join(_COMMANDS)))
@@ -1198,11 +1087,13 @@ def _main():
             'delegate': binascii.a2b_hex(args.delegate[2:]) if args.delegate else None,
             'amount': args.amount or 0,
         }
-        runner = ApplicationRunner(url=profile.network_url, realm=profile.network_realm, extra=extra, serializers=[CBORSerializer()])
+        runner = ApplicationRunner(url=profile.network_url, realm=profile.network_realm, extra=extra,
+                                   serializers=[CBORSerializer()])
 
         try:
             log.info('Connecting to "{url}" {realm} ..',
-                     url=hlval(profile.network_url), realm=('at realm "' + hlval(profile.network_realm) + '"' if profile.network_realm else ''))
+                     url=hlval(profile.network_url),
+                     realm=('at realm "' + hlval(profile.network_realm) + '"' if profile.network_realm else ''))
             runner.run(Client, auto_reconnect=False)
         except Exception as e:
             print(e)

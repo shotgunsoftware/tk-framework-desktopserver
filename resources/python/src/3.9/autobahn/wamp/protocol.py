@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 #
 ###############################################################################
-from typing import Union
+from typing import Union, Optional, Dict, Any, ClassVar, List, Callable
 
 import txaio
 import inspect
@@ -36,9 +36,10 @@ from autobahn.wamp import message
 from autobahn.wamp import types
 from autobahn.wamp import role
 from autobahn.wamp import exception
-from autobahn.wamp.exception import ApplicationError, ProtocolError, SessionNotReady, SerializationError, TypeCheckError
-from autobahn.wamp.interfaces import IPayloadCodec, IAuthenticator  # noqa
-from autobahn.wamp.types import SessionDetails, CloseDetails, EncodedPayload
+from autobahn.wamp.exception import ApplicationError, ProtocolError, SerializationError, TypeCheckError
+from autobahn.wamp.interfaces import ISession, IPayloadCodec, IAuthenticator, ITransport, IMessage  # noqa
+from autobahn.wamp.types import Challenge, SessionDetails, CloseDetails, EncodedPayload, SubscribeOptions, \
+    CallResult, RegisterOptions
 from autobahn.exception import PayloadExceededError
 from autobahn.wamp.request import \
     Publication, \
@@ -68,9 +69,6 @@ class BaseSession(ObservableMixin):
     log = None
 
     def __init__(self):
-        """
-
-        """
         self.log = txaio.make_logger()
 
         self.set_valid_events(
@@ -88,65 +86,113 @@ class BaseSession(ObservableMixin):
         # procedures)
         self.traceback_app = False
 
-        # mapping of exception classes to WAMP error URIs
-        self._ecls_to_uri_pat = {}
+        # mapping of exception classes to list of WAMP error URI patterns
+        self._ecls_to_uri_pat: Dict[ClassVar, List[uri.Pattern]] = {}
 
         # mapping of WAMP error URIs to exception classes
-        self._uri_to_ecls = {
+        self._uri_to_ecls: Dict[str, ClassVar] = {
             ApplicationError.INVALID_PAYLOAD: SerializationError,
             ApplicationError.PAYLOAD_SIZE_EXCEEDED: PayloadExceededError,
         }
 
+        # WAMP ITransport (_not_ a Twisted protocol, which is self.transport - when using Twisted)
+        self._transport: Optional[ITransport] = None
+
         # session authentication information
-        self._realm = None
-        self._session_id = None
-        self._authid = None
-        self._authrole = None
-        self._authmethod = None
-        self._authprovider = None
+        self._realm: Optional[str] = None
+        self._session_id: Optional[int] = None
+        self._authid: Optional[str] = None
+        self._authrole: Optional[str] = None
+        self._authmethod: Optional[str] = None
+        self._authprovider: Optional[str] = None
+        self._authextra: Optional[Dict[str, Any]] = None
+
+        # set client role features supported and announced
+        self._session_roles: Dict[str, role.RoleFeatures] = role.DEFAULT_CLIENT_ROLES
+
+        # complete session details
+        self._session_details: Optional[SessionDetails] = None
 
         # payload transparency codec
-        self._payload_codec = None
+        self._payload_codec: Optional[IPayloadCodec] = None
 
         # generator for WAMP request IDs
         self._request_id_gen = IdGenerator()
 
     @property
-    def realm(self):
+    def transport(self) -> Optional[ITransport]:
+        """
+        Implements :func:`autobahn.wamp.interfaces.ITransportHandler.transport`
+        """
+        # Note: self._transport (which is a WAMP ITransport) is different from self.transport (which
+        # is a Twisted protocol when using Twisted)!
+        return self._transport
+
+    @public
+    def is_connected(self) -> bool:
+        """
+        Implements :func:`autobahn.wamp.interfaces.ISession.is_connected`
+        """
+        return self._transport is not None and self._transport.isOpen()
+
+    @public
+    def is_attached(self) -> bool:
+        """
+        Implements :func:`autobahn.wamp.interfaces.ISession.is_attached`
+        """
+        return self._session_id is not None and self.is_connected()
+
+    @property
+    def session_details(self) -> Optional[SessionDetails]:
+        """
+        Implements :func:`autobahn.wamp.interfaces.ISession.session_details`
+        """
+        return self._session_details
+
+    @property
+    def realm(self) -> Optional[str]:
         return self._realm
 
     @property
-    def session_id(self):
+    def session_id(self) -> Optional[int]:
         return self._session_id
 
     @property
-    def authid(self):
+    def authid(self) -> Optional[str]:
         return self._authid
 
     @property
-    def authrole(self):
+    def authrole(self) -> Optional[str]:
         return self._authrole
 
     @property
-    def authmethod(self):
+    def authmethod(self) -> Optional[str]:
         return self._authmethod
 
     @property
-    def authprovider(self):
+    def authprovider(self) -> Optional[str]:
         return self._authprovider
 
-    def define(self, exception, error=None):
+    @property
+    def authextra(self) -> Optional[Dict[str, Any]]:
+        return self._authextra
+
+    def define(self, exception: Exception, error: Optional[str] = None):
         """
         Implements :func:`autobahn.wamp.interfaces.ISession.define`
         """
         if error is None:
-            assert(hasattr(exception, '_wampuris'))
-            self._ecls_to_uri_pat[exception] = exception._wampuris
-            self._uri_to_ecls[exception._wampuris[0].uri()] = exception
+            if hasattr(exception, '_wampuris'):
+                self._ecls_to_uri_pat[exception] = exception._wampuris
+                self._uri_to_ecls[exception._wampuris[0].uri()] = exception
+            else:
+                raise RuntimeError('cannot define WAMP exception from class with no decoration ("_wampuris" unset)')
         else:
-            assert(not hasattr(exception, '_wampuris'))
-            self._ecls_to_uri_pat[exception] = [uri.Pattern(error, uri.Pattern.URI_TARGET_HANDLER)]
-            self._uri_to_ecls[error] = exception
+            if not hasattr(exception, '_wampuris'):
+                self._ecls_to_uri_pat[exception] = [uri.Pattern(error, uri.Pattern.URI_TARGET_HANDLER)]
+                self._uri_to_ecls[error] = exception
+            else:
+                raise RuntimeError('cannot define WAMP exception: error URI is explicit, but class is decorated ("_wampuris" set')
 
     def _message_from_exception(self, request_type, request, exc, tb=None, enc_algo=None):
         """
@@ -311,25 +357,27 @@ class BaseSession(ObservableMixin):
 @public
 class ApplicationSession(BaseSession):
     """
-    WAMP endpoint session.
+    WAMP application session for applications (networking framework agnostic parts).
+
+    Implements (partially):
+
+        * :class:`autobahn.wamp.interfaces.ITransportHandler`
+        * :class:`autobahn.wamp.interfaces.ISession`
     """
 
-    def __init__(self, config=None):
+    def __init__(self, config: Optional[types.ComponentConfig] = None):
         """
         Implements :func:`autobahn.wamp.interfaces.ISession`
         """
         BaseSession.__init__(self)
-        self.config = config or types.ComponentConfig(realm="realm1")
+        self._config: types.ComponentConfig = config or types.ComponentConfig(realm="realm1")
 
-        # set client role features supported and announced
-        self._session_roles = role.DEFAULT_CLIENT_ROLES
+        # for keeping transport-closing state
+        self._goodbye_sent: bool = False
+        self._transport_is_closing: bool = False
 
-        self._transport = None
-        self._session_id = None
-        self._realm = None
-
-        self._goodbye_sent = False
-        self._transport_is_closing = False
+        # WAMP application payload codec (e.g. for WAMP-cryptobox E2E)
+        self._payload_codec: Optional[IPayloadCodec] = None
 
         # outstanding requests
         self._publish_reqs = {}
@@ -348,27 +396,35 @@ class ApplicationSession(BaseSession):
         # incoming invocations
         self._invocations = {}
 
+    @property
+    def config(self) -> types.ComponentConfig:
+        return self._config
+
     @public
-    def set_payload_codec(self, payload_codec):
+    def set_payload_codec(self, payload_codec: Optional[IPayloadCodec]):
         """
         Implements :func:`autobahn.wamp.interfaces.ISession.set_payload_codec`
         """
-        assert(payload_codec is None or isinstance(payload_codec, IPayloadCodec))
         self._payload_codec = payload_codec
 
     @public
-    def get_payload_codec(self):
+    def get_payload_codec(self) -> Optional[IPayloadCodec]:
         """
         Implements :func:`autobahn.wamp.interfaces.ISession.get_payload_codec`
         """
         return self._payload_codec
 
     @public
-    def onOpen(self, transport):
+    def onOpen(self, transport: ITransport):
         """
         Implements :func:`autobahn.wamp.interfaces.ITransportHandler.onOpen`
         """
+        self.log.debug('{func}(transport={transport})', func=self.onOpen, transport=transport)
+
+        # The WAMP transport (e.g. WebSocket connection)
         self._transport = transport
+
+        # FIXME: the observer API gets "transport" as argument, but _not_ the onConnect callback below?
         d = self.fire('connect', self, transport)
         txaio.add_callbacks(
             d, None,
@@ -385,32 +441,27 @@ class ApplicationSession(BaseSession):
         """
         Implements :func:`autobahn.wamp.interfaces.ISession.onConnect`
         """
+        self.log.debug('{func}()', func=self.onConnect)
         self.join(self.config.realm)
 
     @public
     def join(self,
-             realm,
-             authmethods=None,
-             authid=None,
-             authrole=None,
-             authextra=None,
-             resumable=None,
-             resume_session=None,
-             resume_token=None):
+             realm: str,
+             authmethods: Optional[List[str]] = None,
+             authid: Optional[str] = None,
+             authrole: Optional[str] = None,
+             authextra: Optional[Dict[str, Any]] = None,
+             resumable: Optional[bool] = None,
+             resume_session: Optional[int] = None,
+             resume_token: Optional[str] = None):
         """
         Implements :func:`autobahn.wamp.interfaces.ISession.join`
         """
-        assert(realm is None or type(realm) == str)
-        assert(authmethods is None or type(authmethods) == list)
-        if type(authmethods) == list:
-            for authmethod in authmethods:
-                assert(type(authmethod) == str)
-        assert(authid is None or type(authid) == str)
-        assert(authrole is None or type(authrole) == str)
-        assert(authextra is None or type(authextra) == dict)
-
         if self._session_id:
-            raise Exception("already joined")
+            raise Exception("session already joined")
+
+        if not self._transport:
+            raise Exception("no transport set for session")
 
         # store the realm requested by client, though this might be overwritten later,
         # when realm redirection kicks in
@@ -438,20 +489,6 @@ class ApplicationSession(BaseSession):
         """
         if self._transport:
             self._transport.close()
-
-    @public
-    def is_connected(self):
-        """
-        Implements :func:`autobahn.wamp.interfaces.ISession.is_connected`
-        """
-        return self._transport is not None
-
-    @public
-    def is_attached(self):
-        """
-        Implements :func:`autobahn.wamp.interfaces.ISession.is_attached`
-        """
-        return self._transport is not None and self._session_id is not None
 
     @public
     def onUserError(self, fail, msg):
@@ -519,7 +556,7 @@ class ApplicationSession(BaseSession):
 
         return _type_check
 
-    def onMessage(self, msg):
+    def onMessage(self, msg: IMessage):
         """
         Implements :func:`autobahn.wamp.interfaces.ITransportHandler.onMessage`
         """
@@ -539,7 +576,7 @@ class ApplicationSession(BaseSession):
 
                 def success(res):
                     if res is not None:
-                        self.log.info("Session denied by onWelcome")
+                        self.log.debug("Session denied by onWelcome: {res}", res=res)
                         reply = message.Abort(
                             "wamp.error.cannot_authenticate", "{0}".format(res)
                         )
@@ -553,9 +590,10 @@ class ApplicationSession(BaseSession):
                     self._authrole = msg.authrole
                     self._authmethod = msg.authmethod
                     self._authprovider = msg.authprovider
+                    self._authextra = msg.authextra
                     self._router_roles = msg.roles
 
-                    details = SessionDetails(
+                    self._session_details = SessionDetails(
                         realm=self._realm,
                         session=self._session_id,
                         authid=self._authid,
@@ -564,17 +602,19 @@ class ApplicationSession(BaseSession):
                         authprovider=self._authprovider,
                         authextra=msg.authextra,
                         serializer=self._transport._serializer.SERIALIZER_ID,
-                        transport=self._transport.peer_transport if hasattr(self._transport, 'peer_transport') else None,
-                        resumed=msg.resumed,
-                        resumable=msg.resumable,
-                        resume_token=msg.resume_token,
+                        transport=self._transport.transport_details,
+                        # FIXME
+                        resumed=False,  # msg.resumed,
+                        resumable=False,  # msg.resumable,
+                        resume_token=None,  # msg.resume_token,
                     )
+
                     # firing 'join' *before* running onJoin, so that
                     # the idiom where you "do stuff" in onJoin --
                     # possibly including self.leave() -- works
                     # properly. Besides, there's "ready" that fires
                     # after 'join' and onJoin have all completed...
-                    d = self.fire('join', self, details)
+                    d = self.fire('join', self, self._session_details)
                     # add a logging errback first, which will ignore any
                     # errors from fire()
                     txaio.add_callbacks(
@@ -584,7 +624,7 @@ class ApplicationSession(BaseSession):
                     # this should run regardless
                     txaio.add_callbacks(
                         d,
-                        lambda _: txaio.as_future(self.onJoin, details),
+                        lambda _: txaio.as_future(self.onJoin, self._session_details),
                         None
                     )
                     # ignore any errors from onJoin (XXX or, should that be fatal?)
@@ -730,7 +770,7 @@ class ApplicationSession(BaseSession):
                         invoke_kwargs = msg.kwargs if msg.kwargs else dict()
 
                         if handler.details_arg:
-                            invoke_kwargs[handler.details_arg] = types.EventDetails(subscription, msg.publication, publisher=msg.publisher, publisher_authid=msg.publisher_authid, publisher_authrole=msg.publisher_authrole, topic=topic, retained=msg.retained, enc_algo=msg.enc_algo, forward_for=msg.forward_for)
+                            invoke_kwargs[handler.details_arg] = types.EventDetails(subscription, msg.publication, publisher=msg.publisher, publisher_authid=msg.publisher_authid, publisher_authrole=msg.publisher_authrole, topic=topic, transaction_hash=msg.transaction_hash, retained=msg.retained, enc_algo=msg.enc_algo, forward_for=msg.forward_for)
 
                         # FIXME: https://github.com/crossbario/autobahn-python/issues/764
                         def _success(_):
@@ -1020,6 +1060,7 @@ class ApplicationSession(BaseSession):
                                                                                         caller_authid=msg.caller_authid,
                                                                                         caller_authrole=msg.caller_authrole,
                                                                                         procedure=proc,
+                                                                                        transaction_hash=msg.transaction_hash,
                                                                                         enc_algo=msg.enc_algo)
 
                             on_reply = txaio.as_future(endpoint.fn, *invoke_args, **invoke_kwargs)
@@ -1184,7 +1225,7 @@ class ApplicationSession(BaseSession):
                             "UNREGISTERED received for non-existant registration"
                             " ID {0}".format(msg.registration)
                         )
-                    self.log.info(
+                    self.log.debug(
                         "Router unregistered procedure '{proc}' with ID {id}",
                         proc=reg.procedure,
                         id=msg.registration,
@@ -1280,20 +1321,24 @@ class ApplicationSession(BaseSession):
         txaio.add_callbacks(d, success, _error)
 
     @public
-    def onChallenge(self, challenge):
+    def onChallenge(self, challenge: Challenge) -> str:
         """
         Implements :func:`autobahn.wamp.interfaces.ISession.onChallenge`
         """
-        raise Exception("received authentication challenge, but onChallenge not implemented")
+        # Note: if we use NotImplementedError in below, the type checking in PyCharm
+        # will recognize that, and complain about "not implemented abstract method"
+        # in e.g. autobahn.twisted.wamp.ApplicationSession even though the latter
+        # derives from this base class! IOW: don't change it;)
+        raise RuntimeError('received authentication challenge, but onChallenge not implemented')
 
     @public
-    def onJoin(self, details):
+    def onJoin(self, details: SessionDetails):
         """
         Implements :meth:`autobahn.wamp.interfaces.ISession.onJoin`
         """
 
     @public
-    def onWelcome(self, msg):
+    def onWelcome(self, welcome: message.Welcome) -> Optional[str]:
         """
         Implements :meth:`autobahn.wamp.interfaces.ISession.onWelcome`
         """
@@ -1337,7 +1382,7 @@ class ApplicationSession(BaseSession):
         return d
 
     @public
-    def onLeave(self, details):
+    def onLeave(self, details: CloseDetails):
         """
         Implements :meth:`autobahn.wamp.interfaces.ISession.onLeave`
         """
@@ -1355,12 +1400,13 @@ class ApplicationSession(BaseSession):
         return d
 
     @public
-    def leave(self, reason=None, message=None):
+    def leave(self, reason: Optional[str] = None, message: Optional[str] = None):
         """
         Implements :meth:`autobahn.wamp.interfaces.ISession.leave`
         """
         if not self._session_id:
-            raise SessionNotReady("session hasn't joined a realm")
+            self.log.warn('session is not joined on a realm - no session to leave')
+            return
 
         if not self._goodbye_sent:
             if not reason:
@@ -1386,8 +1432,11 @@ class ApplicationSession(BaseSession):
         exc = exception.TransportLost()
         self._errback_outstanding_requests(exc)
 
+    # FIXME:
+    # def publish(self, topic: str, *args: Optional[List[Any]], **kwargs: Optional[Dict[str, Any]]) -> Optional[Publication]:
+
     @public
-    def publish(self, topic, *args, **kwargs):
+    def publish(self, topic: str, *args, **kwargs) -> Optional[Publication]:
         """
         Implements :meth:`autobahn.wamp.interfaces.IPublisher.publish`
         """
@@ -1478,7 +1527,9 @@ class ApplicationSession(BaseSession):
         return on_reply
 
     @public
-    def subscribe(self, handler, topic=None, options=None, check_types=False):
+    def subscribe(self, handler: Union[Callable, Any], topic: Optional[str] = None,
+                  options: Optional[SubscribeOptions] = None, check_types: Optional[bool] = None) -> \
+            Union[Subscription, List[Subscription]]:
         """
         Implements :meth:`autobahn.wamp.interfaces.ISubscriber.subscribe`
         """
@@ -1581,9 +1632,16 @@ class ApplicationSession(BaseSession):
             return txaio.create_future_success(scount)
 
     @public
-    def call(self, procedure, *args, **kwargs):
+    def call(self, procedure: str, *args, **kwargs) -> Union[Any, CallResult]:
         """
         Implements :meth:`autobahn.wamp.interfaces.ICaller.call`
+
+        .. note::
+
+            Regarding type hints for ``*args`` and ``**kwargs``, doesn't work as we
+            can receive any Python types as list items or dict values, and because
+            of what is discussed here
+            https://adamj.eu/tech/2021/05/11/python-type-hints-args-and-kwargs/
         """
         assert(type(procedure) == str)
         assert(args is None or type(args) in (list, tuple))
@@ -1679,14 +1737,13 @@ class ApplicationSession(BaseSession):
         return on_reply
 
     @public
-    def register(self, endpoint, procedure=None, options=None, prefix=None, check_types=False):
+    def register(self, endpoint: Union[Callable, Any], procedure: Optional[str] = None,
+                 options: Optional[RegisterOptions] = None, prefix: Optional[str] = None,
+                 check_types: Optional[bool] = None) -> Union[Registration, List[Registration]]:
         """
         Implements :meth:`autobahn.wamp.interfaces.ICallee.register`
         """
         assert((callable(endpoint) and procedure is not None) or (hasattr(endpoint, '__class__') and not check_types))
-        assert(procedure is None or type(procedure) == str)
-        assert(options is None or isinstance(options, types.RegisterOptions))
-        assert prefix is None or isinstance(prefix, str)
 
         if not self._transport:
             raise exception.TransportLost()
@@ -1800,8 +1857,8 @@ class _SessionShim(ApplicationSession):
             self.join(
                 self.config.realm,
                 authmethods=list(self._authenticators.keys()),
-                authid=authid or 'public',
-                authrole=authrole or 'default',
+                authid=authid,
+                authrole=authrole,
                 authextra=authextra,
             )
         else:
@@ -1812,8 +1869,9 @@ class _SessionShim(ApplicationSession):
             authenticator = self._authenticators[challenge.method]
         except KeyError:
             raise RuntimeError(
-                "Received challenge for unknown authmethod '{}'".format(
-                    challenge.method
+                "Received challenge for unknown authmethod '{}' [authenticators={}]".format(
+                    challenge.method,
+                    str(sorted(self._authenticators.keys()))
                 )
             )
         return authenticator.on_challenge(self, challenge)
@@ -1826,8 +1884,9 @@ class _SessionShim(ApplicationSession):
             authenticator = self._authenticators[msg.authmethod]
         except KeyError:
             raise RuntimeError(
-                "Received onWelcome for unknown authmethod '{}'".format(
-                    msg.authmethod
+                "Received onWelcome for unknown authmethod '{}' [authenticators={}]".format(
+                    msg.authmethod,
+                    str(sorted(self._authenticators.keys()))
                 )
             )
         return authenticator.on_welcome(self, msg.authextra)
@@ -1939,7 +1998,7 @@ class _SessionShim(ApplicationSession):
 
 
 # ISession.register collides with the abc.ABCMeta.register method
-# ISession.register(ApplicationSession)
+ISession.abc_register(ApplicationSession)
 
 
 class ApplicationSessionFactory(object):

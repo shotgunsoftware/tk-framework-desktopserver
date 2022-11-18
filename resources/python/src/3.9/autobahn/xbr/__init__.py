@@ -49,8 +49,13 @@ try:
     from autobahn.xbr._abi import XBR_DEBUG_TOKEN_ADDR, XBR_DEBUG_NETWORK_ADDR, XBR_DEBUG_MARKET_ADDR, XBR_DEBUG_CATALOG_ADDR, XBR_DEBUG_CHANNEL_ADDR  # noqa
     from autobahn.xbr._abi import XBR_DEBUG_TOKEN_ADDR_SRC, XBR_DEBUG_NETWORK_ADDR_SRC, XBR_DEBUG_MARKET_ADDR_SRC, XBR_DEBUG_CATALOG_ADDR_SRC, XBR_DEBUG_CHANNEL_ADDR_SRC  # noqa
     from autobahn.xbr._interfaces import IMarketMaker, IProvider, IConsumer, ISeller, IBuyer, IDelegate  # noqa
-    from autobahn.xbr._util import make_w3, pack_uint256, unpack_uint256, with_0x, without_0x  # noqa
-
+    from autobahn.xbr._util import make_w3, pack_uint256, unpack_uint256  # noqa
+    from autobahn.xbr._eip712_certificate import EIP712Certificate  # noqa
+    from autobahn.xbr._eip712_certificate_chain import parse_certificate_chain  # noqa
+    from autobahn.xbr._eip712_authority_certificate import sign_eip712_authority_certificate, \
+        recover_eip712_authority_certificate, create_eip712_authority_certificate, EIP712AuthorityCertificate  # noqa
+    from autobahn.xbr._eip712_delegate_certificate import sign_eip712_delegate_certificate, \
+        recover_eip712_delegate_certificate, create_eip712_delegate_certificate, EIP712DelegateCertificate  # noqa
     from autobahn.xbr._eip712_member_register import sign_eip712_member_register, recover_eip712_member_register  # noqa
     from autobahn.xbr._eip712_member_login import sign_eip712_member_login, recover_eip712_member_login  # noqa
     from autobahn.xbr._eip712_market_create import sign_eip712_market_create, recover_eip712_market_create  # noqa
@@ -64,19 +69,19 @@ try:
         recover_eip712_market_member_login  # noqa
     from autobahn.xbr._eip712_base import is_address, is_chain_id, is_block_number, is_signature, \
         is_cs_pubkey, is_bytes16, is_eth_privkey  # noqa
-
     from autobahn.xbr._blockchain import SimpleBlockchain  # noqa
     from autobahn.xbr._seller import SimpleSeller, KeySeries  # noqa
     from autobahn.xbr._buyer import SimpleBuyer  # noqa
-
     from autobahn.xbr._config import load_or_create_profile, UserConfig, Profile  # noqa
-
     from autobahn.xbr._schema import FbsSchema, FbsObject, FbsType, FbsRPCCall, FbsEnum, FbsService, FbsEnumValue, \
-        FbsAttribute, FbsField, FbsRepository  # noqa
-
+    FbsAttribute, FbsField, FbsRepository  # noqa
     from autobahn.xbr._wallet import stretch_argon2_secret, expand_argon2_secret, pkm_from_argon2_secret  # noqa
 
     HAS_XBR = True
+
+    from autobahn.xbr._frealm import FederatedRealm, Seeder  # noqa
+    from autobahn.xbr._secmod import EthereumKey  # noqa
+    from autobahn.xbr._userkey import UserKey  # noqa
 
     if not hasattr(abi, 'collapse_type'):
 
@@ -324,12 +329,22 @@ try:
         'make_w3',
         'pack_uint256',
         'unpack_uint256',
-        'with_0x',
-        'without_0x',
         'generate_seedphrase',
         'check_seedphrase',
         'account_from_seedphrase',
         'ASCII_BOMB',
+
+        'EIP712Certificate',
+        'EIP712AuthorityCertificate',
+        'EIP712DelegateCertificate',
+        'parse_certificate_chain',
+
+        'create_eip712_authority_certificate',
+        'sign_eip712_authority_certificate',
+        'recover_eip712_authority_certificate',
+        'create_eip712_delegate_certificate',
+        'sign_eip712_delegate_certificate',
+        'recover_eip712_delegate_certificate',
 
         'sign_eip712_member_register',
         'recover_eip712_member_register',
@@ -363,6 +378,7 @@ try:
         'load_or_create_profile',
         'UserConfig',
         'Profile',
+        'UserKey',
 
         'MemberLevel',
         'ActorType',
@@ -381,6 +397,7 @@ try:
         'IBuyer',
         'IDelegate',
 
+        'FbsRepository',
         'FbsSchema',
         'FbsService',
         'FbsType',
@@ -390,11 +407,13 @@ try:
         'FbsRPCCall',
         'FbsAttribute',
         'FbsField',
-        'FbsRepository',
-
         'stretch_argon2_secret',
         'expand_argon2_secret',
         'pkm_from_argon2_secret',
+
+        'FederatedRealm',
+        'Seeder',
+        'EthereumKey',
     )
 
 except (ImportError, FileNotFoundError) as e:

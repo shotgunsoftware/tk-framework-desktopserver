@@ -23,11 +23,13 @@
 # THE SOFTWARE.
 #
 ###############################################################################
-
+from pprint import pformat
+from typing import Optional, Any, Dict, List
+from binascii import a2b_hex
 
 from autobahn.util import public
 
-from autobahn.wamp.request import Subscription, Registration
+from autobahn.wamp.request import Subscription, Registration, Publication
 
 
 __all__ = (
@@ -37,7 +39,6 @@ __all__ = (
     'Deny',
     'Challenge',
     'HelloDetails',
-    'SessionDetails',
     'SessionIdent',
     'CloseDetails',
     'SubscribeOptions',
@@ -47,7 +48,12 @@ __all__ = (
     'CallDetails',
     'CallOptions',
     'CallResult',
-    'EncodedPayload'
+    'EncodedPayload',
+    'Subscription',
+    'Registration',
+    'Publication',
+    'TransportDetails',
+    'SessionDetails',
 )
 
 
@@ -139,26 +145,17 @@ class Accept(HelloReturn):
         'authextra',
     )
 
-    def __init__(self, realm=None, authid=None, authrole=None, authmethod=None, authprovider=None, authextra=None):
+    def __init__(self, realm: Optional[str] = None, authid: Optional[str] = None, authrole: Optional[str] = None,
+                 authmethod: Optional[str] = None, authprovider: Optional[str] = None,
+                 authextra: Optional[Dict[str, Any]] = None):
         """
 
         :param realm: The realm the client is joined to.
-        :type realm: str
-
         :param authid: The authentication ID the client is assigned, e.g. ``"joe"`` or ``"joe@example.com"``.
-        :type authid: str
-
         :param authrole: The authentication role the client is assigned, e.g. ``"anonymous"``, ``"user"`` or ``"com.myapp.user"``.
-        :type authrole: str
-
         :param authmethod: The authentication method that was used to authenticate the client, e.g. ``"cookie"`` or ``"wampcra"``.
-        :type authmethod: str
-
         :param authprovider: The authentication provider that was used to authenticate the client, e.g. ``"mozilla-persona"``.
-        :type authprovider: str
-
         :param authextra: Application-specific authextra to be forwarded to the client in `WELCOME.details.authextra`.
-        :type authextra: dict
         """
         assert(realm is None or type(realm) == str)
         assert(authid is None or type(authid) == str)
@@ -315,118 +312,6 @@ class HelloDetails(object):
 
     def __str__(self):
         return "HelloDetails(realm=<{}>, authmethods={}, authid=<{}>, authrole=<{}>, authextra={}, session_roles={}, pending_session={}, resumable={}, resume_session={}, resume_token={})".format(self.realm, self.authmethods, self.authid, self.authrole, self.authextra, self.session_roles, self.pending_session, self.resumable, self.resume_session, self.resume_token)
-
-
-@public
-class SessionDetails(object):
-    """
-    Provides details for a WAMP session upon open.
-
-    .. seealso:: :meth:`autobahn.wamp.interfaces.ISession.onJoin`
-    """
-
-    __slots__ = (
-        'realm',
-        'session',
-        'authid',
-        'authrole',
-        'authmethod',
-        'authprovider',
-        'authextra',
-        'serializer',
-        'transport',
-        'resumed',
-        'resumable',
-        'resume_token',
-    )
-
-    def __init__(self, realm, session, authid=None, authrole=None, authmethod=None, authprovider=None, authextra=None,
-                 serializer=None, transport=None, resumed=None, resumable=None, resume_token=None):
-        """
-
-        :param realm: The realm this WAMP session is attached to.
-        :type realm: str
-
-        :param session: WAMP session ID of this session.
-        :type session: int
-
-        :param resumed: Whether the session is a resumed one.
-        :type resumed: bool or None
-
-        :param resumable: Whether this session can be resumed later.
-        :type resumable: bool or None
-
-        :param resume_token: The secure authorisation token to resume the session.
-        :type resume_token: str or None
-        """
-        assert(type(realm) == str)
-        assert(type(session) == int)
-        assert(authid is None or type(authid) == str)
-        assert(authrole is None or type(authrole) == str)
-        assert(authmethod is None or type(authmethod) == str)
-        assert(authprovider is None or type(authprovider) == str)
-        assert(authextra is None or type(authextra) == dict)
-        assert(serializer is None or type(serializer) == str)
-        assert(transport is None or type(transport) == str)
-        assert(resumed is None or type(resumed) == bool)
-        assert(resumable is None or type(resumable) == bool)
-        assert(resume_token is None or type(resume_token) == str)
-
-        self.realm = realm
-        self.session = session
-        self.authid = authid
-        self.authrole = authrole
-        self.authmethod = authmethod
-        self.authprovider = authprovider
-        self.authextra = authextra
-        self.serializer = serializer
-        self.transport = transport
-        self.resumed = resumed
-        self.resumable = resumable
-        self.resume_token = resume_token
-
-    def marshal(self):
-        obj = {
-            'realm': self.realm,
-            'session': self.session,
-            'authid': self.authid,
-            'authrole': self.authrole,
-            'authmethod': self.authmethod,
-            'authprovider': self.authprovider,
-            'authextra': self.authextra,
-            'serializer': self.serializer,
-            'transport': self.transport,
-            'resumed': self.resumed,
-            'resumable': self.resumable,
-            'resume_token': self.resume_token
-        }
-        return obj
-
-    def __str__(self):
-        return """
-SessionDetails(realm={},
-               session={},
-               authid={},
-               authrole={},
-               authmethod={},
-               authprovider={},
-               authextra={},
-               serializer={},
-               transport={},
-               resumed={},
-               resumable={},
-               resume_token={})""".format('"' + self.realm + '"' if self.realm is not None else 'None',
-                                          self.session,
-                                          '"' + self.authid + '"' if self.authid is not None else 'None',
-                                          '"' + self.authrole + '"' if self.authrole is not None else 'None',
-                                          '"' + self.authmethod + '"' if self.authmethod is not None else 'None',
-                                          '"' + self.authprovider + '"' if self.authprovider is not None else 'None',
-                                          self.authextra,
-                                          '"' + self.serializer + '"' if self.serializer is not None else 'None',
-                                          '"' + self.transport + '"' if self.transport is not None else 'None',
-                                          self.resumed,
-                                          self.resumable,
-                                          self.resume_token)
 
 
 @public
@@ -678,12 +563,13 @@ class EventDetails(object):
         'publisher_authrole',
         'topic',
         'retained',
+        'transaction_hash',
         'enc_algo',
         'forward_for',
     )
 
     def __init__(self, subscription, publication, publisher=None, publisher_authid=None, publisher_authrole=None,
-                 topic=None, retained=None, enc_algo=None, forward_for=None):
+                 topic=None, retained=None, transaction_hash=None, enc_algo=None, forward_for=None):
         """
 
         :param subscription: The (client side) subscription object on which this event is delivered.
@@ -715,6 +601,11 @@ class EventDetails(object):
             was in use (currently, either ``None`` or ``'cryptobox'``).
         :type enc_algo: str or None
 
+        :param transaction_hash: An application provided transaction hash for the originating call, which may
+            be used in the router to throttle or deduplicate the calls on the procedure. See the discussion
+            `here <https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967>`_.
+        :type transaction_hash: str
+
         :param forward_for: When this Event is forwarded for a client (or from an intermediary router).
         :type forward_for: list[dict]
         """
@@ -725,6 +616,7 @@ class EventDetails(object):
         assert(publisher_authrole is None or type(publisher_authrole) == str)
         assert(topic is None or type(topic) == str)
         assert(retained is None or type(retained) is bool)
+        assert (transaction_hash is None or type(transaction_hash) == str)
         assert(enc_algo is None or type(enc_algo) == str)
         assert(forward_for is None or type(forward_for) == list)
         if forward_for:
@@ -741,11 +633,12 @@ class EventDetails(object):
         self.publisher_authrole = publisher_authrole
         self.topic = topic
         self.retained = retained
+        self.transaction_hash = transaction_hash
         self.enc_algo = enc_algo
         self.forward_for = forward_for
 
     def __str__(self):
-        return "EventDetails(subscription={}, publication={}, publisher={}, publisher_authid={}, publisher_authrole={}, topic=<{}>, retained={}, enc_algo={}, forward_for={})".format(self.subscription, self.publication, self.publisher, self.publisher_authid, self.publisher_authrole, self.topic, self.retained, self.enc_algo, self.forward_for)
+        return "EventDetails(subscription={}, publication={}, publisher={}, publisher_authid={}, publisher_authrole={}, topic=<{}>, retained={}, transaction_hash={}, enc_algo={}, forward_for={})".format(self.subscription, self.publication, self.publisher, self.publisher_authid, self.publisher_authrole, self.topic, self.retained, self.transaction_hash, self.enc_algo, self.forward_for)
 
 
 @public
@@ -765,6 +658,7 @@ class PublishOptions(object):
         'eligible_authid',
         'eligible_authrole',
         'retain',
+        'transaction_hash',
         'forward_for',
         'correlation_id',
         'correlation_uri',
@@ -783,6 +677,7 @@ class PublishOptions(object):
                  eligible_authrole=None,
                  retain=None,
                  forward_for=None,
+                 transaction_hash=None,
                  correlation_id=None,
                  correlation_uri=None,
                  correlation_is_anchor=None,
@@ -818,6 +713,11 @@ class PublishOptions(object):
         :param retain: If ``True``, request the broker retain this event.
         :type retain: bool or None
 
+        :param transaction_hash: An application provided transaction hash for the published event, which may
+            be used in the router to throttle or deduplicate the events on the topic. See the discussion
+            `here <https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967>`_.
+        :type transaction_hash: str
+
         :param forward_for: When this Event is forwarded for a client (or from an intermediary router).
         :type forward_for: list[dict]
         """
@@ -830,6 +730,7 @@ class PublishOptions(object):
         assert(eligible_authid is None or type(eligible_authid) == str or (type(eligible_authid) == list and all(type(x) == str for x in eligible_authid)))
         assert(eligible_authrole is None or type(eligible_authrole) == str or (type(eligible_authrole) == list and all(type(x) == str for x in eligible_authrole)))
         assert(retain is None or type(retain) == bool)
+        assert(transaction_hash is None or type(transaction_hash) == str)
 
         assert(forward_for is None or type(forward_for) == list), 'forward_for, when present, must have list type - was {}'.format(type(forward_for))
         if forward_for:
@@ -851,6 +752,7 @@ class PublishOptions(object):
         self.eligible_authid = eligible_authid
         self.eligible_authrole = eligible_authrole
         self.retain = retain
+        self.transaction_hash = transaction_hash
         self.forward_for = forward_for
 
         self.correlation_id = correlation_id
@@ -891,13 +793,16 @@ class PublishOptions(object):
         if self.retain is not None:
             options['retain'] = self.retain
 
+        if self.transaction_hash is not None:
+            options['transaction_hash'] = self.transaction_hash
+
         if self.forward_for is not None:
             options['forward_for'] = self.forward_for
 
         return options
 
     def __str__(self):
-        return "PublishOptions(acknowledge={}, exclude_me={}, exclude={}, exclude_authid={}, exclude_authrole={}, eligible={}, eligible_authid={}, eligible_authrole={}, retain={}, forward_for={})".format(self.acknowledge, self.exclude_me, self.exclude, self.exclude_authid, self.exclude_authrole, self.eligible, self.eligible_authid, self.eligible_authrole, self.retain, self.forward_for)
+        return "PublishOptions(acknowledge={}, exclude_me={}, exclude={}, exclude_authid={}, exclude_authrole={}, eligible={}, eligible_authid={}, eligible_authrole={}, retain={}, transaction_hash={}, forward_for={})".format(self.acknowledge, self.exclude_me, self.exclude, self.exclude_authid, self.exclude_authrole, self.eligible, self.eligible_authid, self.eligible_authrole, self.retain, self.transaction_hash, self.forward_for)
 
 
 @public
@@ -1030,12 +935,13 @@ class CallDetails(object):
         'caller_authid',
         'caller_authrole',
         'procedure',
+        'transaction_hash',
         'enc_algo',
         'forward_for',
     )
 
     def __init__(self, registration, progress=None, caller=None, caller_authid=None,
-                 caller_authrole=None, procedure=None, enc_algo=None, forward_for=None):
+                 caller_authrole=None, procedure=None, transaction_hash=None, enc_algo=None, forward_for=None):
         """
 
         :param registration: The (client side) registration object this invocation is delivered on.
@@ -1072,6 +978,7 @@ class CallDetails(object):
         assert(caller_authid is None or type(caller_authid) == str)
         assert(caller_authrole is None or type(caller_authrole) == str)
         assert(procedure is None or type(procedure) == str)
+        assert (transaction_hash is None or type(transaction_hash) == str)
         assert(enc_algo is None or type(enc_algo) == str)
 
         assert(forward_for is None or type(forward_for) == list)
@@ -1088,11 +995,12 @@ class CallDetails(object):
         self.caller_authid = caller_authid
         self.caller_authrole = caller_authrole
         self.procedure = procedure
+        self.transaction_hash = transaction_hash
         self.enc_algo = enc_algo
         self.forward_for = forward_for
 
     def __str__(self):
-        return "CallDetails(registration={}, progress={}, caller={}, caller_authid={}, caller_authrole={}, procedure=<{}>, enc_algo={}, forward_for={})".format(self.registration, self.progress, self.caller, self.caller_authid, self.caller_authrole, self.procedure, self.enc_algo, self.forward_for)
+        return "CallDetails(registration={}, progress={}, caller={}, caller_authid={}, caller_authrole={}, procedure=<{}>, transaction_hash={}, enc_algo={}, forward_for={})".format(self.registration, self.progress, self.caller, self.caller_authid, self.caller_authrole, self.procedure, self.transaction_hash, self.enc_algo, self.forward_for)
 
 
 @public
@@ -1104,6 +1012,7 @@ class CallOptions(object):
     __slots__ = (
         'on_progress',
         'timeout',
+        'transaction_hash',
         'caller',
         'caller_authid',
         'caller_authrole',
@@ -1118,6 +1027,7 @@ class CallOptions(object):
     def __init__(self,
                  on_progress=None,
                  timeout=None,
+                 transaction_hash=None,
                  caller=None,
                  caller_authid=None,
                  caller_authrole=None,
@@ -1136,11 +1046,17 @@ class CallOptions(object):
         :param timeout: Time in seconds after which the call should be automatically canceled.
         :type timeout: float
 
+        :param transaction_hash: An application provided transaction hash for the originating call, which may
+            be used in the router to throttle or deduplicate the calls on the procedure. See the discussion
+            `here <https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967>`_.
+        :type transaction_hash: str
+
         :param forward_for: When this Call is forwarded for a client (or from an intermediary router).
         :type forward_for: list[dict]
         """
         assert(on_progress is None or callable(on_progress))
         assert(timeout is None or (type(timeout) in list((int, )) + [float] and timeout > 0))
+        assert(transaction_hash is None or type(transaction_hash) == str)
         assert(details is None or type(details) == bool)
         assert(caller is None or type(caller) == int)
         assert(caller_authid is None or type(caller_authid) == str)
@@ -1155,6 +1071,7 @@ class CallOptions(object):
 
         self.on_progress = on_progress
         self.timeout = timeout
+        self.transaction_hash = transaction_hash
 
         self.caller = caller
         self.caller_authid = caller_authid
@@ -1182,6 +1099,9 @@ class CallOptions(object):
         if self.on_progress is not None:
             options['receive_progress'] = True
 
+        if self.transaction_hash is not None:
+            options['transaction_hash'] = self.transaction_hash
+
         if self.forward_for is not None:
             options['forward_for'] = self.forward_for
 
@@ -1197,7 +1117,7 @@ class CallOptions(object):
         return options
 
     def __str__(self):
-        return "CallOptions(on_progress={}, timeout={}, caller={}, caller_authid={}, caller_authrole={}, forward_for={}, details={})".format(self.on_progress, self.timeout, self.caller, self.caller_authid, self.caller_authrole, self.forward_for, self.details)
+        return "CallOptions(on_progress={}, timeout={}, transaction_hash={}, caller={}, caller_authid={}, caller_authrole={}, forward_for={}, details={})".format(self.on_progress, self.timeout, self.transaction_hash, self.caller, self.caller_authid, self.caller_authrole, self.forward_for, self.details)
 
 
 @public
@@ -1297,6 +1217,7 @@ class EncodedPayload(object):
         self.enc_key = enc_key
 
 
+@public
 class IPublication(object):
     """
     Represents a publication of an event. This is used with acknowledged publications.
@@ -1308,6 +1229,7 @@ class IPublication(object):
         """
 
 
+@public
 class ISubscription(object):
     """
     Represents a subscription to a topic.
@@ -1346,6 +1268,7 @@ class ISubscription(object):
         """
 
 
+@public
 class IRegistration(object):
     """
     Represents a registration of an endpoint.
@@ -1382,3 +1305,933 @@ class IRegistration(object):
         :returns: A Deferred/Future for the unregistration
         :rtype: instance(s) of :tx:`twisted.internet.defer.Deferred` / :py:class:`asyncio.Future`
         """
+
+
+@public
+class TransportDetails(object):
+    """
+    Details about a WAMP transport used for carrying a WAMP session. WAMP can be communicated
+    over different bidirectional underlying transport mechanisms, such as TCP, TLS, Serial
+    connections or In-memory queues.
+    """
+
+    __slots__ = (
+        '_channel_type',
+        '_channel_framing',
+        '_channel_serializer',
+        '_own',
+        '_peer',
+        '_is_server',
+        '_own_pid',
+        '_own_tid',
+        '_own_fd',
+        '_is_secure',
+        '_channel_id',
+        '_peer_cert',
+        '_websocket_protocol',
+        '_websocket_extensions_in_use',
+        '_http_headers_received',
+        '_http_headers_sent',
+        '_http_cbtid',
+    )
+
+    CHANNEL_TYPE_NONE = 0
+    CHANNEL_TYPE_FUNCTION = 1
+    CHANNEL_TYPE_MEMORY = 2
+    CHANNEL_TYPE_SERIAL = 3
+    CHANNEL_TYPE_TCP = 4
+    CHANNEL_TYPE_TLS = 5
+    CHANNEL_TYPE_UDP = 6
+    CHANNEL_TYPE_DTLS = 7
+
+    CHANNEL_TYPE_TO_STR = {
+        CHANNEL_TYPE_NONE: 'null',
+        CHANNEL_TYPE_FUNCTION: 'function',
+        CHANNEL_TYPE_MEMORY: 'memory',
+        CHANNEL_TYPE_SERIAL: 'serial',
+        CHANNEL_TYPE_TCP: 'tcp',
+        CHANNEL_TYPE_TLS: 'tls',
+        CHANNEL_TYPE_UDP: 'udp',
+        CHANNEL_TYPE_DTLS: 'dtls',
+    }
+
+    CHANNEL_TYPE_FROM_STR = {
+        'null': CHANNEL_TYPE_NONE,
+
+        # for same process, function-call based transports of WAMP,
+        # e.g. in router embedded WAMP sessions
+        'function': CHANNEL_TYPE_FUNCTION,
+
+        # for Unix domain sockets and pipes (IPC)
+        'memory': CHANNEL_TYPE_MEMORY,
+
+        # for Serial ports to wired devices
+        'serial': CHANNEL_TYPE_SERIAL,
+
+        # for plain, unencrypted TCPv4/TCPv6 connections, most commonly over
+        # "real" network connections (incl. loopback)
+        'tcp': CHANNEL_TYPE_TCP,
+
+        # for TLS encrypted TCPv4/TCPv6 connections
+        'tls': CHANNEL_TYPE_TLS,
+
+        # for plain, unencrypted UDPv4/UDPv6 datagram transports of WAMP (future!)
+        'udp': CHANNEL_TYPE_UDP,
+
+        # for DTLS encrypted UDPv6 datagram transports of WAMP (future!)
+        'dtls': CHANNEL_TYPE_DTLS,
+    }
+
+    CHANNEL_FRAMING_NONE = 0
+    CHANNEL_FRAMING_NATIVE = 1
+    CHANNEL_FRAMING_WEBSOCKET = 2
+    CHANNEL_FRAMING_RAWSOCKET = 3
+
+    CHANNEL_FRAMING_TO_STR = {
+        CHANNEL_FRAMING_NONE: 'null',
+        CHANNEL_FRAMING_NATIVE: 'native',
+        CHANNEL_FRAMING_WEBSOCKET: 'websocket',
+        CHANNEL_FRAMING_RAWSOCKET: 'rawsocket',
+    }
+
+    CHANNEL_FRAMING_FROM_STR = {
+        'null': CHANNEL_TYPE_NONE,
+        'native': CHANNEL_FRAMING_NATIVE,
+        'websocket': CHANNEL_FRAMING_WEBSOCKET,
+        'rawsocket': CHANNEL_FRAMING_RAWSOCKET,
+    }
+
+    # Keep in sync with Serializer.SERIALIZER_ID and Serializer.RAWSOCKET_SERIALIZER_ID
+    CHANNEL_SERIALIZER_NONE = 0
+    CHANNEL_SERIALIZER_JSON = 1
+    CHANNEL_SERIALIZER_MSGPACK = 2
+    CHANNEL_SERIALIZER_CBOR = 3
+    CHANNEL_SERIALIZER_UBJSON = 4
+    CHANNEL_SERIALIZER_FLATBUFFERS = 5
+
+    CHANNEL_SERIALIZER_TO_STR = {
+        CHANNEL_SERIALIZER_NONE: 'null',
+        CHANNEL_SERIALIZER_JSON: 'json',
+        CHANNEL_SERIALIZER_MSGPACK: 'msgpack',
+        CHANNEL_SERIALIZER_CBOR: 'cbor',
+        CHANNEL_SERIALIZER_UBJSON: 'ubjson',
+        CHANNEL_SERIALIZER_FLATBUFFERS: 'flatbuffers',
+    }
+
+    CHANNEL_SERIALIZER_FROM_STR = {
+        'null': CHANNEL_SERIALIZER_NONE,
+        'json': CHANNEL_SERIALIZER_JSON,
+        'msgpack': CHANNEL_SERIALIZER_MSGPACK,
+        'cbor': CHANNEL_SERIALIZER_CBOR,
+        'ubjson': CHANNEL_SERIALIZER_UBJSON,
+        'flatbuffers': CHANNEL_SERIALIZER_FLATBUFFERS,
+    }
+
+    def __init__(self,
+                 channel_type: Optional[int] = None,
+                 channel_framing: Optional[int] = None,
+                 channel_serializer: Optional[int] = None,
+                 own: Optional[str] = None,
+                 peer: Optional[str] = None,
+                 is_server: Optional[bool] = None,
+                 own_pid: Optional[int] = None,
+                 own_tid: Optional[int] = None,
+                 own_fd: Optional[int] = None,
+                 is_secure: Optional[bool] = None,
+                 channel_id: Optional[Dict[str, bytes]] = None,
+                 peer_cert: Optional[Dict[str, Any]] = None,
+                 websocket_protocol: Optional[str] = None,
+                 websocket_extensions_in_use: Optional[List[str]] = None,
+                 http_headers_received: Optional[Dict[str, Any]] = None,
+                 http_headers_sent: Optional[Dict[str, Any]] = None,
+                 http_cbtid: Optional[str] = None):
+        self._channel_type = channel_type
+        self._channel_framing = channel_framing
+        self._channel_serializer = channel_serializer
+        self._own = own
+        self._peer = peer
+        self._is_server = is_server
+        self._own_pid = own_pid
+        self._own_tid = own_tid
+        self._own_fd = own_fd
+        self._is_secure = is_secure
+        self._channel_id = channel_id
+        self._peer_cert = peer_cert
+        self._websocket_protocol = websocket_protocol
+        self._websocket_extensions_in_use = websocket_extensions_in_use
+        self._http_headers_received = http_headers_received
+        self._http_headers_sent = http_headers_sent
+        self._http_cbtid = http_cbtid
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        if other._channel_type != self._channel_type:
+            return False
+        if other._channel_framing != self._channel_framing:
+            return False
+        if other._channel_serializer != self._channel_serializer:
+            return False
+        if other._own != self._own:
+            return False
+        if other._peer != self._peer:
+            return False
+        if other._is_server != self._is_server:
+            return False
+        if other._own_pid != self._own_pid:
+            return False
+        if other._own_tid != self._own_tid:
+            return False
+        if other._own_fd != self._own_fd:
+            return False
+        if other._is_secure != self._is_secure:
+            return False
+        if other._channel_id != self._channel_id:
+            return False
+        if other._peer_cert != self._peer_cert:
+            return False
+        if other._websocket_protocol != self._websocket_protocol:
+            return False
+        if other._websocket_extensions_in_use != self._websocket_extensions_in_use:
+            return False
+        if other._http_headers_received != self._http_headers_received:
+            return False
+        if other._http_headers_sent != self._http_headers_sent:
+            return False
+        if other._http_cbtid != self._http_cbtid:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @staticmethod
+    def parse(data: Dict[str, Any]) -> 'TransportDetails':
+        assert type(data) == dict
+
+        obj = TransportDetails()
+        if 'channel_type' in data and data['channel_type'] is not None:
+            if type(data['channel_type']) != str or data['channel_type'] not in TransportDetails.CHANNEL_TYPE_FROM_STR:
+                raise ValueError('invalid "channel_type", was type {} (value {})'.format(type(data['channel_type']), data['channel_type']))
+            obj.channel_type = TransportDetails.CHANNEL_TYPE_FROM_STR[data['channel_type']]
+        if 'channel_framing' in data and data['channel_framing'] is not None:
+            if type(data['channel_framing']) != str or data['channel_framing'] not in TransportDetails.CHANNEL_FRAMING_FROM_STR:
+                raise ValueError('invalid "channel_framing", was type {} (value {})'.format(type(data['channel_framing']), data['channel_framing']))
+            obj.channel_framing = TransportDetails.CHANNEL_FRAMING_FROM_STR[data['channel_framing']]
+        if 'channel_serializer' in data and data['channel_serializer'] is not None:
+            if type(data['channel_serializer']) != str or data['channel_serializer'] not in TransportDetails.CHANNEL_SERIALIZER_FROM_STR:
+                raise ValueError('invalid "channel_serializer", was type {} (value {})'.format(type(data['channel_serializer']), data['channel_serializer']))
+            obj.channel_serializer = TransportDetails.CHANNEL_SERIALIZER_FROM_STR[data['channel_serializer']]
+        if 'own' in data and data['own'] is not None:
+            if type(data['own']) != str:
+                raise ValueError('"own" must be a string, was {}'.format(type(data['own'])))
+            obj.own = data['own']
+        if 'peer' in data and data['peer'] is not None:
+            if type(data['peer']) != str:
+                raise ValueError('"peer" must be a string, was {}'.format(type(data['peer'])))
+            obj.peer = data['peer']
+        if 'is_server' in data and data['is_server'] is not None:
+            if type(data['is_server']) != bool:
+                raise ValueError('"is_server" must be a bool, was {}'.format(type(data['is_server'])))
+            obj.is_server = data['is_server']
+        if 'own_pid' in data and data['own_pid'] is not None:
+            if type(data['own_pid']) != int:
+                raise ValueError('"own_pid" must be an int, was {}'.format(type(data['own_pid'])))
+            obj.own_pid = data['own_pid']
+        if 'own_tid' in data and data['own_tid'] is not None:
+            if type(data['own_tid']) != int:
+                raise ValueError('"own_tid" must be an int, was {}'.format(type(data['own_tid'])))
+            obj.own_tid = data['own_tid']
+        if 'own_fd' in data and data['own_fd'] is not None:
+            if type(data['own_fd']) != int:
+                raise ValueError('"own_fd" must be an int, was {}'.format(type(data['own_fd'])))
+            obj.own_fd = data['own_fd']
+        if 'is_secure' in data and data['is_secure'] is not None:
+            if type(data['is_secure']) != bool:
+                raise ValueError('"is_secure" must be a bool, was {}'.format(type(data['is_secure'])))
+            obj.is_secure = data['is_secure']
+        if 'channel_id' in data and data['channel_id'] is not None:
+            if type(data['channel_id']) != dict:
+                raise ValueError('"channel_id" must be a dict, was {}'.format(type(data['channel_id'])))
+            channel_id = {}
+            for binding_type in data['channel_id']:
+                if binding_type not in ['tls-unique']:
+                    raise ValueError('invalid binding type "{}" in "channel_id" map'.format(binding_type))
+                binding_id_hex = data['channel_id'][binding_type]
+                if type(binding_id_hex) != str or len(binding_id_hex) != 64:
+                    raise ValueError('invalid binding ID "{}" in "channel_id" map'.format(binding_id_hex))
+                binding_id = a2b_hex(binding_id_hex)
+                channel_id[binding_type] = binding_id
+            obj.channel_id = channel_id
+        if 'websocket_protocol' in data and data['websocket_protocol'] is not None:
+            if type(data['websocket_protocol']) != str:
+                raise ValueError('"websocket_protocol" must be a string, was {}'.format(type(data['websocket_protocol'])))
+            obj.websocket_protocol = data['websocket_protocol']
+        if 'websocket_extensions_in_use' in data and data['websocket_extensions_in_use'] is not None:
+            if type(data['websocket_extensions_in_use']) != list:
+                raise ValueError('"websocket_extensions_in_use" must be a list of strings, was {}'.format(type(data['websocket_extensions_in_use'])))
+            obj.websocket_extensions_in_use = data['websocket_extensions_in_use']
+        if 'http_headers_received' in data and data['http_headers_received'] is not None:
+            if type(data['http_headers_received']) != dict:
+                raise ValueError('"http_headers_received" must be a map of strings, was {}'.format(type(data['http_headers_received'])))
+            obj.http_headers_received = data['http_headers_received']
+        if 'http_headers_sent' in data and data['http_headers_sent'] is not None:
+            if type(data['http_headers_sent']) != dict:
+                raise ValueError('"http_headers_sent" must be a map of strings, was {}'.format(type(data['http_headers_sent'])))
+            obj.http_headers_sent = data['http_headers_sent']
+        if 'http_cbtid' in data and data['http_cbtid'] is not None:
+            if type(data['http_cbtid']) != str:
+                raise ValueError('"http_cbtid" must be a string, was {}'.format(type(data['http_cbtid'])))
+            obj.http_cbtid = data['http_cbtid']
+        return obj
+
+    def marshal(self) -> Dict[str, Any]:
+        return {
+            'channel_type': self.CHANNEL_TYPE_TO_STR.get(self._channel_type, None),
+            'channel_framing': self.CHANNEL_FRAMING_TO_STR.get(self._channel_framing, None),
+            'channel_serializer': self.CHANNEL_SERIALIZER_TO_STR.get(self._channel_serializer, None),
+            'own': self._own,
+            'peer': self._peer,
+            'is_server': self._is_server,
+            'own_pid': self._own_pid,
+            'own_tid': self._own_tid,
+            'own_fd': self._own_fd,
+            'is_secure': self._is_secure,
+            'channel_id': self._channel_id,
+            'peer_cert': self._peer_cert,
+            'websocket_protocol': self._websocket_protocol,
+            'websocket_extensions_in_use': self._websocket_extensions_in_use,
+            'http_headers_received': self._http_headers_received,
+            'http_headers_sent': self._http_headers_sent,
+            'http_cbtid': self._http_cbtid,
+        }
+
+    def __str__(self) -> str:
+        return pformat(self.marshal())
+
+    @property
+    def channel_typeid(self):
+        """
+        Return a short type identifier string for the combination transport type, framing
+        and serializer. Here are some common examples:
+
+        * ``"tcp-websocket-json"``
+        * ``"tls-websocket-msgpack"``
+        * ``"memory-rawsocket-cbor"``
+        * ``"memory-rawsocket-flatbuffers"``
+        * ``"function-native-native"``
+
+        :return:
+        """
+        return '{}-{}-{}'.format(self.CHANNEL_TYPE_TO_STR[self.channel_type or 0],
+                                 self.CHANNEL_FRAMING_TO_STR[self.channel_framing or 0],
+                                 self.CHANNEL_SERIALIZER_TO_STR[self.channel_serializer or 0])
+
+    @property
+    def channel_type(self) -> Optional[int]:
+        """
+        The underlying transport type, e.g. TCP.
+        """
+        return self._channel_type
+
+    @channel_type.setter
+    def channel_type(self, value: Optional[int]):
+        self._channel_type = value
+
+    @property
+    def channel_framing(self) -> Optional[int]:
+        """
+        The message framing used on this transport, e.g. WebSocket.
+        """
+        return self._channel_framing
+
+    @channel_framing.setter
+    def channel_framing(self, value: Optional[int]):
+        self._channel_framing = value
+
+    @property
+    def channel_serializer(self) -> Optional[int]:
+        """
+        The message serializer used on this transport, e.g. CBOR (batched or unbatched).
+        """
+        return self._channel_serializer
+
+    @channel_serializer.setter
+    def channel_serializer(self, value: Optional[int]):
+        self._channel_serializer = value
+
+    @property
+    def own(self) -> Optional[str]:
+        """
+
+        https://github.com/crossbario/autobahn-python/blob/master/autobahn/websocket/test/test_websocket_url.py
+        https://github.com/crossbario/autobahn-python/blob/master/autobahn/rawsocket/test/test_rawsocket_url.py
+
+        A WebSocket server URL:
+
+        * ``ws://localhost``
+        * ``wss://example.com:443/ws``
+        * ``ws://62.146.25.34:80/ws``
+        * ``wss://localhost:9090/ws?foo=bar``
+
+        A RawSocket server URL:
+
+        * ``rs://crossbar:8081``
+        * ``rss://example.com``
+        * ``rs://unix:/tmp/file.sock``
+        * ``rss://unix:../file.sock``
+        """
+        return self._own
+
+    @own.setter
+    def own(self, value: Optional[str]):
+        self._own = value
+
+    @property
+    def peer(self) -> Optional[str]:
+        """
+        The peer this transport is connected to.
+
+        process:12784
+        pipe
+
+        tcp4:127.0.0.1:38810
+        tcp4:127.0.0.1:8080
+        unix:/tmp/file.sock
+
+        """
+        return self._peer
+
+    @peer.setter
+    def peer(self, value: Optional[str]):
+        self._peer = value
+
+    @property
+    def is_server(self) -> Optional[bool]:
+        """
+        Flag indicating whether this side of the peer is a "server" (on underlying transports that
+            follows a client-server approach).
+        """
+        return self._is_server
+
+    @is_server.setter
+    def is_server(self, value: Optional[bool]):
+        self._is_server = value
+
+    @property
+    def own_pid(self) -> Optional[int]:
+        """
+        The process ID (PID) of this end of the connection.
+        """
+        return self._own_pid
+
+    @own_pid.setter
+    def own_pid(self, value: Optional[int]):
+        self._own_pid = value
+
+    @property
+    def own_tid(self) -> Optional[int]:
+        """
+        The native thread ID of this end of the connection.
+
+        See https://docs.python.org/3/library/threading.html#threading.get_native_id.
+
+        .. note::
+
+            On CPython 3.7, instead of the native thread ID, a synthetic thread ID that has no direct meaning
+            is used (via ``threading.get_ident()``).
+        """
+        return self._own_tid
+
+    @own_tid.setter
+    def own_tid(self, value: Optional[int]):
+        self._own_tid = value
+
+    @property
+    def own_fd(self) -> Optional[int]:
+        """
+        The file descriptor (FD) at this end of the connection.
+        """
+        return self._own_fd
+
+    @own_fd.setter
+    def own_fd(self, value: Optional[int]):
+        self._own_fd = value
+
+    @property
+    def is_secure(self) -> Optional[bool]:
+        """
+        Flag indicating whether this transport runs over TLS (or similar), and hence is encrypting at
+        the byte stream or datagram transport level (beneath WAMP payload encryption).
+        """
+        return self._is_secure
+
+    @is_secure.setter
+    def is_secure(self, value: Optional[bool]):
+        self._is_secure = value
+
+    @property
+    def channel_id(self) -> Dict[str, bytes]:
+        """
+        If this transport runs over a secure underlying connection, e.g. TLS,
+        return a map of channel binding by binding type.
+
+        Return the unique channel ID of the underlying transport. This is used to
+        mitigate credential forwarding man-in-the-middle attacks when running
+        application level authentication (eg WAMP-cryptosign) which are decoupled
+        from the underlying transport.
+
+        The channel ID is only available when running over TLS (either WAMP-WebSocket
+        or WAMP-RawSocket). It is not available for non-TLS transports (plain TCP or
+        Unix domain sockets). It is also not available for WAMP-over-HTTP/Longpoll.
+        Further, it is currently unimplemented for asyncio (only works on Twisted).
+
+        The channel ID is computed as follows:
+
+           - for a client, the SHA256 over the "TLS Finished" message sent by the client
+             to the server is returned.
+
+           - for a server, the SHA256 over the "TLS Finished" message the server expected
+             the client to send
+
+        Note: this is similar to `tls-unique` as described in RFC5929, but instead
+        of returning the raw "TLS Finished" message, it returns a SHA256 over such a
+        message. The reason is that we use the channel ID mainly with WAMP-cryptosign,
+        which is based on Ed25519, where keys are always 32 bytes. And having a channel ID
+        which is always 32 bytes (independent of the TLS ciphers/hashfuns in use) allows
+        use to easily XOR channel IDs with Ed25519 keys and WAMP-cryptosign challenges.
+
+        WARNING: For safe use of this (that is, for safely binding app level authentication
+        to the underlying transport), you MUST use TLS, and you SHOULD deactivate both
+        TLS session renegotiation and TLS session resumption.
+
+        References:
+
+           - https://tools.ietf.org/html/rfc5056
+           - https://tools.ietf.org/html/rfc5929
+           - http://www.pyopenssl.org/en/stable/api/ssl.html#OpenSSL.SSL.Connection.get_finished
+           - http://www.pyopenssl.org/en/stable/api/ssl.html#OpenSSL.SSL.Connection.get_peer_finished
+        """
+        return self._channel_id
+
+    @channel_id.setter
+    def channel_id(self, value: Dict[str, bytes]):
+        self._channel_id = value
+
+    @property
+    def peer_cert(self) -> Dict[str, Any]:
+        """
+        If this transport is using TLS and the TLS peer has provided a valid certificate,
+        this attribute returns the peer certificate.
+
+        See `here <https://docs.python.org/3/library/ssl.html#ssl.SSLSocket.getpeercert>`_ for details
+        about the object returned.
+        """
+        return self._peer_cert
+
+    @peer_cert.setter
+    def peer_cert(self, value: Dict[str, Any]):
+        self._peer_cert = value
+
+    @property
+    def websocket_protocol(self) -> Optional[str]:
+        """
+        If the underlying connection uses a regular HTTP based WebSocket opening handshake,
+        the WebSocket subprotocol negotiated, e.g. ``"wamp.2.cbor.batched"``.
+        """
+        return self._websocket_protocol
+
+    @websocket_protocol.setter
+    def websocket_protocol(self, value: Optional[str]):
+        self._websocket_protocol = value
+
+    @property
+    def websocket_extensions_in_use(self) -> Optional[List[str]]:
+        """
+        If the underlying connection uses a regular HTTP based WebSocket opening handshake, the WebSocket extensions
+        negotiated, e.g. ``["permessage-deflate", "client_no_context_takeover", "client_max_window_bits"]``.
+        """
+        return self._websocket_extensions_in_use
+
+    @websocket_extensions_in_use.setter
+    def websocket_extensions_in_use(self, value: Optional[List[str]]):
+        self._websocket_extensions_in_use = value
+
+    @property
+    def http_headers_received(self) -> Dict[str, Any]:
+        """
+        If the underlying connection uses a regular HTTP based WebSocket opening handshake,
+        the HTTP request headers as received from the client on this connection.
+        """
+        return self._http_headers_received
+
+    @http_headers_received.setter
+    def http_headers_received(self, value: Dict[str, Any]):
+        self._http_headers_received = value
+
+    @property
+    def http_headers_sent(self) -> Dict[str, Any]:
+        """
+        If the underlying connection uses a regular HTTP based WebSocket opening handshake,
+        the HTTP response headers as sent from the server on this connection.
+        """
+        return self._http_headers_sent
+
+    @http_headers_sent.setter
+    def http_headers_sent(self, value: Dict[str, Any]):
+        self._http_headers_sent = value
+
+    @property
+    def http_cbtid(self) -> Optional[str]:
+        """
+        If the underlying connection uses a regular HTTP based WebSocket opening handshake,
+        the HTTP cookie value of the WAMP tracking cookie if any is associated with this
+        connection.
+        """
+        return self._http_cbtid
+
+    @http_cbtid.setter
+    def http_cbtid(self, value: Optional[str]):
+        self._http_cbtid = value
+
+
+@public
+class SessionDetails(object):
+    """
+    Provides details for a WAMP session upon open.
+
+    .. seealso:: :meth:`autobahn.wamp.interfaces.ISession.onJoin`
+    """
+
+    __slots__ = (
+        '_realm',
+        '_session',
+        '_authid',
+        '_authrole',
+        '_authmethod',
+        '_authprovider',
+        '_authextra',
+        '_serializer',
+        '_transport',
+        '_resumed',
+        '_resumable',
+        '_resume_token',
+    )
+
+    def __init__(self,
+                 realm: Optional[str] = None,
+                 session: Optional[int] = None,
+                 authid: Optional[str] = None,
+                 authrole: Optional[str] = None,
+                 authmethod: Optional[str] = None,
+                 authprovider: Optional[str] = None,
+                 authextra: Optional[Dict[str, Any]] = None,
+                 serializer: Optional[str] = None,
+                 transport: Optional[TransportDetails] = None,
+                 resumed: Optional[bool] = None,
+                 resumable: Optional[bool] = None,
+                 resume_token: Optional[str] = None):
+        """
+
+        :param realm: The WAMP realm this session is attached to, e.g. ``"realm1"``.
+        :param session: WAMP session ID of this session, e.g. ``7069739155960584``.
+        :param authid: The WAMP authid this session is joined as, e.g. ``"joe89"``
+        :param authrole: The WAMP authrole this session is joined as, e.g. ``"user"``.
+        :param authmethod: The WAMP authentication method the session is authenticated under,
+            e.g. ``"anonymous"`` or ``"wampcra"``.
+        :param authprovider: The WAMP authentication provider that handled the session authentication,
+            e.g. ``"static"`` or ``"dynamic"``.
+        :param authextra: The (optional) WAMP authentication extra that was provided to the authenticating session.
+        :param serializer: The WAMP serializer (variant) this session is using,
+            e.g. ``"json"`` or ``"cbor.batched"``.
+        :param transport: The details of the WAMP transport this session is hosted on (communicates over).
+        :param resumed: Whether the session is a resumed one.
+        :param resumable: Whether this session can be resumed later.
+        :param resume_token: The secure authorization token to resume the session.
+        """
+        self._realm = realm
+        self._session = session
+        self._authid = authid
+        self._authrole = authrole
+        self._authmethod = authmethod
+        self._authprovider = authprovider
+        self._authextra = authextra
+        self._serializer = serializer
+        self._transport = transport
+        self._resumed = resumed
+        self._resumable = resumable
+        self._resume_token = resume_token
+
+    def __eq__(self, other):
+        """
+
+        :param other:
+        :return:
+        """
+        if not isinstance(other, self.__class__):
+            return False
+        if other._realm != self._realm:
+            return False
+        if other._session != self._session:
+            return False
+        if other._authid != self._authid:
+            return False
+        if other._authrole != self._authrole:
+            return False
+        if other._authmethod != self._authmethod:
+            return False
+        if other._authprovider != self._authprovider:
+            return False
+        if other._authextra != self._authextra:
+            return False
+        if other._serializer != self._serializer:
+            return False
+        if other._transport != self._transport:
+            return False
+        if other._resumed != self._resumed:
+            return False
+        if other._resumable != self._resumable:
+            return False
+        if other._resume_token != self._resume_token:
+            return False
+        return True
+
+    def __ne__(self, other):
+        """
+
+        :param other:
+        :return:
+        """
+        return not self.__eq__(other)
+
+    @staticmethod
+    def parse(data: Dict[str, Any]) -> 'SessionDetails':
+        """
+
+        :param data:
+        :return:
+        """
+        assert type(data) == dict
+
+        obj = SessionDetails()
+
+        if 'realm' in data and data['realm'] is not None:
+            if type(data['realm']) != str:
+                raise ValueError('"realm" must be a string, was {}'.format(type(data['realm'])))
+            obj._realm = data['realm']
+
+        if 'session' in data and data['session'] is not None:
+            if type(data['session']) != int:
+                raise ValueError('"session" must be an int, was {}'.format(type(data['session'])))
+            obj._session = data['session']
+
+        if 'authid' in data and data['authid'] is not None:
+            if type(data['authid']) != str:
+                raise ValueError('"authid" must be a string, was {}'.format(type(data['authid'])))
+            obj._authid = data['authid']
+
+        if 'authrole' in data and data['authrole'] is not None:
+            if type(data['authrole']) != str:
+                raise ValueError('"authrole" must be a string, was {}'.format(type(data['authrole'])))
+            obj._authrole = data['authrole']
+
+        if 'authmethod' in data and data['authmethod'] is not None:
+            if type(data['authmethod']) != str:
+                raise ValueError('"authmethod" must be a string, was {}'.format(type(data['authmethod'])))
+            obj._authmethod = data['authmethod']
+
+        if 'authprovider' in data and data['authprovider'] is not None:
+            if type(data['authprovider']) != str:
+                raise ValueError('"authprovider" must be a string, was {}'.format(type(data['authprovider'])))
+            obj._authprovider = data['authprovider']
+
+        if 'authextra' in data and data['authextra'] is not None:
+            if type(data['authextra']) != dict:
+                raise ValueError('"authextra" must be a dict, was {}'.format(type(data['authextra'])))
+            for key in data['authextra'].keys():
+                if type(key) != str:
+                    raise ValueError('key "{}" in authextra must be a string, was {}'.format(key, type(key)))
+            obj._authextra = data['authextra']
+
+        if 'serializer' in data and data['serializer'] is not None:
+            if type(data['serializer']) != str:
+                raise ValueError('"serializer" must be a string, was {}'.format(type(data['serializer'])))
+            obj._serializer = data['serializer']
+
+        if 'transport' in data and data['transport'] is not None:
+            obj._transport = TransportDetails.parse(data['transport'])
+
+        if 'resumed' in data and data['resumed'] is not None:
+            if type(data['resumed']) != bool:
+                raise ValueError('"resumed" must be a bool, was {}'.format(type(data['resumed'])))
+            obj._resumed = data['resumed']
+
+        if 'resumable' in data and data['resumable'] is not None:
+            if type(data['resumable']) != bool:
+                raise ValueError('"resumable" must be a bool, was {}'.format(type(data['resumable'])))
+            obj._resumable = data['resumable']
+
+        if 'resume_token' in data and data['resume_token'] is not None:
+            if type(data['resume_token']) != str:
+                raise ValueError('"resume_token" must be a string, was {}'.format(type(data['resume_token'])))
+            obj._resume_token = data['resume_token']
+
+        return obj
+
+    def marshal(self) -> Dict[str, Any]:
+        """
+
+        :return:
+        """
+        obj = {
+            'realm': self._realm,
+            'session': self._session,
+            'authid': self._authid,
+            'authrole': self._authrole,
+            'authmethod': self._authmethod,
+            'authprovider': self._authprovider,
+            'authextra': self._authextra,
+            'serializer': self._serializer,
+            'transport': self._transport.marshal() if self._transport else None,
+            'resumed': self._resumed,
+            'resumable': self._resumable,
+            'resume_token': self._resume_token
+        }
+        return obj
+
+    def __str__(self) -> str:
+        return pformat(self.marshal())
+
+    @property
+    def realm(self) -> Optional[str]:
+        """
+        The WAMP realm this session is attached to, e.g. ``"realm1"``.
+        """
+        return self._realm
+
+    @realm.setter
+    def realm(self, value: Optional[str]):
+        self._realm = value
+
+    @property
+    def session(self) -> Optional[int]:
+        """
+        WAMP session ID of this session, e.g. ``7069739155960584``.
+        """
+        return self._session
+
+    @session.setter
+    def session(self, value: Optional[int]):
+        self._session = value
+
+    @property
+    def authid(self) -> Optional[str]:
+        """
+        The WAMP authid this session is joined as, e.g. ``"joe89"``
+        """
+        return self._authid
+
+    @authid.setter
+    def authid(self, value: Optional[str]):
+        self._authid = value
+
+    @property
+    def authrole(self) -> Optional[str]:
+        """
+        The WAMP authrole this session is joined as, e.g. ``"user"``.
+        """
+        return self._authrole
+
+    @authrole.setter
+    def authrole(self, value: Optional[str]):
+        self._authrole = value
+
+    @property
+    def authmethod(self) -> Optional[str]:
+        """
+        The WAMP authentication method the session is authenticated under, e.g. ``"anonymous"``
+        or ``"wampcra"``.
+        """
+        return self._authmethod
+
+    @authmethod.setter
+    def authmethod(self, value: Optional[str]):
+        self._authmethod = value
+
+    @property
+    def authprovider(self) -> Optional[str]:
+        """
+        The WAMP authentication provider that handled the session authentication, e.g. ``"static"``
+        or ``"dynamic"``.
+        """
+        return self._authprovider
+
+    @authprovider.setter
+    def authprovider(self, value: Optional[str]):
+        self._authprovider = value
+
+    @property
+    def authextra(self) -> Optional[Dict[str, Any]]:
+        """
+        The (optional) WAMP authentication extra that was provided to the authenticating session.
+        """
+        return self._authextra
+
+    @authextra.setter
+    def authextra(self, value: Optional[Dict[str, Any]]):
+        self._authextra = value
+
+    @property
+    def serializer(self) -> Optional[str]:
+        """
+        The WAMP serializer (variant) this session is using, e.g. ``"json"`` or ``"cbor.batched"``.
+        """
+        return self._serializer
+
+    @serializer.setter
+    def serializer(self, value: Optional[str]):
+        self._serializer = value
+
+    @property
+    def transport(self) -> Optional[TransportDetails]:
+        """
+        The details of the WAMP transport this session is hosted on (communicates over).
+        """
+        return self._transport
+
+    @transport.setter
+    def transport(self, value: Optional[TransportDetails]):
+        self._transport = value
+
+    @property
+    def resumed(self) -> Optional[bool]:
+        """
+        Whether the session is a resumed one.
+        """
+        return self._resumed
+
+    @resumed.setter
+    def resumed(self, value: Optional[bool]):
+        self._resumed = value
+
+    @property
+    def resumable(self) -> Optional[bool]:
+        """
+        Whether this session can be resumed later.
+        """
+        return self._resumable
+
+    @resumable.setter
+    def resumable(self, value: Optional[bool]):
+        self._resumable = value
+
+    @property
+    def resume_token(self) -> Optional[str]:
+        """
+        The secure authorization token to resume the session.
+        """
+        return self._resume_token
+
+    @resume_token.setter
+    def resume_token(self, value: Optional[str]):
+        self._resume_token = value

@@ -4,15 +4,9 @@ import collections
 from functools import wraps
 from itertools import count
 
-try:
-    # Python 3
-    from inspect import getfullargspec as getArgsSpec
-except ImportError:
-    # Python 2
-    from inspect import getargspec as getArgsSpec
+from inspect import getfullargspec as getArgsSpec
 
 import attr
-import six
 
 from ._core import Transitioner, Automaton
 from ._introspection import preserveName
@@ -36,14 +30,14 @@ def _getArgSpec(func):
     return ArgSpec(
         args=tuple(spec.args),
         varargs=spec.varargs,
-        varkw=spec.varkw if six.PY3 else spec.keywords,
+        varkw=spec.varkw,
         defaults=spec.defaults if spec.defaults else (),
-        kwonlyargs=tuple(spec.kwonlyargs) if six.PY3 else (),
+        kwonlyargs=tuple(spec.kwonlyargs),
         kwonlydefaults=(
             tuple(spec.kwonlydefaults.items())
             if spec.kwonlydefaults else ()
-        ) if six.PY3 else (),
-        annotations=tuple(spec.annotations.items()) if six.PY3 else (),
+        ),
+        annotations=tuple(spec.annotations.items()),
     )
 
 
@@ -91,7 +85,7 @@ class MethodicalState(object):
     method = attr.ib()
     serialized = attr.ib(repr=False)
 
-    def upon(self, input, enter, outputs, collector=list):
+    def upon(self, input, enter=None, outputs=None, collector=list):
         """
         Declare a state transition within the :class:`automat.MethodicalMachine`
         associated with this :class:`automat.MethodicalState`:
@@ -110,6 +104,10 @@ class MethodicalState(object):
         :raises ValueError: if the state transition from `self` via `input`
             has already been defined.
         """
+        if enter is None:
+            enter = self
+        if outputs is None:
+            outputs = []
         inputArgs = _getArgNames(input.argSpec)
         for output in outputs:
             outputArgs = _getArgNames(output.argSpec)

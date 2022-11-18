@@ -32,11 +32,14 @@ __all__ = (
     'Error',
     'SessionNotReady',
     'SerializationError',
+    'InvalidUriError',
     'ProtocolError',
     'TransportLost',
     'ApplicationError',
     'NotAuthorized',
     'InvalidUri',
+    'InvalidPayload',
+    'TypeCheckError',
 )
 
 
@@ -282,7 +285,7 @@ class ApplicationError(Error):
 
     def __unicode__(self):
         if self.kwargs and 'traceback' in self.kwargs:
-            tb = ':\n' + '\n'.join(self.kwargs.pop('traceback')) + '\n'
+            tb = ':\n' + self.kwargs.pop('traceback') + '\n'
             self.kwargs['traceback'] = '...'
         else:
             tb = ''

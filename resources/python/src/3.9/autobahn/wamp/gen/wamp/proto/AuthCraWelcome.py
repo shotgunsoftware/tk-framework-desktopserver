@@ -3,20 +3,30 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class AuthCraWelcome(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsAuthCraWelcome(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = AuthCraWelcome()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsAuthCraWelcome(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # AuthCraWelcome
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
 def AuthCraWelcomeStart(builder): builder.StartObject(0)
+def Start(builder):
+    return AuthCraWelcomeStart(builder)
 def AuthCraWelcomeEnd(builder): return builder.EndObject()
+def End(builder):
+    return AuthCraWelcomeEnd(builder)

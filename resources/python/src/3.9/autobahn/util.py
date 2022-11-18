@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 #
 ###############################################################################
-
+import inspect
 import os
 import time
 import struct
@@ -35,6 +35,7 @@ import random
 import binascii
 import socket
 import subprocess
+from collections import OrderedDict
 
 from typing import Optional
 from datetime import datetime, timedelta
@@ -68,7 +69,17 @@ __all__ = ("public",
            "generate_activation_code",
            "generate_serial_number",
            "generate_user_password",
-           "machine_id")
+           "machine_id",
+           'parse_keyfile',
+           'write_keyfile',
+           "hl",
+           "hltype",
+           "hlid",
+           "hluserid",
+           "hlval",
+           "hlcontract",
+           "with_0x",
+           "without_0x")
 
 
 def public(obj):
@@ -169,6 +180,11 @@ def utcstr(ts=None):
 
     Note: to parse an ISO 8601 formatted string, use the **iso8601**
     module instead (e.g. ``iso8601.parse_date("2014-05-23T13:03:44.123Z")``).
+
+    >>> txaio.time_ns()
+    1641121311914026419
+    >>> int(iso8601.parse_date(utcnow()).timestamp() * 1000000000.)
+    1641121313209000192
 
     :param ts: The timestamp to format.
     :type ts: instance of :py:class:`datetime.datetime` or ``None``
@@ -353,9 +369,9 @@ Delta" and telephone operators' "Is that 'd' as in 'dog'?".
 @public
 def generate_token(char_groups: int,
                    chars_per_group: int,
-                   chars=Optional[str],
-                   sep=Optional[str],
-                   lower_case=False) -> str:
+                   chars: Optional[str] = None,
+                   sep: Optional[str] = None,
+                   lower_case: Optional[bool] = False) -> str:
     """
     Generate cryptographically strong tokens, which are strings like `M6X5-YO5W-T5IK`.
     These can be used e.g. for used-only-once activation tokens or the like.
@@ -395,7 +411,7 @@ def generate_token(char_groups: int,
     """
     assert(type(char_groups) == int)
     assert(type(chars_per_group) == int)
-    assert(chars is None or type(chars) == str)
+    assert(chars is None or type(chars) == str), 'chars must be str, was {}'.format(type(chars))
     chars = chars or DEFAULT_TOKEN_CHARS
     if lower_case:
         chars = chars.lower()
@@ -907,3 +923,122 @@ def machine_id() -> str:
         return plistlib.loads(plist_data)[0]["IOPlatformSerialNumber"]
     else:
         return socket.gethostname()
+
+
+try:
+    import click
+    _HAS_CLICK = True
+except ImportError:
+    _HAS_CLICK = False
+
+
+def hl(text, bold=False, color='yellow'):
+    if not isinstance(text, str):
+        text = '{}'.format(text)
+    if _HAS_CLICK:
+        return click.style(text, fg=color, bold=bold)
+    else:
+        return text
+
+
+def _qn(obj):
+    if inspect.isclass(obj) or inspect.isfunction(obj) or inspect.ismethod(obj):
+        qn = '{}.{}'.format(obj.__module__, obj.__qualname__)
+    else:
+        qn = 'unknown'
+    return qn
+
+
+def hltype(obj):
+    qn = _qn(obj).split('.')
+    text = hl(qn[0], color='yellow', bold=True) + hl('.' + '.'.join(qn[1:]), color='yellow', bold=False)
+    return '<' + text + '>'
+
+
+def hlid(oid):
+    return hl('{}'.format(oid), color='blue', bold=True)
+
+
+def hluserid(oid):
+    if not isinstance(oid, str):
+        oid = '{}'.format(oid)
+    return hl('"{}"'.format(oid), color='yellow', bold=True)
+
+
+def hlval(val, color='white', bold=True):
+    return hl('{}'.format(val), color=color, bold=bold)
+
+
+def hlcontract(oid):
+    if not isinstance(oid, str):
+        oid = '{}'.format(oid)
+    return hl('<{}>'.format(oid), color='magenta', bold=True)
+
+
+def with_0x(address):
+    if address and not address.startswith('0x'):
+        return '0x{address}'.format(address=address)
+    return address
+
+
+def without_0x(address):
+    if address and address.startswith('0x'):
+        return address[2:]
+    return address
+
+
+def write_keyfile(filepath, tags, msg):
+    """
+    Internal helper, write the given tags to the given file-
+    """
+    with open(filepath, 'w') as f:
+        f.write(msg)
+        for (tag, value) in tags.items():
+            if value:
+                f.write('{}: {}\n'.format(tag, value))
+
+
+def parse_keyfile(key_path: str, private: bool = True) -> OrderedDict:
+    """
+    Internal helper. This parses a node.pub or node.priv file and
+    returns a dict mapping tags -> values.
+    """
+    if os.path.exists(key_path) and not os.path.isfile(key_path):
+        raise Exception("Key file '{}' exists, but isn't a file".format(key_path))
+
+    allowed_tags = [
+        # common tags
+        'public-key-ed25519',
+        'public-adr-eth',
+        'created-at',
+        'creator',
+
+        # user profile
+        'user-id',
+
+        # node profile
+        'machine-id',
+        'node-authid',
+        'node-cluster-ip',
+    ]
+
+    if private:
+        # private key file tags
+        allowed_tags.extend(['private-key-ed25519', 'private-key-eth'])
+
+    tags = OrderedDict()  # type: ignore
+    with open(key_path, 'r') as key_file:
+        got_blankline = False
+        for line in key_file.readlines():
+            if line.strip() == '':
+                got_blankline = True
+            elif got_blankline:
+                tag, value = line.split(':', 1)
+                tag = tag.strip().lower()
+                value = value.strip()
+                if tag not in allowed_tags:
+                    raise Exception("Invalid tag '{}' in key file {}".format(tag, key_path))
+                if tag in tags:
+                    raise Exception("Duplicate tag '{}' in key file {}".format(tag, key_path))
+                tags[tag] = value
+    return tags

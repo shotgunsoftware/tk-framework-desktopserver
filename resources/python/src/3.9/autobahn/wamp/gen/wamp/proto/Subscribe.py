@@ -3,17 +3,23 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class Subscribe(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsSubscribe(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = Subscribe()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsSubscribe(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # Subscribe
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -47,8 +53,20 @@ class Subscribe(object):
         return False
 
 def SubscribeStart(builder): builder.StartObject(4)
+def Start(builder):
+    return SubscribeStart(builder)
 def SubscribeAddRequest(builder, request): builder.PrependUint64Slot(0, request, 0)
+def AddRequest(builder, request):
+    return SubscribeAddRequest(builder, request)
 def SubscribeAddTopic(builder, topic): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(topic), 0)
+def AddTopic(builder, topic):
+    return SubscribeAddTopic(builder, topic)
 def SubscribeAddMatch(builder, match): builder.PrependUint8Slot(2, match, 0)
+def AddMatch(builder, match):
+    return SubscribeAddMatch(builder, match)
 def SubscribeAddGetRetained(builder, getRetained): builder.PrependBoolSlot(3, getRetained, 0)
+def AddGetRetained(builder, getRetained):
+    return SubscribeAddGetRetained(builder, getRetained)
 def SubscribeEnd(builder): return builder.EndObject()
+def End(builder):
+    return SubscribeEnd(builder)

@@ -26,14 +26,17 @@
 
 import re
 import binascii
-
+import textwrap
+from pprint import pformat
+from typing import Any, Dict, Optional
 
 import autobahn
+from autobahn.util import hlval
 from autobahn.wamp.exception import ProtocolError, InvalidUriError
 from autobahn.wamp.role import ROLE_NAME_TO_CLASS
 
 try:
-    import cbor
+    import cbor2
     import flatbuffers
     from autobahn.wamp import message_fbs
 except ImportError:
@@ -67,34 +70,48 @@ __all__ = ('Message',
            'Interrupt',
            'Yield',
            'check_or_raise_uri',
+           'check_or_raise_realm_name',
            'check_or_raise_id',
+           'check_or_raise_extra',
            'is_valid_enc_algo',
            'is_valid_enc_serializer',
+           'identity_realm_name_category',
            'PAYLOAD_ENC_CRYPTO_BOX',
            'PAYLOAD_ENC_MQTT',
            'PAYLOAD_ENC_STANDARD_IDENTIFIERS')
 
+# all realm names in Autobahn/Crossbar.io must match this
+_URI_PAT_REALM_NAME = re.compile(r"^[A-Za-z][A-Za-z\d_\-@\.]{2,254}$")
+
+# if Ethereum addresses are enabled, realm names which are "0x" prefixed Ethereum addresses are also valid
+_URI_PAT_REALM_NAME_ETH = re.compile(r"^0x([A-Fa-f\d]{40})$")
+
+# realms names might also specifically match ENS URIs
+_URI_PAT_REALM_NAME_ENS = re.compile(r"^([a-z\d_\-@\.]{2,250})\.eth$")
+
+# since WAMP recommends using reverse dotted notation, reverse ENS names can be checked with this pattern
+_URI_PAT_REALM_NAME_ENS_REVERSE = re.compile(r"^eth\.([a-z\d_\-@\.]{2,250})$")
 
 # strict URI check allowing empty URI components
-_URI_PAT_STRICT_EMPTY = re.compile(r"^(([0-9a-z_]+\.)|\.)*([0-9a-z_]+)?$")
+_URI_PAT_STRICT_EMPTY = re.compile(r"^(([\da-z_]+\.)|\.)*([\da-z_]+)?$")
 
 # loose URI check allowing empty URI components
 _URI_PAT_LOOSE_EMPTY = re.compile(r"^(([^\s\.#]+\.)|\.)*([^\s\.#]+)?$")
 
 # strict URI check disallowing empty URI components
-_URI_PAT_STRICT_NON_EMPTY = re.compile(r"^([0-9a-z_]+\.)*([0-9a-z_]+)$")
+_URI_PAT_STRICT_NON_EMPTY = re.compile(r"^([\da-z_]+\.)*([\da-z_]+)$")
 
 # loose URI check disallowing empty URI components
 _URI_PAT_LOOSE_NON_EMPTY = re.compile(r"^([^\s\.#]+\.)*([^\s\.#]+)$")
 
 # strict URI check disallowing empty URI components in all but the last component
-_URI_PAT_STRICT_LAST_EMPTY = re.compile(r"^([0-9a-z_]+\.)*([0-9a-z_]*)$")
+_URI_PAT_STRICT_LAST_EMPTY = re.compile(r"^([\da-z_]+\.)*([\da-z_]*)$")
 
 # loose URI check disallowing empty URI components in all but the last component
 _URI_PAT_LOOSE_LAST_EMPTY = re.compile(r"^([^\s\.#]+\.)*([^\s\.#]*)$")
 
 # custom (=implementation specific) WAMP attributes (used in WAMP message details/options)
-_CUSTOM_ATTRIBUTE = re.compile(r"^x_([a-z][0-9a-z_]+)?$")
+_CUSTOM_ATTRIBUTE = re.compile(r"^x_([a-z][\da-z_]+)?$")
 
 # Value for algo attribute in end-to-end encrypted messages using cryptobox, which
 # is a scheme based on Curve25519, SHA512, Salsa20 and Poly1305.
@@ -211,33 +228,54 @@ def b2a(data, max_len=40):
         return s
 
 
-def check_or_raise_uri(value, message="WAMP message invalid", strict=False, allow_empty_components=False, allow_last_empty=False, allow_none=False):
+def identity_realm_name_category(value: Any) -> Optional[str]:
+    """
+    Identify the real name category of the given value:
+
+    * ``"normal"``: A normal WAMP realm name, e.g. ``"realm1"``.
+    * ``"eth"``: An Ethereum address, e.g. ``"0xe59C7418403CF1D973485B36660728a5f4A8fF9c"``.
+    * ``"ens"``: An Ethereum ENS name, e.g. ``"wamp-proto.eth"``.
+    * ``"reverse_ens"``: An Ethereum ENS name in reverse notation, e.g. ``"eth.wamp-proto"``.
+    * ``None``: The value is not a WAMP realm name.
+
+    :param value: The value for which to identify realm name category.
+    :return: The category identified, one of ``["normal", "eth", "ens", "reverse-ens"]``
+        or ``None``.
+    """
+    if type(value) != str:
+        return None
+    if _URI_PAT_REALM_NAME.match(value):
+        if _URI_PAT_REALM_NAME_ENS.match(value):
+            return 'ens'
+        elif _URI_PAT_REALM_NAME_ENS_REVERSE.match(value):
+            return 'reverse_ens'
+        else:
+            return 'normal'
+    elif _URI_PAT_REALM_NAME_ETH.match(value):
+        return 'eth'
+    else:
+        return None
+
+
+def check_or_raise_uri(value: Any, message: str = "WAMP message invalid", strict: bool = False,
+                       allow_empty_components: bool = False, allow_last_empty: bool = False,
+                       allow_none: bool = False) -> str:
     """
     Check a value for being a valid WAMP URI.
 
-    If the value is not a valid WAMP URI is invalid, raises :class:`autobahn.wamp.exception.ProtocolError`.
-    Otherwise return the value.
+    If the value is not a valid WAMP URI is invalid, raises :class:`autobahn.wamp.exception.InvalidUriError`,
+    otherwise returns the value.
 
     :param value: The value to check.
-    :type value: str or None
-
     :param message: Prefix for message in exception raised when value is invalid.
-    :type message: str
-
     :param strict: If ``True``, do a strict check on the URI (the WAMP spec SHOULD behavior).
-    :type strict: bool
-
     :param allow_empty_components: If ``True``, allow empty URI components (for pattern based
        subscriptions and registrations).
-    :type allow_empty_components: bool
-
+    :param allow_last_empty: If ``True``, allow the last URI component to be empty (for prefix based
+       subscriptions and registrations).
     :param allow_none: If ``True``, allow ``None`` for URIs.
-    :type allow_none: bool
-
     :returns: The URI value (if valid).
-    :rtype: str
-
-    :raises: instance of :class:`autobahn.wamp.exception.ProtocolError`
+    :raises: instance of :class:`autobahn.wamp.exception.InvalidUriError`
     """
     if value is None:
         if allow_none:
@@ -270,22 +308,55 @@ def check_or_raise_uri(value, message="WAMP message invalid", strict=False, allo
         return value
 
 
-def check_or_raise_id(value, message="WAMP message invalid"):
+def check_or_raise_realm_name(value, message="WAMP message invalid", allow_eth=True):
+    """
+    Check a value for being a valid WAMP URI.
+
+    If the value is not a valid WAMP URI is invalid, raises :class:`autobahn.wamp.exception.InvalidUriError`,
+    otherwise returns the value.
+
+    :param value: The value to check, e.g. ``"realm1"`` or ``"com.example.myapp"`` or ``"eth.example"``.
+    :param message: Prefix for message in exception raised when value is invalid.
+    :param allow_eth: If ``True``, allow Ethereum addresses as realm names,
+        e.g. ``"0xe59C7418403CF1D973485B36660728a5f4A8fF9c"``.
+    :returns: The URI value (if valid).
+    :raises: instance of :class:`autobahn.wamp.exception.InvalidUriError`
+    """
+    if value is None:
+        raise InvalidUriError("{0}: realm name cannot be null".format(message))
+
+    if type(value) != str:
+        raise InvalidUriError("{0}: invalid type {1} for realm name".format(message, type(value)))
+
+    if allow_eth:
+        if _URI_PAT_REALM_NAME.match(value) or _URI_PAT_REALM_NAME_ETH.match(value):
+            return value
+        else:
+            raise InvalidUriError(
+                '{0}: invalid value "{1}" for realm name (did not match patterns '
+                '"{2}" or "{3}")'.format(message, value,
+                                         _URI_PAT_REALM_NAME.pattern,
+                                         _URI_PAT_REALM_NAME_ETH.pattern))
+    else:
+        if _URI_PAT_REALM_NAME.match(value):
+            return value
+        else:
+            raise InvalidUriError(
+                '{0}: invalid value "{1}" for realm name (did not match pattern '
+                '"{2}")'.format(message, value,
+                                _URI_PAT_REALM_NAME.pattern))
+
+
+def check_or_raise_id(value: Any, message: str = "WAMP message invalid") -> int:
     """
     Check a value for being a valid WAMP ID.
 
-    If the value is not a valid WAMP ID, raises :class:`autobahn.wamp.exception.ProtocolError`.
-    Otherwise return the value.
+    If the value is not a valid WAMP ID, raises :class:`autobahn.wamp.exception.ProtocolError`,
+    otherwise return the value.
 
     :param value: The value to check.
-    :type value: int
-
     :param message: Prefix for message in exception raised when value is invalid.
-    :type message: str
-
     :returns: The ID value (if valid).
-    :rtype: int
-
     :raises: instance of :class:`autobahn.wamp.exception.ProtocolError`
     """
     if type(value) != int:
@@ -297,22 +368,16 @@ def check_or_raise_id(value, message="WAMP message invalid"):
     return value
 
 
-def check_or_raise_extra(value, message="WAMP message invalid"):
+def check_or_raise_extra(value: Any, message: str = "WAMP message invalid") -> Dict[str, Any]:
     """
     Check a value for being a valid WAMP extra dictionary.
 
-    If the value is not a valid WAMP extra dictionary, raises :class:`autobahn.wamp.exception.ProtocolError`.
-    Otherwise return the value.
+    If the value is not a valid WAMP extra dictionary, raises :class:`autobahn.wamp.exception.ProtocolError`,
+    otherwise return the value.
 
     :param value: The value to check.
-    :type value: dict
-
     :param message: Prefix for message in exception raised when value is invalid.
-    :type message: str
-
     :returns: The extra dictionary (if valid).
-    :rtype: dict
-
     :raises: instance of :class:`autobahn.wamp.exception.ProtocolError`
     """
     if type(value) != dict:
@@ -468,6 +533,10 @@ class Message(object):
         :rtype: bool
         """
         return not self.__eq__(other)
+
+    def __str__(self) -> str:
+        return '{}\n{}'.format(hlval(self.__class__.__name__.upper() + '::', color='blue', bold=True),
+                               hlval(textwrap.indent(pformat(self.marshal()), '    '), color='blue', bold=False))
 
     @staticmethod
     def parse(wmsg):
@@ -768,12 +837,6 @@ class Hello(Message):
 
         return [Hello.MESSAGE_TYPE, self.realm, details]
 
-    def __str__(self):
-        """
-        Return a string representation of this message.
-        """
-        return "Hello(realm={}, roles={}, authmethods={}, authid={}, authrole={}, authextra={}, resumable={}, resume_session={}, resume_token={})".format(self.realm, self.roles, self.authmethods, self.authid, self.authrole, self.authextra, self.resumable, self.resume_session, self.resume_token)
-
 
 class Welcome(Message):
     """
@@ -1019,12 +1082,6 @@ class Welcome(Message):
 
         return [Welcome.MESSAGE_TYPE, self.session, details]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Welcome(session={}, roles={}, realm={}, authid={}, authrole={}, authmethod={}, authprovider={}, authextra={}, resumed={}, resumable={}, resume_token={})".format(self.session, self.roles, self.realm, self.authid, self.authrole, self.authmethod, self.authprovider, self.authextra, self.resumed, self.resumable, self.resume_token)
-
 
 class Abort(Message):
     """
@@ -1105,12 +1162,6 @@ class Abort(Message):
 
         return [Abort.MESSAGE_TYPE, details, self.reason]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Abort(message={0}, reason={1})".format(self.message, self.reason)
-
 
 class Challenge(Message):
     """
@@ -1180,12 +1231,6 @@ class Challenge(Message):
         """
         return [Challenge.MESSAGE_TYPE, self.method, self.extra]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Challenge(method={0}, extra={1})".format(self.method, self.extra)
-
 
 class Authenticate(Message):
     """
@@ -1254,12 +1299,6 @@ class Authenticate(Message):
         :rtype: list
         """
         return [Authenticate.MESSAGE_TYPE, self.signature, self.extra]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Authenticate(signature={0}, extra={1})".format(self.signature, self.extra)
 
 
 class Goodbye(Message):
@@ -1362,12 +1401,6 @@ class Goodbye(Message):
             details['resumable'] = self.resumable
 
         return [Goodbye.MESSAGE_TYPE, details, self.reason]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Goodbye(message={}, reason={}, resumable={})".format(self.message, self.reason, self.resumable)
 
 
 class Error(Message):
@@ -1669,12 +1702,6 @@ class Error(Message):
             else:
                 return [self.MESSAGE_TYPE, self.request_type, self.request, details, self.error]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Error(request_type={0}, request={1}, error={2}, args={3}, kwargs={4}, enc_algo={5}, enc_key={6}, enc_serializer={7}, payload={8}, callee={9}, callee_authid={10}, callee_authrole={11}, forward_for={12})".format(self.request_type, self.request, self.error, self.args, self.kwargs, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.callee, self.callee_authid, self.callee_authrole, self.forward_for)
-
 
 class Publish(Message):
     """
@@ -1745,6 +1772,9 @@ class Publish(Message):
         # bool
         '_retain',
 
+        # string
+        '_transaction_hash',
+
         # [Principal]
         '_forward_for',
     )
@@ -1764,6 +1794,7 @@ class Publish(Message):
                  eligible_authid=None,
                  eligible_authrole=None,
                  retain=None,
+                 transaction_hash=None,
                  enc_algo=None,
                  enc_key=None,
                  enc_serializer=None,
@@ -1818,6 +1849,11 @@ class Publish(Message):
         :param retain: If ``True``, request the broker retain this event.
         :type retain: bool or None
 
+        :param transaction_hash: An application provided transaction hash for the published event, which may
+            be used in the router to throttle or deduplicate the events on the topic. See the discussion
+            `here <https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967>`_.
+        :type transaction_hash: str
+
         :param enc_algo: If using payload transparency, the encoding algorithm that was used to encode the payload.
         :type enc_algo: str or None
 
@@ -1838,6 +1874,7 @@ class Publish(Message):
         assert(payload is None or (payload is not None and args is None and kwargs is None))
         assert(acknowledge is None or type(acknowledge) == bool)
         assert(retain is None or type(retain) == bool)
+        assert(transaction_hash is None or type(transaction_hash) == str)
 
         # publisher exlusion and black-/whitelisting
         assert(exclude_me is None or type(exclude_me) == bool)
@@ -1905,6 +1942,9 @@ class Publish(Message):
         # event retention
         self._retain = retain
 
+        # application provided transaction hash for event
+        self._transaction_hash = transaction_hash
+
         # payload transparency related knobs
         self._enc_algo = enc_algo
         self._enc_key = enc_key
@@ -1945,6 +1985,8 @@ class Publish(Message):
         if other.eligible_authrole != self.eligible_authrole:
             return False
         if other.retain != self.retain:
+            return False
+        if other.transaction_hash != self.transaction_hash:
             return False
         if other.enc_algo != self.enc_algo:
             return False
@@ -1987,7 +2029,7 @@ class Publish(Message):
     def args(self):
         if self._args is None and self._from_fbs:
             if self._from_fbs.ArgsLength():
-                self._args = cbor.loads(bytes(self._from_fbs.ArgsAsBytes()))
+                self._args = cbor2.loads(bytes(self._from_fbs.ArgsAsBytes()))
         return self._args
 
     @args.setter
@@ -1999,7 +2041,7 @@ class Publish(Message):
     def kwargs(self):
         if self._kwargs is None and self._from_fbs:
             if self._from_fbs.KwargsLength():
-                self._kwargs = cbor.loads(bytes(self._from_fbs.KwargsAsBytes()))
+                self._kwargs = cbor2.loads(bytes(self._from_fbs.KwargsAsBytes()))
         return self._kwargs
 
     @kwargs.setter
@@ -2167,6 +2209,19 @@ class Publish(Message):
         self._retain = value
 
     @property
+    def transaction_hash(self):
+        if self._transaction_hash is None and self._from_fbs:
+            s = self._from_fbs.TransactionHash()
+            if s:
+                self._transaction_hash = s.decode('utf8')
+        return self._transaction_hash
+
+    @transaction_hash.setter
+    def transaction_hash(self, value):
+        assert value is None or type(value) == str
+        self._transaction_hash = value
+
+    @property
     def enc_algo(self):
         if self._enc_algo is None and self._from_fbs:
             enc_algo = self._from_fbs.EncAlgo()
@@ -2222,11 +2277,11 @@ class Publish(Message):
 
         args = self.args
         if args:
-            args = builder.CreateByteVector(cbor.dumps(args))
+            args = builder.CreateByteVector(cbor2.dumps(args))
 
         kwargs = self.kwargs
         if kwargs:
-            kwargs = builder.CreateByteVector(cbor.dumps(kwargs))
+            kwargs = builder.CreateByteVector(cbor2.dumps(kwargs))
 
         payload = self.payload
         if payload:
@@ -2235,6 +2290,10 @@ class Publish(Message):
         topic = self.topic
         if topic:
             topic = builder.CreateString(topic)
+
+        transaction_hash = self.transaction_hash
+        if transaction_hash:
+            transaction_hash = builder.CreateString(transaction_hash)
 
         enc_key = self.enc_key
         if enc_key:
@@ -2316,10 +2375,15 @@ class Publish(Message):
         if payload:
             message_fbs.PublishGen.PublishAddPayload(builder, payload)
 
+        if self.enc_algo:
+            message_fbs.PublishGen.PublishAddEncAlgo(builder, self.enc_algo)
+        if self.enc_serializer:
+            message_fbs.PublishGen.PublishAddEncSerializer(builder, self.enc_serializer)
+        if enc_key:
+            message_fbs.PublishGen.PublishAddEncKey(builder, enc_key)
+
         if self.acknowledge is not None:
             message_fbs.PublishGen.PublishAddAcknowledge(builder, self.acknowledge)
-        if self.retain is not None:
-            message_fbs.PublishGen.PublishAddRetain(builder, self.retain)
         if self.exclude_me is not None:
             message_fbs.PublishGen.PublishAddExcludeMe(builder, self.exclude_me)
 
@@ -2337,12 +2401,10 @@ class Publish(Message):
         if eligible_authrole:
             message_fbs.PublishGen.PublishAddEligibleAuthrole(builder, eligible_authrole)
 
-        if self.enc_algo:
-            message_fbs.PublishGen.PublishAddEncAlgo(builder, self.enc_algo)
-        if enc_key:
-            message_fbs.PublishGen.PublishAddEncKey(builder, enc_key)
-        if self.enc_serializer:
-            message_fbs.PublishGen.PublishAddEncSerializer(builder, self.enc_serializer)
+        if self.retain is not None:
+            message_fbs.PublishGen.PublishAddRetain(builder, self.retain)
+        if transaction_hash is not None:
+            message_fbs.PublishGen.PublishAddTransactionHash(builder, self.transaction_hash)
 
         # FIXME: add forward_for
 
@@ -2419,6 +2481,7 @@ class Publish(Message):
         eligible_authid = None
         eligible_authrole = None
         retain = None
+        transaction_hash = None
         forward_for = None
 
         if 'acknowledge' in options:
@@ -2514,6 +2577,11 @@ class Publish(Message):
             if type(retain) != bool:
                 raise ProtocolError("invalid type {0} for 'retain' option in PUBLISH".format(type(retain)))
 
+        if 'transaction_hash' in options:
+            transaction_hash = options['transaction_hash']
+            if type(transaction_hash) != str:
+                raise ProtocolError("invalid type {0} for 'transaction_hash' option in PUBLISH".format(type(transaction_hash)))
+
         if 'forward_for' in options:
             forward_for = options['forward_for']
             valid = False
@@ -2546,6 +2614,7 @@ class Publish(Message):
                       eligible_authid=eligible_authid,
                       eligible_authrole=eligible_authrole,
                       retain=retain,
+                      transaction_hash=transaction_hash,
                       enc_algo=enc_algo,
                       enc_key=enc_key,
                       enc_serializer=enc_serializer,
@@ -2575,6 +2644,8 @@ class Publish(Message):
             options['eligible_authrole'] = self.eligible_authrole
         if self.retain is not None:
             options['retain'] = self.retain
+        if self.transaction_hash is not None:
+            options['transaction_hash'] = self.transaction_hash
 
         if self.payload:
             if self.enc_algo is not None:
@@ -2607,12 +2678,6 @@ class Publish(Message):
                 return [Publish.MESSAGE_TYPE, self.request, options, self.topic, self.args]
             else:
                 return [Publish.MESSAGE_TYPE, self.request, options, self.topic]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Publish(request={}, topic={}, args={}, kwargs={}, acknowledge={}, exclude_me={}, exclude={}, exclude_authid={}, exclude_authrole={}, eligible={}, eligible_authid={}, eligible_authrole={}, retain={}, enc_algo={}, enc_key={}, enc_serializer={}, payload={}, forward_for={})".format(self.request, self.topic, self.args, self.kwargs, self.acknowledge, self.exclude_me, self.exclude, self.exclude_authid, self.exclude_authrole, self.eligible, self.eligible_authid, self.eligible_authrole, self.retain, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.forward_for)
 
 
 class Published(Message):
@@ -2679,12 +2744,6 @@ class Published(Message):
         :rtype: list
         """
         return [Published.MESSAGE_TYPE, self.request, self.publication]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Published(request={0}, publication={1})".format(self.request, self.publication)
 
 
 class Subscribe(Message):
@@ -2841,12 +2900,6 @@ class Subscribe(Message):
         """
         return [Subscribe.MESSAGE_TYPE, self.request, self.marshal_options(), self.topic]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Subscribe(request={0}, topic={1}, match={2}, get_retained={3}, forward_for={4})".format(self.request, self.topic, self.match, self.get_retained, self.forward_for)
-
 
 class Subscribed(Message):
     """
@@ -2912,12 +2965,6 @@ class Subscribed(Message):
         :rtype: list
         """
         return [Subscribed.MESSAGE_TYPE, self.request, self.subscription]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Subscribed(request={0}, subscription={1})".format(self.request, self.subscription)
 
 
 class Unsubscribe(Message):
@@ -3029,12 +3076,6 @@ class Unsubscribe(Message):
         else:
             return [Unsubscribe.MESSAGE_TYPE, self.request, self.subscription]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Unsubscribe(request={0}, subscription={1}, forward_for={2})".format(self.request, self.subscription, self.forward_for)
-
 
 class Unsubscribed(Message):
     """
@@ -3136,12 +3177,6 @@ class Unsubscribed(Message):
         else:
             return [Unsubscribed.MESSAGE_TYPE, self.request]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Unsubscribed(request={0}, reason={1}, subscription={2})".format(self.request, self.reason, self.subscription)
-
 
 class Event(Message):
     """
@@ -3200,6 +3235,9 @@ class Event(Message):
         # bool
         '_retained',
 
+        # string
+        '_transaction_hash',
+
         # bool - FIXME: rename to "acknowledge"
         '_x_acknowledged_delivery',
 
@@ -3209,7 +3247,7 @@ class Event(Message):
 
     def __init__(self, subscription=None, publication=None, args=None, kwargs=None, payload=None,
                  publisher=None, publisher_authid=None, publisher_authrole=None, topic=None,
-                 retained=None, x_acknowledged_delivery=None,
+                 retained=None, transaction_hash=None, x_acknowledged_delivery=None,
                  enc_algo=None, enc_key=None, enc_serializer=None, forward_for=None,
                  from_fbs=None):
         """
@@ -3246,6 +3284,11 @@ class Event(Message):
         :param retained: Whether the message was retained by the broker on the topic, rather than just published.
         :type retained: bool or None
 
+        :param transaction_hash: An application provided transaction hash for the originating call, which may
+            be used in the router to throttle or deduplicate the calls on the procedure. See the discussion
+            `here <https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967>`_.
+        :type transaction_hash: str
+
         :param x_acknowledged_delivery: Whether this Event should be acknowledged.
         :type x_acknowledged_delivery: bool or None
 
@@ -3272,6 +3315,7 @@ class Event(Message):
         assert(publisher_authrole is None or type(publisher_authrole) == str)
         assert(topic is None or type(topic) == str)
         assert(retained is None or type(retained) == bool)
+        assert(transaction_hash is None or type(transaction_hash) == str)
         assert(x_acknowledged_delivery is None or type(x_acknowledged_delivery) == bool)
         assert(enc_algo is None or is_valid_enc_algo(enc_algo))
         assert((enc_algo is None and enc_key is None and enc_serializer is None) or (payload is not None and enc_algo is not None))
@@ -3297,6 +3341,7 @@ class Event(Message):
         self._publisher_authrole = publisher_authrole
         self._topic = topic
         self._retained = retained
+        self._transaction_hash = transaction_hash
         self._x_acknowledged_delivery = x_acknowledged_delivery
         self._enc_algo = enc_algo
         self._enc_key = enc_key
@@ -3327,6 +3372,8 @@ class Event(Message):
         if other.topic != self.topic:
             return False
         if other.retained != self.retained:
+            return False
+        if other.transaction_hash != self.transaction_hash:
             return False
         if other.x_acknowledged_delivery != self.x_acknowledged_delivery:
             return False
@@ -3369,7 +3416,7 @@ class Event(Message):
     def args(self):
         if self._args is None and self._from_fbs:
             if self._from_fbs.ArgsLength():
-                self._args = cbor.loads(bytes(self._from_fbs.ArgsAsBytes()))
+                self._args = cbor2.loads(bytes(self._from_fbs.ArgsAsBytes()))
         return self._args
 
     @args.setter
@@ -3381,7 +3428,7 @@ class Event(Message):
     def kwargs(self):
         if self._kwargs is None and self._from_fbs:
             if self._from_fbs.KwargsLength():
-                self._kwargs = cbor.loads(bytes(self._from_fbs.KwargsAsBytes()))
+                self._kwargs = cbor2.loads(bytes(self._from_fbs.KwargsAsBytes()))
         return self._kwargs
 
     @kwargs.setter
@@ -3465,6 +3512,19 @@ class Event(Message):
         self._retained = value
 
     @property
+    def transaction_hash(self):
+        if self._transaction_hash is None and self._from_fbs:
+            s = self._from_fbs.TransactionHash()
+            if s:
+                self._transaction_hash = s.decode('utf8')
+        return self._transaction_hash
+
+    @transaction_hash.setter
+    def transaction_hash(self, value):
+        assert value is None or type(value) == str
+        self._transaction_hash = value
+
+    @property
     def x_acknowledged_delivery(self):
         if self._x_acknowledged_delivery is None and self._from_fbs:
             x_acknowledged_delivery = self._from_fbs.Acknowledge()
@@ -3533,11 +3593,11 @@ class Event(Message):
 
         args = self.args
         if args:
-            args = builder.CreateByteVector(cbor.dumps(args))
+            args = builder.CreateByteVector(cbor2.dumps(args))
 
         kwargs = self.kwargs
         if kwargs:
-            kwargs = builder.CreateByteVector(cbor.dumps(kwargs))
+            kwargs = builder.CreateByteVector(cbor2.dumps(kwargs))
 
         payload = self.payload
         if payload:
@@ -3554,6 +3614,10 @@ class Event(Message):
         topic = self.topic
         if topic:
             topic = builder.CreateString(topic)
+
+        transaction_hash = self.transaction_hash
+        if transaction_hash:
+            transaction_hash = builder.CreateString(transaction_hash)
 
         enc_key = self.enc_key
         if enc_key:
@@ -3584,6 +3648,8 @@ class Event(Message):
             message_fbs.EventGen.EventAddTopic(builder, topic)
         if self.retained is not None:
             message_fbs.EventGen.EventAddRetained(builder, self.retained)
+        if transaction_hash is not None:
+            message_fbs.EventGen.EventAddTransactionHash(builder, transaction_hash)
         if self.x_acknowledged_delivery is not None:
             message_fbs.EventGen.EventAddAcknowledge(builder, self.x_acknowledged_delivery)
 
@@ -3663,6 +3729,7 @@ class Event(Message):
         publisher_authrole = None
         topic = None
         retained = None
+        transaction_hash = None
         forward_for = None
         x_acknowledged_delivery = None
 
@@ -3703,6 +3770,14 @@ class Event(Message):
             if type(retained) != bool:
                 raise ProtocolError("invalid type {0} for 'retained' detail in EVENT".format(type(retained)))
 
+        if 'transaction_hash' in details:
+
+            detail_transaction_hash = details['transaction_hash']
+            if type(detail_transaction_hash) != str:
+                raise ProtocolError("invalid type {0} for 'transaction_hash' detail in EVENT".format(type(detail_transaction_hash)))
+
+            transaction_hash = detail_transaction_hash
+
         if 'x_acknowledged_delivery' in details:
             x_acknowledged_delivery = details['x_acknowledged_delivery']
             if type(x_acknowledged_delivery) != bool:
@@ -3736,6 +3811,7 @@ class Event(Message):
                     publisher_authrole=publisher_authrole,
                     topic=topic,
                     retained=retained,
+                    transaction_hash=transaction_hash,
                     x_acknowledged_delivery=x_acknowledged_delivery,
                     enc_algo=enc_algo,
                     enc_key=enc_key,
@@ -3768,6 +3844,9 @@ class Event(Message):
         if self.retained is not None:
             details['retained'] = self.retained
 
+        if self.transaction_hash is not None:
+            details['transaction_hash'] = self.transaction_hash
+
         if self.x_acknowledged_delivery is not None:
             details['x_acknowledged_delivery'] = self.x_acknowledged_delivery
 
@@ -3789,12 +3868,6 @@ class Event(Message):
                 return [Event.MESSAGE_TYPE, self.subscription, self.publication, details, self.args]
             else:
                 return [Event.MESSAGE_TYPE, self.subscription, self.publication, details]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Event(subscription={}, publication={}, args={}, kwargs={}, publisher={}, publisher_authid={}, publisher_authrole={}, topic={}, retained={}, enc_algo={}, enc_key={}, enc_serializer={}, payload={}, forward_for={})".format(self.subscription, self.publication, self.args, self.kwargs, self.publisher, self.publisher_authid, self.publisher_authrole, self.topic, self.retained, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.forward_for)
 
 
 class EventReceived(Message):
@@ -3856,12 +3929,6 @@ class EventReceived(Message):
         """
         return [EventReceived.MESSAGE_TYPE, self.publication]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "EventReceived(publication={})".format(self.publication)
-
 
 class Call(Message):
     """
@@ -3888,6 +3955,7 @@ class Call(Message):
         'payload',
         'timeout',
         'receive_progress',
+        'transaction_hash',
         'enc_algo',
         'enc_key',
         'enc_serializer',
@@ -3905,6 +3973,7 @@ class Call(Message):
                  payload=None,
                  timeout=None,
                  receive_progress=None,
+                 transaction_hash=None,
                  enc_algo=None,
                  enc_key=None,
                  enc_serializer=None,
@@ -3939,6 +4008,11 @@ class Call(Message):
            progressive call results.
         :type receive_progress: bool or None
 
+        :param transaction_hash: An application provided transaction hash for the originating call, which may
+            be used in the router to throttle or deduplicate the calls on the procedure. See the discussion
+            `here <https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967>`_.
+        :type transaction_hash: str
+
         :param enc_algo: If using payload transparency, the encoding algorithm that was used to encode the payload.
         :type enc_algo: str or None
 
@@ -3968,6 +4042,7 @@ class Call(Message):
         assert(payload is None or (payload is not None and args is None and kwargs is None))
         assert(timeout is None or type(timeout) == int)
         assert(receive_progress is None or type(receive_progress) == bool)
+        assert(transaction_hash is None or type(transaction_hash) == str)
 
         # payload transparency related knobs
         assert(enc_algo is None or is_valid_enc_algo(enc_algo))
@@ -3995,6 +4070,7 @@ class Call(Message):
         self.payload = payload
         self.timeout = timeout
         self.receive_progress = receive_progress
+        self.transaction_hash = transaction_hash
 
         # payload transparency related knobs
         self.enc_algo = enc_algo
@@ -4063,6 +4139,7 @@ class Call(Message):
 
         timeout = None
         receive_progress = None
+        transaction_hash = None
         caller = None
         caller_authid = None
         caller_authrole = None
@@ -4086,6 +4163,14 @@ class Call(Message):
                 raise ProtocolError("invalid type {0} for 'receive_progress' option in CALL".format(type(option_receive_progress)))
 
             receive_progress = option_receive_progress
+
+        if 'transaction_hash' in options:
+
+            option_transaction_hash = options['transaction_hash']
+            if type(option_transaction_hash) != str:
+                raise ProtocolError("invalid type {0} for 'transaction_hash' detail in CALL".format(type(option_transaction_hash)))
+
+            transaction_hash = option_transaction_hash
 
         if 'caller' in options:
 
@@ -4136,6 +4221,7 @@ class Call(Message):
                    payload=payload,
                    timeout=timeout,
                    receive_progress=receive_progress,
+                   transaction_hash=transaction_hash,
                    enc_algo=enc_algo,
                    enc_key=enc_key,
                    enc_serializer=enc_serializer,
@@ -4154,6 +4240,9 @@ class Call(Message):
 
         if self.receive_progress is not None:
             options['receive_progress'] = self.receive_progress
+
+        if self.transaction_hash is not None:
+            options['transaction_hash'] = self.transaction_hash
 
         if self.payload:
             if self.enc_algo is not None:
@@ -4193,12 +4282,6 @@ class Call(Message):
                 return [Call.MESSAGE_TYPE, self.request, options, self.procedure, self.args]
             else:
                 return [Call.MESSAGE_TYPE, self.request, options, self.procedure]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Call(request={}, procedure={}, args={}, kwargs={}, timeout={}, receive_progress={}, enc_algo={}, enc_key={}, enc_serializer={}, payload={}, caller={}, caller_authid={}, caller_authrole={}, forward_for={})".format(self.request, self.procedure, self.args, self.kwargs, self.timeout, self.receive_progress, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.caller, self.caller_authid, self.caller_authrole, self.forward_for)
 
 
 class Cancel(Message):
@@ -4328,12 +4411,6 @@ class Cancel(Message):
             options['forward_for'] = self.forward_for
 
         return [Cancel.MESSAGE_TYPE, self.request, options]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Cancel(request={0}, mode={1})".format(self.request, self.mode)
 
 
 class Result(Message):
@@ -4626,12 +4703,6 @@ class Result(Message):
             else:
                 return [Result.MESSAGE_TYPE, self.request, details]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Result(request={0}, args={1}, kwargs={2}, progress={3}, enc_algo={4}, enc_key={5}, enc_serializer={6}, payload={7}, callee={8}, callee_authid={9}, callee_authrole={10}, forward_for={11})".format(self.request, self.args, self.kwargs, self.progress, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.callee, self.callee_authid, self.callee_authrole, self.forward_for)
-
 
 class Register(Message):
     """
@@ -4857,12 +4928,6 @@ class Register(Message):
         """
         return [Register.MESSAGE_TYPE, self.request, self.marshal_options(), self.procedure]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Register(request={0}, procedure={1}, match={2}, invoke={3}, concurrency={4}, force_reregister={5}, forward_for={6})".format(self.request, self.procedure, self.match, self.invoke, self.concurrency, self.force_reregister, self.forward_for)
-
 
 class Registered(Message):
     """
@@ -4928,12 +4993,6 @@ class Registered(Message):
         :rtype: list
         """
         return [Registered.MESSAGE_TYPE, self.request, self.registration]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Registered(request={0}, registration={1})".format(self.request, self.registration)
 
 
 class Unregister(Message):
@@ -5039,12 +5098,6 @@ class Unregister(Message):
         else:
             return [Unregister.MESSAGE_TYPE, self.request, self.registration]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Unregister(request={0}, registration={1})".format(self.request, self.registration)
-
 
 class Unregistered(Message):
     """
@@ -5145,12 +5198,6 @@ class Unregistered(Message):
         else:
             return [Unregistered.MESSAGE_TYPE, self.request]
 
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Unregistered(request={0}, reason={1}, registration={2})".format(self.request, self.reason, self.registration)
-
 
 class Invocation(Message):
     """
@@ -5181,6 +5228,7 @@ class Invocation(Message):
         'caller_authid',
         'caller_authrole',
         'procedure',
+        'transaction_hash',
         'enc_algo',
         'enc_key',
         'enc_serializer',
@@ -5199,6 +5247,7 @@ class Invocation(Message):
                  caller_authid=None,
                  caller_authrole=None,
                  procedure=None,
+                 transaction_hash=None,
                  enc_algo=None,
                  enc_key=None,
                  enc_serializer=None,
@@ -5241,6 +5290,11 @@ class Invocation(Message):
         :param procedure: For pattern-based registrations, the invocation MUST include the actual procedure being called.
         :type procedure: str or None
 
+        :param transaction_hash: An application provided transaction hash for the originating call, which may
+            be used in the router to throttle or deduplicate the calls on the procedure. See the discussion
+            `here <https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967>`_.
+        :type transaction_hash: str
+
         :param enc_algo: If using payload transparency, the encoding algorithm that was used to encode the payload.
         :type enc_algo: str or None
 
@@ -5265,6 +5319,7 @@ class Invocation(Message):
         assert(caller_authid is None or type(caller_authid) == str)
         assert(caller_authrole is None or type(caller_authrole) == str)
         assert(procedure is None or type(procedure) == str)
+        assert(transaction_hash is None or type(transaction_hash) == str)
         assert(enc_algo is None or is_valid_enc_algo(enc_algo))
         assert(enc_key is None or type(enc_key) == str)
         assert(enc_serializer is None or is_valid_enc_serializer(enc_serializer))
@@ -5290,6 +5345,7 @@ class Invocation(Message):
         self.caller_authid = caller_authid
         self.caller_authrole = caller_authrole
         self.procedure = procedure
+        self.transaction_hash = transaction_hash
         self.enc_algo = enc_algo
         self.enc_key = enc_key
         self.enc_serializer = enc_serializer
@@ -5357,6 +5413,7 @@ class Invocation(Message):
         caller_authid = None
         caller_authrole = None
         procedure = None
+        transaction_hash = None
         forward_for = None
 
         if 'timeout' in details:
@@ -5410,6 +5467,14 @@ class Invocation(Message):
 
             procedure = detail_procedure
 
+        if 'transaction_hash' in details:
+
+            detail_transaction_hash = details['transaction_hash']
+            if type(detail_transaction_hash) != str:
+                raise ProtocolError("invalid type {0} for 'transaction_hash' detail in EVENT".format(type(detail_transaction_hash)))
+
+            transaction_hash = detail_transaction_hash
+
         if 'forward_for' in details:
             forward_for = details['forward_for']
             valid = False
@@ -5439,6 +5504,7 @@ class Invocation(Message):
                          caller_authid=caller_authid,
                          caller_authrole=caller_authrole,
                          procedure=procedure,
+                         transaction_hash=transaction_hash,
                          enc_algo=enc_algo,
                          enc_key=enc_key,
                          enc_serializer=enc_serializer,
@@ -5473,6 +5539,9 @@ class Invocation(Message):
         if self.procedure is not None:
             options['procedure'] = self.procedure
 
+        if self.transaction_hash is not None:
+            options['transaction_hash'] = self.transaction_hash
+
         if self.forward_for is not None:
             options['forward_for'] = self.forward_for
 
@@ -5491,12 +5560,6 @@ class Invocation(Message):
                 return [Invocation.MESSAGE_TYPE, self.request, self.registration, options, self.args]
             else:
                 return [Invocation.MESSAGE_TYPE, self.request, self.registration, options]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Invocation(request={0}, registration={1}, args={2}, kwargs={3}, timeout={4}, receive_progress={5}, caller={6}, caller_authid={7}, caller_authrole={8}, procedure={9}, enc_algo={10}, enc_key={11}, enc_serializer={12}, payload={13})".format(self.request, self.registration, self.args, self.kwargs, self.timeout, self.receive_progress, self.caller, self.caller_authid, self.caller_authrole, self.procedure, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload))
 
 
 class Interrupt(Message):
@@ -5646,12 +5709,6 @@ class Interrupt(Message):
             options['forward_for'] = self.forward_for
 
         return [Interrupt.MESSAGE_TYPE, self.request, options]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Interrupt(request={0}, mode={1}, reason={2})".format(self.request, self.mode, self.reason)
 
 
 class Yield(Message):
@@ -5941,9 +5998,3 @@ class Yield(Message):
                 return [Yield.MESSAGE_TYPE, self.request, options, self.args]
             else:
                 return [Yield.MESSAGE_TYPE, self.request, options]
-
-    def __str__(self):
-        """
-        Returns string representation of this message.
-        """
-        return "Yield(request={0}, args={1}, kwargs={2}, progress={3}, enc_algo={4}, enc_key={5}, enc_serializer={6}, payload={7}, callee={8}, callee_authid={9}, callee_authrole={10}, forward_for={11})".format(self.request, self.args, self.kwargs, self.progress, self.enc_algo, self.enc_key, self.enc_serializer, b2a(self.payload), self.callee, self.callee_authid, self.callee_authrole, self.forward_for)

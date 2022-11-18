@@ -3,17 +3,23 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class CalleeFeatures(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsCalleeFeatures(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = CalleeFeatures()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsCalleeFeatures(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # CalleeFeatures
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -89,14 +95,38 @@ class CalleeFeatures(object):
         return False
 
 def CalleeFeaturesStart(builder): builder.StartObject(10)
+def Start(builder):
+    return CalleeFeaturesStart(builder)
 def CalleeFeaturesAddCallerIdentification(builder, callerIdentification): builder.PrependBoolSlot(0, callerIdentification, 0)
+def AddCallerIdentification(builder, callerIdentification):
+    return CalleeFeaturesAddCallerIdentification(builder, callerIdentification)
 def CalleeFeaturesAddCallTrustlevels(builder, callTrustlevels): builder.PrependBoolSlot(1, callTrustlevels, 0)
+def AddCallTrustlevels(builder, callTrustlevels):
+    return CalleeFeaturesAddCallTrustlevels(builder, callTrustlevels)
 def CalleeFeaturesAddCallTimeout(builder, callTimeout): builder.PrependBoolSlot(2, callTimeout, 0)
+def AddCallTimeout(builder, callTimeout):
+    return CalleeFeaturesAddCallTimeout(builder, callTimeout)
 def CalleeFeaturesAddCallCanceling(builder, callCanceling): builder.PrependBoolSlot(3, callCanceling, 0)
+def AddCallCanceling(builder, callCanceling):
+    return CalleeFeaturesAddCallCanceling(builder, callCanceling)
 def CalleeFeaturesAddProgressiveCallResults(builder, progressiveCallResults): builder.PrependBoolSlot(4, progressiveCallResults, 0)
+def AddProgressiveCallResults(builder, progressiveCallResults):
+    return CalleeFeaturesAddProgressiveCallResults(builder, progressiveCallResults)
 def CalleeFeaturesAddRegistrationRevocation(builder, registrationRevocation): builder.PrependBoolSlot(5, registrationRevocation, 0)
+def AddRegistrationRevocation(builder, registrationRevocation):
+    return CalleeFeaturesAddRegistrationRevocation(builder, registrationRevocation)
 def CalleeFeaturesAddPatternBasedRegistration(builder, patternBasedRegistration): builder.PrependBoolSlot(6, patternBasedRegistration, 0)
+def AddPatternBasedRegistration(builder, patternBasedRegistration):
+    return CalleeFeaturesAddPatternBasedRegistration(builder, patternBasedRegistration)
 def CalleeFeaturesAddSharedRegistration(builder, sharedRegistration): builder.PrependBoolSlot(7, sharedRegistration, 0)
+def AddSharedRegistration(builder, sharedRegistration):
+    return CalleeFeaturesAddSharedRegistration(builder, sharedRegistration)
 def CalleeFeaturesAddPayloadTransparency(builder, payloadTransparency): builder.PrependBoolSlot(8, payloadTransparency, 0)
+def AddPayloadTransparency(builder, payloadTransparency):
+    return CalleeFeaturesAddPayloadTransparency(builder, payloadTransparency)
 def CalleeFeaturesAddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox): builder.PrependBoolSlot(9, payloadEncryptionCryptobox, 0)
+def AddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox):
+    return CalleeFeaturesAddPayloadEncryptionCryptobox(builder, payloadEncryptionCryptobox)
 def CalleeFeaturesEnd(builder): return builder.EndObject()
+def End(builder):
+    return CalleeFeaturesEnd(builder)

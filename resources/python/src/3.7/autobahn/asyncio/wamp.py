@@ -43,6 +43,8 @@ from autobahn.asyncio.rawsocket import WampRawSocketClientFactory
 from autobahn.websocket.compress import PerMessageDeflateOffer, \
     PerMessageDeflateResponse, PerMessageDeflateResponseAccept
 
+from autobahn.wamp.interfaces import ITransportHandler, ISession
+
 __all__ = (
     'ApplicationSession',
     'ApplicationSessionFactory',
@@ -64,12 +66,18 @@ class ApplicationSession(protocol.ApplicationSession):
     log = txaio.make_logger()
 
 
+ITransportHandler.register(ApplicationSession)
+
+# ISession.register collides with the abc.ABCMeta.register method
+ISession.abc_register(ApplicationSession)
+
+
 class ApplicationSessionFactory(protocol.ApplicationSessionFactory):
     """
     WAMP application session factory for asyncio-based applications.
     """
 
-    session = ApplicationSession
+    session: ApplicationSession = ApplicationSession
     """
     The application session class this application session factory will use.
     Defaults to :class:`autobahn.asyncio.wamp.ApplicationSession`.
@@ -220,7 +228,7 @@ class ApplicationRunner(object):
                                                  tcpNoDelay=True,
                                                  autoPingInterval=10.,
                                                  autoPingTimeout=5.,
-                                                 autoPingSize=4,
+                                                 autoPingSize=12,
                                                  perMessageCompressionOffers=offers,
                                                  perMessageCompressionAccept=accept)
         # SSL context for client connection
@@ -241,7 +249,11 @@ class ApplicationRunner(object):
             loop = asyncio.get_event_loop()
             if hasattr(transport_factory, 'loop'):
                 transport_factory.loop = loop
-        txaio.use_asyncio()
+
+        # assure we are using asyncio
+        # txaio.use_asyncio()
+        assert txaio._explicit_framework == 'asyncio'
+
         txaio.config.loop = loop
         coro = loop.create_connection(transport_factory, host, port, ssl=ssl)
 
@@ -276,6 +288,7 @@ class ApplicationRunner(object):
             loop.close()
 
 
+# new API
 class Session(protocol._SessionShim):
     # XXX these methods are redundant, but put here for possibly
     # better clarity; maybe a bad idea.

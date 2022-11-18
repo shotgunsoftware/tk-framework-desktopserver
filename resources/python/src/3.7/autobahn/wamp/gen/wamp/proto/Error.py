@@ -3,17 +3,23 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class Error(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsError(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = Error()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsError(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # Error
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -62,6 +68,11 @@ class Error(object):
         return 0
 
     # Error
+    def PayloadIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        return o == 0
+
+    # Error
     def EncAlgo(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
@@ -97,14 +108,41 @@ class Error(object):
             return self._tab.VectorLen(o)
         return 0
 
+    # Error
+    def EncKeyIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        return o == 0
+
 def ErrorStart(builder): builder.StartObject(7)
+def Start(builder):
+    return ErrorStart(builder)
 def ErrorAddRequestType(builder, requestType): builder.PrependUint16Slot(0, requestType, 0)
+def AddRequestType(builder, requestType):
+    return ErrorAddRequestType(builder, requestType)
 def ErrorAddRequest(builder, request): builder.PrependUint64Slot(1, request, 0)
+def AddRequest(builder, request):
+    return ErrorAddRequest(builder, request)
 def ErrorAddError(builder, error): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(error), 0)
+def AddError(builder, error):
+    return ErrorAddError(builder, error)
 def ErrorAddPayload(builder, payload): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(payload), 0)
+def AddPayload(builder, payload):
+    return ErrorAddPayload(builder, payload)
 def ErrorStartPayloadVector(builder, numElems): return builder.StartVector(1, numElems, 1)
+def StartPayloadVector(builder, numElems):
+    return ErrorStartPayloadVector(builder, numElems)
 def ErrorAddEncAlgo(builder, encAlgo): builder.PrependUint8Slot(4, encAlgo, 0)
+def AddEncAlgo(builder, encAlgo):
+    return ErrorAddEncAlgo(builder, encAlgo)
 def ErrorAddEncSerializer(builder, encSerializer): builder.PrependUint8Slot(5, encSerializer, 0)
+def AddEncSerializer(builder, encSerializer):
+    return ErrorAddEncSerializer(builder, encSerializer)
 def ErrorAddEncKey(builder, encKey): builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(encKey), 0)
+def AddEncKey(builder, encKey):
+    return ErrorAddEncKey(builder, encKey)
 def ErrorStartEncKeyVector(builder, numElems): return builder.StartVector(1, numElems, 1)
+def StartEncKeyVector(builder, numElems):
+    return ErrorStartEncKeyVector(builder, numElems)
 def ErrorEnd(builder): return builder.EndObject()
+def End(builder):
+    return ErrorEnd(builder)
