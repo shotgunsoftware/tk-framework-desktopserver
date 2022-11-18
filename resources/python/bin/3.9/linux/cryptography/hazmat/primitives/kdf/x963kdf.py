@@ -3,7 +3,6 @@
 # for complete details.
 
 
-import struct
 import typing
 
 from cryptography import utils
@@ -15,8 +14,8 @@ from cryptography.hazmat.primitives import constant_time, hashes
 from cryptography.hazmat.primitives.kdf import KeyDerivationFunction
 
 
-def _int_to_u32be(n):
-    return struct.pack(">I", n)
+def _int_to_u32be(n: int) -> bytes:
+    return n.to_bytes(length=4, byteorder="big")
 
 
 class X963KDF(KeyDerivationFunction):
@@ -27,7 +26,7 @@ class X963KDF(KeyDerivationFunction):
         sharedinfo: typing.Optional[bytes],
         backend: typing.Any = None,
     ):
-        max_len = algorithm.digest_size * (2 ** 32 - 1)
+        max_len = algorithm.digest_size * (2**32 - 1)
         if length > max_len:
             raise ValueError(
                 "Cannot derive keys larger than {} bits.".format(max_len)
