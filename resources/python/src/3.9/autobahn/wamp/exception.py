@@ -32,11 +32,14 @@ __all__ = (
     'Error',
     'SessionNotReady',
     'SerializationError',
+    'InvalidUriError',
     'ProtocolError',
     'TransportLost',
     'ApplicationError',
     'NotAuthorized',
     'InvalidUri',
+    'InvalidPayload',
+    'TypeCheckError',
 )
 
 

@@ -28,15 +28,15 @@ import asyncio
 from asyncio import iscoroutine
 from asyncio import Future
 from collections import deque
+from typing import Optional
 
 import txaio
-txaio.use_asyncio()
+txaio.use_asyncio()  # noqa
 
-from autobahn.util import public
-from autobahn.asyncio.util import transport_channel_id, peer2str
+from autobahn.util import public, hltype
+from autobahn.asyncio.util import create_transport_details, transport_channel_id
 from autobahn.wamp import websocket
 from autobahn.websocket import protocol
-from autobahn.websocket.types import TransportDetails
 
 __all__ = (
     'WebSocketServerProtocol',
@@ -63,21 +63,27 @@ class WebSocketAdapterProtocol(asyncio.Protocol):
     """
     Adapter class for asyncio-based WebSocket client and server protocols.
     """
+    log = txaio.make_logger()
 
-    peer = None
-    peer_transport = None
+    peer: Optional[str] = None
+    is_server: Optional[bool] = None
 
     def connection_made(self, transport):
+        # asyncio networking framework entry point, called by asyncio
+        # when the connection is established (either a client or a server)
+        self.log.debug('{func}(transport={transport})', func=hltype(self.connection_made),
+                       transport=transport)
+
         self.transport = transport
+
+        # determine preliminary transport details (what is know at this point)
+        self._transport_details = create_transport_details(self.transport, self.is_server)
+
+        # backward compatibility
+        self.peer = self._transport_details.peer
+
         self.receive_queue = deque()
         self._consume()
-
-        # the peer we are connected to
-        try:
-            self.peer = peer2str(transport.get_extra_info('peername'))
-        except:
-            self.peer = 'process:{}'.format(self.transport.pid)
-        self.peer_transport = 'websocket'
 
         self._connectionMade()
 
@@ -113,6 +119,14 @@ class WebSocketAdapterProtocol(asyncio.Protocol):
             self.transport.close()
 
     def _onOpen(self):
+        if self._transport_details.is_secure:
+            # now that the TLS opening handshake is complete, the actual TLS channel ID
+            # will be available. make sure to set it!
+            channel_id = {
+                'tls-unique': transport_channel_id(self.transport, self._transport_details.is_server, 'tls-unique'),
+            }
+            self._transport_details.channel_id = channel_id
+
         res = self.onOpen()
         if yields(res):
             asyncio.ensure_future(res)
@@ -191,12 +205,6 @@ class WebSocketServerProtocol(WebSocketAdapterProtocol, protocol.WebSocketServer
 
     log = txaio.make_logger()
 
-    def get_channel_id(self, channel_id_type=None):
-        """
-        Implements :func:`autobahn.wamp.interfaces.ITransport.get_channel_id`
-        """
-        return transport_channel_id(self.transport, True, channel_id_type)
-
 
 @public
 class WebSocketClientProtocol(WebSocketAdapterProtocol, protocol.WebSocketClientProtocol):
@@ -212,31 +220,12 @@ class WebSocketClientProtocol(WebSocketAdapterProtocol, protocol.WebSocketClient
 
     def _onConnect(self, response):
         res = self.onConnect(response)
+        self.log.debug('{func}: {res}', func=hltype(self._onConnect), res=res)
         if yields(res):
             asyncio.ensure_future(res)
 
     def startTLS(self):
         raise Exception("WSS over explicit proxies not implemented")
-
-    def get_channel_id(self, channel_id_type=None):
-        """
-        Implements :func:`autobahn.wamp.interfaces.ITransport.get_channel_id`
-        """
-        return transport_channel_id(self.transport, False, channel_id_type)
-
-    def _create_transport_details(self):
-        """
-        Internal helper.
-        Base class calls this to create a TransportDetails
-        """
-        is_secure = self.transport.get_extra_info('peercert', None) is not None
-        if is_secure:
-            secure_channel_id = {
-                'tls-unique': transport_channel_id(self.transport, False, 'tls-unique'),
-            }
-        else:
-            secure_channel_id = {}
-        return TransportDetails(peer=self.peer, is_secure=is_secure, secure_channel_id=secure_channel_id)
 
 
 class WebSocketAdapterFactory(object):
@@ -260,6 +249,8 @@ class WebSocketServerFactory(WebSocketAdapterFactory, protocol.WebSocketServerFa
 
     * :class:`autobahn.websocket.interfaces.IWebSocketServerChannelFactory`
     """
+
+    log = txaio.make_logger()
 
     protocol = WebSocketServerProtocol
 
@@ -287,6 +278,8 @@ class WebSocketClientFactory(WebSocketAdapterFactory, protocol.WebSocketClientFa
     * :class:`autobahn.websocket.interfaces.IWebSocketClientChannelFactory`
     """
 
+    log = txaio.make_logger()
+
     def __init__(self, *args, **kwargs):
         """
 
@@ -312,12 +305,16 @@ class WampWebSocketServerProtocol(websocket.WampWebSocketServerProtocol, WebSock
     * :class:`autobahn.wamp.interfaces.ITransport`
     """
 
+    log = txaio.make_logger()
+
 
 @public
 class WampWebSocketServerFactory(websocket.WampWebSocketServerFactory, WebSocketServerFactory):
     """
     asyncio-based WAMP-over-WebSocket server factory.
     """
+
+    log = txaio.make_logger()
 
     protocol = WampWebSocketServerProtocol
 
@@ -354,12 +351,16 @@ class WampWebSocketClientProtocol(websocket.WampWebSocketClientProtocol, WebSock
     * :class:`autobahn.wamp.interfaces.ITransport`
     """
 
+    log = txaio.make_logger()
+
 
 @public
 class WampWebSocketClientFactory(websocket.WampWebSocketClientFactory, WebSocketClientFactory):
     """
     asyncio-based WAMP-over-WebSocket client factory.
     """
+
+    log = txaio.make_logger()
 
     protocol = WampWebSocketClientProtocol
 

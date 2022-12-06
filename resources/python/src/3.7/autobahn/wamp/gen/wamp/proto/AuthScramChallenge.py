@@ -3,17 +3,23 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class AuthScramChallenge(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsAuthScramChallenge(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = AuthScramChallenge()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsAuthScramChallenge(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # AuthScramChallenge
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -61,10 +67,26 @@ class AuthScramChallenge(object):
         return 0
 
 def AuthScramChallengeStart(builder): builder.StartObject(6)
+def Start(builder):
+    return AuthScramChallengeStart(builder)
 def AuthScramChallengeAddNonce(builder, nonce): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(nonce), 0)
+def AddNonce(builder, nonce):
+    return AuthScramChallengeAddNonce(builder, nonce)
 def AuthScramChallengeAddSalt(builder, salt): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(salt), 0)
+def AddSalt(builder, salt):
+    return AuthScramChallengeAddSalt(builder, salt)
 def AuthScramChallengeAddKdf(builder, kdf): builder.PrependUint8Slot(2, kdf, 2)
+def AddKdf(builder, kdf):
+    return AuthScramChallengeAddKdf(builder, kdf)
 def AuthScramChallengeAddIterations(builder, iterations): builder.PrependUint32Slot(3, iterations, 0)
+def AddIterations(builder, iterations):
+    return AuthScramChallengeAddIterations(builder, iterations)
 def AuthScramChallengeAddMemory(builder, memory): builder.PrependUint32Slot(4, memory, 0)
+def AddMemory(builder, memory):
+    return AuthScramChallengeAddMemory(builder, memory)
 def AuthScramChallengeAddChannelBinding(builder, channelBinding): builder.PrependUint8Slot(5, channelBinding, 0)
+def AddChannelBinding(builder, channelBinding):
+    return AuthScramChallengeAddChannelBinding(builder, channelBinding)
 def AuthScramChallengeEnd(builder): return builder.EndObject()
+def End(builder):
+    return AuthScramChallengeEnd(builder)

@@ -24,13 +24,19 @@
 #
 ###############################################################################
 
+import os
 import binascii
+from binascii import a2b_hex, b2a_hex
 import struct
+from typing import Callable, Optional, Union, Dict, Any
 
 import txaio
 
 from autobahn import util
+from autobahn.wamp.interfaces import ISecurityModule, ICryptosignKey
 from autobahn.wamp.types import Challenge
+from autobahn.wamp.message import _URI_PAT_REALM_NAME_ETH
+from autobahn.util import parse_keyfile
 
 __all__ = [
     'HAS_CRYPTOSIGN',
@@ -39,11 +45,12 @@ __all__ = [
 try:
     # try to import everything we need for WAMP-cryptosign
     from nacl import encoding, signing, bindings
+    from nacl.signing import SignedMessage
 except ImportError:
     HAS_CRYPTOSIGN = False
 else:
     HAS_CRYPTOSIGN = True
-    __all__.append('SigningKey')
+    __all__.append('CryptosignKey')
 
 
 def _unpack(keydata):
@@ -140,8 +147,9 @@ class _SSHPacketReader:
         return self.get_bytes(self.get_uint32())
 
 
-def _makepad(size):
-    return ''.join(chr(x) for x in range(1, size + 1))
+def _makepad(size: int) -> bytes:
+    assert 0 <= size < 255
+    return b''.join(x.to_bytes(1, byteorder='big') for x in range(1, size + 1))
 
 
 def _read_ssh_ed25519_privkey(keydata):
@@ -291,24 +299,26 @@ def _qrcode_from_signify_ed25519_pubkey(pubkey_file, mode='text'):
     """
     assert(mode in ['text', 'svg'])
 
-    import pyqrcode
+    import qrcode
 
     with open(pubkey_file) as f:
         pubkey = f.read().splitlines()[1]
 
-        qr = pyqrcode.create(pubkey, error='L', mode='binary')
+        qr = qrcode.QRCode(box_size=3,
+                           error_correction=qrcode.ERROR_CORRECT_L)
+        qr.add_data(pubkey)
 
         if mode == 'text':
-            return qr.terminal()
-
-        elif mode == 'svg':
             import io
-            data_buffer = io.BytesIO()
 
-            qr.svg(data_buffer, omithw=True)
+            with io.StringIO() as data_buffer:
+                qr.print_ascii(out=data_buffer, invert=True)
+                return data_buffer.getvalue()
+        elif mode == 'svg':
+            import qrcode.image.svg
 
-            return data_buffer.getvalue()
-
+            image = qr.make_image(image_factory=qrcode.image.svg.SvgImage)
+            return image.to_string()
         else:
             raise Exception('logic error')
 
@@ -342,7 +352,7 @@ def _verify_signify_ed25519_signature(pubkey_file, signature_file, message):
     verify_key.verify(message, sig)
 
 
-# SigningKey from
+# CryptosignKey from
 #   - raw byte string or file with raw bytes
 #   - SSH private key string or key file
 #   - SSH agent proxy
@@ -353,55 +363,164 @@ def _verify_signify_ed25519_signature(pubkey_file, signature_file, message):
 
 if HAS_CRYPTOSIGN:
 
-    @util.public
-    class SigningKey(object):
+    def _format_challenge(challenge: Challenge, channel_id_raw: Optional[bytes], channel_id_type: Optional[str]) -> bytes:
+        """
+        Format the challenge based on provided parameters
+
+        :param challenge: The WAMP-cryptosign challenge object for which a signature should be computed.
+        :param channel_id_raw: The channel ID when channel_id_type is 'tls-unique'.
+        :param channel_id_type: The type of the channel id, currently handles 'tls-unique' and
+            ignores otherwise.
+        """
+        if not isinstance(challenge, Challenge):
+            raise Exception(
+                "challenge must be instance of autobahn.wamp.types.Challenge, not {}".format(type(challenge)))
+
+        if 'challenge' not in challenge.extra:
+            raise Exception("missing challenge value in challenge.extra")
+
+        # the challenge sent by the router (a 32 bytes random value)
+        challenge_hex = challenge.extra['challenge']
+
+        if type(challenge_hex) != str:
+            raise Exception("invalid type {} for challenge (expected a hex string)".format(type(challenge_hex)))
+
+        if len(challenge_hex) != 64:
+            raise Exception("unexpected challenge (hex) length: was {}, but expected 64".format(len(challenge_hex)))
+
+        # the challenge for WAMP-cryptosign is a 32 bytes random value in Hex encoding (that is, a unicode string)
+        challenge_raw = binascii.a2b_hex(challenge_hex)
+
+        if channel_id_type == 'tls-unique':
+            assert len(
+                channel_id_raw) == 32, 'unexpected TLS transport channel ID length (was {}, but expected 32)'.format(
+                len(channel_id_raw))
+
+            # with TLS channel binding of type "tls-unique", the message to be signed by the client actually
+            # is the XOR of the challenge and the TLS channel ID
+            data = util.xor(challenge_raw, channel_id_raw)
+        elif channel_id_type is None:
+            # when no channel binding was requested, the message to be signed by the client is the challenge only
+            data = challenge_raw
+        else:
+            assert False, 'invalid channel_id_type "{}"'.format(channel_id_type)
+
+        return data
+
+    def _sign_challenge(data: bytes, signer_func: Callable) -> bytes:
+        """
+        Sign the provided data using the provided signer.
+
+        :param data: challenge to sign
+        :param signer_func: The callable function to use for signing
+        :returns: A Deferred/Future that resolves to the computed signature.
+        :rtype: str
+        """
+        # a raw byte string is signed, and the signature is also a raw byte string
+        d1 = signer_func(data)
+
+        # asyncio lacks callback chaining (and we cannot use co-routines, since we want
+        # to support older Pythons), hence we need d2
+        d2 = txaio.create_future()
+
+        def process(signature_raw):
+            # convert the raw signature into a hex encode value (unicode string)
+            signature_hex = binascii.b2a_hex(signature_raw).decode('ascii')
+
+            # we return the concatenation of the signature and the message signed (96 bytes)
+            data_hex = binascii.b2a_hex(data).decode('ascii')
+
+            sig = signature_hex + data_hex
+            txaio.resolve(d2, sig)
+
+        txaio.add_callbacks(d1, process, None)
+
+        return d2
+
+    class CryptosignKey(object):
         """
         A cryptosign private key for signing, and hence usable for authentication or a
         public key usable for verification (but can't be used for signing).
         """
 
-        def __init__(self, key, comment=None):
-            """
-
-            :param key: A Ed25519 private signing key or a Ed25519 public verification key.
-            :type key: instance of nacl.signing.VerifyKey or instance of nacl.signing.SigningKey
-            """
+        def __init__(self, key, can_sign: bool, security_module: Optional[ISecurityModule] = None,
+                     key_no: Optional[int] = None, comment: Optional[str] = None) -> None:
             if not (isinstance(key, signing.VerifyKey) or isinstance(key, signing.SigningKey)):
                 raise Exception("invalid type {} for key".format(type(key)))
 
-            if not (comment is None or type(comment) == str):
-                raise Exception("invalid type {} for comment".format(type(comment)))
-
+            assert (can_sign and isinstance(key, signing.SigningKey)) or (not can_sign and isinstance(key, signing.VerifyKey))
             self._key = key
+            self._can_sign = can_sign
+            self._security_module = security_module
+            self._key_no = key_no
             self._comment = comment
-            self._can_sign = isinstance(key, signing.SigningKey)
 
-        def __str__(self):
-            comment = '"{}"'.format(self.comment()) if self.comment() else None
-            return 'Key(can_sign={}, comment={}, public_key={})'.format(self.can_sign(), comment, self.public_key())
-
-        @util.public
-        def can_sign(self):
+        @property
+        def security_module(self) -> Optional['ISecurityModule']:
             """
-            Check if the key can be used to sign.
-
-            :returns: `True`, iff the key can sign.
-            :rtype: bool
+            Implements :meth:`autobahn.wamp.interfaces.IKey.security_module`.
             """
-            return self._can_sign
+            return self._security_module
 
-        @util.public
-        def comment(self):
+        @property
+        def key_no(self) -> Optional[int]:
             """
-            Get the key comment (if any).
+            Implements :meth:`autobahn.wamp.interfaces.IKey.key_no`.
+            """
+            return self._key_no
 
-            :returns: The comment (if any) from the key.
-            :rtype: str or None
+        @property
+        def comment(self) -> Optional[str]:
+            """
+            Implements :meth:`autobahn.wamp.interfaces.IKey.comment`.
             """
             return self._comment
 
-        @util.public
-        def public_key(self, binary=False):
+        @property
+        def key_type(self) -> str:
+            """
+            Implements :meth:`autobahn.wamp.interfaces.IKey.key_type`.
+            """
+            return 'cryptosign'
+
+        @property
+        def can_sign(self) -> bool:
+            """
+            Implements :meth:`autobahn.wamp.interfaces.IKey.can_sign`.
+            """
+            return self._can_sign
+
+        def sign(self, data: bytes) -> bytes:
+            """
+            Implements :meth:`autobahn.wamp.interfaces.IKey.sign`.
+            """
+            if not self._can_sign:
+                raise Exception("a signing key required to sign")
+
+            if type(data) != bytes:
+                raise Exception("data to be signed must be binary")
+
+            sig: SignedMessage = self._key.sign(data)
+
+            # we only return the actual signature! if we return "sig",
+            # it gets coerced into the concatenation of message + signature
+            # not sure which order, but we don't want that. we only want
+            # the signature
+            return txaio.create_future_success(sig.signature)
+
+        def sign_challenge(self, challenge: Challenge, channel_id: Optional[bytes] = None,
+                           channel_id_type: Optional[str] = None) -> bytes:
+            """
+            Implements :meth:`autobahn.wamp.interfaces.ICryptosignKey.sign_challenge`.
+            """
+            assert challenge.method in ['cryptosign', 'cryptosign-proxy'], \
+                'unexpected cryptosign challenge with method "{}"'.format(challenge.method)
+
+            data = _format_challenge(challenge, channel_id, channel_id_type)
+
+            return _sign_challenge(data, self.sign)
+
+        def public_key(self, binary: bool = False) -> Union[str, bytes]:
             """
             Returns the public key part of a signing key or the (public) verification key.
 
@@ -418,116 +537,34 @@ if HAS_CRYPTOSIGN:
             else:
                 return key.encode(encoder=encoding.HexEncoder).decode('ascii')
 
-        @util.public
-        def sign(self, data):
-            """
-            Sign some data.
-
-            :param data: The data to be signed.
-            :type data: bytes
-
-            :returns: The signature.
-            :rtype: bytes
-            """
-            if not self._can_sign:
-                raise Exception("a signing key required to sign")
-
-            if type(data) != bytes:
-                raise Exception("data to be signed must be binary")
-
-            # sig is a nacl.signing.SignedMessage
-            sig = self._key.sign(data)
-
-            # we only return the actual signature! if we return "sig",
-            # it get coerced into the concatenation of message + signature
-            # not sure which order, but we don't want that. we only want
-            # the signature
-            return txaio.create_future_success(sig.signature)
-
-        @util.public
-        def sign_challenge(self, session, challenge, channel_id_type='tls-unique'):
-            """
-            Sign WAMP-cryptosign challenge.
-
-            :param session: The authenticating WAMP session.
-            :type session: :class:`autobahn.wamp.protocol.ApplicationSession`
-
-            :param challenge: The WAMP-cryptosign challenge object for which a signature should be computed.
-            :type challenge: instance of autobahn.wamp.types.Challenge
-
-            :returns: A Deferred/Future that resolves to the computed signature.
-            :rtype: str
-            """
-            if not isinstance(challenge, Challenge):
-                raise Exception("challenge must be instance of autobahn.wamp.types.Challenge, not {}".format(type(challenge)))
-
-            if 'challenge' not in challenge.extra:
-                raise Exception("missing challenge value in challenge.extra")
-
-            # the challenge sent by the router (a 32 bytes random value)
-            challenge_hex = challenge.extra['challenge']
-
-            if type(challenge_hex) != str:
-                raise Exception("invalid type {} for challenge (expected a hex string)".format(type(challenge_hex)))
-
-            if len(challenge_hex) != 64:
-                raise Exception("unexpected challenge (hex) length: was {}, but expected 64".format(len(challenge_hex)))
-
-            # the challenge for WAMP-cryptosign is a 32 bytes random value in Hex encoding (that is, a unicode string)
-            challenge_raw = binascii.a2b_hex(challenge_hex)
-
-            if channel_id_type == 'tls-unique':
-                # get the TLS channel ID of the underlying TLS connection
-                channel_id_raw = session._transport.get_channel_id()
-                assert len(channel_id_raw) == 32, 'unexpected TLS transport channel ID length (was {}, but expected 32)'.format(len(channel_id_raw))
-
-                # with TLS channel binding of type "tls-unique", the message to be signed by the client actually
-                # is the XOR of the challenge and the TLS channel ID
-                data = util.xor(challenge_raw, channel_id_raw)
-            elif channel_id_type is None:
-                # when no channel binding was requested, the message to be signed by the client is the challenge only
-                data = challenge_raw
-            else:
-                assert False, 'invalid channel_id_type "{}"'.format(channel_id_type)
-
-            # a raw byte string is signed, and the signature is also a raw byte string
-            d1 = self.sign(data)
-
-            # asyncio lacks callback chaining (and we cannot use co-routines, since we want
-            # to support older Pythons), hence we need d2
-            d2 = txaio.create_future()
-
-            def process(signature_raw):
-                # convert the raw signature into a hex encode value (unicode string)
-                signature_hex = binascii.b2a_hex(signature_raw).decode('ascii')
-
-                # we return the concatenation of the signature and the message signed (96 bytes)
-                data_hex = binascii.b2a_hex(data).decode('ascii')
-
-                sig = signature_hex + data_hex
-                txaio.resolve(d2, sig)
-
-            txaio.add_callbacks(d1, process, None)
-
-            return d2
-
-        @util.public
         @classmethod
-        def from_key_bytes(cls, keydata, comment=None):
+        def from_pubkey(cls, pubkey: bytes, comment: Optional[str] = None) -> 'CryptosignKey':
             if not (comment is None or type(comment) == str):
                 raise ValueError("invalid type {} for comment".format(type(comment)))
 
-            if type(keydata) != bytes:
-                raise ValueError("invalid key type {} (expected binary)".format(type(keydata)))
+            if type(pubkey) != bytes:
+                raise ValueError("invalid key type {} (expected binary)".format(type(pubkey)))
 
-            if len(keydata) != 32:
-                raise ValueError("invalid key length {} (expected 32)".format(len(keydata)))
+            if len(pubkey) != 32:
+                raise ValueError("invalid key length {} (expected 32)".format(len(pubkey)))
 
-            key = signing.SigningKey(keydata)
-            return cls(key, comment)
+            return cls(key=signing.VerifyKey(pubkey), can_sign=False, comment=comment)
 
         @classmethod
-        def from_raw_key(cls, filename, comment=None):
+        def from_bytes(cls, key: bytes, comment: Optional[str] = None) -> 'CryptosignKey':
+            if not (comment is None or type(comment) == str):
+                raise ValueError("invalid type {} for comment".format(type(comment)))
+
+            if type(key) != bytes:
+                raise ValueError("invalid key type {} (expected binary)".format(type(key)))
+
+            if len(key) != 32:
+                raise ValueError("invalid key length {} (expected 32)".format(len(key)))
+
+            return cls(key=signing.SigningKey(key), can_sign=True, comment=comment)
+
+        @classmethod
+        def from_file(cls, filename: str, comment: Optional[str] = None) -> 'CryptosignKey':
             """
             Load an Ed25519 (private) signing key (actually, the seed for the key) from a raw file of 32 bytes length.
             This can be any random byte sequence, such as generated from Python code like
@@ -539,10 +576,8 @@ if HAS_CRYPTOSIGN:
                 dd if=/dev/urandom of=client02.key bs=1 count=32
 
             :param filename: Filename of the key.
-            :type filename: str
             :param comment: Comment for key (optional).
-            :type comment: str or None
-            """
+           """
             if not (comment is None or type(comment) == str):
                 raise Exception("invalid type {} for comment".format(type(comment)))
 
@@ -550,13 +585,12 @@ if HAS_CRYPTOSIGN:
                 raise Exception("invalid type {} for filename".format(filename))
 
             with open(filename, 'rb') as f:
-                keydata = f.read()
+                key_data = f.read()
 
-            return cls.from_key_bytes(keydata, comment=comment)
+            return cls.from_bytes(key_data, comment=comment)
 
-        @util.public
         @classmethod
-        def from_ssh_key(cls, filename):
+        def from_ssh_file(cls, filename: str) -> 'CryptosignKey':
             """
             Load an Ed25519 key from a SSH key file. The key file can be a (private) signing
             key (from a SSH private key file) or a (public) verification key (from a SSH
@@ -564,49 +598,425 @@ if HAS_CRYPTOSIGN:
             """
 
             with open(filename, 'rb') as f:
-                keydata = f.read().decode('utf-8').strip()
-            return cls.from_ssh_data(keydata)
+                key_data = f.read().decode('utf-8').strip()
+            return cls.from_ssh_bytes(key_data)
 
-        @util.public
         @classmethod
-        def from_ssh_data(cls, keydata):
+        def from_ssh_bytes(cls, key_data: str) -> 'CryptosignKey':
             """
             Load an Ed25519 key from SSH key file. The key file can be a (private) signing
             key (from a SSH private key file) or a (public) verification key (from a SSH
             public key file). A private key file must be passphrase-less.
             """
             SSH_BEGIN = '-----BEGIN OPENSSH PRIVATE KEY-----'
-            if keydata.startswith(SSH_BEGIN):
+            if key_data.startswith(SSH_BEGIN):
                 # OpenSSH private key
-                keydata, comment = _read_ssh_ed25519_privkey(keydata)
-                key = signing.SigningKey(keydata, encoder=encoding.RawEncoder)
+                key_data, comment = _read_ssh_ed25519_privkey(key_data)
+                key = signing.SigningKey(key_data, encoder=encoding.RawEncoder)
+                can_sign = True
             else:
                 # OpenSSH public key
-                keydata, comment = _read_ssh_ed25519_pubkey(keydata)
-                key = signing.VerifyKey(keydata)
+                key_data, comment = _read_ssh_ed25519_pubkey(key_data)
+                key = signing.VerifyKey(key_data)
+                can_sign = False
 
-            return cls(key, comment)
+            return cls(key=key, can_sign=can_sign, comment=comment)
 
-if __name__ == '__main__':
-    import sys
-    if not HAS_CRYPTOSIGN:
-        print('NaCl library must be installed for this to function.', file=sys.stderr)
-        sys.exit(1)
+        @classmethod
+        def from_seedphrase(cls, seedphrase: str, index: int = 0) -> 'CryptosignKey':
+            """
+            Create a private key from the given BIP-39 mnemonic seed phrase and index,
+            which can be used to sign and create signatures.
 
-    from optparse import OptionParser
+            :param seedphrase: The BIP-39 seedphrase ("Mnemonic") from which to derive the account.
+            :param index: The account index in account hierarchy defined by the seedphrase.
+            :return: New instance of :class:`EthereumKey`
+            """
+            try:
+                from autobahn.xbr._mnemonic import mnemonic_to_private_key
+            except ImportError as e:
+                raise RuntimeError('package autobahn[xbr] not installed ("{}")'.format(e))
 
-    parser = OptionParser()
-    parser.add_option('-f', '--file', dest='keyfile',
-                      help='file containing ssh key')
-    parser.add_option('-p', action='store_true', dest='printpub', default=False,
-                      help='print public key information')
+            # BIP44 path for WAMP
+            # https://github.com/wamp-proto/wamp-proto/issues/401
+            # https://github.com/satoshilabs/slips/pull/1322
+            derivation_path = "m/44'/655'/0'/0/{}".format(index)
 
-    options, args = parser.parse_args()
+            key_raw = mnemonic_to_private_key(seedphrase, derivation_path)
+            assert type(key_raw) == bytes
+            assert len(key_raw) == 32
 
-    if not options.printpub:
-        print("Print public key must be specified as it's the only option.")
-        parser.print_usage()
-        sys.exit(1)
+            # create WAMP-Cryptosign key object from raw bytes
+            key = cls.from_bytes(key_raw)
 
-    key = SigningKey.from_ssh_key(options.keyfile)
-    print(key.public_key())
+            return key
+
+        @classmethod
+        def from_keyfile(cls, keyfile: str) -> 'CryptosignKey':
+            """
+            Create a public or private key from reading the given public or private key file.
+
+            Here is an example key file that includes an CryptosignKey private key ``private-key-ed25519``, which
+            is loaded in this function, and other fields, which are ignored by this function:
+
+            .. code-block::
+
+                This is a comment (all lines until the first empty line are comments indeed).
+
+                creator: oberstet@intel-nuci7
+                created-at: 2022-07-05T12:29:48.832Z
+                user-id: oberstet@intel-nuci7
+                public-key-ed25519: 7326d9dc0307681cc6940fde0e60eb31a6e4d642a81e55c434462ce31f95deed
+                public-adr-eth: 0x10848feBdf7f200Ba989CDf7E3eEB3EC03ae7768
+                private-key-ed25519: f750f42b0430e28a2e272c3cedcae4dcc4a1cf33bc345c35099d3322626ab666
+                private-key-eth: 4d787714dcb0ae52e1c5d2144648c255d660b9a55eac9deeb80d9f506f501025
+
+            :param keyfile: Path (relative or absolute) to a public or private keys file.
+            :return: New instance of :class:`CryptosignKey`
+            """
+            if not os.path.exists(keyfile) or not os.path.isfile(keyfile):
+                raise RuntimeError('keyfile "{}" is not a file'.format(keyfile))
+
+            # now load the private or public key file - this returns a dict which should
+            # include (for a private key):
+            #
+            #   private-key-ed25519: 20e8c05d0ede9506462bb049c4843032b18e8e75b314583d0c8d8a4942f9be40
+            #
+            # or (for a public key only):
+            #
+            #   public-key-ed25519: 7326d9dc0307681cc6940fde0e60eb31a6e4d642a81e55c434462ce31f95deed
+            #
+            data = parse_keyfile(keyfile)
+
+            privkey_ed25519_hex = data.get('private-key-ed25519', None)
+            if privkey_ed25519_hex is None:
+                pubkey_ed25519_hex = data.get('public-key-ed25519', None)
+                if pubkey_ed25519_hex is None:
+                    raise RuntimeError('neither "private-key-ed25519" nor "public-key-ed25519" found in keyfile {}'.format(keyfile))
+                else:
+                    return CryptosignKey.from_pubkey(binascii.a2b_hex(pubkey_ed25519_hex))
+            else:
+                return CryptosignKey.from_bytes(binascii.a2b_hex(privkey_ed25519_hex))
+
+    ICryptosignKey.register(CryptosignKey)
+
+    class CryptosignAuthextra(object):
+        """
+        WAMP-Cryptosign authextra object.
+        """
+        __slots__ = [
+            '_pubkey',
+            '_trustroot',
+            '_challenge',
+            '_channel_binding',
+            '_channel_id',
+            '_realm',
+            '_chain_id',
+            '_block_no',
+            '_delegate',
+            '_seeder',
+            '_bandwidth',
+            '_signature',
+        ]
+
+        def __init__(self,
+                     pubkey: Optional[bytes] = None,
+                     challenge: Optional[bytes] = None,
+                     channel_binding: Optional[str] = None,
+                     channel_id: Optional[bytes] = None,
+
+                     # domain address, certificates are verified against owner of the domain
+                     trustroot: Optional[bytes] = None,
+
+                     # FIXME: add delegate address
+                     # FIXME: add certificates
+                     # FIXME: remove reservation
+                     realm: Optional[bytes] = None,
+                     chain_id: Optional[int] = None,
+                     block_no: Optional[int] = None,
+                     delegate: Optional[bytes] = None,
+                     seeder: Optional[bytes] = None,
+                     bandwidth: Optional[int] = None,
+
+                     signature: Optional[bytes] = None,
+                     ):
+            if pubkey:
+                assert len(pubkey) == 32
+            if trustroot:
+                assert len(trustroot) == 20
+            if challenge:
+                assert len(challenge) == 32
+            if channel_binding:
+                assert channel_binding in ['tls-unique']
+            if channel_id:
+                assert len(channel_id) == 32
+            if realm:
+                assert len(realm) == 20
+            if delegate:
+                assert len(delegate) == 20
+            if seeder:
+                assert len(seeder) == 20
+            if signature:
+                assert len(signature) == 65
+            self._pubkey = pubkey
+            self._trustroot = trustroot
+            self._challenge = challenge
+            self._channel_binding = channel_binding
+            self._channel_id = channel_id
+            self._realm = realm
+            self._chain_id = chain_id
+            self._block_no = block_no
+            self._delegate = delegate
+            self._seeder = seeder
+            self._bandwidth = bandwidth
+            self._signature = signature
+
+        @property
+        def pubkey(self) -> Optional[bytes]:
+            return self._pubkey
+
+        @pubkey.setter
+        def pubkey(self, value: Optional[bytes]):
+            assert value is None or len(value) == 20
+            self._pubkey = value
+
+        @property
+        def trustroot(self) -> Optional[bytes]:
+            return self._trustroot
+
+        @trustroot.setter
+        def trustroot(self, value: Optional[bytes]):
+            assert value is None or len(value) == 20
+            self._trustroot = value
+
+        @property
+        def challenge(self) -> Optional[bytes]:
+            return self._challenge
+
+        @challenge.setter
+        def challenge(self, value: Optional[bytes]):
+            assert value is None or len(value) == 32
+            self._challenge = value
+
+        @property
+        def channel_binding(self) -> Optional[str]:
+            return self._channel_binding
+
+        @channel_binding.setter
+        def channel_binding(self, value: Optional[str]):
+            assert value is None or value in ['tls-unique']
+            self._channel_binding = value
+
+        @property
+        def channel_id(self) -> Optional[bytes]:
+            return self._channel_id
+
+        @channel_id.setter
+        def channel_id(self, value: Optional[bytes]):
+            assert value is None or len(value) == 32
+            self._channel_id = value
+
+        @property
+        def realm(self) -> Optional[bytes]:
+            return self._realm
+
+        @realm.setter
+        def realm(self, value: Optional[bytes]):
+            assert value is None or len(value) == 20
+            self._realm = value
+
+        @property
+        def chain_id(self) -> Optional[int]:
+            return self._chain_id
+
+        @chain_id.setter
+        def chain_id(self, value: Optional[int]):
+            assert value is None or value > 0
+            self._chain_id = value
+
+        @property
+        def block_no(self) -> Optional[int]:
+            return self._block_no
+
+        @block_no.setter
+        def block_no(self, value: Optional[int]):
+            assert value is None or value > 0
+            self._block_no = value
+
+        @property
+        def delegate(self) -> Optional[bytes]:
+            return self._delegate
+
+        @delegate.setter
+        def delegate(self, value: Optional[bytes]):
+            assert value is None or len(value) == 20
+            self._delegate = value
+
+        @property
+        def seeder(self) -> Optional[bytes]:
+            return self._seeder
+
+        @seeder.setter
+        def seeder(self, value: Optional[bytes]):
+            assert value is None or len(value) == 20
+            self._seeder = value
+
+        @property
+        def bandwidth(self) -> Optional[int]:
+            return self._bandwidth
+
+        @bandwidth.setter
+        def bandwidth(self, value: Optional[int]):
+            assert value is None or value > 0
+            self._bandwidth = value
+
+        @property
+        def signature(self) -> Optional[bytes]:
+            return self._signature
+
+        @signature.setter
+        def signature(self, value: Optional[bytes]):
+            assert value is None or len(value) == 65
+            self._signature = value
+
+        @staticmethod
+        def parse(data: Dict[str, Any]) -> 'CryptosignAuthextra':
+            obj = CryptosignAuthextra()
+
+            pubkey = data.get('pubkey', None)
+            if pubkey is not None:
+                if type(pubkey) != str:
+                    raise ValueError('invalid type {} for pubkey'.format(type(pubkey)))
+                if len(pubkey) != 32 * 2:
+                    raise ValueError('invalid length {} of pubkey'.format(len(pubkey)))
+                obj._pubkey = a2b_hex(pubkey)
+
+            challenge = data.get('challenge', None)
+            if challenge is not None:
+                if type(challenge) != str:
+                    raise ValueError('invalid type {} for challenge'.format(type(challenge)))
+                if len(challenge) != 32 * 2:
+                    raise ValueError('invalid length {} of challenge'.format(len(challenge)))
+                obj._challenge = a2b_hex(challenge)
+
+            channel_binding = data.get('channel_binding', None)
+            if channel_binding is not None:
+                if type(channel_binding) != str:
+                    raise ValueError('invalid type {} for channel_binding'.format(type(channel_binding)))
+                if channel_binding not in ['tls-unique']:
+                    raise ValueError('invalid value "{}" for channel_binding'.format(channel_binding))
+                obj._channel_binding = channel_binding
+
+            channel_id = data.get('channel_id', None)
+            if channel_id is not None:
+                if type(channel_id) != str:
+                    raise ValueError('invalid type {} for channel_id'.format(type(channel_id)))
+                if len(channel_id) != 32 * 2:
+                    raise ValueError('invalid length {} of channel_id'.format(len(channel_id)))
+                obj._channel_id = a2b_hex(channel_id)
+
+            trustroot = data.get('trustroot', None)
+            if trustroot is not None:
+                if type(trustroot) != str:
+                    raise ValueError('invalid type {} for trustroot - expected a string'.format(type(trustroot)))
+                if not _URI_PAT_REALM_NAME_ETH.match(trustroot):
+                    raise ValueError('invalid value "{}" for trustroot - expected an Ethereum address'.format(type(trustroot)))
+                obj._trustroot = a2b_hex(trustroot[2:])
+
+            reservation = data.get('reservation', None)
+            if reservation is not None:
+                if type(reservation) != dict:
+                    raise ValueError('invalid type {} for reservation'.format(type(reservation)))
+
+                chain_id = reservation.get('chain_id', None)
+                if chain_id is not None:
+                    if type(chain_id) != int:
+                        raise ValueError('invalid type {} for reservation.chain_id - expected an integer'.format(type(chain_id)))
+                    obj._chain_id = chain_id
+
+                block_no = reservation.get('block_no', None)
+                if block_no is not None:
+                    if type(block_no) != int:
+                        raise ValueError('invalid type {} for reservation.block_no - expected an integer'.format(type(block_no)))
+                    obj._block_no = block_no
+
+                realm = reservation.get('realm', None)
+                if realm is not None:
+                    if type(realm) != str:
+                        raise ValueError('invalid type {} for reservation.realm - expected a string'.format(type(realm)))
+                    if not _URI_PAT_REALM_NAME_ETH.match(realm):
+                        raise ValueError('invalid value "{}" for reservation.realm - expected an Ethereum address'.format(type(realm)))
+                    obj._realm = a2b_hex(realm[2:])
+
+                delegate = reservation.get('delegate', None)
+                if delegate is not None:
+                    if type(delegate) != str:
+                        raise ValueError('invalid type {} for reservation.delegate - expected a string'.format(type(delegate)))
+                    if not _URI_PAT_REALM_NAME_ETH.match(delegate):
+                        raise ValueError('invalid value "{}" for reservation.delegate - expected an Ethereum address'.format(type(delegate)))
+                    obj._delegate = a2b_hex(delegate[2:])
+
+                seeder = reservation.get('seeder', None)
+                if seeder is not None:
+                    if type(seeder) != str:
+                        raise ValueError('invalid type {} for reservation.seeder - expected a string'.format(type(seeder)))
+                    if not _URI_PAT_REALM_NAME_ETH.match(seeder):
+                        raise ValueError('invalid value "{}" for reservation.seeder - expected an Ethereum address'.format(type(seeder)))
+                    obj._seeder = a2b_hex(seeder[2:])
+
+                bandwidth = reservation.get('bandwidth', None)
+                if bandwidth is not None:
+                    if type(bandwidth) != int:
+                        raise ValueError('invalid type {} for reservation.bandwidth - expected an integer'.format(type(bandwidth)))
+                    obj._bandwidth = bandwidth
+
+            signature = data.get('signature', None)
+            if signature is not None:
+                if type(signature) != str:
+                    raise ValueError('invalid type {} for signature'.format(type(signature)))
+                if len(signature) != 65 * 2:
+                    raise ValueError('invalid length {} of signature'.format(len(signature)))
+                obj._signature = a2b_hex(signature)
+
+            return obj
+
+        def marshal(self) -> Dict[str, Any]:
+            res = {}
+
+            # FIXME: marshal check-summed eth addresses
+
+            if self._pubkey is not None:
+                res['pubkey'] = b2a_hex(self._pubkey).decode()
+
+            if self._challenge is not None:
+                res['challenge'] = b2a_hex(self._challenge).decode()
+            if self._channel_binding is not None:
+                res['channel_binding'] = self._channel_binding
+            if self._channel_id is not None:
+                res['channel_id'] = b2a_hex(self._channel_id).decode()
+
+            if self._trustroot is not None:
+                res['trustroot'] = '0x' + b2a_hex(self._trustroot).decode()
+
+            reservation = {}
+            if self._chain_id is not None:
+                reservation['chain_id'] = self._chain_id
+            if self._block_no is not None:
+                reservation['block_no'] = self._block_no
+            if self._realm is not None:
+                reservation['realm'] = '0x' + b2a_hex(self._realm).decode()
+            if self._delegate is not None:
+                reservation['delegate'] = '0x' + b2a_hex(self._delegate).decode()
+            if self._seeder is not None:
+                reservation['seeder'] = '0x' + b2a_hex(self._seeder).decode()
+            if self._bandwidth is not None:
+                reservation['bandwidth'] = self._bandwidth
+            if reservation:
+                res['reservation'] = reservation
+
+            if self._signature is not None:
+                res['signature'] = b2a_hex(self._signature).decode()
+
+            return res
+
+    __all__.extend(['CryptosignKey', 'format_challenge', 'sign_challenge', 'CryptosignAuthextra'])

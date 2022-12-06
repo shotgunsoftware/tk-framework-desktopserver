@@ -3,17 +3,23 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class AuthScramRequest(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsAuthScramRequest(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = AuthScramRequest()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsAuthScramRequest(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # AuthScramRequest
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -33,6 +39,14 @@ class AuthScramRequest(object):
         return 0
 
 def AuthScramRequestStart(builder): builder.StartObject(2)
+def Start(builder):
+    return AuthScramRequestStart(builder)
 def AuthScramRequestAddNonce(builder, nonce): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(nonce), 0)
+def AddNonce(builder, nonce):
+    return AuthScramRequestAddNonce(builder, nonce)
 def AuthScramRequestAddChannelBinding(builder, channelBinding): builder.PrependUint8Slot(1, channelBinding, 0)
+def AddChannelBinding(builder, channelBinding):
+    return AuthScramRequestAddChannelBinding(builder, channelBinding)
 def AuthScramRequestEnd(builder): return builder.EndObject()
+def End(builder):
+    return AuthScramRequestEnd(builder)

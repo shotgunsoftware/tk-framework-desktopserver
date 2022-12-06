@@ -26,6 +26,8 @@
 
 import copy
 import math
+from typing import Optional
+
 import txaio
 
 from twisted.internet.protocol import Factory
@@ -33,9 +35,9 @@ from twisted.protocols.basic import Int32StringReceiver
 from twisted.internet.error import ConnectionDone
 from twisted.internet.defer import CancelledError
 
-from autobahn.util import public
-from autobahn.twisted.util import peer2str, transport_channel_id
-from autobahn.util import _LazyHexFormatter
+from autobahn.util import public, _LazyHexFormatter
+from autobahn.twisted.util import create_transport_details, transport_channel_id
+from autobahn.wamp.types import TransportDetails
 from autobahn.wamp.exception import ProtocolError, SerializationError, TransportLost, InvalidUriError
 from autobahn.exception import PayloadExceededError
 
@@ -53,12 +55,20 @@ class WampRawSocketProtocol(Int32StringReceiver):
     """
     log = txaio.make_logger()
 
-    peer = None
-    peer_transport = None
+    peer: Optional[str] = None
+    is_server: Optional[bool] = None
 
     def __init__(self):
         # set the RawSocket maximum message size by default
         self._max_message_size = 2**24
+        self._transport_details = None
+
+    @property
+    def transport_details(self) -> Optional[TransportDetails]:
+        """
+        Implements :func:`autobahn.wamp.interfaces.ITransport.transport_details`
+        """
+        return self._transport_details
 
     def lengthLimitExceeded(self, length):
         # override hook in Int32StringReceiver base class that is fired when a message is (to be) received
@@ -67,16 +77,15 @@ class WampRawSocketProtocol(Int32StringReceiver):
         raise PayloadExceededError(emsg)
 
     def connectionMade(self):
-        self.log.debug('{klass}.connectionMade()', klass=self.__class__.__name__)
+        # Twisted networking framework entry point, called by Twisted
+        # when the connection is established (either a client or a server)
 
-        # the peer we are connected to
-        #
-        try:
-            self.peer = peer2str(self.transport.getPeer())
-        except AttributeError:
-            # ProcessProtocols lack getPeer()
-            self.peer = 'process:{}'.format(self.transport.pid)
-        self.peer_transport = 'rawsocket'
+        # determine preliminary transport details (what is know at this point)
+        self._transport_details = create_transport_details(self.transport, self.is_server)
+        self._transport_details.channel_framing = TransportDetails.CHANNEL_FRAMING_RAWSOCKET
+
+        # backward compatibility
+        self.peer = self._transport_details.peer
 
         # a Future/Deferred that fires when we hit STATE_CLOSED
         self.is_closed = txaio.create_future()
@@ -104,7 +113,17 @@ class WampRawSocketProtocol(Int32StringReceiver):
         self._max_len_send = None
 
     def _on_handshake_complete(self):
+        # RawSocket connection established. Now let the user WAMP session factory
+        # create a new WAMP session and fire off session open callback.
         try:
+            if self._transport_details.is_secure:
+                # now that the TLS opening handshake is complete, the actual TLS channel ID
+                # will be available. make sure to set it!
+                channel_id = {
+                    'tls-unique': transport_channel_id(self.transport, self._transport_details.is_server, 'tls-unique'),
+                }
+                self._transport_details.channel_id = channel_id
+
             self._session = self.factory._factory()
             self.log.debug('{klass}._on_handshake_complete(): calling {method}', session=self._session,
                            klass=self.__class__.__name__, method=self._session.onOpen)
@@ -325,12 +344,6 @@ class WampRawSocketServerProtocol(WampRawSocketProtocol):
             if data:
                 self.dataReceived(data)
 
-    def get_channel_id(self, channel_id_type=None):
-        """
-        Implements :func:`autobahn.wamp.interfaces.ITransport.get_channel_id`
-        """
-        return transport_channel_id(self.transport, is_server=True, channel_id_type=channel_id_type)
-
 
 @public
 class WampRawSocketClientProtocol(WampRawSocketProtocol):
@@ -416,12 +429,6 @@ class WampRawSocketClientProtocol(WampRawSocketProtocol):
             data = data[remaining:]
             if data:
                 self.dataReceived(data)
-
-    def get_channel_id(self, channel_id_type=None):
-        """
-        Implements :func:`autobahn.wamp.interfaces.ITransport.get_channel_id`
-        """
-        return transport_channel_id(self.transport, is_server=False, channel_id_type=channel_id_type)
 
 
 class WampRawSocketFactory(Factory):
@@ -552,6 +559,9 @@ class WampRawSocketClientFactory(WampRawSocketFactory):
         :type serializer: object implementing :class:`autobahn.wamp.interfaces.ISerializer`
         """
         WampRawSocketFactory.__init__(self, factory)
+
+        # Reduce the factory logs noise
+        self.noisy = False
 
         if serializer is None:
 

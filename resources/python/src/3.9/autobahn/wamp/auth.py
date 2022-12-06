@@ -85,8 +85,10 @@ def create_authenticator(name, **kwargs):
         klass = {
             AuthScram.name: AuthScram,
             AuthCryptoSign.name: AuthCryptoSign,
+            AuthCryptoSignProxy.name: AuthCryptoSignProxy,
             AuthWampCra.name: AuthWampCra,
             AuthAnonymous.name: AuthAnonymous,
+            AuthAnonymousProxy.name: AuthAnonymousProxy,
             AuthTicket.name: AuthTicket,
         }[name]
     except KeyError:
@@ -119,6 +121,13 @@ class AuthAnonymous(object):
 
 
 IAuthenticator.register(AuthAnonymous)
+
+
+class AuthAnonymousProxy(AuthAnonymous):
+    name = 'anonymous-proxy'
+
+
+IAuthenticator.register(AuthAnonymousProxy)
 
 
 class AuthTicket(object):
@@ -164,8 +173,8 @@ class AuthCryptoSign(object):
                     "Must provide '{}' for cryptosign".format(key)
                 )
 
-        from autobahn.wamp.cryptosign import SigningKey
-        self._privkey = SigningKey.from_key_bytes(
+        from autobahn.wamp.cryptosign import CryptosignKey
+        self._privkey = CryptosignKey.from_bytes(
             binascii.a2b_hex(kw['privkey'])
         )
 
@@ -178,6 +187,8 @@ class AuthCryptoSign(object):
         else:
             kw['authextra'] = kw.get('authextra', dict())
             kw['authextra']['pubkey'] = self._privkey.public_key()
+
+        self._channel_binding = kw.get('authextra', dict()).get('channel_binding', None)
         self._args = kw
 
     @property
@@ -185,13 +196,23 @@ class AuthCryptoSign(object):
         return self._args.get('authextra', dict())
 
     def on_challenge(self, session, challenge):
-        return self._privkey.sign_challenge(session, challenge)
+        channel_id = session._transport.transport_details.channel_id.get(self._channel_binding, None)
+        return self._privkey.sign_challenge(challenge,
+                                            channel_id=channel_id,
+                                            channel_id_type=self._channel_binding)
 
     def on_welcome(self, msg, authextra):
         return None
 
 
 IAuthenticator.register(AuthCryptoSign)
+
+
+class AuthCryptoSignProxy(AuthCryptoSign):
+    name = 'cryptosign-proxy'
+
+
+IAuthenticator.register(AuthCryptoSignProxy)
 
 
 def _hash_argon2id13_secret(password, salt, iterations, memory):
@@ -458,17 +479,15 @@ def qrcode_from_totp(secret, label, issuer):
         raise Exception('label must be of type unicode, not {}'.format(type(label)))
 
     try:
-        import pyqrcode
+        import qrcode
+        import qrcode.image.svg
     except ImportError:
-        raise Exception('pyqrcode not installed')
+        raise Exception('qrcode not installed')
 
-    import io
-    buffer = io.BytesIO()
-
-    data = pyqrcode.create('otpauth://totp/{}?secret={}&issuer={}'.format(label, secret, issuer))
-    data.svg(buffer, omithw=True)
-
-    return buffer.getvalue()
+    return qrcode.make(
+        'otpauth://totp/{}?secret={}&issuer={}'.format(label, secret, issuer),
+        box_size=3,
+        image_factory=qrcode.image.svg.SvgImage).to_string()
 
 
 @public

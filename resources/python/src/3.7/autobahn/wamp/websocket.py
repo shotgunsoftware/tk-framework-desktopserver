@@ -27,9 +27,13 @@
 import copy
 import traceback
 
+from typing import Optional, Dict, Tuple
+
+from autobahn.util import hlval
 from autobahn.websocket import protocol
-from autobahn.websocket.types import ConnectionDeny
-from autobahn.wamp.interfaces import ITransport
+from autobahn.websocket.types import ConnectionDeny, ConnectionRequest, ConnectionResponse
+from autobahn.wamp.types import TransportDetails
+from autobahn.wamp.interfaces import ITransport, ISession
 from autobahn.wamp.exception import ProtocolError, SerializationError, TransportLost
 
 __all__ = ('WampWebSocketServerProtocol',
@@ -43,10 +47,12 @@ class WampWebSocketProtocol(object):
     Base class for WAMP-over-WebSocket transport mixins.
     """
 
-    _session = None  # default; self.session is set in onOpen
+    _session: Optional[ISession] = None  # default; self.session is set in onOpen
+    _transport_details: Optional[TransportDetails] = None
 
-    def _bailout(self, code, reason=None):
-        self.log.debug('Failing WAMP-over-WebSocket transport: code={code}, reason="{reason}"', code=code, reason=reason)
+    def _bailout(self, code: int, reason: Optional[str] = None):
+        self.log.debug('Failing WAMP-over-WebSocket transport: code={code}, reason="{reason}"', code=code,
+                       reason=reason)
         self._fail_connection(code, reason)
 
     def onOpen(self):
@@ -57,13 +63,15 @@ class WampWebSocketProtocol(object):
         # create a new WAMP session and fire off session open callback.
         try:
             self._session = self.factory._factory()
+            self._session._transport = self
+
             self._session.onOpen(self)
         except Exception as e:
             self.log.critical("{tb}", tb=traceback.format_exc())
             reason = 'WAMP Internal Error ({0})'.format(e)
             self._bailout(protocol.WebSocketProtocol.CLOSE_STATUS_CODE_INTERNAL_ERROR, reason=reason)
 
-    def onClose(self, wasClean, code, reason):
+    def onClose(self, wasClean: bool, code: int, reason: Optional[str]):
         """
         Callback from :func:`autobahn.websocket.interfaces.IWebSocketChannel.onClose`
         """
@@ -74,24 +82,27 @@ class WampWebSocketProtocol(object):
             # session close callback
             # noinspection PyBroadException
             try:
-                self.log.debug('WAMP-over-WebSocket transport lost: wasClean={wasClean}, code={code}, reason="{reason}"', wasClean=wasClean, code=code, reason=reason)
+                self.log.debug(
+                    'WAMP-over-WebSocket transport lost: wasClean={wasClean}, code={code}, reason="{reason}"',
+                    wasClean=wasClean, code=code, reason=reason)
                 self._session.onClose(wasClean)
             except Exception:
                 self.log.critical("{tb}", tb=traceback.format_exc())
             self._session = None
 
-    def onMessage(self, payload, isBinary):
+    def onMessage(self, payload: bytes, isBinary: bool):
         """
         Callback from :func:`autobahn.websocket.interfaces.IWebSocketChannel.onMessage`
         """
         try:
             for msg in self._serializer.unserialize(payload, isBinary):
-                self.log.trace(
-                    "WAMP RECV: message={message}, session={session}, authid={authid}",
-                    authid=self._session._authid,
-                    session=self._session._session_id,
-                    message=msg,
-                )
+                self.log.trace('\n{action1}{session}, {authid}{action2}\n  {message}\n{action3}',
+                               action1=hlval('WAMP-Receive(', color='green', bold=True),
+                               authid=hlval(self._session._authid, color='green', bold=False) if self._session._authid else '-',
+                               session=hlval(self._session._session_id, color='green', bold=False) if self._session._session_id else '-',
+                               action2=hlval(') <<', color='green', bold=True),
+                               action3=hlval('<<', color='green', bold=True),
+                               message=msg)
                 self._session.onMessage(msg)
 
         except ProtocolError as e:
@@ -110,12 +121,13 @@ class WampWebSocketProtocol(object):
         """
         if self.isOpen():
             try:
-                self.log.trace(
-                    "WAMP SEND: message={message}, session={session}, authid={authid}",
-                    authid=self._session._authid,
-                    session=self._session._session_id,
-                    message=msg,
-                )
+                self.log.trace('\n{action1}{session}, {authid}{action2}\n  {message}\n{action3}',
+                               action1=hlval('WAMP-Transmit(', color='red', bold=True),
+                               authid=hlval(self._session._authid, color='red', bold=False) if self._session._authid else '-',
+                               session=hlval(self._session._session_id, color='red', bold=False) if self._session._session_id else '-',
+                               action2=hlval(') >>', color='red', bold=True),
+                               action3=hlval('>>', color='red', bold=True),
+                               message=msg)
                 payload, isBinary = self._serializer.serialize(msg)
             except Exception as e:
                 self.log.error("WAMP message serialization error: {}".format(e))
@@ -131,6 +143,13 @@ class WampWebSocketProtocol(object):
         Implements :func:`autobahn.wamp.interfaces.ITransport.isOpen`
         """
         return self._session is not None
+
+    @property
+    def transport_details(self) -> Optional[TransportDetails]:
+        """
+        Implements :func:`autobahn.wamp.interfaces.ITransport.transport_details`
+        """
+        return self._transport_details
 
     def close(self):
         """
@@ -154,14 +173,14 @@ class WampWebSocketProtocol(object):
 ITransport.register(WampWebSocketProtocol)
 
 
-def parseSubprotocolIdentifier(subprotocol):
+def parseSubprotocolIdentifier(subprotocol: str) -> Tuple[Optional[int], Optional[str]]:
     try:
         s = subprotocol.split('.')
         if s[0] != 'wamp':
             raise Exception('WAMP WebSocket subprotocol identifier must start with "wamp", not "{}"'.format(s[0]))
         version = int(s[1])
-        serializerId = '.'.join(s[2:])
-        return version, serializerId
+        serializer_id = '.'.join(s[2:])
+        return version, serializer_id
     except:
         return None, None
 
@@ -173,7 +192,7 @@ class WampWebSocketServerProtocol(WampWebSocketProtocol):
 
     STRICT_PROTOCOL_NEGOTIATION = True
 
-    def onConnect(self, request):
+    def onConnect(self, request: ConnectionRequest) -> Tuple[Optional[str], Dict[str, str]]:
         """
         Callback from :func:`autobahn.websocket.interfaces.IWebSocketChannel.onConnect`
         """
@@ -181,16 +200,16 @@ class WampWebSocketServerProtocol(WampWebSocketProtocol):
         for subprotocol in request.protocols:
             version, serializerId = parseSubprotocolIdentifier(subprotocol)
             if version == 2 and serializerId in self.factory._serializers.keys():
-
                 # copy over serializer form factory, so that we keep per-session serializer stats
                 self._serializer = copy.copy(self.factory._serializers[serializerId])
 
                 return subprotocol, headers
 
         if self.STRICT_PROTOCOL_NEGOTIATION:
-            raise ConnectionDeny(ConnectionDeny.BAD_REQUEST, 'This server only speaks WebSocket subprotocols {}'.format(', '.join(self.factory.protocols)))
+            raise ConnectionDeny(ConnectionDeny.BAD_REQUEST, 'This server only speaks WebSocket subprotocols {}'.format(
+                ', '.join(self.factory.protocols)))
         else:
-            # assume wamp.2.json
+            # assume wamp.2.json (but do not announce/select it)
             self._serializer = copy.copy(self.factory._serializers['json'])
             return None, headers
 
@@ -202,21 +221,22 @@ class WampWebSocketClientProtocol(WampWebSocketProtocol):
 
     STRICT_PROTOCOL_NEGOTIATION = True
 
-    def onConnect(self, response):
+    def onConnect(self, response: ConnectionResponse):
         """
         Callback from :func:`autobahn.websocket.interfaces.IWebSocketChannel.onConnect`
         """
         if response.protocol not in self.factory.protocols:
             if self.STRICT_PROTOCOL_NEGOTIATION:
-                raise Exception('The server does not speak any of the WebSocket subprotocols {} we requested.'.format(', '.join(self.factory.protocols)))
+                raise Exception('The server does not speak any of the WebSocket subprotocols {} we requested.'.format(
+                    ', '.join(self.factory.protocols)))
             else:
                 # assume wamp.2.json
-                serializerId = 'json'
+                serializer_id = 'json'
         else:
-            version, serializerId = parseSubprotocolIdentifier(response.protocol)
+            version, serializer_id = parseSubprotocolIdentifier(response.protocol)
 
         # copy over serializer form factory, so that we keep per-session serializer stats
-        self._serializer = copy.copy(self.factory._serializers[serializerId])
+        self._serializer = copy.copy(self.factory._serializers[serializer_id])
 
 
 class WampWebSocketFactory(object):

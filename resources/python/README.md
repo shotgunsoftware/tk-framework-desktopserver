@@ -6,16 +6,16 @@ This framework manages the integration between SG Desktop and SG Web
 Officially Supported Python Versions:
 - Mac 
   - 2.7.18
-  - 3.7.12
-  - 3.9.10
+  - 3.7.15
+  - 3.9.15
 - Windows 
   - 2.7.18
   - 3.7.9
-  - 3.9.10
+  - 3.9.13
 - Linux: 
   - 2.7.18
-  - 3.7.12
-  - 3.9.10
+  - 3.7.15
+  - 3.9.15
 
 ## How to update dependencies
 
@@ -27,9 +27,9 @@ Officially Supported Python Versions:
 ### Create virtualenvs
 
 For Windows 10, Centos 7 and Mac, create 3 virtualenvs:
-- tk-framework-desktopserver-2-7-18 with python version 2.7.18
-- tk-framework-desktopserver-3-7-12 with python version 3.7.12 (could be different version in windows)
-- tk-framework-desktopserver-3-9-10 with python version 3.9.10 (could be different version in windows)
+- tk-framework-desktopserver-27 with python version 2.7
+- tk-framework-desktopserver-37 with python version 3.7
+- tk-framework-desktopserver-39 with python version 3.9
 
 We highly recommend use [pyenv](https://github.com/pyenv/pyenv).
 
@@ -42,17 +42,17 @@ Example for Mac and Linux:
 ```shell
 pyenv install 2.7.18
 $HOME/.pyenv/versions/2.7.18/bin/python -m pip install -U pip virtualenv
-$HOME/.pyenv/versions/2.7.18/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-2-7-18 
+$HOME/.pyenv/versions/2.7.18/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-27 
 ```
 
 ```shell
-pyenv install 3.7.12
+pyenv install 3.7.15
 $HOME/.pyenv/versions/3.7.12/bin/python -m pip install -U pip virtualenv
-$HOME/.pyenv/versions/3.7.12/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-3-7-12 
+$HOME/.pyenv/versions/3.7.12/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-37 
 ```
 
 ```shell
-pyenv install 3.9.10
+pyenv install 3.9.15
 $HOME/.pyenv/versions/3.9.10/bin/python -m pip install -U pip virtualenv
 $HOME/.pyenv/versions/3.9.10/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-3-9-10 
 ```
@@ -102,7 +102,7 @@ bash install_source_only.sh
 
 ### Install binary in Windows 10
 
-- In Windows inside a powershell as admin, execute the script `install_binary_windows.bat` with every virtualenv:
+- In Windows inside a powershell as admin, execute the script `install_binary_windows.ps1` with every virtualenv:
 
 ```shell
 cd resources/python

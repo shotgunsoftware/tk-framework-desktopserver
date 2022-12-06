@@ -8,6 +8,6 @@
 # By accessing, using, copying or modifying this work you indicate your
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
-cffi==1.15.0
-cryptography==36.0.1
-zope.interface==5.4.0
+cffi==1.15.1
+cryptography==38.0.3
+zope.interface==5.5.2

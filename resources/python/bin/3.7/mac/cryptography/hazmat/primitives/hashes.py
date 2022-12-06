@@ -8,11 +8,7 @@ import typing
 from cryptography import utils
 from cryptography.exceptions import (
     AlreadyFinalized,
-    UnsupportedAlgorithm,
-    _Reasons,
 )
-from cryptography.hazmat.backends import _get_backend
-from cryptography.hazmat.backends.interfaces import HashBackend
 
 
 class HashAlgorithm(metaclass=abc.ABCMeta):
@@ -69,26 +65,30 @@ class ExtendableOutputFunction(metaclass=abc.ABCMeta):
 
 
 class Hash(HashContext):
-    def __init__(self, algorithm: HashAlgorithm, backend=None, ctx=None):
-        backend = _get_backend(backend)
-        if not isinstance(backend, HashBackend):
-            raise UnsupportedAlgorithm(
-                "Backend object does not implement HashBackend.",
-                _Reasons.BACKEND_MISSING_INTERFACE,
-            )
+    _ctx: typing.Optional[HashContext]
 
+    def __init__(
+        self,
+        algorithm: HashAlgorithm,
+        backend: typing.Any = None,
+        ctx: typing.Optional["HashContext"] = None,
+    ):
         if not isinstance(algorithm, HashAlgorithm):
             raise TypeError("Expected instance of hashes.HashAlgorithm.")
         self._algorithm = algorithm
 
-        self._backend = backend
-
         if ctx is None:
-            self._ctx = self._backend.create_hash_ctx(self.algorithm)
+            from cryptography.hazmat.backends.openssl.backend import (
+                backend as ossl,
+            )
+
+            self._ctx = ossl.create_hash_ctx(self.algorithm)
         else:
             self._ctx = ctx
 
-    algorithm = utils.read_only_property("_algorithm")
+    @property
+    def algorithm(self) -> HashAlgorithm:
+        return self._algorithm
 
     def update(self, data: bytes) -> None:
         if self._ctx is None:
@@ -99,9 +99,7 @@ class Hash(HashContext):
     def copy(self) -> "Hash":
         if self._ctx is None:
             raise AlreadyFinalized("Context was already finalized.")
-        return Hash(
-            self.algorithm, backend=self._backend, ctx=self._ctx.copy()
-        )
+        return Hash(self.algorithm, ctx=self._ctx.copy())
 
     def finalize(self) -> bytes:
         if self._ctx is None:
@@ -190,7 +188,9 @@ class SHAKE128(HashAlgorithm, ExtendableOutputFunction):
 
         self._digest_size = digest_size
 
-    digest_size = utils.read_only_property("_digest_size")
+    @property
+    def digest_size(self) -> int:
+        return self._digest_size
 
 
 class SHAKE256(HashAlgorithm, ExtendableOutputFunction):
@@ -206,7 +206,9 @@ class SHAKE256(HashAlgorithm, ExtendableOutputFunction):
 
         self._digest_size = digest_size
 
-    digest_size = utils.read_only_property("_digest_size")
+    @property
+    def digest_size(self) -> int:
+        return self._digest_size
 
 
 class MD5(HashAlgorithm):
@@ -228,7 +230,9 @@ class BLAKE2b(HashAlgorithm):
 
         self._digest_size = digest_size
 
-    digest_size = utils.read_only_property("_digest_size")
+    @property
+    def digest_size(self) -> int:
+        return self._digest_size
 
 
 class BLAKE2s(HashAlgorithm):
@@ -244,4 +248,12 @@ class BLAKE2s(HashAlgorithm):
 
         self._digest_size = digest_size
 
-    digest_size = utils.read_only_property("_digest_size")
+    @property
+    def digest_size(self) -> int:
+        return self._digest_size
+
+
+class SM3(HashAlgorithm):
+    name = "sm3"
+    digest_size = 32
+    block_size = 64

@@ -3,17 +3,23 @@
 # namespace: proto
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class Goodbye(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsGoodbye(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = Goodbye()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsGoodbye(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     # Goodbye
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -40,7 +46,17 @@ class Goodbye(object):
         return False
 
 def GoodbyeStart(builder): builder.StartObject(3)
+def Start(builder):
+    return GoodbyeStart(builder)
 def GoodbyeAddReason(builder, reason): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(reason), 0)
+def AddReason(builder, reason):
+    return GoodbyeAddReason(builder, reason)
 def GoodbyeAddMessage(builder, message): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(message), 0)
+def AddMessage(builder, message):
+    return GoodbyeAddMessage(builder, message)
 def GoodbyeAddResumable(builder, resumable): builder.PrependBoolSlot(2, resumable, 0)
+def AddResumable(builder, resumable):
+    return GoodbyeAddResumable(builder, resumable)
 def GoodbyeEnd(builder): return builder.EndObject()
+def End(builder):
+    return GoodbyeEnd(builder)

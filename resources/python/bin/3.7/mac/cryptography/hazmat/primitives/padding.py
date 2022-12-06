@@ -8,7 +8,10 @@ import typing
 
 from cryptography import utils
 from cryptography.exceptions import AlreadyFinalized
-from cryptography.hazmat.bindings._padding import lib
+from cryptography.hazmat.bindings._rust import (
+    check_ansix923_padding,
+    check_pkcs7_padding,
+)
 
 
 class PaddingContext(metaclass=abc.ABCMeta):
@@ -84,7 +87,7 @@ def _byte_unpadding_update(
 def _byte_unpadding_check(
     buffer_: typing.Optional[bytes],
     block_size: int,
-    checkfn: typing.Callable[[bytes, int], int],
+    checkfn: typing.Callable[[bytes], int],
 ) -> bytes:
     if buffer_ is None:
         raise AlreadyFinalized("Context was already finalized.")
@@ -92,7 +95,7 @@ def _byte_unpadding_check(
     if len(buffer_) != block_size // 8:
         raise ValueError("Invalid padding bytes.")
 
-    valid = checkfn(buffer_, block_size // 8)
+    valid = checkfn(buffer_)
 
     if not valid:
         raise ValueError("Invalid padding bytes.")
@@ -101,15 +104,15 @@ def _byte_unpadding_check(
     return buffer_[:-pad_size]
 
 
-class PKCS7(object):
+class PKCS7:
     def __init__(self, block_size: int):
         _byte_padding_check(block_size)
         self.block_size = block_size
 
-    def padder(self):
+    def padder(self) -> PaddingContext:
         return _PKCS7PaddingContext(self.block_size)
 
-    def unpadder(self):
+    def unpadder(self) -> PaddingContext:
         return _PKCS7UnpaddingContext(self.block_size)
 
 
@@ -154,13 +157,13 @@ class _PKCS7UnpaddingContext(PaddingContext):
 
     def finalize(self) -> bytes:
         result = _byte_unpadding_check(
-            self._buffer, self.block_size, lib.Cryptography_check_pkcs7_padding
+            self._buffer, self.block_size, check_pkcs7_padding
         )
         self._buffer = None
         return result
 
 
-class ANSIX923(object):
+class ANSIX923:
     def __init__(self, block_size: int):
         _byte_padding_check(block_size)
         self.block_size = block_size
@@ -215,7 +218,7 @@ class _ANSIX923UnpaddingContext(PaddingContext):
         result = _byte_unpadding_check(
             self._buffer,
             self.block_size,
-            lib.Cryptography_check_ansix923_padding,
+            check_ansix923_padding,
         )
         self._buffer = None
         return result

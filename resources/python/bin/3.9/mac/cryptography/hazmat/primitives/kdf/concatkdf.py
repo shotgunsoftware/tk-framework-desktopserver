@@ -3,7 +3,6 @@
 # for complete details.
 
 
-import struct
 import typing
 
 from cryptography import utils
@@ -16,7 +15,7 @@ from cryptography.hazmat.primitives.kdf import KeyDerivationFunction
 
 
 def _int_to_u32be(n: int) -> bytes:
-    return struct.pack(">I", n)
+    return n.to_bytes(length=4, byteorder="big")
 
 
 def _common_args_checks(
@@ -24,7 +23,7 @@ def _common_args_checks(
     length: int,
     otherinfo: typing.Optional[bytes],
 ) -> None:
-    max_length = algorithm.digest_size * (2 ** 32 - 1)
+    max_length = algorithm.digest_size * (2**32 - 1)
     if length > max_length:
         raise ValueError(
             "Cannot derive keys larger than {} bits.".format(max_length)
