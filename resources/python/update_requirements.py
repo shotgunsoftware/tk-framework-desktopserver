@@ -47,8 +47,6 @@ class Updater(object):
             self._python_version_info.major, self._python_version_info.minor)
 
         self._is_python_3 = self._python_version_info.major == 3
-        self._is_python_2 = self._python_version_info.major == 2
-        self._is_python_37 = self._is_python_3 and self._python_version_info.minor == 7
         self._is_python_39 = self._is_python_3 and self._python_version_info.minor == 9
 
         # packages containing binaries like pyd, so, dll
@@ -82,48 +80,12 @@ class Updater(object):
         )
 
         # paths for final requirements files
-        self._source_reqs_2_7_dir = os.path.join(
-            self._sources_dir,
-            "2.7",
-        )
-        self._source_reqs_2_7_path = os.path.join(
-            self._source_reqs_2_7_dir,
-            "explicit_requirements.txt"
-        )
-
-        self._source_reqs_3_7_dir = os.path.join(
-            self._sources_dir,
-            "3.7",
-        )
-        self._source_reqs_3_7_path = os.path.join(
-            self._source_reqs_3_7_dir,
-            "explicit_requirements.txt"
-        )
-
         self._source_reqs_3_9_dir = os.path.join(
             self._sources_dir,
             "3.9",
         )
         self._source_reqs_3_9_path = os.path.join(
             self._source_reqs_3_9_dir,
-            "explicit_requirements.txt"
-        )
-
-        self._bin_reqs_2_7_dir = os.path.join(
-            self._bin_dir,
-            "2.7",
-        )
-        self._bin_reqs_2_7_path = os.path.join(
-            self._bin_reqs_2_7_dir,
-            "explicit_requirements.txt"
-        )
-
-        self._bin_reqs_3_7_dir = os.path.join(
-            self._bin_dir,
-            "3.7",
-        )
-        self._bin_reqs_3_7_path = os.path.join(
-            self._bin_reqs_3_7_dir,
             "explicit_requirements.txt"
         )
 

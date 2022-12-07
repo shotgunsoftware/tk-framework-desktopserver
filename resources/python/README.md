@@ -5,16 +5,10 @@ This framework manages the integration between SG Desktop and SG Web
 
 Officially Supported Python Versions:
 - Mac 
-  - 2.7.18
-  - 3.7.15
   - 3.9.15
 - Windows 
-  - 2.7.18
-  - 3.7.9
   - 3.9.13
 - Linux: 
-  - 2.7.18
-  - 3.7.15
   - 3.9.15
 
 ## How to update dependencies
@@ -26,10 +20,7 @@ Officially Supported Python Versions:
 
 ### Create virtualenvs
 
-For Windows 10, Centos 7 and Mac, create 3 virtualenvs:
-- tk-framework-desktopserver-27 with python version 2.7
-- tk-framework-desktopserver-37 with python version 3.7
-- tk-framework-desktopserver-39 with python version 3.9
+For Windows 10, Centos 7/Rocky 8 and Mac, create a virtualenv `tk-framework-desktopserver-39` with latest python version 3.9.x
 
 We highly recommend use [pyenv](https://github.com/pyenv/pyenv).
 
@@ -40,33 +31,19 @@ We highly recommend use [pyenv](https://github.com/pyenv/pyenv).
 Example for Mac and Linux:
 
 ```shell
-pyenv install 2.7.18
-$HOME/.pyenv/versions/2.7.18/bin/python -m pip install -U pip virtualenv
-$HOME/.pyenv/versions/2.7.18/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-27 
-```
-
-```shell
-pyenv install 3.7.15
-$HOME/.pyenv/versions/3.7.12/bin/python -m pip install -U pip virtualenv
-$HOME/.pyenv/versions/3.7.12/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-37 
-```
-
-```shell
 pyenv install 3.9.15
-$HOME/.pyenv/versions/3.9.10/bin/python -m pip install -U pip virtualenv
-$HOME/.pyenv/versions/3.9.10/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-3-9-10 
+$HOME/.pyenv/versions/3.9.15/bin/python -m pip install -U pip virtualenv
+$HOME/.pyenv/versions/3.9.15/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-3-9-15 
 ```
 ### Update requirements
 
 In MAC, update the packages in requirements files:
 
-- `resources/python/requirements/2.7/requirements.txt`
-- `resources/python/requirements/3.7/requirements.txt`
 - `resources/python/requirements/3.9/requirements.txt`
 
 ### Execute the script `update_requirements.py` 
 
-In MAC, execute the script `update_requirements.py` with every virtualenv:
+In MAC, execute the script `update_requirements.py`:
 
 ```shell
 cd resources/python
@@ -74,11 +51,11 @@ python update_requirements.py --clean-pip
 ```
 
 This will bake the official versions of each package we need to install in 
-every platform (Python Version, Operating System).
+every Operating System.
 
 ### Execute the script `install_source_only.sh`
 
-In MAC, execute the script `install_source_only.sh` with every virtualenv:
+In MAC, execute the script `install_source_only.sh`:
 
 ```shell
 cd resources/python
@@ -92,7 +69,7 @@ bash install_source_only.sh
 
 ### Install binary in Mac
 
-- In MAC, execute the script `install_binary_mac.sh` with every virtualenv:
+- In MAC, execute the script `install_binary_mac.sh`:
   ```shell
   cd resources/python
   bash install_binary_mac.sh
@@ -102,7 +79,7 @@ bash install_source_only.sh
 
 ### Install binary in Windows 10
 
-- In Windows inside a powershell as admin, execute the script `install_binary_windows.ps1` with every virtualenv:
+- In Windows inside a powershell as admin, execute the script `install_binary_windows.ps1`:
 
 ```shell
 cd resources/python
@@ -111,7 +88,7 @@ install_binary_windows.ps1
 
 ### Install binary in CentOS 7
 
-- In CentOS, execute the script `install_binary_linux.sh` with every virtualenv:
+- In CentOS, execute the script `install_binary_linux.sh`:
   ```shell
   cd resources/python
   bash install_binary_linux.sh
