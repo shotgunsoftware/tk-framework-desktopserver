@@ -1,5 +1,5 @@
 Twisted==20.3.0
-certifi==2021.10.8
+certifi==2022.12.7
 autobahn==19.11.2
 pyOpenSSL==21.0.0
 service_identity==21.1.0
