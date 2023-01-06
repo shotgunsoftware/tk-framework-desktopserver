@@ -27,11 +27,7 @@ use whatever work best for you:
   - Mac and Linux: `$HOME/instances`
   - Windows: `%HOMEPATH%\instances`
 
-### 1. Create a Jira in `Ecosystem ShotGrid` board  
-
-https://jira.autodesk.com/secure/RapidBoard.jspa?projectKey=SG&rapidView=12718
-
-### 2. Create a branch in the repository  
+### Create a branch in the repository  
 
 You can choose any operating system to create the branch
 
@@ -53,7 +49,7 @@ git checkout -b BRANCH_NAME
 git push --set-upstream origin BRANCH_NAME
 ```
 
-### 3. Clone and checkout the repository in every Operating System
+### Clone and checkout the repository in every Operating System
 
 Linux and Mac:
 
@@ -71,7 +67,7 @@ cd %HOMEPATH%\instances\tk-framework-desktopserver
 git checkout BRANCH_NAME
 ```
 
-### 4. Create virtualenvs
+### Create virtualenvs
 
 Create a virtualenv for every supported python version in every operating 
 system.
@@ -108,7 +104,7 @@ pyenv install 3.9.13
 %HOMEPATH%\.pyenv\pyenv-win\versions\3.9.13\python.exe -m virtualenv %HOMEPATH%\venv\tk-framework-desktopserver-39 
 ```
 
-### 5. In Mac, update requirements.txt files
+### In Mac, update requirements.txt files
 
 - resources/python/requirements/3.7/requirements.txt
   ```shell
@@ -170,7 +166,7 @@ pyenv install 3.9.13
   rm -f requirements.txt
   ```
 
-### 6. In Mac, activate virtualenvs and execute the script `update_requirements.py` 
+### In Mac, activate virtualenvs and execute the script `update_requirements.py` 
 
 This will bake the official versions of each package we need to install in 
 every platform (Python Version, Operating System).
@@ -185,7 +181,7 @@ cd $HOME/venv/tk-framework-desktopserver-39/resources/python
 python update_requirements.py --clean-pip
 ```
 
-### 7. In Mac, activate virtualenvs and execute the script `install_source_only.sh` 
+### In Mac, activate virtualenvs and execute the script `install_source_only.sh` 
 
 ```shell
 source $HOME/venv/tk-framework-desktopserver-37/bin/activate
@@ -197,7 +193,7 @@ cd $HOME/venv/tk-framework-desktopserver-39/resources/python
 bash install_source_only.sh
 ```
 
-### 8. In Mac, push changes to the repository
+### In Mac, push changes to the repository
 
 ```shell
 git add .
@@ -205,7 +201,7 @@ git commit -am "Update source requirements."
 git push
 ```
 
-### 9. In every Operating System, activate virtualenvs and execute the corresponding script to install binaries  and then push changes to repository
+### In every Operating System, activate virtualenvs and execute the corresponding script to install binaries  and then push changes to repository
 
 Mac
 
