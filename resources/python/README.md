@@ -17,116 +17,190 @@ Officially Supported Python Versions:
 
 ## How to update dependencies
 
-Create a Jira in `Ecosystem ShotGrid` board https://jira.autodesk.com/secure/RapidBoard.jspa?projectKey=SG&rapidView=12718
-Create a branch in https://github.com/shotgunsoftware/tk-framework-desktopserver
+For this documentation the examples are using the following locations, you can
+use whatever work best for you:
 
-| Name               | Description                                     | Operating Systems   | Command |
-|--------------------|-------------------------------------------------|---------------------|---------|
-| Create virtualenvs | For every operating system, create a virtualenv | Windows, Mac, Linux |         |
-|                    | for every supported python version              |                     |         |
+- Virtualenvs base folder
+  - Mac and Linux: `$HOME/instances`
+  - Windows: `%HOMEPATH%\venv`
+- Cloned repositories base folder
+  - Mac and Linux: `$HOME/instances`
+  - Windows: `%HOMEPATH%\instances`
 
+### 1. Create a Jira in `Ecosystem ShotGrid` board  
 
-### Create virtualenvs
+https://jira.autodesk.com/secure/RapidBoard.jspa?projectKey=SG&rapidView=12718
 
-For every operating system (Windows, Centos|Rocky and Mac), create 2 virtualenvs:
+### 2. Create a branch in the repository  
 
-- tk-framework-desktopserver-37 with python version 3.7
-- tk-framework-desktopserver-39 with python version 3.9
+You can choose any operating system to create the branch
+
+Linux or Mac:
+
+```shell
+git clone git@github.com:shotgunsoftware/tk-framework-desktopserver.git $HOME/instances/tk-framework-desktopserver
+cd $HOME/instances/tk-framework-desktopserver
+git checkout -b BRANCH_NAME
+git push --set-upstream origin BRANCH_NAME
+```
+
+Windows:
+
+```shell
+git clone git@github.com:shotgunsoftware/tk-framework-desktopserver.git %HOMEPATH%\instances\tk-framework-desktopserver
+cd %HOMEPATH%\instances\tk-framework-desktopserver
+git checkout -b BRANCH_NAME
+git push --set-upstream origin BRANCH_NAME
+```
+
+### 3. Clone and checkout the repository in every Operating System
+
+Linux and Mac:
+
+```shell
+git clone git@github.com:shotgunsoftware/tk-framework-desktopserver.git $HOME/instances/tk-framework-desktopserver
+cd $HOME/instances/tk-framework-desktopserver
+git checkout BRANCH_NAME
+```
+
+Windows:
+
+```shell
+git clone git@github.com:shotgunsoftware/tk-framework-desktopserver.git %HOMEPATH%\instances\tk-framework-desktopserver
+cd %HOMEPATH%\instances\tk-framework-desktopserver
+git checkout BRANCH_NAME
+```
+
+### 4. Create virtualenvs
+
+Create a virtualenv for every supported python version in every operating 
+system.
 
 We highly recommend to use [pyenv](https://github.com/pyenv/pyenv).
 
-**Note for Windows:** 
-- Use an admin powershell console.
-- Install pyenv with https://pyenv-win.github.io/pyenv-win/
-
-Example for Mac and Linux:
+Linux and Mac:
 
 ```shell
 rm -Rf $HOME/venv/tk-framework-desktopserver-37
 pyenv install 3.7.16
 $HOME/.pyenv/versions/3.7.16/bin/python -m pip install -U pip virtualenv
 $HOME/.pyenv/versions/3.7.16/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-37 
-```
 
-```shell
 rm -Rf $HOME/venv/tk-framework-desktopserver-39
 pyenv install 3.9.16
 $HOME/.pyenv/versions/3.9.16/bin/python -m pip install -U pip virtualenv
 $HOME/.pyenv/versions/3.9.16/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-39 
 ```
 
-Example for Windows:
+Windows:
+  - Use an admin powershell console.
+  - Install pyenv with https://pyenv-win.github.io/pyenv-win/
 
 ```shell
 rmdir /S /Q %HOMEPATH%\venv\tk-framework-desktopserver-37
 pyenv install 3.7.9
 %HOMEPATH%\.pyenv\pyenv-win\versions\3.7.9\python.exe -m pip install -U pip virtualenv
 %HOMEPATH%\.pyenv\pyenv-win\versions\3.7.9\python.exe -m virtualenv %HOMEPATH%\venv\tk-framework-desktopserver-37 
-```
 
-```shell
 rmdir /S /Q %HOMEPATH%\venv\tk-framework-desktopserver-39
 pyenv install 3.9.13
 %HOMEPATH%\.pyenv\pyenv-win\versions\3.9.13\python.exe -m pip install -U pip virtualenv
 %HOMEPATH%\.pyenv\pyenv-win\versions\3.9.13\python.exe -m virtualenv %HOMEPATH%\venv\tk-framework-desktopserver-39 
 ```
 
-### Update requirements
+### 5. In Mac, update requirements.txt files
 
-In MAC, update the packages in requirements files:
+- resources/python/requirements/3.7/requirements.txt
+- resources/python/requirements/3.9/requirements.txt
 
-- `resources/python/requirements/3.7/requirements.txt`
-- `resources/python/requirements/3.9/requirements.txt`
-
-### Execute the script `update_requirements.py` 
-
-In MAC, execute the script `update_requirements.py` with every virtualenv:
-
-```shell
-cd resources/python
-python update_requirements.py --clean-pip
-```
+### 6. In Mac, activate virtualenvs and execute the script `update_requirements.py` 
 
 This will bake the official versions of each package we need to install in 
 every platform (Python Version, Operating System).
 
-### Execute the script `install_source_only.sh`
+```shell
+source $HOME/venv/tk-framework-desktopserver-37/bin/activate
+cd $HOME/venv/tk-framework-desktopserver-37/resources/python
+python update_requirements.py --clean-pip
 
-In MAC, execute the script `install_source_only.sh` with every virtualenv:
+source $HOME/venv/tk-framework-desktopserver-39/bin/activate
+cd $HOME/venv/tk-framework-desktopserver-39/resources/python
+python update_requirements.py --clean-pip
+```
+
+### 7. In Mac, activate virtualenvs and execute the script `install_source_only.sh` 
 
 ```shell
-cd resources/python
+source $HOME/venv/tk-framework-desktopserver-37/bin/activate
+cd $HOME/venv/tk-framework-desktopserver-37/resources/python
+bash install_source_only.sh
+
+source $HOME/venv/tk-framework-desktopserver-39/bin/activate
+cd $HOME/venv/tk-framework-desktopserver-39/resources/python
 bash install_source_only.sh
 ```
 
-### Push changes to the repository
-
-- Git commit
-- Git push
-
-### Install binary in Mac
-
-- In MAC, execute the script `install_binary_mac.sh` with every virtualenv:
-  ```shell
-  cd resources/python
-  bash install_binary_mac.sh
-  ```
-
-- Push changes to the repository
-
-### Install binary in Windows 10
-
-- In Windows inside a powershell as admin, execute the script `install_binary_windows.ps1` with every virtualenv:
+### 8. In Mac, push changes to the repository
 
 ```shell
-cd resources/python
-install_binary_windows.ps1
+git add .
+git commit -am "Update source requirements."
+git push
 ```
 
-### Install binary in CentOS 7
+### 9. In every Operating System, activate virtualenvs and execute the corresponding script to install binaries  and then push changes to repository
 
-- In CentOS, execute the script `install_binary_linux.sh` with every virtualenv:
-  ```shell
-  cd resources/python
-  bash install_binary_linux.sh
-  ```
+Mac
+
+```shell
+source $HOME/venv/tk-framework-desktopserver-37/bin/activate
+cd $HOME/venv/tk-framework-desktopserver-37/resources/python
+bash install_binary_mac.sh
+git add .
+git commit -am "Update binary requirements in Mac Python 3.7"
+git push
+
+source $HOME/venv/tk-framework-desktopserver-39/bin/activate
+cd $HOME/venv/tk-framework-desktopserver-39/resources/python
+bash install_binary_mac.sh
+git add .
+git commit -am "Update binary requirements in Mac Python 3.9"
+git push
+```
+
+Linux
+
+```shell
+source $HOME/venv/tk-framework-desktopserver-37/bin/activate
+cd $HOME/venv/tk-framework-desktopserver-37/resources/python
+bash install_binary_linux.sh
+git add .
+git commit -am "Update binary requirements in Linux Python 3.7"
+git push
+
+source $HOME/venv/tk-framework-desktopserver-39/bin/activate
+cd $HOME/venv/tk-framework-desktopserver-39/resources/python
+bash install_binary_linux.sh
+git add .
+git commit -am "Update binary requirements in Linux Python 3.9"
+git push
+```
+
+Windows
+  - Use an admin powershell console.
+
+```shell
+%HOMEPATH%\venv\tk-framework-desktopserver-37\Scripts\activate.ps1
+cd %HOMEPATH%\instances\tk-framework-desktopserver\resources\python
+install_binary_windows.ps1
+git add .
+git commit -am "Update binary requirements in Windows Python 3.7"
+git push
+
+%HOMEPATH%\venv\tk-framework-desktopserver-39\Scripts\activate.ps1
+cd %HOMEPATH%\instances\tk-framework-desktopserver\resources\python
+install_binary_windows.ps1
+git add .
+git commit -am "Update binary requirements in Windows Python 3.9"
+git push
+```
