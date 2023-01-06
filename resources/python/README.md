@@ -111,7 +111,64 @@ pyenv install 3.9.13
 ### 5. In Mac, update requirements.txt files
 
 - resources/python/requirements/3.7/requirements.txt
+  ```shell
+  # Activate python 3.7 virtualenv
+  source $HOME/venv/tk-framework-desktopserver-37/bin/activate
+
+  # Copy requirements.txt to temporal folder
+  cp $HOME/instances/desktopserver-37/resources/python/requirements/3.7/requirements.txt /tmp/requirements.txt
+  
+  # Chdir to temporal folder
+  cd /tmp
+  
+  # Replace the versions numbers of the requirements.txt file
+  sed -i 's/==.*$//' requirements.txt
+  
+  # Create a temporal folder
+  mkdir temporal_requirements
+  
+  # Install the requirements in the new temporal folder
+  pip install -r requirements.txt -t temporal_requirements
+  
+  # Get the list of packages installed versions
+  pip list --path temporal_requirements
+  
+  # Compare versions and update the file $HOME/instances/desktopserver-37/resources/python/requirements/3.7/requirements.txt
+  
+  # Cleanup everything
+  rm -Rf temporal_requirements
+  rm -f requirements.txt
+  ```
+
 - resources/python/requirements/3.9/requirements.txt
+  ```shell
+  # Activate python 3.9 virtualenv
+  source $HOME/venv/tk-framework-desktopserver-39/bin/activate
+  
+  # Copy requirements.txt to temporal folder
+  cp $HOME/instances/desktopserver-39/resources/python/requirements/3.9/requirements.txt /tmp/requirements.txt
+  
+  # Chdir to temporal folder
+  cd /tmp
+  
+  # Replace the versions numbers of the requirements.txt file
+  sed -i 's/==.*$//' requirements.txt
+  
+  # Create a temporal folder
+  mkdir temporal_requirements
+  
+  # Install the requirements in the new temporal folder
+  pip install -r requirements.txt -t temporal_requirements
+  
+  # Get the list of packages installed versions
+  pip list --path temporal_requirements
+  
+  # Compare versions and update the file $HOME/instances/desktopserver-39/resources/python/requirements/3.9/requirements.txt
+  
+  # Cleanup everything
+  rm -Rf temporal_requirements
+  rm -f requirements.txt
+  ```
 
 ### 6. In Mac, activate virtualenvs and execute the script `update_requirements.py` 
 
