@@ -4,34 +4,36 @@ This framework manages the integration between SG Desktop and SG Web
 (browser integration).
 
 Officially Supported Python Versions:
+
 - Mac 
-  - 2.7.18
-  - 3.7.15
-  - 3.9.15
+  - 3.7.16
+  - 3.9.16
 - Windows 
-  - 2.7.18
   - 3.7.9
   - 3.9.13
 - Linux: 
-  - 2.7.18
-  - 3.7.15
-  - 3.9.15
+  - 3.7.16
+  - 3.9.16
 
 ## How to update dependencies
 
-### Create Jira ticket and git branch
+Create a Jira in `Ecosystem ShotGrid` board https://jira.autodesk.com/secure/RapidBoard.jspa?projectKey=SG&rapidView=12718
+Create a branch in https://github.com/shotgunsoftware/tk-framework-desktopserver
 
-- Create a Jira in `Ecosystem ShotGrid` board https://jira.autodesk.com/secure/RapidBoard.jspa?projectKey=SG&rapidView=12718
-- Create a branch in  https://github.com/shotgunsoftware/tk-framework-desktopserver
+| Name               | Description                                     | Operating Systems   | Command |
+|--------------------|-------------------------------------------------|---------------------|---------|
+| Create virtualenvs | For every operating system, create a virtualenv | Windows, Mac, Linux |         |
+|                    | for every supported python version              |                     |         |
+
 
 ### Create virtualenvs
 
-For Windows 10, Centos 7 and Mac, create 3 virtualenvs:
-- tk-framework-desktopserver-27 with python version 2.7
+For every operating system (Windows, Centos|Rocky and Mac), create 2 virtualenvs:
+
 - tk-framework-desktopserver-37 with python version 3.7
 - tk-framework-desktopserver-39 with python version 3.9
 
-We highly recommend use [pyenv](https://github.com/pyenv/pyenv).
+We highly recommend to use [pyenv](https://github.com/pyenv/pyenv).
 
 **Note for Windows:** 
 - Use an admin powershell console.
@@ -40,27 +42,39 @@ We highly recommend use [pyenv](https://github.com/pyenv/pyenv).
 Example for Mac and Linux:
 
 ```shell
-pyenv install 2.7.18
-$HOME/.pyenv/versions/2.7.18/bin/python -m pip install -U pip virtualenv
-$HOME/.pyenv/versions/2.7.18/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-27 
+rm -Rf $HOME/venv/tk-framework-desktopserver-37
+pyenv install 3.7.16
+$HOME/.pyenv/versions/3.7.16/bin/python -m pip install -U pip virtualenv
+$HOME/.pyenv/versions/3.7.16/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-37 
 ```
 
 ```shell
-pyenv install 3.7.15
-$HOME/.pyenv/versions/3.7.12/bin/python -m pip install -U pip virtualenv
-$HOME/.pyenv/versions/3.7.12/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-37 
+rm -Rf $HOME/venv/tk-framework-desktopserver-39
+pyenv install 3.9.16
+$HOME/.pyenv/versions/3.9.16/bin/python -m pip install -U pip virtualenv
+$HOME/.pyenv/versions/3.9.16/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-39 
+```
+
+Example for Windows:
+
+```shell
+rmdir /S /Q %HOMEPATH%\venv\tk-framework-desktopserver-37
+pyenv install 3.7.9
+%HOMEPATH%\.pyenv\pyenv-win\versions\3.7.9\python.exe -m pip install -U pip virtualenv
+%HOMEPATH%\.pyenv\pyenv-win\versions\3.7.9\python.exe -m virtualenv %HOMEPATH%\venv\tk-framework-desktopserver-37 
 ```
 
 ```shell
-pyenv install 3.9.15
-$HOME/.pyenv/versions/3.9.10/bin/python -m pip install -U pip virtualenv
-$HOME/.pyenv/versions/3.9.10/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-3-9-10 
+rmdir /S /Q %HOMEPATH%\venv\tk-framework-desktopserver-39
+pyenv install 3.9.13
+%HOMEPATH%\.pyenv\pyenv-win\versions\3.9.13\python.exe -m pip install -U pip virtualenv
+%HOMEPATH%\.pyenv\pyenv-win\versions\3.9.13\python.exe -m virtualenv %HOMEPATH%\venv\tk-framework-desktopserver-39 
 ```
+
 ### Update requirements
 
 In MAC, update the packages in requirements files:
 
-- `resources/python/requirements/2.7/requirements.txt`
 - `resources/python/requirements/3.7/requirements.txt`
 - `resources/python/requirements/3.9/requirements.txt`
 
