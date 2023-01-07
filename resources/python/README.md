@@ -93,15 +93,21 @@ Windows:
   - Install pyenv with https://pyenv-win.github.io/pyenv-win/
 
 ```shell
-rmdir /S /Q %HOMEPATH%\venv\tk-framework-desktopserver-37
+if (test-path $HOME\venv\tk-framework-desktopserver-37) {
+  Remove-Item $HOME\venv\tk-framework-desktopserver-37 -Recurse -Force
+}
 pyenv install 3.7.9
-%HOMEPATH%\.pyenv\pyenv-win\versions\3.7.9\python.exe -m pip install -U pip virtualenv
-%HOMEPATH%\.pyenv\pyenv-win\versions\3.7.9\python.exe -m virtualenv %HOMEPATH%\venv\tk-framework-desktopserver-37 
+pyenv shell 3.7.9
+python -m pip install -U pip virtualenv
+python -m virtualenv $HOME\venv\tk-framework-desktopserver-37 
 
-rmdir /S /Q %HOMEPATH%\venv\tk-framework-desktopserver-39
+if (test-path $HOME\venv\tk-framework-desktopserver-39) {
+  Remove-Item $HOME\venv\tk-framework-desktopserver-39 -Recurse -Force
+}
 pyenv install 3.9.13
-%HOMEPATH%\.pyenv\pyenv-win\versions\3.9.13\python.exe -m pip install -U pip virtualenv
-%HOMEPATH%\.pyenv\pyenv-win\versions\3.9.13\python.exe -m virtualenv %HOMEPATH%\venv\tk-framework-desktopserver-39 
+pyenv shell 3.9.13
+python -m pip install -U pip virtualenv
+python -m virtualenv $HOME\venv\tk-framework-desktopserver-39 
 ```
 
 ### In Mac, update requirements.txt files
