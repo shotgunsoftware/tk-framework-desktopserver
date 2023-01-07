@@ -173,11 +173,11 @@ every platform (Python Version, Operating System).
 
 ```shell
 source $HOME/venv/tk-framework-desktopserver-37/bin/activate
-cd $HOME/venv/tk-framework-desktopserver-37/resources/python
+cd $HOME/instance/tk-framework-desktopserver-37/resources/python
 python update_requirements.py --clean-pip
 
 source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-cd $HOME/venv/tk-framework-desktopserver-39/resources/python
+cd $HOME/instances/tk-framework-desktopserver-39/resources/python
 python update_requirements.py --clean-pip
 ```
 
