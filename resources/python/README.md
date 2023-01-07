@@ -79,13 +79,15 @@ Linux and Mac:
 ```shell
 rm -Rf $HOME/venv/tk-framework-desktopserver-37
 pyenv install 3.7.16
-$HOME/.pyenv/versions/3.7.16/bin/python -m pip install -U pip virtualenv
-$HOME/.pyenv/versions/3.7.16/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-37 
+pyenv shell 3.7.16
+python -m pip install -U pip virtualenv
+python -m virtualenv $HOME/venv/tk-framework-desktopserver-37 
 
 rm -Rf $HOME/venv/tk-framework-desktopserver-39
 pyenv install 3.9.16
-$HOME/.pyenv/versions/3.9.16/bin/python -m pip install -U pip virtualenv
-$HOME/.pyenv/versions/3.9.16/bin/python -m virtualenv $HOME/venv/tk-framework-desktopserver-39 
+pyenv shell 3.9.16
+python -m pip install -U pip virtualenv
+python -m virtualenv $HOME/venv/tk-framework-desktopserver-39 
 ```
 
 Windows:
@@ -118,7 +120,7 @@ python -m virtualenv $HOME\venv\tk-framework-desktopserver-39
   source $HOME/venv/tk-framework-desktopserver-37/bin/activate
 
   # Copy requirements.txt to temporal folder
-  cp $HOME/instances/desktopserver-37/resources/python/requirements/3.7/requirements.txt /tmp/requirements.txt
+  cp $HOME/instances/tk-framework-desktopserver/resources/python/requirements/3.7/requirements.txt /tmp/requirements.txt
   
   # Chdir to temporal folder
   cd /tmp
@@ -135,7 +137,7 @@ python -m virtualenv $HOME\venv\tk-framework-desktopserver-39
   # Get the list of packages installed versions
   pip list --path temporal_requirements
   
-  # Compare versions and update the file $HOME/instances/desktopserver-37/resources/python/requirements/3.7/requirements.txt
+  # Compare versions and update the file $HOME/instances/tk-framework-desktopserver/resources/python/requirements/3.7/requirements.txt
   
   # Cleanup everything
   rm -Rf temporal_requirements
@@ -148,7 +150,7 @@ python -m virtualenv $HOME\venv\tk-framework-desktopserver-39
   source $HOME/venv/tk-framework-desktopserver-39/bin/activate
   
   # Copy requirements.txt to temporal folder
-  cp $HOME/instances/desktopserver-39/resources/python/requirements/3.9/requirements.txt /tmp/requirements.txt
+  cp $HOME/instances/tk-framework-desktopserver/resources/python/requirements/3.9/requirements.txt /tmp/requirements.txt
   
   # Chdir to temporal folder
   cd /tmp
@@ -165,7 +167,7 @@ python -m virtualenv $HOME\venv\tk-framework-desktopserver-39
   # Get the list of packages installed versions
   pip list --path temporal_requirements
   
-  # Compare versions and update the file $HOME/instances/desktopserver-39/resources/python/requirements/3.9/requirements.txt
+  # Compare versions and update the file $HOME/instances/tk-framework-desktopserver/resources/python/requirements/3.9/requirements.txt
   
   # Cleanup everything
   rm -Rf temporal_requirements
@@ -178,24 +180,24 @@ This will bake the official versions of each package we need to install in
 every platform (Python Version, Operating System).
 
 ```shell
+cd $HOME/instances/tk-framework-desktopserver/resources/python
+
 source $HOME/venv/tk-framework-desktopserver-37/bin/activate
-cd $HOME/instances/tk-framework-desktopserver-37/resources/python
 python update_requirements.py --clean-pip
 
 source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-cd $HOME/instances/tk-framework-desktopserver-39/resources/python
 python update_requirements.py --clean-pip
 ```
 
 ### In Mac, activate virtualenvs and execute the script `install_source_only.sh` 
 
 ```shell
+cd $HOME/instances/tk-framework-desktopserver/resources/python
+
 source $HOME/venv/tk-framework-desktopserver-37/bin/activate
-cd $HOME/venv/tk-framework-desktopserver-37/resources/python
 bash install_source_only.sh
 
 source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-cd $HOME/venv/tk-framework-desktopserver-39/resources/python
 bash install_source_only.sh
 ```
 
@@ -212,15 +214,15 @@ git push
 Mac
 
 ```shell
+cd $HOME/instances/tk-framework-desktopserver/resources/python
+
 source $HOME/venv/tk-framework-desktopserver-37/bin/activate
-cd $HOME/instances/tk-framework-desktopserver-37/resources/python
 bash install_binary_mac.sh
 git add .
 git commit -am "Update binary requirements in Mac Python 3.7"
 git push
 
 source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-cd $HOME/instances/tk-framework-desktopserver-39/resources/python
 bash install_binary_mac.sh
 git add .
 git commit -am "Update binary requirements in Mac Python 3.9"
@@ -230,15 +232,17 @@ git push
 Linux
 
 ```shell
+cd $HOME/instances/tk-framework-desktopserver
+git pull
+cd resources/python
+
 source $HOME/venv/tk-framework-desktopserver-37/bin/activate
-cd $HOME/instances/tk-framework-desktopserver-37/resources/python
 bash install_binary_linux.sh
 git add .
 git commit -am "Update binary requirements in Linux Python 3.7"
 git push
 
 source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-cd $HOME/instances/tk-framework-desktopserver-39/resources/python
 bash install_binary_linux.sh
 git add .
 git commit -am "Update binary requirements in Linux Python 3.9"
