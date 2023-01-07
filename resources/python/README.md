@@ -21,11 +21,11 @@ For this documentation the examples are using the following locations, you can
 use whatever work best for you:
 
 - Virtualenvs base folder
-  - Mac and Linux: `$HOME/instances`
-  - Windows: `%HOMEPATH%\venv`
+  - Mac and Linux: `$HOME/venv`
+  - Windows: `$HOME\venv`
 - Cloned repositories base folder
   - Mac and Linux: `$HOME/instances`
-  - Windows: `%HOMEPATH%\instances`
+  - Windows: `$HOME\instances`
 
 ### Create a branch in the repository  
 
