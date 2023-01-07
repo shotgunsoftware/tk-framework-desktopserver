@@ -43,8 +43,8 @@ git push --set-upstream origin BRANCH_NAME
 Windows:
 
 ```shell
-git clone git@github.com:shotgunsoftware/tk-framework-desktopserver.git %HOMEPATH%\instances\tk-framework-desktopserver
-cd %HOMEPATH%\instances\tk-framework-desktopserver
+git clone git@github.com:shotgunsoftware/tk-framework-desktopserver.git $HOME\instances\tk-framework-desktopserver
+cd $HOME\instances\tk-framework-desktopserver
 git checkout -b BRANCH_NAME
 git push --set-upstream origin BRANCH_NAME
 ```
