@@ -207,14 +207,14 @@ Mac
 
 ```shell
 source $HOME/venv/tk-framework-desktopserver-37/bin/activate
-cd $HOME/venv/tk-framework-desktopserver-37/resources/python
+cd $HOME/instances/tk-framework-desktopserver-37/resources/python
 bash install_binary_mac.sh
 git add .
 git commit -am "Update binary requirements in Mac Python 3.7"
 git push
 
 source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-cd $HOME/venv/tk-framework-desktopserver-39/resources/python
+cd $HOME/instances/tk-framework-desktopserver-39/resources/python
 bash install_binary_mac.sh
 git add .
 git commit -am "Update binary requirements in Mac Python 3.9"
@@ -225,14 +225,14 @@ Linux
 
 ```shell
 source $HOME/venv/tk-framework-desktopserver-37/bin/activate
-cd $HOME/venv/tk-framework-desktopserver-37/resources/python
+cd $HOME/instances/tk-framework-desktopserver-37/resources/python
 bash install_binary_linux.sh
 git add .
 git commit -am "Update binary requirements in Linux Python 3.7"
 git push
 
 source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-cd $HOME/venv/tk-framework-desktopserver-39/resources/python
+cd $HOME/instances/tk-framework-desktopserver-39/resources/python
 bash install_binary_linux.sh
 git add .
 git commit -am "Update binary requirements in Linux Python 3.9"
