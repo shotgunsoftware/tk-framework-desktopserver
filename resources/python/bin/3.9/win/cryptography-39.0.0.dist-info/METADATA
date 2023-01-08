@@ -1,11 +1,11 @@
 Metadata-Version: 2.1
 Name: cryptography
-Version: 38.0.3
+Version: 39.0.0
 Summary: cryptography is a package which provides cryptographic recipes and primitives to Python developers.
 Home-page: https://github.com/pyca/cryptography
 Author: The Python Cryptographic Authority and individual contributors
 Author-email: cryptography-dev@python.org
-License: BSD-3-Clause OR Apache-2.0
+License: (Apache-2.0 OR BSD-3-Clause) AND PSF-2.0
 Project-URL: Documentation, https://cryptography.io/
 Project-URL: Source, https://github.com/pyca/cryptography/
 Project-URL: Issues, https://github.com/pyca/cryptography/issues
@@ -28,6 +28,7 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Security :: Cryptography
@@ -39,7 +40,7 @@ License-File: LICENSE.BSD
 License-File: LICENSE.PSF
 Requires-Dist: cffi (>=1.12)
 Provides-Extra: docs
-Requires-Dist: sphinx (!=1.8.0,!=3.1.0,!=3.1.1,>=1.6.5) ; extra == 'docs'
+Requires-Dist: sphinx (!=1.8.0,!=3.1.0,!=3.1.1,!=5.2.0,!=5.2.0.post0,>=1.6.5) ; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme ; extra == 'docs'
 Provides-Extra: docstest
 Requires-Dist: pyenchant (>=1.6.11) ; extra == 'docstest'
@@ -47,9 +48,7 @@ Requires-Dist: twine (>=1.12.0) ; extra == 'docstest'
 Requires-Dist: sphinxcontrib-spelling (>=4.0.1) ; extra == 'docstest'
 Provides-Extra: pep8test
 Requires-Dist: black ; extra == 'pep8test'
-Requires-Dist: flake8 ; extra == 'pep8test'
-Requires-Dist: flake8-import-order ; extra == 'pep8test'
-Requires-Dist: pep8-naming ; extra == 'pep8test'
+Requires-Dist: ruff ; extra == 'pep8test'
 Provides-Extra: sdist
 Requires-Dist: setuptools-rust (>=0.11.4) ; extra == 'sdist'
 Provides-Extra: ssh
@@ -81,7 +80,7 @@ pyca/cryptography
 
 
 ``cryptography`` is a package which provides cryptographic recipes and
-primitives to Python developers.  Our goal is for it to be your "cryptographic
+primitives to Python developers. Our goal is for it to be your "cryptographic
 standard library". It supports Python 3.6+ and PyPy3 7.2+.
 
 ``cryptography`` includes both high level recipes and low level interfaces to
@@ -97,9 +96,9 @@ key derivation functions. For example, to encrypt something with
     >>> f = Fernet(key)
     >>> token = f.encrypt(b"A really secret message. Not for prying eyes.")
     >>> token
-    '...'
+    b'...'
     >>> f.decrypt(token)
-    'A really secret message. Not for prying eyes.'
+    b'A really secret message. Not for prying eyes.'
 
 You can find more information in the `documentation`_.
 
