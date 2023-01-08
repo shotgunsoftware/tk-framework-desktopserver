@@ -26,6 +26,9 @@ use whatever work best for you:
 - Cloned repositories base folder
   - Mac and Linux: `$HOME/instances`
   - Windows: `$HOME\instances`
+- Python installation in windows:
+  - C:\python\3.7.9
+  - C:\python\3.9.13
 
 ### Create a branch in the repository  
 
@@ -72,9 +75,9 @@ git checkout BRANCH_NAME
 Create a virtualenv for every supported python version in every operating 
 system.
 
-We highly recommend to use [pyenv](https://github.com/pyenv/pyenv).
-
 Linux and Mac:
+
+We highly recommend to use [pyenv](https://github.com/pyenv/pyenv).
 
 ```shell
 rm -Rf $HOME/venv/tk-framework-desktopserver-37
@@ -92,24 +95,21 @@ python -m virtualenv $HOME/venv/tk-framework-desktopserver-39
 
 Windows:
   - Use an admin powershell console.
-  - Install pyenv with https://pyenv-win.github.io/pyenv-win/
+  - Install python 3.7.9 from https://www.python.org/ftp/python/3.7.9/python-3.7.9-amd64.exe in C:\python\3.7.9
+  - Install python 3.9.13 from https://www.python.org/ftp/python/3.9.13/python-3.9.13-amd64.exe in C:\python\3.9.13
 
 ```shell
 if (test-path $HOME\venv\tk-framework-desktopserver-37) {
   Remove-Item $HOME\venv\tk-framework-desktopserver-37 -Recurse -Force
 }
-pyenv install 3.7.9
-pyenv shell 3.7.9
-python -m pip install -U pip virtualenv
-python -m virtualenv $HOME\venv\tk-framework-desktopserver-37 
+C:\python\3.7.9\python.exe -m pip install -U pip virtualenv
+C:\python\3.7.9\python.exe -m virtualenv $HOME\venv\tk-framework-desktopserver-37 
 
 if (test-path $HOME\venv\tk-framework-desktopserver-39) {
   Remove-Item $HOME\venv\tk-framework-desktopserver-39 -Recurse -Force
 }
-pyenv install 3.9.13
-pyenv shell 3.9.13
-python -m pip install -U pip virtualenv
-python -m virtualenv $HOME\venv\tk-framework-desktopserver-39 
+C:\python\3.9.13\python.exe -m pip install -U pip virtualenv
+C:\python\3.9.13\python.exe -m virtualenv $HOME\venv\tk-framework-desktopserver-39 
 ```
 
 ### In Mac, update requirements.txt files
@@ -253,16 +253,16 @@ Windows
   - Use an admin powershell console.
 
 ```shell
-%HOMEPATH%\venv\tk-framework-desktopserver-37\Scripts\activate.ps1
-cd %HOMEPATH%\instances\tk-framework-desktopserver\resources\python
-install_binary_windows.ps1
+cd $HOME\instances\tk-framework-desktopserver\resources\python
+& "$HOME\venv\tk-framework-desktopserver-37\Scripts\activate.ps1"
+.\install_binary_windows.ps1
 git add .
 git commit -am "Update binary requirements in Windows Python 3.7"
 git push
 
-%HOMEPATH%\venv\tk-framework-desktopserver-39\Scripts\activate.ps1
-cd %HOMEPATH%\instances\tk-framework-desktopserver\resources\python
-install_binary_windows.ps1
+cd $HOME\instances\tk-framework-desktopserver\resources\python
+& "$HOME\venv\tk-framework-desktopserver-39\Scripts\activate.ps1"
+.\install_binary_windows.ps1
 git add .
 git commit -am "Update binary requirements in Windows Python 3.9"
 git push
