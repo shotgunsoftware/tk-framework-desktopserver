@@ -1,15 +1,15 @@
 Twisted==22.10.0
-certifi==2022.9.24
-autobahn==22.7.1
-pyOpenSSL==22.1.0
+certifi==2022.12.7
+autobahn==22.12.1
+pyOpenSSL==23.0.0
 service-identity==21.1.0
 
 # When updating certifi to match the version released with Desktop, some other unrelated modules (that are second
 # level dependencies) were updating. The list below pins these versions for now until the next time we need to update
 # modules and rebuild the binaries
-attrs==22.1.0
+attrs==22.2.0
 cffi==1.15.1
-cryptography==38.0.3
+cryptography==39.0.0
 hyperlink==21.0.0
 idna==3.4
 six==1.16.0

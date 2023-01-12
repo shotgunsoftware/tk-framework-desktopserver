@@ -1,5 +1,5 @@
 
-# Copyright (c) 2022 Shotgun Software Inc.
+# Copyright (c) 2023 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
 #
@@ -9,5 +9,5 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 cffi==1.15.1
-cryptography==38.0.3
+cryptography==39.0.0
 zope.interface==5.5.2
