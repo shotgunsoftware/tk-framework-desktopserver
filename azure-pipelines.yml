@@ -4,7 +4,7 @@ resources:
     - repository: templates
       type: github
       name: shotgunsoftware/tk-ci-tools
-      ref: refs/heads/add-has_python_27-parameter
+      ref: refs/heads/master
       endpoint: shotgunsoftware
 
 # We want builds to trigger for 3 reasons:
