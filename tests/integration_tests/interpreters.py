@@ -62,6 +62,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
             "3.9.13",
             "3.9.14",
             "3.9.15",
+            "3.9.16",
         ]
 
         # windows paths
