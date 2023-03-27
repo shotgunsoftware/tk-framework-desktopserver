@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cryptography
-Version: 39.0.0
+Version: 39.0.1
 Summary: cryptography is a package which provides cryptographic recipes and primitives to Python developers.
 Home-page: https://github.com/pyca/cryptography
 Author: The Python Cryptographic Authority and individual contributors
@@ -40,8 +40,8 @@ License-File: LICENSE.BSD
 License-File: LICENSE.PSF
 Requires-Dist: cffi (>=1.12)
 Provides-Extra: docs
-Requires-Dist: sphinx (!=1.8.0,!=3.1.0,!=3.1.1,!=5.2.0,!=5.2.0.post0,>=1.6.5) ; extra == 'docs'
-Requires-Dist: sphinx-rtd-theme ; extra == 'docs'
+Requires-Dist: sphinx (>=5.3.0) ; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme (>=1.1.1) ; extra == 'docs'
 Provides-Extra: docstest
 Requires-Dist: pyenchant (>=1.6.11) ; extra == 'docstest'
 Requires-Dist: twine (>=1.12.0) ; extra == 'docstest'
@@ -49,12 +49,17 @@ Requires-Dist: sphinxcontrib-spelling (>=4.0.1) ; extra == 'docstest'
 Provides-Extra: pep8test
 Requires-Dist: black ; extra == 'pep8test'
 Requires-Dist: ruff ; extra == 'pep8test'
+Requires-Dist: mypy ; extra == 'pep8test'
+Requires-Dist: types-pytz ; extra == 'pep8test'
+Requires-Dist: types-requests ; extra == 'pep8test'
+Requires-Dist: check-manifest ; extra == 'pep8test'
 Provides-Extra: sdist
 Requires-Dist: setuptools-rust (>=0.11.4) ; extra == 'sdist'
 Provides-Extra: ssh
 Requires-Dist: bcrypt (>=3.1.5) ; extra == 'ssh'
 Provides-Extra: test
 Requires-Dist: pytest (>=6.2.0) ; extra == 'test'
+Requires-Dist: pytest-shard (>=0.1.2) ; extra == 'test'
 Requires-Dist: pytest-benchmark ; extra == 'test'
 Requires-Dist: pytest-cov ; extra == 'test'
 Requires-Dist: pytest-subtests ; extra == 'test'
@@ -63,6 +68,10 @@ Requires-Dist: pretend ; extra == 'test'
 Requires-Dist: iso8601 ; extra == 'test'
 Requires-Dist: pytz ; extra == 'test'
 Requires-Dist: hypothesis (!=3.79.2,>=1.11.4) ; extra == 'test'
+Provides-Extra: test-randomorder
+Requires-Dist: pytest-randomly ; extra == 'test-randomorder'
+Provides-Extra: tox
+Requires-Dist: tox ; extra == 'tox'
 
 pyca/cryptography
 =================
