@@ -21,7 +21,7 @@ import base64
 import glob
 import threading
 import hashlib
-import cgi
+import html
 import traceback
 import time
 import fnmatch
@@ -1539,7 +1539,7 @@ class ShotgunAPI(object):
         )
 
         if self._global_debug:
-            message = six.ensure_binary(cgi.escape(traceback.format_exc()))
+            message = six.ensure_binary(html.escape(traceback.format_exc()))
 
         return message
 
@@ -2176,7 +2176,7 @@ class ShotgunAPI(object):
                 line = re.sub(bold_match, "*", line)
                 sanitized.append(line)
 
-        return six.ensure_binary(cgi.escape("\n".join(sanitized)))
+        return six.ensure_binary(html.escape("\n".join(sanitized)))
 
     @sgtk.LogManager.log_timing
     def _process_commands(self, commands, project, entities):
