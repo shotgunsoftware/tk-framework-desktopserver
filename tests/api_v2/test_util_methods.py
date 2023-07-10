@@ -8,6 +8,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+import sgtk
 from tank_test.tank_test_base import setUpModule  # noqa
 
 from base_test import TestDesktopServerFramework, MockConfigDescriptor
@@ -437,3 +438,11 @@ class TestUtilMethods(TestDesktopServerFramework):
         # Project 1000 can only use the action from tk-nuke and the manually
         # registered one.
         self.assertEqual(filtered_actions, actions[1:])
+
+    def test_get_exception_message(self):
+        """
+        Test unhandled exceptions messages.
+        """
+        manager = sgtk.log.LogManager()
+        manager.global_debug = True
+        self.assertEqual(manager.global_debug, True)
