@@ -8,6 +8,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+from mock import patch
 import sgtk
 from tank_test.tank_test_base import setUpModule  # noqa
 
@@ -439,6 +440,7 @@ class TestUtilMethods(TestDesktopServerFramework):
         # registered one.
         self.assertEqual(filtered_actions, actions[1:])
 
+    @patch("sgtk.log.LogManager.global_debug")
     def test_get_exception_message(self):
         """
         Test unhandled exceptions messages.
@@ -446,3 +448,12 @@ class TestUtilMethods(TestDesktopServerFramework):
         manager = sgtk.log.LogManager()
         manager.global_debug = True
         self.assertEqual(manager.global_debug, True)
+
+        expected_msg = (
+                "Exception: Dummy exception"
+        )
+        try:
+            raise Exception("Dummy exception")
+        except Exception as e:
+            exc_msg = self.api._get_exception_message()
+        self.assertEqual(expected_msg in str(exc_msg), True)
