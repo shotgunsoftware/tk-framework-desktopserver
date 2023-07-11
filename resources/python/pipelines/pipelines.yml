@@ -98,6 +98,8 @@ jobs:
   - template: template.yml
     parameters:
       python_version: 3.9
+  - script: echo $(Build.SourceBranch)
+  - script: echo $(System.PullRequest.SourceBranch)
   - script: |
       .\install_binary_windows.ps1
       git commit -am "Update binary requirements in Windows Python 3.9"
