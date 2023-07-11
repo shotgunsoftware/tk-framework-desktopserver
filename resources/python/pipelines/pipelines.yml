@@ -4,13 +4,6 @@
 # provided at the time of installation or download, or which otherwise accompanies
 # this software in either electronic or hard copy form.
 
-resources:
-  repositories:
-  - repository: desktopserver
-    type: github
-    name: shotgunsoftware/tk-framework-desktopserver
-    ref: $(Build.SourceBranchName)
-
 jobs:
 
 - job: install_source_dependencies
