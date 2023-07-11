@@ -8,7 +8,7 @@ parameters:
   python_version: ""
 
 steps:
-- checkout: desktopserver
+- checkout: self
   persistCredentials: true
   clean: true
 - template: install-ssh-key.yml
