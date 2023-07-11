@@ -22,7 +22,7 @@ Remove-Item -LiteralPath $bin_dir -Force -Recurse -ErrorAction Ignore
 mkdir $bin_dir
 
 # Install packages
-python build/pip install --target $bin_dir --no-deps -r $requirements
+pip install --target $bin_dir --no-deps -r $requirements
 
 # Remove tests to thin out the packages
 Remove-Item -LiteralPath $bin_dir\Crypto\SelfTest -Force -Recurse -ErrorAction Ignore
