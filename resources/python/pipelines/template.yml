@@ -7,13 +7,6 @@
 parameters:
   python_version: ""
 
-resources:
-  repositories:
-  - repository: desktopserver
-    type: github
-    name: shotgunsoftware/tk-framework-desktopserver
-    ref: $(Build.SourceBranchName)
-
 steps:
 - checkout: desktopserver
   persistCredentials: true
