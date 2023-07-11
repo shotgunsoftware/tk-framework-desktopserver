@@ -441,7 +441,7 @@ class TestUtilMethods(TestDesktopServerFramework):
         self.assertEqual(filtered_actions, actions[1:])
 
     @patch("sgtk.log.LogManager.global_debug")
-    def test_get_exception_message(self):
+    def test_get_exception_message(self, global_mock):
         """
         Test unhandled exceptions messages.
         """
