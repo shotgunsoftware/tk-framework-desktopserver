@@ -16,7 +16,7 @@ steps:
     git config --global user.name "Toolkitty"
     git config --global user.email toolkitty@autodesk.com
 - task: UsePythonVersion@0
-    inputs:
-      versionSpec: ${{ parameters.name }}
-      addToPath: True
-      architecture: 'x64'
+  inputs:
+    versionSpec: ${{ parameters.name }}
+    addToPath: True
+    architecture: 'x64'
