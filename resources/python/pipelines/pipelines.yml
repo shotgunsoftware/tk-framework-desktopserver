@@ -17,8 +17,9 @@ jobs:
   - template: template.yml
     parameters:
       python_version: 3.7
-      branch: ${{ parameters.branch }}
   - script: |
+      git checkout $(System.PullRequest.SourceBranch)
+      git checkout -b ${{ parameters.branch }}
       python update_requirements.py
       ./install_source_only.sh
       git commit -am "Update source requirements 3.7"
@@ -37,6 +38,7 @@ jobs:
       python_version: 3.9
       branch: ${{ parameters.branch }}
   - script: |
+      git checkout ${{ parameters.branch }}
       python update_requirements.py
       ./install_source_only.sh
       git pull
@@ -56,6 +58,7 @@ jobs:
       python_version: 3.7
       branch: ${{ parameters.branch }}
   - script: |
+      git checkout ${{ parameters.branch }}
       ./install_binary_linux.sh
       git pull
       git commit -am "Update binary requirements in Linux Python 3.7"
@@ -74,6 +77,7 @@ jobs:
       python_version: 3.9
       branch: ${{ parameters.branch }}
   - script: |
+      git checkout ${{ parameters.branch }}
       ./install_binary_linux.sh
       git pull
       git commit -am "Update binary requirements in Linux Python 3.9"
@@ -92,6 +96,7 @@ jobs:
       python_version: 3.7
       branch: ${{ parameters.branch }}
   - script: |
+      git checkout ${{ parameters.branch }}
       ./install_binary_mac.sh
       git pull
       git commit -am "Update binary requirements in Mac Python 3.7"
@@ -110,6 +115,7 @@ jobs:
       python_version: 3.9
       branch: ${{ parameters.branch }}
   - script: |
+      git checkout ${{ parameters.branch }}
       ./install_binary_mac.sh
       git pull
       git commit -am "Update binary requirements in Mac Python 3.9"
@@ -128,6 +134,7 @@ jobs:
       python_version: 3.7
       branch: ${{ parameters.branch }}
   - script: |
+      git checkout ${{ parameters.branch }}
       .\install_binary_windows.ps1
       git pull
       git commit -am "Update binary requirements in Windows Python 3.7"
@@ -146,6 +153,7 @@ jobs:
       python_version: 3.9
       branch: ${{ parameters.branch }}
   - script: |
+      git checkout ${{ parameters.branch }}
       .\install_binary_windows.ps1
       git pull
       git commit -am "Update binary requirements in Windows Python 3.9"
