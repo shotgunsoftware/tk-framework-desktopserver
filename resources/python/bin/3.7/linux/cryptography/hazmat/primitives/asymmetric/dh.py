@@ -2,18 +2,18 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
 
 import abc
 import typing
 
+from cryptography.hazmat.bindings._rust import openssl as rust_openssl
 from cryptography.hazmat.primitives import _serialization
-
-_MIN_MODULUS_SIZE = 512
 
 
 def generate_parameters(
     generator: int, key_size: int, backend: typing.Any = None
-) -> "DHParameters":
+) -> DHParameters:
     from cryptography.hazmat.backends.openssl.backend import backend as ossl
 
     return ossl.generate_dh_parameters(generator, key_size)
@@ -29,9 +29,10 @@ class DHParameterNumbers:
         if g < 2:
             raise ValueError("DH generator must be 2 or greater")
 
-        if p.bit_length() < _MIN_MODULUS_SIZE:
+        if p.bit_length() < rust_openssl.dh.MIN_MODULUS_SIZE:
             raise ValueError(
-                "p (modulus) must be at least {}-bit".format(_MIN_MODULUS_SIZE)
+                f"p (modulus) must be at least "
+                f"{rust_openssl.dh.MIN_MODULUS_SIZE}-bit"
             )
 
         self._p = p
@@ -46,7 +47,7 @@ class DHParameterNumbers:
             self._p == other._p and self._g == other._g and self._q == other._q
         )
 
-    def parameters(self, backend: typing.Any = None) -> "DHParameters":
+    def parameters(self, backend: typing.Any = None) -> DHParameters:
         from cryptography.hazmat.backends.openssl.backend import (
             backend as ossl,
         )
@@ -88,7 +89,7 @@ class DHPublicNumbers:
             and self._parameter_numbers == other._parameter_numbers
         )
 
-    def public_key(self, backend: typing.Any = None) -> "DHPublicKey":
+    def public_key(self, backend: typing.Any = None) -> DHPublicKey:
         from cryptography.hazmat.backends.openssl.backend import (
             backend as ossl,
         )
@@ -126,7 +127,7 @@ class DHPrivateNumbers:
             and self._public_numbers == other._public_numbers
         )
 
-    def private_key(self, backend: typing.Any = None) -> "DHPrivateKey":
+    def private_key(self, backend: typing.Any = None) -> DHPrivateKey:
         from cryptography.hazmat.backends.openssl.backend import (
             backend as ossl,
         )
@@ -144,7 +145,7 @@ class DHPrivateNumbers:
 
 class DHParameters(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def generate_private_key(self) -> "DHPrivateKey":
+    def generate_private_key(self) -> DHPrivateKey:
         """
         Generates and returns a DHPrivateKey.
         """
@@ -167,6 +168,7 @@ class DHParameters(metaclass=abc.ABCMeta):
 
 
 DHParametersWithSerialization = DHParameters
+DHParameters.register(rust_openssl.dh.DHParameters)
 
 
 class DHPublicKey(metaclass=abc.ABCMeta):
@@ -199,8 +201,15 @@ class DHPublicKey(metaclass=abc.ABCMeta):
         Returns the key serialized as bytes.
         """
 
+    @abc.abstractmethod
+    def __eq__(self, other: object) -> bool:
+        """
+        Checks equality.
+        """
+
 
 DHPublicKeyWithSerialization = DHPublicKey
+DHPublicKey.register(rust_openssl.dh.DHPublicKey)
 
 
 class DHPrivateKey(metaclass=abc.ABCMeta):
@@ -249,3 +258,4 @@ class DHPrivateKey(metaclass=abc.ABCMeta):
 
 
 DHPrivateKeyWithSerialization = DHPrivateKey
+DHPrivateKey.register(rust_openssl.dh.DHPrivateKey)

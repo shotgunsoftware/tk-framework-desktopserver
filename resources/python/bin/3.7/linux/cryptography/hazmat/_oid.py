@@ -2,6 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import typing
 
 from cryptography.hazmat.bindings._rust import (
@@ -38,10 +40,12 @@ class ExtensionOID:
     )
     PRECERT_POISON = ObjectIdentifier("1.3.6.1.4.1.11129.2.4.3")
     SIGNED_CERTIFICATE_TIMESTAMPS = ObjectIdentifier("1.3.6.1.4.1.11129.2.4.5")
+    MS_CERTIFICATE_TEMPLATE = ObjectIdentifier("1.3.6.1.4.1.311.21.7")
 
 
 class OCSPExtensionOID:
     NONCE = ObjectIdentifier("1.3.6.1.5.5.7.48.1.2")
+    ACCEPTABLE_RESPONSES = ObjectIdentifier("1.3.6.1.5.5.7.48.1.4")
 
 
 class CRLEntryExtensionOID:
@@ -62,6 +66,7 @@ class NameOID:
     SURNAME = ObjectIdentifier("2.5.4.4")
     GIVEN_NAME = ObjectIdentifier("2.5.4.42")
     TITLE = ObjectIdentifier("2.5.4.12")
+    INITIALS = ObjectIdentifier("2.5.4.43")
     GENERATION_QUALIFIER = ObjectIdentifier("2.5.4.44")
     X500_UNIQUE_IDENTIFIER = ObjectIdentifier("2.5.4.45")
     DN_QUALIFIER = ObjectIdentifier("2.5.4.46")
@@ -264,6 +269,7 @@ _OID_NAMES = {
         "signedCertificateTimestampList"
     ),
     ExtensionOID.PRECERT_POISON: "ctPoison",
+    ExtensionOID.MS_CERTIFICATE_TEMPLATE: "msCertificateTemplate",
     CRLEntryExtensionOID.CRL_REASON: "cRLReason",
     CRLEntryExtensionOID.INVALIDITY_DATE: "invalidityDate",
     CRLEntryExtensionOID.CERTIFICATE_ISSUER: "certificateIssuer",
