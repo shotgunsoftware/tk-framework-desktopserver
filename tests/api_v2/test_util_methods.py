@@ -443,17 +443,17 @@ class TestUtilMethods(TestDesktopServerFramework):
     @patch("sgtk.log.LogManager.global_debug")
     def test_get_exception_message(self, global_mock):
         """
-        Test unhandled exceptions messages.
+        Test unhandled exception messages.
         """
+        # Mocking debug logging to be True
         manager = sgtk.log.LogManager()
         manager.global_debug = True
         self.assertEqual(manager.global_debug, True)
-
-        expected_msg = (
-                "Exception: Dummy exception"
-        )
+        expected_msg = "Exception: Dummy exception"
+        # Test the traceback 'format_exc' by forcing
+        # an exception.
         try:
             raise Exception("Dummy exception")
-        except Exception as e:
+        except Exception:
             exc_msg = self.api._get_exception_message()
         self.assertEqual(expected_msg in str(exc_msg), True)
