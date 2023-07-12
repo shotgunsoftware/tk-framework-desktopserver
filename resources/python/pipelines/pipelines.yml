@@ -5,11 +5,10 @@
 # this software in either electronic or hard copy form.
 
 parameters:
-  - name: branch
-    default: ""
-  - name: isNotAutomated
-    default: $[endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography')]
+  branch: ""
 
+variables:
+  isNotAutomated: $[endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography')]
 
 jobs:
 - job: test
