@@ -14,95 +14,94 @@ jobs:
     parameters:
       python_version: 3.9
   - script: |
+      git checkout $(System.PullRequest.SourceBranch)
       python update_requirements.py
       ./install_source_only.sh
       git commit -am "Update source requirements"
-      git push origin $(Build.SourceBranch)
+      git push
     displayName: Run Scripts
     workingDirectory: resources/python
 
-- job: install_binary_dependencies_linux_3_7
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.7
-  - script: |
-      ./install_binary_linux.sh
-      git commit -am "Update binary requirements in Linux Python 3.7"
-      git push origin $(Build.SourceBranch)
-    displayName: Run Scripts
-    workingDirectory: resources/python
+# - job: install_binary_dependencies_linux_3_7
+#   pool:
+#     vmImage: 'ubuntu-latest'
+#   steps:
+#   - template: template.yml
+#     parameters:
+#       python_version: 3.7
+#   - script: |
+#       ./install_binary_linux.sh
+#       git commit -am "Update binary requirements in Linux Python 3.7"
+#       git push origin $(Build.SourceBranch)
+#     displayName: Run Scripts
+#     workingDirectory: resources/python
 
-- job: install_binary_dependencies_linux_3_9
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.9
-  - script: |
-      ./install_binary_linux.sh
-      git commit -am "Update binary requirements in Linux Python 3.9"
-      git push origin $(Build.SourceBranch)
-    displayName: Run Scripts
-    workingDirectory: resources/python
+# - job: install_binary_dependencies_linux_3_9
+#   pool:
+#     vmImage: 'ubuntu-latest'
+#   steps:
+#   - template: template.yml
+#     parameters:
+#       python_version: 3.9
+#   - script: |
+#       ./install_binary_linux.sh
+#       git commit -am "Update binary requirements in Linux Python 3.9"
+#       git push origin $(Build.SourceBranch)
+#     displayName: Run Scripts
+#     workingDirectory: resources/python
 
-- job: install_binary_dependencies_mac_3_7
-  pool:
-    vmImage: 'macOS-12'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.7
-  - script: |
-      ./install_binary_mac.sh
-      git commit -am "Update binary requirements in Mac Python 3.7"
-      git push origin $(Build.SourceBranch)
-    displayName: Run Scripts
-    workingDirectory: resources/python
+# - job: install_binary_dependencies_mac_3_7
+#   pool:
+#     vmImage: 'macOS-12'
+#   steps:
+#   - template: template.yml
+#     parameters:
+#       python_version: 3.7
+#   - script: |
+#       ./install_binary_mac.sh
+#       git commit -am "Update binary requirements in Mac Python 3.7"
+#       git push origin $(Build.SourceBranch)
+#     displayName: Run Scripts
+#     workingDirectory: resources/python
 
-- job: install_binary_dependencies_mac_3_9
-  pool:
-    vmImage: 'macOS-12'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.9
-  - script: |
-      ./install_binary_mac.sh
-      git commit -am "Update binary requirements in Mac Python 3.9"
-      git push origin $(Build.SourceBranch)
-    displayName: Run Scripts
-    workingDirectory: resources/python
+# - job: install_binary_dependencies_mac_3_9
+#   pool:
+#     vmImage: 'macOS-12'
+#   steps:
+#   - template: template.yml
+#     parameters:
+#       python_version: 3.9
+#   - script: |
+#       ./install_binary_mac.sh
+#       git commit -am "Update binary requirements in Mac Python 3.9"
+#       git push origin $(Build.SourceBranch)
+#     displayName: Run Scripts
+#     workingDirectory: resources/python
 
-- job: install_binary_dependencies_windows_3_7
-  pool:
-    vmImage: 'windows-2022'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.7
-  - script: |
-      .\install_binary_windows.ps1
-      git commit -am "Update binary requirements in Windows Python 3.7"
-      git push origin $(Build.SourceBranch)
-    displayName: Run Scripts
-    workingDirectory: resources/python
+# - job: install_binary_dependencies_windows_3_7
+#   pool:
+#     vmImage: 'windows-2022'
+#   steps:
+#   - template: template.yml
+#     parameters:
+#       python_version: 3.7
+#   - script: |
+#       .\install_binary_windows.ps1
+#       git commit -am "Update binary requirements in Windows Python 3.7"
+#       git push origin $(Build.SourceBranch)
+#     displayName: Run Scripts
+#     workingDirectory: resources/python
 
-- job: install_binary_dependencies_windows_3_9
-  pool:
-    vmImage: 'windows-2022'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.9
-  - script: echo $(Build.SourceBranch)
-  - script: echo $(System.PullRequest.SourceBranch)
-  - script: |
-      .\install_binary_windows.ps1
-      git commit -am "Update binary requirements in Windows Python 3.9"
-      git push origin $(Build.SourceBranch)
-    displayName: Run Scripts
-    workingDirectory: resources/python
+# - job: install_binary_dependencies_windows_3_9
+#   pool:
+#     vmImage: 'windows-2022'
+#   steps:
+#   - template: template.yml
+#     parameters:
+#       python_version: 3.9
+#   - script: |
+#       .\install_binary_windows.ps1
+#       git commit -am "Update binary requirements in Windows Python 3.9"
+#       git push origin $(Build.SourceBranch)
+#     displayName: Run Scripts
+#     workingDirectory: resources/python

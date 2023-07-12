@@ -8,9 +8,9 @@ parameters:
   python_version: ""
 
 steps:
-- checkout: self
-  persistCredentials: true
-  clean: true
+# - checkout: self
+#   persistCredentials: true
+#   clean: true
 - template: install-ssh-key.yml
 - bash: |
     git config --global user.name "Toolkitty"
