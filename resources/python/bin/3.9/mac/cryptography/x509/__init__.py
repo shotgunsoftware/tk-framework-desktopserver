@@ -2,6 +2,7 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
 
 from cryptography.x509 import certificate_transparency
 from cryptography.x509.base import (
@@ -52,8 +53,10 @@ from cryptography.x509.extensions import (
     IssuerAlternativeName,
     IssuingDistributionPoint,
     KeyUsage,
+    MSCertificateTemplate,
     NameConstraints,
     NoticeReference,
+    OCSPAcceptableResponses,
     OCSPNoCheck,
     OCSPNonce,
     PolicyConstraints,
@@ -196,6 +199,7 @@ __all__ = [
     "IssuingDistributionPoint",
     "TLSFeature",
     "TLSFeatureType",
+    "OCSPAcceptableResponses",
     "OCSPNoCheck",
     "BasicConstraints",
     "CRLNumber",
@@ -247,4 +251,5 @@ __all__ = [
     "SignedCertificateTimestamps",
     "SignatureAlgorithmOID",
     "NameOID",
+    "MSCertificateTemplate",
 ]
