@@ -1,8 +1,8 @@
 #
 # This file is part of pyasn1 software.
 #
-# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
-# License: http://snmplabs.com/pyasn1/license.html
+# Copyright (c) 2005-2020, Ilya Etingof <etingof@gmail.com>
+# License: https://pyasn1.readthedocs.io/en/latest/license.html
 #
 import logging
 import sys
@@ -55,16 +55,6 @@ class Printer(object):
         return '<python logging>'
 
 
-if hasattr(logging, 'NullHandler'):
-    NullHandler = logging.NullHandler
-
-else:
-    # Python 2.6 and older
-    class NullHandler(logging.Handler):
-        def emit(self, record):
-            pass
-
-
 class Debug(object):
     defaultPrinter = Printer()
 
@@ -75,7 +65,7 @@ class Debug(object):
             # route our logs to parent logger
             self._printer = Printer(
                 logger=logging.getLogger(options['loggerName']),
-                handler=NullHandler()
+                handler=logging.NullHandler()
             )
 
         elif 'printer' in options:
