@@ -6,9 +6,7 @@
 
 parameters:
   branch: ""
-
-variables:
-  isNotAutomated: $[endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography')]
+  isNotAutomated: False
 
 jobs:
 - job: test

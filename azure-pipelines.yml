@@ -55,3 +55,4 @@ jobs:
 - template: resources/python/pipelines/pipelines.yml
   parameters:
     branch: $(System.PullRequest.SourceBranch)-automated
+    isNotAutomated: $[endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography')]
