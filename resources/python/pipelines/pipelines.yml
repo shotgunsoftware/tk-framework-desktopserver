@@ -6,11 +6,10 @@
 
 parameters:
   branch: ""
-  isNotAutomated: False
 
 jobs:
 - job: test
-  condition: ${{ parameters.isNotAutomated }}
+  condition: not(endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography'))
   displayName: Test
   pool:
     vmImage: 'macOS-12'
