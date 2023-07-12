@@ -2,6 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import typing
 
 from cryptography.exceptions import (
@@ -30,7 +32,7 @@ def _check_signature_algorithm(
         )
 
 
-def _ec_key_curve_sn(backend: "Backend", ec_key) -> str:
+def _ec_key_curve_sn(backend: Backend, ec_key) -> str:
     group = backend._lib.EC_KEY_get0_group(ec_key)
     backend.openssl_assert(group != backend._ffi.NULL)
 
@@ -60,7 +62,7 @@ def _ec_key_curve_sn(backend: "Backend", ec_key) -> str:
     return sn
 
 
-def _mark_asn1_named_ec_curve(backend: "Backend", ec_cdata):
+def _mark_asn1_named_ec_curve(backend: Backend, ec_cdata):
     """
     Set the named curve flag on the EC_KEY. This causes OpenSSL to
     serialize EC keys along with their curve OID which makes
@@ -72,7 +74,7 @@ def _mark_asn1_named_ec_curve(backend: "Backend", ec_cdata):
     )
 
 
-def _check_key_infinity(backend: "Backend", ec_cdata) -> None:
+def _check_key_infinity(backend: Backend, ec_cdata) -> None:
     point = backend._lib.EC_KEY_get0_public_key(ec_cdata)
     backend.openssl_assert(point != backend._ffi.NULL)
     group = backend._lib.EC_KEY_get0_group(ec_cdata)
@@ -83,18 +85,18 @@ def _check_key_infinity(backend: "Backend", ec_cdata) -> None:
         )
 
 
-def _sn_to_elliptic_curve(backend: "Backend", sn: str) -> ec.EllipticCurve:
+def _sn_to_elliptic_curve(backend: Backend, sn: str) -> ec.EllipticCurve:
     try:
         return ec._CURVE_TYPES[sn]()
     except KeyError:
         raise UnsupportedAlgorithm(
-            "{} is not a supported elliptic curve".format(sn),
+            f"{sn} is not a supported elliptic curve",
             _Reasons.UNSUPPORTED_ELLIPTIC_CURVE,
         )
 
 
 def _ecdsa_sig_sign(
-    backend: "Backend", private_key: "_EllipticCurvePrivateKey", data: bytes
+    backend: Backend, private_key: _EllipticCurvePrivateKey, data: bytes
 ) -> bytes:
     max_size = backend._lib.ECDSA_size(private_key._ec_key)
     backend.openssl_assert(max_size > 0)
@@ -109,8 +111,8 @@ def _ecdsa_sig_sign(
 
 
 def _ecdsa_sig_verify(
-    backend: "Backend",
-    public_key: "_EllipticCurvePublicKey",
+    backend: Backend,
+    public_key: _EllipticCurvePublicKey,
     signature: bytes,
     data: bytes,
 ) -> None:
@@ -123,7 +125,7 @@ def _ecdsa_sig_verify(
 
 
 class _EllipticCurvePrivateKey(ec.EllipticCurvePrivateKey):
-    def __init__(self, backend: "Backend", ec_key_cdata, evp_pkey):
+    def __init__(self, backend: Backend, ec_key_cdata, evp_pkey):
         self._backend = backend
         self._ec_key = ec_key_cdata
         self._evp_pkey = evp_pkey
@@ -215,7 +217,7 @@ class _EllipticCurvePrivateKey(ec.EllipticCurvePrivateKey):
 
 
 class _EllipticCurvePublicKey(ec.EllipticCurvePublicKey):
-    def __init__(self, backend: "Backend", ec_key_cdata, evp_pkey):
+    def __init__(self, backend: Backend, ec_key_cdata, evp_pkey):
         self._backend = backend
         self._ec_key = ec_key_cdata
         self._evp_pkey = evp_pkey
@@ -233,10 +235,19 @@ class _EllipticCurvePublicKey(ec.EllipticCurvePublicKey):
     def key_size(self) -> int:
         return self.curve.key_size
 
-    def public_numbers(self) -> ec.EllipticCurvePublicNumbers:
-        get_func, group = self._backend._ec_key_determine_group_get_func(
-            self._ec_key
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, _EllipticCurvePublicKey):
+            return NotImplemented
+
+        return (
+            self._backend._lib.EVP_PKEY_cmp(self._evp_pkey, other._evp_pkey)
+            == 1
         )
+
+    def public_numbers(self) -> ec.EllipticCurvePublicNumbers:
+        group = self._backend._lib.EC_KEY_get0_group(self._ec_key)
+        self._backend.openssl_assert(group != self._backend._ffi.NULL)
+
         point = self._backend._lib.EC_KEY_get0_public_key(self._ec_key)
         self._backend.openssl_assert(point != self._backend._ffi.NULL)
 
@@ -244,7 +255,9 @@ class _EllipticCurvePublicKey(ec.EllipticCurvePublicKey):
             bn_x = self._backend._lib.BN_CTX_get(bn_ctx)
             bn_y = self._backend._lib.BN_CTX_get(bn_ctx)
 
-            res = get_func(group, point, bn_x, bn_y, bn_ctx)
+            res = self._backend._lib.EC_POINT_get_affine_coordinates(
+                group, point, bn_x, bn_y, bn_ctx
+            )
             self._backend.openssl_assert(res == 1)
 
             x = self._backend._bn_to_int(bn_x)
