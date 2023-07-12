@@ -14,11 +14,10 @@ jobs:
   pool:
     vmImage: 'macOS-12'
   steps:
-  - ${{ if not(endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography')) }}:
-    - script: echo $(System.PullRequest.SourceBranch)
-    - script: echo ${{ variables['System.PullRequest.SourceBranch'] }}
-    - script: echo ${{ variables['Build.SourceBranchName'] }}
-    - script: echo ${{ endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography') }}
+  # - ${{ if not(endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography')) }}:
+  - script: echo $(System.PullRequest.SourceBranch)
+  - script: echo ${{ variables.System.PullRequest.SourceBranch'}}
+  - script: echo ${{ eq( variables.System.PullRequest.SourceBranch, 'ticket/SG-31201_upgrade_cryptography') }}
 
 # - job: install_source_dependencies_3_7
 #   displayName: Install source dependencies Python 3.7
