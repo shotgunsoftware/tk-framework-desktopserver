@@ -54,7 +54,7 @@ jobs:
 
 - ${{ if not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')) }}:
   - script: echo ${{ variables['System.PullRequest.SourceBranch'] }}
-  - script: echo ${{ endsWith( variables['System.PullRequest.SourceBranch']) }}
+  - script: echo ${{ endsWith( variables['System.PullRequest.SourceBranch', '-automated']) }}
   # commits will be pushed to a new branch
   # - template: resources/python/pipelines/pipelines.yml
   #   parameters:
