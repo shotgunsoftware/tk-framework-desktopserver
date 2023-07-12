@@ -12,7 +12,7 @@ jobs:
 - job: install_source_dependencies_3_7
   displayName: Install source dependencies Python 3.7
   pool:
-    vmImage: 'ubuntu-latest'
+    vmImage: 'macOS-12'
   steps:
   - template: template.yml
     parameters:
@@ -31,7 +31,7 @@ jobs:
   displayName: Install source dependencies Python 3.9
   dependsOn: install_source_dependencies_3_7
   pool:
-    vmImage: 'ubuntu-latest'
+    vmImage: 'macOS-12'
   steps:
   - template: template.yml
     parameters:
@@ -43,44 +43,6 @@ jobs:
       ./install_source_only.sh
       git pull
       git commit -am "Update source requirements 3.9"
-      git push origin ${{ parameters.branch }}
-    displayName: Run Scripts
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_linux_3_7
-  displayName: Install binary dependencies Linux 3.7
-  dependsOn: install_source_dependencies_3_9
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.7
-      branch: ${{ parameters.branch }}
-  - script: |
-      git checkout ${{ parameters.branch }}
-      ./install_binary_linux.sh
-      git pull
-      git commit -am "Update binary requirements in Linux Python 3.7"
-      git push origin ${{ parameters.branch }}
-    displayName: Run Scripts
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_linux_3_9
-  displayName: Install binary dependencies Linux 3.9
-  dependsOn: install_binary_dependencies_linux_3_7
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.9
-      branch: ${{ parameters.branch }}
-  - script: |
-      git checkout ${{ parameters.branch }}
-      ./install_binary_linux.sh
-      git pull
-      git commit -am "Update binary requirements in Linux Python 3.9"
       git push origin ${{ parameters.branch }}
     displayName: Run Scripts
     workingDirectory: resources/python
@@ -119,6 +81,44 @@ jobs:
       ./install_binary_mac.sh
       git pull
       git commit -am "Update binary requirements in Mac Python 3.9"
+      git push origin ${{ parameters.branch }}
+    displayName: Run Scripts
+    workingDirectory: resources/python
+
+- job: install_binary_dependencies_linux_3_7
+  displayName: Install binary dependencies Linux 3.7
+  dependsOn: install_source_dependencies_3_9
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.7
+      branch: ${{ parameters.branch }}
+  - script: |
+      git checkout ${{ parameters.branch }}
+      ./install_binary_linux.sh
+      git pull
+      git commit -am "Update binary requirements in Linux Python 3.7"
+      git push origin ${{ parameters.branch }}
+    displayName: Run Scripts
+    workingDirectory: resources/python
+
+- job: install_binary_dependencies_linux_3_9
+  displayName: Install binary dependencies Linux 3.9
+  dependsOn: install_binary_dependencies_linux_3_7
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.9
+      branch: ${{ parameters.branch }}
+  - script: |
+      git checkout ${{ parameters.branch }}
+      ./install_binary_linux.sh
+      git pull
+      git commit -am "Update binary requirements in Linux Python 3.9"
       git push origin ${{ parameters.branch }}
     displayName: Run Scripts
     workingDirectory: resources/python
