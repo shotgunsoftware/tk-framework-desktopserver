@@ -1,26 +1,19 @@
 #
 # This file is part of pyasn1 software.
 #
-# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
-# License: http://snmplabs.com/pyasn1/license.html
+# Copyright (c) 2005-2020, Ilya Etingof <etingof@gmail.com>
+# License: https://pyasn1.readthedocs.io/en/latest/license.html
 #
 import sys
-
-try:
-    import platform
-
-    implementation = platform.python_implementation()
-
-except (ImportError, AttributeError):
-    implementation = 'CPython'
+import platform
 
 from pyasn1.compat.octets import oct2int, null, ensureString
 
-if sys.version_info[0:2] < (3, 2) or implementation != 'CPython':
-    from binascii import a2b_hex, b2a_hex
 
-    if sys.version_info[0] > 2:
-        long = int
+implementation = platform.python_implementation()
+
+if sys.version_info[0] < 3:
+    from binascii import a2b_hex, b2a_hex
 
     def from_bytes(octets, signed=False):
         if not octets:
