@@ -15,7 +15,7 @@ jobs:
       python_version: 3.9
   - script: |
       git checkout $(System.PullRequest.SourceBranch)
-      git remote set-url git@github.com:shotgunsoftware/tk-framework-desktopserver.git
+      git remote set-url origin git@github.com:shotgunsoftware/tk-framework-desktopserver.git
       python update_requirements.py
       ./install_source_only.sh
       git commit -am "Update source requirements"
