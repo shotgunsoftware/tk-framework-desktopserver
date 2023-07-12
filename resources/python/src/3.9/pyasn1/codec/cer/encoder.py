@@ -1,8 +1,8 @@
 #
 # This file is part of pyasn1 software.
 #
-# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
-# License: http://snmplabs.com/pyasn1/license.html
+# Copyright (c) 2005-2020, Ilya Etingof <etingof@gmail.com>
+# License: https://pyasn1.readthedocs.io/en/latest/license.html
 #
 from pyasn1 import error
 from pyasn1.codec.ber import encoder
@@ -10,7 +10,7 @@ from pyasn1.compat.octets import str2octs, null
 from pyasn1.type import univ
 from pyasn1.type import useful
 
-__all__ = ['encode']
+__all__ = ['Encoder', 'encode']
 
 
 class BooleanEncoder(encoder.IntegerEncoder):
@@ -234,8 +234,9 @@ class SequenceEncoder(encoder.SequenceEncoder):
     omitEmptyOptionals = True
 
 
-tagMap = encoder.tagMap.copy()
-tagMap.update({
+TAG_MAP = encoder.TAG_MAP.copy()
+
+TAG_MAP.update({
     univ.Boolean.tagSet: BooleanEncoder(),
     univ.Real.tagSet: RealEncoder(),
     useful.GeneralizedTime.tagSet: GeneralizedTimeEncoder(),
@@ -245,8 +246,9 @@ tagMap.update({
     univ.Sequence.typeId: SequenceEncoder()
 })
 
-typeMap = encoder.typeMap.copy()
-typeMap.update({
+TYPE_MAP = encoder.TYPE_MAP.copy()
+
+TYPE_MAP.update({
     univ.Boolean.typeId: BooleanEncoder(),
     univ.Real.typeId: RealEncoder(),
     useful.GeneralizedTime.typeId: GeneralizedTimeEncoder(),
@@ -258,10 +260,22 @@ typeMap.update({
     univ.SequenceOf.typeId: SequenceOfEncoder()
 })
 
+# deprecated aliases, https://github.com/pyasn1/pyasn1/issues/9
+tagMap = TAG_MAP
+typeMap = TYPE_MAP
 
-class Encoder(encoder.Encoder):
+
+class SingleItemEncoder(encoder.SingleItemEncoder):
     fixedDefLengthMode = False
     fixedChunkSize = 1000
+
+    TAG_MAP = TAG_MAP
+    TYPE_MAP = TYPE_MAP
+
+
+class Encoder(encoder.Encoder):
+    SINGLE_ITEM_ENCODER = SingleItemEncoder
+
 
 #: Turns ASN.1 object into CER octet stream.
 #:
@@ -308,6 +322,6 @@ class Encoder(encoder.Encoder):
 #:    >>> encode(seq)
 #:    b'0\x80\x02\x01\x01\x02\x01\x02\x02\x01\x03\x00\x00'
 #:
-encode = Encoder(tagMap, typeMap)
+encode = Encoder()
 
 # EncoderFactory queries class instance and builds a map of tags -> encoders

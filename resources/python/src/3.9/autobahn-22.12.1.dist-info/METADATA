@@ -31,6 +31,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Object Brokering
 Requires-Python: >=3.7
+License-File: LICENSE
 Requires-Dist: txaio (>=21.2.1)
 Requires-Dist: cryptography (>=3.4.6)
 Requires-Dist: hyperlink (>=21.0.0)
@@ -433,5 +434,3 @@ Further, to speed up JSON on CPython using ``ujson``, set the environment variab
 
 .. |EXE Download| image:: https://img.shields.io/badge/download-exe-blue.svg?style=flat
    :target: https://download.crossbario.com/xbrnetwork/linux-amd64/xbrnetwork-latest
-
-
