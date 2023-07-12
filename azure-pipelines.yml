@@ -52,14 +52,16 @@ jobs:
 #           # Azure Pipelines 1-10
 #           SHOTGUN_TEST_ENTITY_SUFFIX: '$(Agent.Name)'
 
-- ${{ if not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')) }}:
+- ${{ if not(endsWith( variables['Build.SourceBranchName'], '-automated')) }}:
   - job: install_source_dependencies_3_7
     displayName: Ping
     pool:
       vmImage: 'ubuntu-latest'
     steps:
+      - script: echo $(System.PullRequest.SourceBranch)
       - script: echo ${{ variables['System.PullRequest.SourceBranch'] }}
-      - script: echo ${{ endsWith( variables['System.PullRequest.SourceBranch'], '-automated') }}
+      - script: echo ${{ variables['Build.SourceBranchName'] }}
+      - script: echo ${{ endsWith( variables['Build.SourceBranchName'], '-automated') }}
   # commits will be pushed to a new branch
   # - template: resources/python/pipelines/pipelines.yml
   #   parameters:
