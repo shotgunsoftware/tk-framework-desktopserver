@@ -15,7 +15,6 @@ steps:
     git config --global user.email toolkitty@autodesk.com
     git remote set-url origin git@github.com:shotgunsoftware/tk-framework-desktopserver.git
     git checkout $(System.PullRequest.SourceBranch)
-    git pull
     git checkout -b ${{ parameters.branch }}
 - task: UsePythonVersion@0
   inputs:

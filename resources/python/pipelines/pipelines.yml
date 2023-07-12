@@ -28,6 +28,7 @@ jobs:
 
 - job: install_source_dependencies_3_9
   displayName: Install source dependencies Python 3.9
+  dependsOn: install_source_dependencies_3_7
   pool:
     vmImage: 'ubuntu-latest'
   steps:
@@ -39,12 +40,13 @@ jobs:
       python update_requirements.py
       ./install_source_only.sh
       git commit -am "Update source requirements 3.9"
-      git push -u origin ${{ parameters.branch }}
+      git push origin ${{ parameters.branch }}
     displayName: Run Scripts
     workingDirectory: resources/python
 
 - job: install_binary_dependencies_linux_3_7
   displayName: Install binary dependencies Linux 3.7
+  dependsOn: install_source_dependencies_3_9
   pool:
     vmImage: 'ubuntu-latest'
   steps:
@@ -55,12 +57,13 @@ jobs:
   - script: |
       ./install_binary_linux.sh
       git commit -am "Update binary requirements in Linux Python 3.7"
-      git push -u origin ${{ parameters.branch }}
+      git push origin ${{ parameters.branch }}
     displayName: Run Scripts
     workingDirectory: resources/python
 
 - job: install_binary_dependencies_linux_3_9
   displayName: Install binary dependencies Linux 3.9
+  dependsOn: install_binary_dependencies_linux_3_7
   pool:
     vmImage: 'ubuntu-latest'
   steps:
@@ -71,12 +74,13 @@ jobs:
   - script: |
       ./install_binary_linux.sh
       git commit -am "Update binary requirements in Linux Python 3.9"
-      git push -u origin ${{ parameters.branch }}
+      git push origin ${{ parameters.branch }}
     displayName: Run Scripts
     workingDirectory: resources/python
 
 - job: install_binary_dependencies_mac_3_7
   displayName: Install binary dependencies Mac 3.7
+  dependsOn: install_binary_dependencies_linux_3_9
   pool:
     vmImage: 'macOS-12'
   steps:
@@ -87,12 +91,13 @@ jobs:
   - script: |
       ./install_binary_mac.sh
       git commit -am "Update binary requirements in Mac Python 3.7"
-      git push -u origin ${{ parameters.branch }}
+      git push origin ${{ parameters.branch }}
     displayName: Run Scripts
     workingDirectory: resources/python
 
 - job: install_binary_dependencies_mac_3_9
   displayName: Install binary dependencies Mac 3.9
+  dependsOn: install_binary_dependencies_mac_3_7
   pool:
     vmImage: 'macOS-12'
   steps:
@@ -103,12 +108,13 @@ jobs:
   - script: |
       ./install_binary_mac.sh
       git commit -am "Update binary requirements in Mac Python 3.9"
-      git push -u origin ${{ parameters.branch }}
+      git push origin ${{ parameters.branch }}
     displayName: Run Scripts
     workingDirectory: resources/python
 
 - job: install_binary_dependencies_windows_3_7
   displayName: Install binary dependencies Windows 3.7
+  dependsOn: install_binary_dependencies_mac_3_9
   pool:
     vmImage: 'windows-2022'
   steps:
@@ -119,12 +125,13 @@ jobs:
   - script: |
       .\install_binary_windows.ps1
       git commit -am "Update binary requirements in Windows Python 3.7"
-      git push -u origin ${{ parameters.branch }}
+      git push origin ${{ parameters.branch }}
     displayName: Run Scripts
     workingDirectory: resources/python
 
 - job: install_binary_dependencies_windows_3_9
   displayName: Install binary dependencies Windows 3.9
+  dependsOn: install_binary_dependencies_windows_3_7
   pool:
     vmImage: 'windows-2022'
   steps:
@@ -135,6 +142,6 @@ jobs:
   - script: |
       .\install_binary_windows.ps1
       git commit -am "Update binary requirements in Windows Python 3.9"
-      git push -u origin ${{ parameters.branch }}
+      git push origin ${{ parameters.branch }}
     displayName: Run Scripts
     workingDirectory: resources/python
