@@ -8,11 +8,10 @@ parameters:
   python_version: ""
 
 steps:
-- template: install-ssh-key.yml
 - bash: |
-    git config --global user.name "Toolkitty"
-    git config --global user.email toolkitty@autodesk.com
-    git remote set-url origin git@github.com:shotgunsoftware/tk-framework-desktopserver.git
+    git config --global user.name $(GitUserName)
+    git config --global user.email $(GitUserEmail)
+    git remote set-url origin https://$(GitUserName):$(GitToken)@github.com/shotgunsoftware/tk-framework-desktopserver.git
 - task: UsePythonVersion@0
   inputs:
     versionSpec: ${{ parameters.python_version }}
