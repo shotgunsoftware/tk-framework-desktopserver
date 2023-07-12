@@ -2,4 +2,3 @@
 wamp = autobahn.__main__:_main
 xbrnetwork = autobahn.xbr._cli:_main
 xbrnetwork-ui = autobahn.xbr._gui:_main
-
