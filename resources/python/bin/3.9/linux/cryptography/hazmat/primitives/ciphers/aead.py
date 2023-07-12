@@ -2,6 +2,7 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
 
 import os
 import typing
@@ -79,8 +80,8 @@ class ChaCha20Poly1305:
         associated_data: bytes,
     ) -> None:
         utils._check_byteslike("nonce", nonce)
-        utils._check_bytes("data", data)
-        utils._check_bytes("associated_data", associated_data)
+        utils._check_byteslike("data", data)
+        utils._check_byteslike("associated_data", associated_data)
         if len(nonce) != 12:
             raise ValueError("Nonce must be 12 bytes")
 
@@ -164,8 +165,8 @@ class AESCCM:
         self, nonce: bytes, data: bytes, associated_data: bytes
     ) -> None:
         utils._check_byteslike("nonce", nonce)
-        utils._check_bytes("data", data)
-        utils._check_bytes("associated_data", associated_data)
+        utils._check_byteslike("data", data)
+        utils._check_byteslike("associated_data", associated_data)
         if not 7 <= len(nonce) <= 13:
             raise ValueError("Nonce must be between 7 and 13 bytes")
 
@@ -227,8 +228,8 @@ class AESGCM:
         associated_data: bytes,
     ) -> None:
         utils._check_byteslike("nonce", nonce)
-        utils._check_bytes("data", data)
-        utils._check_bytes("associated_data", associated_data)
+        utils._check_byteslike("data", data)
+        utils._check_byteslike("associated_data", associated_data)
         if len(nonce) < 8 or len(nonce) > 128:
             raise ValueError("Nonce must be between 8 and 128 bytes")
 
@@ -296,13 +297,13 @@ class AESOCB3:
         associated_data: bytes,
     ) -> None:
         utils._check_byteslike("nonce", nonce)
-        utils._check_bytes("data", data)
-        utils._check_bytes("associated_data", associated_data)
+        utils._check_byteslike("data", data)
+        utils._check_byteslike("associated_data", associated_data)
         if len(nonce) < 12 or len(nonce) > 15:
             raise ValueError("Nonce must be between 12 and 15 bytes")
 
 
-class AESSIV(object):
+class AESSIV:
     _MAX_SIZE = 2**31 - 1
 
     def __init__(self, key: bytes):
@@ -365,10 +366,13 @@ class AESSIV(object):
         data: bytes,
         associated_data: typing.List[bytes],
     ) -> None:
-        utils._check_bytes("data", data)
+        utils._check_byteslike("data", data)
         if len(data) == 0:
             raise ValueError("data must not be zero length")
-        if not isinstance(associated_data, list) or not all(
-            isinstance(x, bytes) for x in associated_data
-        ):
-            raise TypeError("associated_data must be a list of bytes or None")
+
+        if not isinstance(associated_data, list):
+            raise TypeError(
+                "associated_data must be a list of bytes-like objects or None"
+            )
+        for x in associated_data:
+            utils._check_byteslike("associated_data elements", x)

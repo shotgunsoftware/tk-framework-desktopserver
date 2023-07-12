@@ -2,6 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import binascii
 import re
 import sys
@@ -259,7 +261,7 @@ class RelativeDistinguishedName:
         return len(self._attributes)
 
     def __repr__(self) -> str:
-        return "<RelativeDistinguishedName({})>".format(self.rfc4514_string())
+        return f"<RelativeDistinguishedName({self.rfc4514_string()})>"
 
 
 class Name:
@@ -300,7 +302,7 @@ class Name:
         cls,
         data: str,
         attr_name_overrides: typing.Optional[_NameOidMap] = None,
-    ) -> "Name":
+    ) -> Name:
         return _RFC4514NameParser(data, attr_name_overrides or {}).parse()
 
     def rfc4514_string(
@@ -354,7 +356,7 @@ class Name:
 
     def __repr__(self) -> str:
         rdns = ",".join(attr.rfc4514_string() for attr in self._attributes)
-        return "<Name({})>".format(rdns)
+        return f"<Name({rdns})>"
 
 
 class _RFC4514NameParser:

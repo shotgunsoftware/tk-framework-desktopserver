@@ -2,6 +2,7 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
 
 import abc
 import typing
@@ -94,9 +95,7 @@ def _check_nonce_length(
             _Reasons.UNSUPPORTED_CIPHER,
         )
     if len(nonce) * 8 != algorithm.block_size:
-        raise ValueError(
-            "Invalid nonce size ({}) for {}.".format(len(nonce), name)
-        )
+        raise ValueError(f"Invalid nonce size ({len(nonce)}) for {name}.")
 
 
 def _check_iv_and_key_length(

@@ -2,6 +2,7 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
 
 import typing
 
@@ -59,7 +60,7 @@ class HKDFExpand(KeyDerivationFunction):
 
         if length > max_length:
             raise ValueError(
-                "Cannot derive keys larger than {} octets.".format(max_length)
+                f"Cannot derive keys larger than {max_length} octets."
             )
 
         self._length = length
