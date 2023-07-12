@@ -8,12 +8,12 @@ parameters:
   - name: branch
     default: ""
   - name: isNotAutomated
-    default: $[not(endsWith( variables['System.PullRequest.SourceBranch'], 'automated'))]
+    default: $[endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography')]
 
 
 jobs:
 - job: test
-  condition: parameters.isNotAutomated
+  condition: ${{ parameters.isNotAutomated }}
   displayName: Test
   pool:
     vmImage: 'macOS-12'
