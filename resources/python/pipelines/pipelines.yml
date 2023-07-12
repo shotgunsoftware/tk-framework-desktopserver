@@ -9,7 +9,7 @@ parameters:
 
 jobs:
 - job: test
-  condition: endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography')
+  condition: not(endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography'))
   displayName: Test
   pool:
     vmImage: 'macOS-12'
