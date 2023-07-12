@@ -135,11 +135,16 @@ jobs:
       branch: ${{ parameters.branch }}
   - script: |
       git checkout ${{ parameters.branch }}
-      .\install_binary_windows.ps1
-      git pull
-      git commit -am "Update binary requirements in Windows Python 3.7"
-      git push origin ${{ parameters.branch }}
     displayName: Run Scripts
+    workingDirectory: resources/python
+  - powershell: .\install_binary_windows.ps1
+    displayName: Run PowerShell Scripts
+    workingDirectory: resources/python
+  - script: |
+      git pull
+      git commit -am "Update binary requirements in Windows Python 3.9"
+      git push origin ${{ parameters.branch }}
+    displayName: Run Push Scripts
     workingDirectory: resources/python
 
 - job: install_binary_dependencies_windows_3_9
@@ -154,9 +159,14 @@ jobs:
       branch: ${{ parameters.branch }}
   - script: |
       git checkout ${{ parameters.branch }}
-      .\install_binary_windows.ps1
+    displayName: Run Scripts
+    workingDirectory: resources/python
+  - powershell: .\install_binary_windows.ps1
+    displayName: Run PowerShell Scripts
+    workingDirectory: resources/python
+  - script: |
       git pull
       git commit -am "Update binary requirements in Windows Python 3.9"
       git push origin ${{ parameters.branch }}
-    displayName: Run Scripts
+    displayName: Run Push Scripts
     workingDirectory: resources/python
