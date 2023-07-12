@@ -16,7 +16,7 @@ jobs:
   steps:
   # - ${{ if not(endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography')) }}:
   - script: echo $(System.PullRequest.SourceBranch)
-  - script: echo ${{ variables.System.PullRequest.SourceBranch'}}
+  - script: echo ${{ variables.System.PullRequest.SourceBranch }}
   - script: echo ${{ eq( variables.System.PullRequest.SourceBranch, 'ticket/SG-31201_upgrade_cryptography') }}
 
 # - job: install_source_dependencies_3_7
