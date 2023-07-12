@@ -56,3 +56,5 @@ jobs:
 # commits will be pushed to the working branch
 # comment this again after the branch looks good to you
 - template: resources/python/pipelines/pipelines.yml
+  parameters:
+    branch: $(System.PullRequest.SourceBranch)-automated
