@@ -59,8 +59,5 @@ rm -Rf $source_dir/incremental/tests
 rm -Rf $source_dir/twisted/python/_sendmsg.so
 
 echo "----------------------------------------------------"
-echo "Current git branch"
-git branch --show-current
-echo "----------------------------------------------------"
 echo "Adding new files to git"
 git add $source_dir
