@@ -6,6 +6,7 @@
 
 parameters:
   python_version: ""
+  branch: ""
 
 steps:
 - template: install-ssh-key.yml
@@ -14,7 +15,7 @@ steps:
     git config --global user.email toolkitty@autodesk.com
     git remote set-url origin git@github.com:shotgunsoftware/tk-framework-desktopserver.git
     git checkout $(System.PullRequest.SourceBranch)
-    git checkout -b $(System.PullRequest.SourceBranch)-automated
+    git checkout -b ${{ parameters.branch }}
 - task: UsePythonVersion@0
   inputs:
     versionSpec: ${{ parameters.python_version }}

@@ -4,6 +4,10 @@
 # provided at the time of installation or download, or which otherwise accompanies
 # this software in either electronic or hard copy form.
 
+variables:
+- name: AUTOMATED_BRANCH
+  value: $(System.PullRequest.SourceBranch)-automated
+
 jobs:
 
 - job: install_source_dependencies_3_7
@@ -14,11 +18,12 @@ jobs:
   - template: template.yml
     parameters:
       python_version: 3.7
+      branch: $(AUTOMATED_BRANCH)
   - script: |
       python update_requirements.py
       ./install_source_only.sh
       git commit -am "Update source requirements 3.7"
-      git push
+      git push -u origin $(AUTOMATED_BRANCH)
     displayName: Run Scripts
     workingDirectory: resources/python
 
@@ -30,11 +35,12 @@ jobs:
   - template: template.yml
     parameters:
       python_version: 3.9
+      branch: $(AUTOMATED_BRANCH)
   - script: |
       python update_requirements.py
       ./install_source_only.sh
       git commit -am "Update source requirements 3.9"
-      git push
+      git push -u origin $(AUTOMATED_BRANCH)
     displayName: Run Scripts
     workingDirectory: resources/python
 
@@ -46,10 +52,11 @@ jobs:
   - template: template.yml
     parameters:
       python_version: 3.7
+      branch: $(AUTOMATED_BRANCH)
   - script: |
       ./install_binary_linux.sh
       git commit -am "Update binary requirements in Linux Python 3.7"
-      git push origin $(Build.SourceBranch)
+      git push -u origin $(AUTOMATED_BRANCH)
     displayName: Run Scripts
     workingDirectory: resources/python
 
@@ -61,10 +68,11 @@ jobs:
   - template: template.yml
     parameters:
       python_version: 3.9
+      branch: $(AUTOMATED_BRANCH)
   - script: |
       ./install_binary_linux.sh
       git commit -am "Update binary requirements in Linux Python 3.9"
-      git push origin $(Build.SourceBranch)
+      git push -u origin $(AUTOMATED_BRANCH)
     displayName: Run Scripts
     workingDirectory: resources/python
 
@@ -76,10 +84,11 @@ jobs:
   - template: template.yml
     parameters:
       python_version: 3.7
+      branch: $(AUTOMATED_BRANCH)
   - script: |
       ./install_binary_mac.sh
       git commit -am "Update binary requirements in Mac Python 3.7"
-      git push origin $(Build.SourceBranch)
+      git push -u origin $(AUTOMATED_BRANCH)
     displayName: Run Scripts
     workingDirectory: resources/python
 
@@ -91,10 +100,11 @@ jobs:
   - template: template.yml
     parameters:
       python_version: 3.9
+      branch: $(AUTOMATED_BRANCH)
   - script: |
       ./install_binary_mac.sh
       git commit -am "Update binary requirements in Mac Python 3.9"
-      git push origin $(Build.SourceBranch)
+      git push -u origin $(AUTOMATED_BRANCH)
     displayName: Run Scripts
     workingDirectory: resources/python
 
@@ -106,10 +116,11 @@ jobs:
   - template: template.yml
     parameters:
       python_version: 3.7
+      branch: $(AUTOMATED_BRANCH)
   - script: |
       .\install_binary_windows.ps1
       git commit -am "Update binary requirements in Windows Python 3.7"
-      git push origin $(Build.SourceBranch)
+      git push -u origin $(AUTOMATED_BRANCH)
     displayName: Run Scripts
     workingDirectory: resources/python
 
@@ -121,9 +132,10 @@ jobs:
   - template: template.yml
     parameters:
       python_version: 3.9
+      branch: $(AUTOMATED_BRANCH)
   - script: |
       .\install_binary_windows.ps1
       git commit -am "Update binary requirements in Windows Python 3.9"
-      git push origin $(Build.SourceBranch)
+      git push -u origin $(AUTOMATED_BRANCH)
     displayName: Run Scripts
     workingDirectory: resources/python
