@@ -5,16 +5,20 @@
 # this software in either electronic or hard copy form.
 
 parameters:
-  branch: ""
+  - name: branch
+    default: ""
+  - name: isNotAutomated
+    default: $[not(endsWith( variables['System.PullRequest.SourceBranch'], 'automated'))]
+
 
 jobs:
 - job: test
-  condition: not(endsWith( variables['System.PullRequest.SourceBranch'], 'ticket/SG-31201_upgrade_cryptography'))
+  condition: parameters.isNotAutomated
   displayName: Test
   pool:
     vmImage: 'macOS-12'
   steps:
-  - script: echo $(System.PullRequest.SourceBranch)
+  - script: echo ${{ parameters.isNotAutomated }}
 
 # - job: install_source_dependencies_3_7
 #   displayName: Install source dependencies Python 3.7
