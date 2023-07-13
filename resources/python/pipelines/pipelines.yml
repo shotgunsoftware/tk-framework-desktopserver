@@ -42,7 +42,6 @@ jobs:
       git checkout ${{ parameters.branch }}
       python update_requirements.py
       ./install_source_only.sh
-      git pull
       git commit -am "Update source requirements 3.9"
       git push origin ${{ parameters.branch }}
     displayName: Run Scripts
@@ -62,7 +61,6 @@ jobs:
   - script: |
       git checkout ${{ parameters.branch }}
       ./install_binary_mac.sh
-      git pull
       git commit -am "Update binary requirements in Mac Python 3.7"
       git push origin ${{ parameters.branch }}
     displayName: Run Scripts
@@ -82,7 +80,6 @@ jobs:
   - script: |
       git checkout ${{ parameters.branch }}
       ./install_binary_mac.sh
-      git pull
       git commit -am "Update binary requirements in Mac Python 3.9"
       git push origin ${{ parameters.branch }}
     displayName: Run Scripts
@@ -102,7 +99,6 @@ jobs:
   - script: |
       git checkout ${{ parameters.branch }}
       ./install_binary_linux.sh
-      git pull
       git commit -am "Update binary requirements in Linux Python 3.7"
       git push origin ${{ parameters.branch }}
     displayName: Run Scripts
@@ -122,7 +118,6 @@ jobs:
   - script: |
       git checkout ${{ parameters.branch }}
       ./install_binary_linux.sh
-      git pull
       git commit -am "Update binary requirements in Linux Python 3.9"
       git push origin ${{ parameters.branch }}
     displayName: Run Scripts
@@ -147,7 +142,6 @@ jobs:
     displayName: Run PowerShell Scripts
     workingDirectory: resources/python
   - script: |
-      git pull
       git commit -am "Update binary requirements in Windows Python 3.9"
       git push origin ${{ parameters.branch }}
     displayName: Run Push Scripts
@@ -172,7 +166,6 @@ jobs:
     displayName: Run PowerShell Scripts
     workingDirectory: resources/python
   - script: |
-      git pull
       git commit -am "Update binary requirements in Windows Python 3.9"
       git push origin ${{ parameters.branch }}
     displayName: Run Push Scripts
