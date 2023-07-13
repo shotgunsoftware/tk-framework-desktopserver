@@ -18,7 +18,7 @@ jobs:
     parameters:
       python_version: 3.7
   - script: |
-      git checkout $(System.PullRequest.SourceBranch) && git checkout -b ${{ parameters.branch }} || git checkout ${{ parameters.branch }}
+      git checkout ${{ parameters.branch }} || git checkout $(System.PullRequest.SourceBranch) && git checkout -b ${{ parameters.branch }}
       python update_requirements.py
       ./install_source_only.sh
       git commit -am "Update source requirements 3.7"
