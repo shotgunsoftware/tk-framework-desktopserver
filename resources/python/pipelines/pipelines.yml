@@ -10,7 +10,7 @@ parameters:
 jobs:
 - job: install_source_dependencies_3_7
   displayName: Install source dependencies Python 3.7
-  condition: not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated'))
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'macOS-12'
   steps:
@@ -29,7 +29,7 @@ jobs:
 - job: install_source_dependencies_3_9
   displayName: Install source dependencies Python 3.9
   dependsOn: install_source_dependencies_3_7
-  condition: not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated'))
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'macOS-12'
   steps:
@@ -49,7 +49,7 @@ jobs:
 - job: install_binary_dependencies_mac_3_7
   displayName: Install binary dependencies Mac 3.7
   dependsOn: install_binary_dependencies_linux_3_9
-  condition: not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated'))
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'macOS-12'
   steps:
@@ -68,7 +68,7 @@ jobs:
 - job: install_binary_dependencies_mac_3_9
   displayName: Install binary dependencies Mac 3.9
   dependsOn: install_binary_dependencies_mac_3_7
-  condition: not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated'))
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'macOS-12'
   steps:
@@ -87,7 +87,7 @@ jobs:
 - job: install_binary_dependencies_linux_3_7
   displayName: Install binary dependencies Linux 3.7
   dependsOn: install_source_dependencies_3_9
-  condition: not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated'))
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'ubuntu-latest'
   steps:
@@ -106,7 +106,7 @@ jobs:
 - job: install_binary_dependencies_linux_3_9
   displayName: Install binary dependencies Linux 3.9
   dependsOn: install_binary_dependencies_linux_3_7
-  condition: not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated'))
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'ubuntu-latest'
   steps:
@@ -125,7 +125,7 @@ jobs:
 - job: install_binary_dependencies_windows_3_7
   displayName: Install binary dependencies Windows 3.7
   dependsOn: install_binary_dependencies_mac_3_9
-  condition: not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated'))
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'windows-2022'
   steps:
@@ -149,7 +149,7 @@ jobs:
 - job: install_binary_dependencies_windows_3_9
   displayName: Install binary dependencies Windows 3.9
   dependsOn: install_binary_dependencies_windows_3_7
-  condition: not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated'))
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'windows-2022'
   steps:
