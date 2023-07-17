@@ -16,7 +16,7 @@ import json
 import platform
 import tempfile
 
-import unittest2
+import unittest
 
 from sgtk_integration_test import SgtkIntegrationTest
 import sgtk
@@ -28,13 +28,13 @@ import tk_toolchain.authentication
 logger = sgtk.LogManager.get_logger(__name__)
 
 
-@unittest2.skipIf(
+@unittest.skipIf(
     os.environ.get("CI")
     and sys.version_info.major == 2
     and platform.system() == "Windows",
     "Skipping On Windows/Python2 because of error in authentication that needs to be investigated",
 )
-@unittest2.skipIf(
+@unittest.skipIf(
     os.environ.get("CI") and platform.system() == "Linux",
     "Skipping On Linux because of a core dump that needs to be investigated",
 )
@@ -56,6 +56,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
             "3.7.13",
             "3.7.14",
             "3.7.15",
+            "3.7.17",
             "3.9.10",
             "3.9.11",
             "3.9.12",
@@ -63,6 +64,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
             "3.9.14",
             "3.9.15",
             "3.9.16",
+            "3.9.17",
         ]
 
         # windows paths
@@ -258,7 +260,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
             content = f.read()
         assert content == command_name
 
-    @unittest2.skipIf(
+    @unittest.skipIf(
         sys.version_info.major == 3,
         "Skipping if major version of python is 3",
     )
@@ -268,7 +270,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
         """
         self._test_execute_action(self.python_config, "Command A")
 
-    @unittest2.skipIf(
+    @unittest.skipIf(
         sys.version_info.major == 2,
         "Skipping if major version of python is 2",
     )
@@ -317,4 +319,4 @@ class Python3ProjectTests(SgtkIntegrationTest):
 
 
 if __name__ == "__main__":
-    ret_val = unittest2.main(failfast=True, verbosity=2)
+    ret_val = unittest.main(failfast=True, verbosity=2)

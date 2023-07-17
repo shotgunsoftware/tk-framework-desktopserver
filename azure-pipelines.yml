@@ -51,3 +51,7 @@ jobs:
           # Sandbox each test executing based on the Azure agent name. Those are
           # Azure Pipelines 1-10
           SHOTGUN_TEST_ENTITY_SUFFIX: '$(Agent.Name)'
+
+- template: resources/python/pipelines/pipelines.yml
+  parameters:
+    branch: $(System.PullRequest.SourceBranch)-automated

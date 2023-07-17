@@ -37,8 +37,7 @@ echo "----------------------------------------------------"
 echo "Install new packages"
 
 PYTHONPATH=$build_dir \
-  python \
-  build/pip install \
+  pip install \
   --target $source_dir \
   --no-deps \
   -r $source_requirements

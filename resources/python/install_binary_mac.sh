@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Copyright (c) 2017 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
@@ -17,12 +18,15 @@ python_version="$python_major_version.$python_minor_version"
 bin_dir="bin/$python_version/mac"
 requirements="bin/$python_version/explicit_requirements.txt"
 
+# Stops the script
+set -e
+
 # Delete current files
 rm -rf $bin_dir
 mkdir $bin_dir
 
 # Install packages
-python build/pip install --target $bin_dir --no-deps -r $requirements
+pip install --target $bin_dir --no-deps -r $requirements
 
 # For some reason zope is missing a top level init file when installed with
 # pip, so we're adding it.

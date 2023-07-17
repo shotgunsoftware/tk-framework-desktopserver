@@ -1,0 +1,171 @@
+# Copyright 2023 Autodesk, Inc.  All rights reserved.
+#
+# Use of this software is subject to the terms of the Autodesk license agreement
+# provided at the time of installation or download, or which otherwise accompanies
+# this software in either electronic or hard copy form.
+
+parameters:
+  branch: ""
+
+jobs:
+- job: install_source_dependencies_3_7
+  displayName: Install source dependencies Python 3.7
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'macOS-12'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.7
+  - script: |
+      git checkout ${{ parameters.branch }} || git checkout $(System.PullRequest.SourceBranch) && git checkout -b ${{ parameters.branch }}
+      python update_requirements.py
+      ./install_source_only.sh
+      git commit -am "Update source requirements 3.7"
+      git push -u origin ${{ parameters.branch }}
+    displayName: Run Scripts
+    workingDirectory: resources/python
+
+- job: install_source_dependencies_3_9
+  displayName: Install source dependencies Python 3.9
+  dependsOn: install_source_dependencies_3_7
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'macOS-12'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.9
+      branch: ${{ parameters.branch }}
+  - script: |
+      git checkout ${{ parameters.branch }}
+      python update_requirements.py
+      ./install_source_only.sh
+      git commit -am "Update source requirements 3.9"
+      git push origin ${{ parameters.branch }}
+    displayName: Run Scripts
+    workingDirectory: resources/python
+
+- job: install_binary_dependencies_mac_3_7
+  displayName: Install binary dependencies Mac 3.7
+  dependsOn: install_binary_dependencies_linux_3_9
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'macOS-12'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.7
+      branch: ${{ parameters.branch }}
+  - script: |
+      git checkout ${{ parameters.branch }}
+      ./install_binary_mac.sh
+      git commit -am "Update binary requirements in Mac Python 3.7"
+      git push origin ${{ parameters.branch }}
+    displayName: Run Scripts
+    workingDirectory: resources/python
+
+- job: install_binary_dependencies_mac_3_9
+  displayName: Install binary dependencies Mac 3.9
+  dependsOn: install_binary_dependencies_mac_3_7
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'macOS-12'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.9
+      branch: ${{ parameters.branch }}
+  - script: |
+      git checkout ${{ parameters.branch }}
+      ./install_binary_mac.sh
+      git commit -am "Update binary requirements in Mac Python 3.9"
+      git push origin ${{ parameters.branch }}
+    displayName: Run Scripts
+    workingDirectory: resources/python
+
+- job: install_binary_dependencies_linux_3_7
+  displayName: Install binary dependencies Linux 3.7
+  dependsOn: install_source_dependencies_3_9
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.7
+      branch: ${{ parameters.branch }}
+  - script: |
+      git checkout ${{ parameters.branch }}
+      ./install_binary_linux.sh
+      git commit -am "Update binary requirements in Linux Python 3.7"
+      git push origin ${{ parameters.branch }}
+    displayName: Run Scripts
+    workingDirectory: resources/python
+
+- job: install_binary_dependencies_linux_3_9
+  displayName: Install binary dependencies Linux 3.9
+  dependsOn: install_binary_dependencies_linux_3_7
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.9
+      branch: ${{ parameters.branch }}
+  - script: |
+      git checkout ${{ parameters.branch }}
+      ./install_binary_linux.sh
+      git commit -am "Update binary requirements in Linux Python 3.9"
+      git push origin ${{ parameters.branch }}
+    displayName: Run Scripts
+    workingDirectory: resources/python
+
+- job: install_binary_dependencies_windows_3_7
+  displayName: Install binary dependencies Windows 3.7
+  dependsOn: install_binary_dependencies_mac_3_9
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'windows-2022'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.7
+      branch: ${{ parameters.branch }}
+  - script: |
+      git checkout ${{ parameters.branch }}
+    displayName: Run Scripts
+    workingDirectory: resources/python
+  - powershell: .\install_binary_windows.ps1
+    displayName: Run PowerShell Scripts
+    workingDirectory: resources/python
+  - script: |
+      git commit -am "Update binary requirements in Windows Python 3.9"
+      git push origin ${{ parameters.branch }}
+    displayName: Run Push Scripts
+    workingDirectory: resources/python
+
+- job: install_binary_dependencies_windows_3_9
+  displayName: Install binary dependencies Windows 3.9
+  dependsOn: install_binary_dependencies_windows_3_7
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'windows-2022'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.9
+      branch: ${{ parameters.branch }}
+  - script: |
+      git checkout ${{ parameters.branch }}
+    displayName: Run Scripts
+    workingDirectory: resources/python
+  - powershell: .\install_binary_windows.ps1
+    displayName: Run PowerShell Scripts
+    workingDirectory: resources/python
+  - script: |
+      git commit -am "Update binary requirements in Windows Python 3.9"
+      git push origin ${{ parameters.branch }}
+    displayName: Run Push Scripts
+    workingDirectory: resources/python
