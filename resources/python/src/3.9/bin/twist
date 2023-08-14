@@ -1,4 +1,4 @@
-#!/Users/ariel.calzada/venv/tk-framework-desktopserver-39/bin/python
+#!/Users/runner/hostedtoolcache/Python/3.9.17/x64/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

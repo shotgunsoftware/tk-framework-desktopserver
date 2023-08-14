@@ -1,14 +1,15 @@
 #
 # This file is part of pyasn1 software.
 #
-# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
-# License: http://snmplabs.com/pyasn1/license.html
+# Copyright (c) 2005-2020, Ilya Etingof <etingof@gmail.com>
+# License: https://pyasn1.readthedocs.io/en/latest/license.html
 #
 import sys
 
 from pyasn1 import debug
 from pyasn1 import error
 from pyasn1.codec.ber import eoo
+from pyasn1.compat import _MISSING
 from pyasn1.compat.integer import to_bytes
 from pyasn1.compat.octets import (int2oct, oct2int, ints2octs, null,
                                   str2octs, isOctetsType)
@@ -17,7 +18,7 @@ from pyasn1.type import tag
 from pyasn1.type import univ
 from pyasn1.type import useful
 
-__all__ = ['encode']
+__all__ = ['Encoder', 'encode']
 
 LOG = debug.registerLoggee(__name__, flags=debug.DEBUG_ENCODER)
 
@@ -353,7 +354,7 @@ class ObjectIdentifierEncoder(AbstractItemEncoder):
 
 
 class RealEncoder(AbstractItemEncoder):
-    supportIndefLenMode = 0
+    supportIndefLenMode = False
     binEncBase = 2  # set to None to choose encoding base automatically
 
     @staticmethod
@@ -706,7 +707,7 @@ class AnyEncoder(OctetStringEncoder):
         return value, not options.get('defMode', True), True
 
 
-tagMap = {
+TAG_MAP = {
     eoo.endOfOctets.tagSet: EndOfOctetsEncoder(),
     univ.Boolean.tagSet: BooleanEncoder(),
     univ.Integer.tagSet: IntegerEncoder(),
@@ -739,7 +740,7 @@ tagMap = {
 }
 
 # Put in ambiguous & non-ambiguous types for faster codec lookup
-typeMap = {
+TYPE_MAP = {
     univ.Boolean.typeId: BooleanEncoder(),
     univ.Integer.typeId: IntegerEncoder(),
     univ.BitString.typeId: BitStringEncoder(),
@@ -773,15 +774,21 @@ typeMap = {
     useful.UTCTime.typeId: OctetStringEncoder()
 }
 
+# deprecated aliases, https://github.com/pyasn1/pyasn1/issues/9
+tagMap = TAG_MAP
+typeMap = TYPE_MAP
 
-class Encoder(object):
+
+class SingleItemEncoder(object):
     fixedDefLengthMode = None
     fixedChunkSize = None
 
-    # noinspection PyDefaultArgument
-    def __init__(self, tagMap, typeMap={}):
-        self.__tagMap = tagMap
-        self.__typeMap = typeMap
+    TAG_MAP = TAG_MAP
+    TYPE_MAP = TYPE_MAP
+
+    def __init__(self, tagMap=_MISSING, typeMap=_MISSING, **ignored):
+        self._tagMap = tagMap if tagMap is not _MISSING else self.TAG_MAP
+        self._typeMap = typeMap if typeMap is not _MISSING else self.TYPE_MAP
 
     def __call__(self, value, asn1Spec=None, **options):
         try:
@@ -795,8 +802,11 @@ class Encoder(object):
                                     'and "asn1Spec" not given' % (value,))
 
         if LOG:
-            LOG('encoder called in %sdef mode, chunk size %s for '
-                   'type %s, value:\n%s' % (not options.get('defMode', True) and 'in' or '', options.get('maxChunkSize', 0), asn1Spec is None and value.prettyPrintType() or asn1Spec.prettyPrintType(), value))
+            LOG('encoder called in %sdef mode, chunk size %s for type %s, '
+                'value:\n%s' % (not options.get('defMode', True) and 'in' or '',
+                                options.get('maxChunkSize', 0),
+                                asn1Spec is None and value.prettyPrintType() or
+                                asn1Spec.prettyPrintType(), value))
 
         if self.fixedDefLengthMode is not None:
             options.update(defMode=self.fixedDefLengthMode)
@@ -804,12 +814,12 @@ class Encoder(object):
         if self.fixedChunkSize is not None:
             options.update(maxChunkSize=self.fixedChunkSize)
 
-
         try:
-            concreteEncoder = self.__typeMap[typeId]
+            concreteEncoder = self._typeMap[typeId]
 
             if LOG:
-                LOG('using value codec %s chosen by type ID %s' % (concreteEncoder.__class__.__name__, typeId))
+                LOG('using value codec %s chosen by type ID '
+                    '%s' % (concreteEncoder.__class__.__name__, typeId))
 
         except KeyError:
             if asn1Spec is None:
@@ -821,20 +831,37 @@ class Encoder(object):
             baseTagSet = tag.TagSet(tagSet.baseTag, tagSet.baseTag)
 
             try:
-                concreteEncoder = self.__tagMap[baseTagSet]
+                concreteEncoder = self._tagMap[baseTagSet]
 
             except KeyError:
                 raise error.PyAsn1Error('No encoder for %r (%s)' % (value, tagSet))
 
             if LOG:
-                LOG('using value codec %s chosen by tagSet %s' % (concreteEncoder.__class__.__name__, tagSet))
+                LOG('using value codec %s chosen by tagSet '
+                    '%s' % (concreteEncoder.__class__.__name__, tagSet))
 
         substrate = concreteEncoder.encode(value, asn1Spec, self, **options)
 
         if LOG:
-            LOG('codec %s built %s octets of substrate: %s\nencoder completed' % (concreteEncoder, len(substrate), debug.hexdump(substrate)))
+            LOG('codec %s built %s octets of substrate: %s\nencoder '
+                'completed' % (concreteEncoder, len(substrate),
+                               debug.hexdump(substrate)))
 
         return substrate
+
+
+class Encoder(object):
+    SINGLE_ITEM_ENCODER = SingleItemEncoder
+
+    def __init__(self, tagMap=_MISSING, typeMap=_MISSING, **options):
+        self._singleItemEncoder = self.SINGLE_ITEM_ENCODER(
+            tagMap=tagMap, typeMap=typeMap, **options
+        )
+
+    def __call__(self, pyObject, asn1Spec=None, **options):
+        return self._singleItemEncoder(
+            pyObject, asn1Spec=asn1Spec, **options)
+
 
 #: Turns ASN.1 object into BER octet stream.
 #:
@@ -887,4 +914,4 @@ class Encoder(object):
 #:    >>> encode(seq)
 #:    b'0\t\x02\x01\x01\x02\x01\x02\x02\x01\x03'
 #:
-encode = Encoder(tagMap, typeMap)
+encode = Encoder()

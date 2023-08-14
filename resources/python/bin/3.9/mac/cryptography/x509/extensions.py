@@ -2,6 +2,7 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
 
 import abc
 import datetime
@@ -16,14 +17,13 @@ from cryptography.hazmat.primitives import constant_time, serialization
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.hazmat.primitives.asymmetric.types import (
-    CERTIFICATE_ISSUER_PUBLIC_KEY_TYPES,
-    CERTIFICATE_PUBLIC_KEY_TYPES,
+    CertificateIssuerPublicKeyTypes,
+    CertificatePublicKeyTypes,
 )
 from cryptography.x509.certificate_transparency import (
     SignedCertificateTimestamp,
 )
 from cryptography.x509.general_name import (
-    _IPADDRESS_TYPES,
     DirectoryName,
     DNSName,
     GeneralName,
@@ -32,6 +32,7 @@ from cryptography.x509.general_name import (
     RegisteredID,
     RFC822Name,
     UniformResourceIdentifier,
+    _IPAddressTypes,
 )
 from cryptography.x509.name import Name, RelativeDistinguishedName
 from cryptography.x509.oid import (
@@ -47,7 +48,7 @@ ExtensionTypeVar = typing.TypeVar(
 
 
 def _key_identifier_from_public_key(
-    public_key: CERTIFICATE_PUBLIC_KEY_TYPES,
+    public_key: CertificatePublicKeyTypes,
 ) -> bytes:
     if isinstance(public_key, RSAPublicKey):
         data = public_key.public_bytes(
@@ -85,13 +86,13 @@ def _make_sequence_methods(field_name: str):
 
 class DuplicateExtension(Exception):
     def __init__(self, msg: str, oid: ObjectIdentifier) -> None:
-        super(DuplicateExtension, self).__init__(msg)
+        super().__init__(msg)
         self.oid = oid
 
 
 class ExtensionNotFound(Exception):
     def __init__(self, msg: str, oid: ObjectIdentifier) -> None:
-        super(ExtensionNotFound, self).__init__(msg)
+        super().__init__(msg)
         self.oid = oid
 
 
@@ -103,7 +104,7 @@ class ExtensionType(metaclass=abc.ABCMeta):
         Serializes the extension type to DER.
         """
         raise NotImplementedError(
-            "public_bytes is not implemented for extension type {0!r}".format(
+            "public_bytes is not implemented for extension type {!r}".format(
                 self
             )
         )
@@ -111,22 +112,22 @@ class ExtensionType(metaclass=abc.ABCMeta):
 
 class Extensions:
     def __init__(
-        self, extensions: typing.Iterable["Extension[ExtensionType]"]
+        self, extensions: typing.Iterable[Extension[ExtensionType]]
     ) -> None:
         self._extensions = list(extensions)
 
     def get_extension_for_oid(
         self, oid: ObjectIdentifier
-    ) -> "Extension[ExtensionType]":
+    ) -> Extension[ExtensionType]:
         for ext in self:
             if ext.oid == oid:
                 return ext
 
-        raise ExtensionNotFound("No {} extension was found".format(oid), oid)
+        raise ExtensionNotFound(f"No {oid} extension was found", oid)
 
     def get_extension_for_class(
         self, extclass: typing.Type[ExtensionTypeVar]
-    ) -> "Extension[ExtensionTypeVar]":
+    ) -> Extension[ExtensionTypeVar]:
         if extclass is UnrecognizedExtension:
             raise TypeError(
                 "UnrecognizedExtension can't be used with "
@@ -139,13 +140,13 @@ class Extensions:
                 return ext
 
         raise ExtensionNotFound(
-            "No {} extension was found".format(extclass), extclass.oid
+            f"No {extclass} extension was found", extclass.oid
         )
 
     __len__, __iter__, __getitem__ = _make_sequence_methods("_extensions")
 
     def __repr__(self) -> str:
-        return "<Extensions({})>".format(self._extensions)
+        return f"<Extensions({self._extensions})>"
 
 
 class CRLNumber(ExtensionType):
@@ -167,7 +168,7 @@ class CRLNumber(ExtensionType):
         return hash(self.crl_number)
 
     def __repr__(self) -> str:
-        return "<CRLNumber({})>".format(self.crl_number)
+        return f"<CRLNumber({self.crl_number})>"
 
     @property
     def crl_number(self) -> int:
@@ -213,15 +214,15 @@ class AuthorityKeyIdentifier(ExtensionType):
         self._authority_cert_issuer = authority_cert_issuer
         self._authority_cert_serial_number = authority_cert_serial_number
 
-    # This takes a subset of CERTIFICATE_PUBLIC_KEY_TYPES because an issuer
+    # This takes a subset of CertificatePublicKeyTypes because an issuer
     # cannot have an X25519/X448 key. This introduces some unfortunate
     # asymmetry that requires typing users to explicitly
     # narrow their type, but we should make this accurate and not just
     # convenient.
     @classmethod
     def from_issuer_public_key(
-        cls, public_key: CERTIFICATE_ISSUER_PUBLIC_KEY_TYPES
-    ) -> "AuthorityKeyIdentifier":
+        cls, public_key: CertificateIssuerPublicKeyTypes
+    ) -> AuthorityKeyIdentifier:
         digest = _key_identifier_from_public_key(public_key)
         return cls(
             key_identifier=digest,
@@ -231,8 +232,8 @@ class AuthorityKeyIdentifier(ExtensionType):
 
     @classmethod
     def from_issuer_subject_key_identifier(
-        cls, ski: "SubjectKeyIdentifier"
-    ) -> "AuthorityKeyIdentifier":
+        cls, ski: SubjectKeyIdentifier
+    ) -> AuthorityKeyIdentifier:
         return cls(
             key_identifier=ski.digest,
             authority_cert_issuer=None,
@@ -293,8 +294,8 @@ class SubjectKeyIdentifier(ExtensionType):
 
     @classmethod
     def from_public_key(
-        cls, public_key: CERTIFICATE_PUBLIC_KEY_TYPES
-    ) -> "SubjectKeyIdentifier":
+        cls, public_key: CertificatePublicKeyTypes
+    ) -> SubjectKeyIdentifier:
         return cls(_key_identifier_from_public_key(public_key))
 
     @property
@@ -306,7 +307,7 @@ class SubjectKeyIdentifier(ExtensionType):
         return self._digest
 
     def __repr__(self) -> str:
-        return "<SubjectKeyIdentifier(digest={0!r})>".format(self.digest)
+        return f"<SubjectKeyIdentifier(digest={self.digest!r})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SubjectKeyIdentifier):
@@ -325,7 +326,7 @@ class AuthorityInformationAccess(ExtensionType):
     oid = ExtensionOID.AUTHORITY_INFORMATION_ACCESS
 
     def __init__(
-        self, descriptions: typing.Iterable["AccessDescription"]
+        self, descriptions: typing.Iterable[AccessDescription]
     ) -> None:
         descriptions = list(descriptions)
         if not all(isinstance(x, AccessDescription) for x in descriptions):
@@ -339,7 +340,7 @@ class AuthorityInformationAccess(ExtensionType):
     __len__, __iter__, __getitem__ = _make_sequence_methods("_descriptions")
 
     def __repr__(self) -> str:
-        return "<AuthorityInformationAccess({})>".format(self._descriptions)
+        return f"<AuthorityInformationAccess({self._descriptions})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AuthorityInformationAccess):
@@ -358,7 +359,7 @@ class SubjectInformationAccess(ExtensionType):
     oid = ExtensionOID.SUBJECT_INFORMATION_ACCESS
 
     def __init__(
-        self, descriptions: typing.Iterable["AccessDescription"]
+        self, descriptions: typing.Iterable[AccessDescription]
     ) -> None:
         descriptions = list(descriptions)
         if not all(isinstance(x, AccessDescription) for x in descriptions):
@@ -372,7 +373,7 @@ class SubjectInformationAccess(ExtensionType):
     __len__, __iter__, __getitem__ = _make_sequence_methods("_descriptions")
 
     def __repr__(self) -> str:
-        return "<SubjectInformationAccess({})>".format(self._descriptions)
+        return f"<SubjectInformationAccess({self._descriptions})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SubjectInformationAccess):
@@ -496,7 +497,7 @@ class DeltaCRLIndicator(ExtensionType):
         return hash(self.crl_number)
 
     def __repr__(self) -> str:
-        return "<DeltaCRLIndicator(crl_number={0.crl_number})>".format(self)
+        return f"<DeltaCRLIndicator(crl_number={self.crl_number})>"
 
     def public_bytes(self) -> bytes:
         return rust_x509.encode_extension_value(self)
@@ -506,7 +507,7 @@ class CRLDistributionPoints(ExtensionType):
     oid = ExtensionOID.CRL_DISTRIBUTION_POINTS
 
     def __init__(
-        self, distribution_points: typing.Iterable["DistributionPoint"]
+        self, distribution_points: typing.Iterable[DistributionPoint]
     ) -> None:
         distribution_points = list(distribution_points)
         if not all(
@@ -524,7 +525,7 @@ class CRLDistributionPoints(ExtensionType):
     )
 
     def __repr__(self) -> str:
-        return "<CRLDistributionPoints({})>".format(self._distribution_points)
+        return f"<CRLDistributionPoints({self._distribution_points})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, CRLDistributionPoints):
@@ -543,7 +544,7 @@ class FreshestCRL(ExtensionType):
     oid = ExtensionOID.FRESHEST_CRL
 
     def __init__(
-        self, distribution_points: typing.Iterable["DistributionPoint"]
+        self, distribution_points: typing.Iterable[DistributionPoint]
     ) -> None:
         distribution_points = list(distribution_points)
         if not all(
@@ -561,7 +562,7 @@ class FreshestCRL(ExtensionType):
     )
 
     def __repr__(self) -> str:
-        return "<FreshestCRL({})>".format(self._distribution_points)
+        return f"<FreshestCRL({self._distribution_points})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, FreshestCRL):
@@ -581,7 +582,7 @@ class DistributionPoint:
         self,
         full_name: typing.Optional[typing.Iterable[GeneralName]],
         relative_name: typing.Optional[RelativeDistinguishedName],
-        reasons: typing.Optional[typing.FrozenSet["ReasonFlags"]],
+        reasons: typing.Optional[typing.FrozenSet[ReasonFlags]],
         crl_issuer: typing.Optional[typing.Iterable[GeneralName]],
     ) -> None:
         if full_name and relative_name:
@@ -679,7 +680,7 @@ class DistributionPoint:
         return self._relative_name
 
     @property
-    def reasons(self) -> typing.Optional[typing.FrozenSet["ReasonFlags"]]:
+    def reasons(self) -> typing.Optional[typing.FrozenSet[ReasonFlags]]:
         return self._reasons
 
     @property
@@ -803,7 +804,7 @@ class PolicyConstraints(ExtensionType):
 class CertificatePolicies(ExtensionType):
     oid = ExtensionOID.CERTIFICATE_POLICIES
 
-    def __init__(self, policies: typing.Iterable["PolicyInformation"]) -> None:
+    def __init__(self, policies: typing.Iterable[PolicyInformation]) -> None:
         policies = list(policies)
         if not all(isinstance(x, PolicyInformation) for x in policies):
             raise TypeError(
@@ -816,7 +817,7 @@ class CertificatePolicies(ExtensionType):
     __len__, __iter__, __getitem__ = _make_sequence_methods("_policies")
 
     def __repr__(self) -> str:
-        return "<CertificatePolicies({})>".format(self._policies)
+        return f"<CertificatePolicies({self._policies})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, CertificatePolicies):
@@ -836,7 +837,7 @@ class PolicyInformation:
         self,
         policy_identifier: ObjectIdentifier,
         policy_qualifiers: typing.Optional[
-            typing.Iterable[typing.Union[str, "UserNotice"]]
+            typing.Iterable[typing.Union[str, UserNotice]]
         ],
     ) -> None:
         if not isinstance(policy_identifier, ObjectIdentifier):
@@ -874,7 +875,7 @@ class PolicyInformation:
     def __hash__(self) -> int:
         if self.policy_qualifiers is not None:
             pq: typing.Optional[
-                typing.Tuple[typing.Union[str, "UserNotice"], ...]
+                typing.Tuple[typing.Union[str, UserNotice], ...]
             ] = tuple(self.policy_qualifiers)
         else:
             pq = None
@@ -888,14 +889,14 @@ class PolicyInformation:
     @property
     def policy_qualifiers(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[str, "UserNotice"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[str, UserNotice]]]:
         return self._policy_qualifiers
 
 
 class UserNotice:
     def __init__(
         self,
-        notice_reference: typing.Optional["NoticeReference"],
+        notice_reference: typing.Optional[NoticeReference],
         explicit_text: typing.Optional[str],
     ) -> None:
         if notice_reference and not isinstance(
@@ -927,7 +928,7 @@ class UserNotice:
         return hash((self.notice_reference, self.explicit_text))
 
     @property
-    def notice_reference(self) -> typing.Optional["NoticeReference"]:
+    def notice_reference(self) -> typing.Optional[NoticeReference]:
         return self._notice_reference
 
     @property
@@ -990,7 +991,7 @@ class ExtendedKeyUsage(ExtensionType):
     __len__, __iter__, __getitem__ = _make_sequence_methods("_usages")
 
     def __repr__(self) -> str:
-        return "<ExtendedKeyUsage({})>".format(self._usages)
+        return f"<ExtendedKeyUsage({self._usages})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ExtendedKeyUsage):
@@ -1046,7 +1047,7 @@ class PrecertPoison(ExtensionType):
 class TLSFeature(ExtensionType):
     oid = ExtensionOID.TLS_FEATURE
 
-    def __init__(self, features: typing.Iterable["TLSFeatureType"]) -> None:
+    def __init__(self, features: typing.Iterable[TLSFeatureType]) -> None:
         features = list(features)
         if (
             not all(isinstance(x, TLSFeatureType) for x in features)
@@ -1062,7 +1063,7 @@ class TLSFeature(ExtensionType):
     __len__, __iter__, __getitem__ = _make_sequence_methods("_features")
 
     def __repr__(self) -> str:
-        return "<TLSFeature(features={0._features})>".format(self)
+        return f"<TLSFeature(features={self._features})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, TLSFeature):
@@ -1104,7 +1105,7 @@ class InhibitAnyPolicy(ExtensionType):
         self._skip_certs = skip_certs
 
     def __repr__(self) -> str:
-        return "<InhibitAnyPolicy(skip_certs={0.skip_certs})>".format(self)
+        return f"<InhibitAnyPolicy(skip_certs={self.skip_certs})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, InhibitAnyPolicy):
@@ -1276,7 +1277,7 @@ class NameConstraints(ExtensionType):
                     "or None"
                 )
 
-            self._validate_ip_name(permitted_subtrees)
+            self._validate_tree(permitted_subtrees)
 
         if excluded_subtrees is not None:
             excluded_subtrees = list(excluded_subtrees)
@@ -1290,7 +1291,7 @@ class NameConstraints(ExtensionType):
                     "or None"
                 )
 
-            self._validate_ip_name(excluded_subtrees)
+            self._validate_tree(excluded_subtrees)
 
         if permitted_subtrees is None and excluded_subtrees is None:
             raise ValueError(
@@ -1310,6 +1311,10 @@ class NameConstraints(ExtensionType):
             and self.permitted_subtrees == other.permitted_subtrees
         )
 
+    def _validate_tree(self, tree: typing.Iterable[GeneralName]) -> None:
+        self._validate_ip_name(tree)
+        self._validate_dns_name(tree)
+
     def _validate_ip_name(self, tree: typing.Iterable[GeneralName]) -> None:
         if any(
             isinstance(name, IPAddress)
@@ -1321,6 +1326,15 @@ class NameConstraints(ExtensionType):
             raise TypeError(
                 "IPAddress name constraints must be an IPv4Network or"
                 " IPv6Network object"
+            )
+
+    def _validate_dns_name(self, tree: typing.Iterable[GeneralName]) -> None:
+        if any(
+            isinstance(name, DNSName) and "*" in name.value for name in tree
+        ):
+            raise ValueError(
+                "DNSName name constraints must not contain the '*' wildcard"
+                " character"
             )
 
     def __repr__(self) -> str:
@@ -1451,7 +1465,7 @@ class GeneralNames:
     @typing.overload
     def get_values_for_type(
         self, type: typing.Type[IPAddress]
-    ) -> typing.List[_IPADDRESS_TYPES]:
+    ) -> typing.List[_IPAddressTypes]:
         ...
 
     @typing.overload
@@ -1472,7 +1486,7 @@ class GeneralNames:
             typing.Type[UniformResourceIdentifier],
         ],
     ) -> typing.Union[
-        typing.List[_IPADDRESS_TYPES],
+        typing.List[_IPAddressTypes],
         typing.List[str],
         typing.List[OtherName],
         typing.List[Name],
@@ -1487,7 +1501,7 @@ class GeneralNames:
         return list(objs)
 
     def __repr__(self) -> str:
-        return "<GeneralNames({})>".format(self._general_names)
+        return f"<GeneralNames({self._general_names})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, GeneralNames):
@@ -1535,7 +1549,7 @@ class SubjectAlternativeName(ExtensionType):
     @typing.overload
     def get_values_for_type(
         self, type: typing.Type[IPAddress]
-    ) -> typing.List[_IPADDRESS_TYPES]:
+    ) -> typing.List[_IPAddressTypes]:
         ...
 
     @typing.overload
@@ -1556,7 +1570,7 @@ class SubjectAlternativeName(ExtensionType):
             typing.Type[UniformResourceIdentifier],
         ],
     ) -> typing.Union[
-        typing.List[_IPADDRESS_TYPES],
+        typing.List[_IPAddressTypes],
         typing.List[str],
         typing.List[OtherName],
         typing.List[Name],
@@ -1565,7 +1579,7 @@ class SubjectAlternativeName(ExtensionType):
         return self._general_names.get_values_for_type(type)
 
     def __repr__(self) -> str:
-        return "<SubjectAlternativeName({})>".format(self._general_names)
+        return f"<SubjectAlternativeName({self._general_names})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SubjectAlternativeName):
@@ -1616,7 +1630,7 @@ class IssuerAlternativeName(ExtensionType):
     @typing.overload
     def get_values_for_type(
         self, type: typing.Type[IPAddress]
-    ) -> typing.List[_IPADDRESS_TYPES]:
+    ) -> typing.List[_IPAddressTypes]:
         ...
 
     @typing.overload
@@ -1637,7 +1651,7 @@ class IssuerAlternativeName(ExtensionType):
             typing.Type[UniformResourceIdentifier],
         ],
     ) -> typing.Union[
-        typing.List[_IPADDRESS_TYPES],
+        typing.List[_IPAddressTypes],
         typing.List[str],
         typing.List[OtherName],
         typing.List[Name],
@@ -1646,7 +1660,7 @@ class IssuerAlternativeName(ExtensionType):
         return self._general_names.get_values_for_type(type)
 
     def __repr__(self) -> str:
-        return "<IssuerAlternativeName({})>".format(self._general_names)
+        return f"<IssuerAlternativeName({self._general_names})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, IssuerAlternativeName):
@@ -1697,7 +1711,7 @@ class CertificateIssuer(ExtensionType):
     @typing.overload
     def get_values_for_type(
         self, type: typing.Type[IPAddress]
-    ) -> typing.List[_IPADDRESS_TYPES]:
+    ) -> typing.List[_IPAddressTypes]:
         ...
 
     @typing.overload
@@ -1718,7 +1732,7 @@ class CertificateIssuer(ExtensionType):
             typing.Type[UniformResourceIdentifier],
         ],
     ) -> typing.Union[
-        typing.List[_IPADDRESS_TYPES],
+        typing.List[_IPAddressTypes],
         typing.List[str],
         typing.List[OtherName],
         typing.List[Name],
@@ -1727,7 +1741,7 @@ class CertificateIssuer(ExtensionType):
         return self._general_names.get_values_for_type(type)
 
     def __repr__(self) -> str:
-        return "<CertificateIssuer({})>".format(self._general_names)
+        return f"<CertificateIssuer({self._general_names})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, CertificateIssuer):
@@ -1752,7 +1766,7 @@ class CRLReason(ExtensionType):
         self._reason = reason
 
     def __repr__(self) -> str:
-        return "<CRLReason(reason={})>".format(self._reason)
+        return f"<CRLReason(reason={self._reason})>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, CRLReason):
@@ -1872,7 +1886,7 @@ class SignedCertificateTimestamps(ExtensionType):
     )
 
     def __repr__(self) -> str:
-        return "<SignedCertificateTimestamps({})>".format(list(self))
+        return f"<SignedCertificateTimestamps({list(self)})>"
 
     def __hash__(self) -> int:
         return hash(tuple(self._signed_certificate_timestamps))
@@ -1909,11 +1923,40 @@ class OCSPNonce(ExtensionType):
         return hash(self.nonce)
 
     def __repr__(self) -> str:
-        return "<OCSPNonce(nonce={0.nonce!r})>".format(self)
+        return f"<OCSPNonce(nonce={self.nonce!r})>"
 
     @property
     def nonce(self) -> bytes:
         return self._nonce
+
+    def public_bytes(self) -> bytes:
+        return rust_x509.encode_extension_value(self)
+
+
+class OCSPAcceptableResponses(ExtensionType):
+    oid = OCSPExtensionOID.ACCEPTABLE_RESPONSES
+
+    def __init__(self, responses: typing.Iterable[ObjectIdentifier]) -> None:
+        responses = list(responses)
+        if any(not isinstance(r, ObjectIdentifier) for r in responses):
+            raise TypeError("All responses must be ObjectIdentifiers")
+
+        self._responses = responses
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, OCSPAcceptableResponses):
+            return NotImplemented
+
+        return self._responses == other._responses
+
+    def __hash__(self) -> int:
+        return hash(tuple(self._responses))
+
+    def __repr__(self) -> str:
+        return f"<OCSPAcceptableResponses(responses={self._responses})>"
+
+    def __iter__(self) -> typing.Iterator[ObjectIdentifier]:
+        return iter(self._responses)
 
     def public_bytes(self) -> bytes:
         return rust_x509.encode_extension_value(self)
@@ -2074,6 +2117,65 @@ class IssuingDistributionPoint(ExtensionType):
     @property
     def only_contains_attribute_certs(self) -> bool:
         return self._only_contains_attribute_certs
+
+    def public_bytes(self) -> bytes:
+        return rust_x509.encode_extension_value(self)
+
+
+class MSCertificateTemplate(ExtensionType):
+    oid = ExtensionOID.MS_CERTIFICATE_TEMPLATE
+
+    def __init__(
+        self,
+        template_id: ObjectIdentifier,
+        major_version: typing.Optional[int],
+        minor_version: typing.Optional[int],
+    ) -> None:
+        if not isinstance(template_id, ObjectIdentifier):
+            raise TypeError("oid must be an ObjectIdentifier")
+        self._template_id = template_id
+        if (
+            major_version is not None and not isinstance(major_version, int)
+        ) or (
+            minor_version is not None and not isinstance(minor_version, int)
+        ):
+            raise TypeError(
+                "major_version and minor_version must be integers or None"
+            )
+        self._major_version = major_version
+        self._minor_version = minor_version
+
+    @property
+    def template_id(self) -> ObjectIdentifier:
+        return self._template_id
+
+    @property
+    def major_version(self) -> typing.Optional[int]:
+        return self._major_version
+
+    @property
+    def minor_version(self) -> typing.Optional[int]:
+        return self._minor_version
+
+    def __repr__(self) -> str:
+        return (
+            f"<MSCertificateTemplate(template_id={self.template_id}, "
+            f"major_version={self.major_version}, "
+            f"minor_version={self.minor_version})>"
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, MSCertificateTemplate):
+            return NotImplemented
+
+        return (
+            self.template_id == other.template_id
+            and self.major_version == other.major_version
+            and self.minor_version == other.minor_version
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.template_id, self.major_version, self.minor_version))
 
     def public_bytes(self) -> bytes:
         return rust_x509.encode_extension_value(self)

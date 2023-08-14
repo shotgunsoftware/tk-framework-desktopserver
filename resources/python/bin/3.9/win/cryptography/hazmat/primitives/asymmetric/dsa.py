@@ -2,29 +2,32 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
 
 import abc
 import typing
 
+from cryptography.hazmat.bindings._rust import openssl as rust_openssl
 from cryptography.hazmat.primitives import _serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import utils as asym_utils
 
 
 class DSAParameters(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def generate_private_key(self) -> "DSAPrivateKey":
+    def generate_private_key(self) -> DSAPrivateKey:
         """
         Generates and returns a DSAPrivateKey.
         """
 
     @abc.abstractmethod
-    def parameter_numbers(self) -> "DSAParameterNumbers":
+    def parameter_numbers(self) -> DSAParameterNumbers:
         """
         Returns a DSAParameterNumbers.
         """
 
 
 DSAParametersWithNumbers = DSAParameters
+DSAParameters.register(rust_openssl.dsa.DSAParameters)
 
 
 class DSAPrivateKey(metaclass=abc.ABCMeta):
@@ -36,7 +39,7 @@ class DSAPrivateKey(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def public_key(self) -> "DSAPublicKey":
+    def public_key(self) -> DSAPublicKey:
         """
         The DSAPublicKey associated with this private key.
         """
@@ -58,7 +61,7 @@ class DSAPrivateKey(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def private_numbers(self) -> "DSAPrivateNumbers":
+    def private_numbers(self) -> DSAPrivateNumbers:
         """
         Returns a DSAPrivateNumbers.
         """
@@ -76,6 +79,7 @@ class DSAPrivateKey(metaclass=abc.ABCMeta):
 
 
 DSAPrivateKeyWithSerialization = DSAPrivateKey
+DSAPrivateKey.register(rust_openssl.dsa.DSAPrivateKey)
 
 
 class DSAPublicKey(metaclass=abc.ABCMeta):
@@ -93,7 +97,7 @@ class DSAPublicKey(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def public_numbers(self) -> "DSAPublicNumbers":
+    def public_numbers(self) -> DSAPublicNumbers:
         """
         Returns a DSAPublicNumbers.
         """
@@ -119,8 +123,15 @@ class DSAPublicKey(metaclass=abc.ABCMeta):
         Verifies the signature of the data.
         """
 
+    @abc.abstractmethod
+    def __eq__(self, other: object) -> bool:
+        """
+        Checks equality.
+        """
+
 
 DSAPublicKeyWithSerialization = DSAPublicKey
+DSAPublicKey.register(rust_openssl.dsa.DSAPublicKey)
 
 
 class DSAParameterNumbers:

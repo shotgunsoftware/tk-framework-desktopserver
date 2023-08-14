@@ -2,8 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
 
-import abc
 import enum
 import sys
 import types
@@ -22,19 +22,20 @@ class CryptographyDeprecationWarning(UserWarning):
 # cycle ends.
 DeprecatedIn36 = CryptographyDeprecationWarning
 DeprecatedIn37 = CryptographyDeprecationWarning
-DeprecatedIn39 = CryptographyDeprecationWarning
+DeprecatedIn40 = CryptographyDeprecationWarning
+DeprecatedIn41 = CryptographyDeprecationWarning
 
 
 def _check_bytes(name: str, value: bytes) -> None:
     if not isinstance(value, bytes):
-        raise TypeError("{} must be bytes".format(name))
+        raise TypeError(f"{name} must be bytes")
 
 
 def _check_byteslike(name: str, value: bytes) -> None:
     try:
         memoryview(value)
     except TypeError:
-        raise TypeError("{} must be bytes-like".format(name))
+        raise TypeError(f"{name} must be bytes-like")
 
 
 def int_to_bytes(integer: int, length: typing.Optional[int] = None) -> bytes:
@@ -43,17 +44,14 @@ def int_to_bytes(integer: int, length: typing.Optional[int] = None) -> bytes:
     )
 
 
+def _extract_buffer_length(obj: typing.Any) -> typing.Tuple[typing.Any, int]:
+    from cryptography.hazmat.bindings._rust import _openssl
+
+    buf = _openssl.ffi.from_buffer(obj)
+    return buf, int(_openssl.ffi.cast("uintptr_t", buf))
+
+
 class InterfaceNotImplemented(Exception):
-    pass
-
-
-# DeprecatedIn39 -- Our only known consumer is aws-encryption-sdk, but we've
-# made this a no-op to avoid breaking old versions.
-def verify_interface(
-    iface: abc.ABCMeta, klass: object, *, check_annotations: bool = False
-):
-    # Exists exclusively for `aws-encryption-sdk` which relies on it existing,
-    # even though it was never a public API.
     pass
 
 
@@ -108,7 +106,7 @@ def deprecated(
 
 
 def cached_property(func: typing.Callable) -> property:
-    cached_name = "_cached_{}".format(func)
+    cached_name = f"_cached_{func}"
     sentinel = object()
 
     def inner(instance: object):

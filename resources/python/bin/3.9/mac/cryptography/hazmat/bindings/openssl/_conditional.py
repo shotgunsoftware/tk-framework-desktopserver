@@ -2,21 +2,9 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import typing
-
-
-def cryptography_has_ec2m() -> typing.List[str]:
-    return [
-        "EC_POINT_get_affine_coordinates_GF2m",
-    ]
-
-
-def cryptography_has_ssl3_method() -> typing.List[str]:
-    return [
-        "SSLv3_method",
-        "SSLv3_client_method",
-        "SSLv3_server_method",
-    ]
 
 
 def cryptography_has_set_cert_cb() -> typing.List[str]:
@@ -42,23 +30,9 @@ def cryptography_has_tls_st() -> typing.List[str]:
     ]
 
 
-def cryptography_has_evp_pkey_set_alias_type() -> typing.List[str]:
-    return [
-        "EVP_PKEY_set_alias_type",
-    ]
-
-
-def cryptography_has_scrypt() -> typing.List[str]:
-    return [
-        "EVP_PBE_scrypt",
-    ]
-
-
 def cryptography_has_evp_pkey_dhx() -> typing.List[str]:
     return [
         "EVP_PKEY_DHX",
-        "d2i_DHxparams_bio",
-        "i2d_DHxparams_bio",
     ]
 
 
@@ -98,13 +72,6 @@ def cryptography_has_poly1305() -> typing.List[str]:
 def cryptography_has_evp_digestfinal_xof() -> typing.List[str]:
     return [
         "EVP_DigestFinalXOF",
-    ]
-
-
-def cryptography_has_evp_pkey_get_set_tls_encodedpoint() -> typing.List[str]:
-    return [
-        "EVP_PKEY_get1_tls_encodedpoint",
-        "EVP_PKEY_set1_tls_encodedpoint",
     ]
 
 
@@ -149,12 +116,6 @@ def cryptography_has_custom_ext() -> typing.List[str]:
     ]
 
 
-def cryptography_has_openssl_cleanup() -> typing.List[str]:
-    return [
-        "OPENSSL_cleanup",
-    ]
-
-
 def cryptography_has_tlsv13_functions() -> typing.List[str]:
     return [
         "SSL_VERIFY_POST_HANDSHAKE",
@@ -189,7 +150,6 @@ def cryptography_has_engine() -> typing.List[str]:
         "ENGINE_ctrl_cmd",
         "ENGINE_free",
         "ENGINE_get_name",
-        "Cryptography_add_osrandom_engine",
         "ENGINE_ctrl_cmd_string",
         "ENGINE_load_builtin_engines",
         "ENGINE_load_private_key",
@@ -298,21 +258,30 @@ def cryptography_has_get_extms_support() -> typing.List[str]:
     return ["SSL_get_extms_support"]
 
 
+def cryptography_has_evp_pkey_set_peer_ex() -> typing.List[str]:
+    return ["EVP_PKEY_derive_set_peer_ex"]
+
+
+def cryptography_has_evp_aead() -> typing.List[str]:
+    return [
+        "EVP_aead_chacha20_poly1305",
+        "EVP_AEAD_CTX_free",
+        "EVP_AEAD_CTX_seal",
+        "EVP_AEAD_CTX_open",
+        "EVP_AEAD_max_overhead",
+        "Cryptography_EVP_AEAD_CTX_new",
+    ]
+
+
 # This is a mapping of
 # {condition: function-returning-names-dependent-on-that-condition} so we can
 # loop over them and delete unsupported names at runtime. It will be removed
 # when cffi supports #if in cdef. We use functions instead of just a dict of
 # lists so we can use coverage to measure which are used.
 CONDITIONAL_NAMES = {
-    "Cryptography_HAS_EC2M": cryptography_has_ec2m,
-    "Cryptography_HAS_SSL3_METHOD": cryptography_has_ssl3_method,
     "Cryptography_HAS_SET_CERT_CB": cryptography_has_set_cert_cb,
     "Cryptography_HAS_SSL_ST": cryptography_has_ssl_st,
     "Cryptography_HAS_TLS_ST": cryptography_has_tls_st,
-    "Cryptography_HAS_EVP_PKEY_set_alias_type": (
-        cryptography_has_evp_pkey_set_alias_type
-    ),
-    "Cryptography_HAS_SCRYPT": cryptography_has_scrypt,
     "Cryptography_HAS_EVP_PKEY_DHX": cryptography_has_evp_pkey_dhx,
     "Cryptography_HAS_MEM_FUNCTIONS": cryptography_has_mem_functions,
     "Cryptography_HAS_X509_STORE_CTX_GET_ISSUER": (
@@ -321,15 +290,11 @@ CONDITIONAL_NAMES = {
     "Cryptography_HAS_ED448": cryptography_has_ed448,
     "Cryptography_HAS_ED25519": cryptography_has_ed25519,
     "Cryptography_HAS_POLY1305": cryptography_has_poly1305,
-    "Cryptography_HAS_EVP_PKEY_get_set_tls_encodedpoint": (
-        cryptography_has_evp_pkey_get_set_tls_encodedpoint
-    ),
     "Cryptography_HAS_FIPS": cryptography_has_fips,
     "Cryptography_HAS_SIGALGS": cryptography_has_ssl_sigalgs,
     "Cryptography_HAS_PSK": cryptography_has_psk,
     "Cryptography_HAS_PSK_TLSv1_3": cryptography_has_psk_tlsv13,
     "Cryptography_HAS_CUSTOM_EXT": cryptography_has_custom_ext,
-    "Cryptography_HAS_OPENSSL_CLEANUP": cryptography_has_openssl_cleanup,
     "Cryptography_HAS_TLSv1_3_FUNCTIONS": cryptography_has_tlsv13_functions,
     "Cryptography_HAS_RAW_KEY": cryptography_has_raw_key,
     "Cryptography_HAS_EVP_DIGESTFINAL_XOF": (
@@ -357,4 +322,8 @@ CONDITIONAL_NAMES = {
         cryptography_has_ssl_op_ignore_unexpected_eof
     ),
     "Cryptography_HAS_GET_EXTMS_SUPPORT": cryptography_has_get_extms_support,
+    "Cryptography_HAS_EVP_PKEY_SET_PEER_EX": (
+        cryptography_has_evp_pkey_set_peer_ex
+    ),
+    "Cryptography_HAS_EVP_AEAD": (cryptography_has_evp_aead),
 }

@@ -2,6 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import typing
 
 from cryptography.exceptions import InvalidTag, UnsupportedAlgorithm, _Reasons
@@ -17,9 +19,7 @@ class _CipherContext:
     _DECRYPT = 0
     _MAX_CHUNK_SIZE = 2**30 - 1
 
-    def __init__(
-        self, backend: "Backend", cipher, mode, operation: int
-    ) -> None:
+    def __init__(self, backend: Backend, cipher, mode, operation: int) -> None:
         self._backend = backend
         self._cipher = cipher
         self._mode = mode
@@ -50,9 +50,9 @@ class _CipherContext:
 
         evp_cipher = adapter(self._backend, cipher, mode)
         if evp_cipher == self._backend._ffi.NULL:
-            msg = "cipher {0.name} ".format(cipher)
+            msg = f"cipher {cipher.name} "
             if mode is not None:
-                msg += "in {0.name} mode ".format(mode)
+                msg += f"in {mode.name} mode "
             msg += (
                 "is not supported by this backend (Your version of OpenSSL "
                 "may be too old. Current version: {}.)"
@@ -119,7 +119,7 @@ class _CipherContext:
         lib = self._backend._lib
         if res == 0 and (
             (
-                lib.CRYPTOGRAPHY_OPENSSL_111D_OR_GREATER
+                not lib.CRYPTOGRAPHY_IS_LIBRESSL
                 and errors[0]._lib_reason_match(
                     lib.ERR_LIB_EVP, lib.EVP_R_XTS_DUPLICATED_KEYS
                 )

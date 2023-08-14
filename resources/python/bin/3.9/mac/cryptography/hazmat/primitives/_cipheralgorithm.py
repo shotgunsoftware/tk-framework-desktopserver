@@ -2,6 +2,8 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
+
 import abc
 import typing
 
@@ -32,7 +34,7 @@ class CipherAlgorithm(metaclass=abc.ABCMeta):
         """
 
 
-class BlockCipherAlgorithm(metaclass=abc.ABCMeta):
+class BlockCipherAlgorithm(CipherAlgorithm):
     key: bytes
 
     @property
