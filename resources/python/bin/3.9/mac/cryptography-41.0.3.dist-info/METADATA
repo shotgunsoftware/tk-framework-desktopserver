@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cryptography
-Version: 41.0.0
+Version: 41.0.3
 Summary: cryptography is a package which provides cryptographic recipes and primitives to Python developers.
 Author-email: The Python Cryptographic Authority and individual contributors <cryptography-dev@python.org>
 License: Apache-2.0 OR BSD-3-Clause
