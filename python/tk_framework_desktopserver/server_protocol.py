@@ -149,7 +149,7 @@ class ServerProtocol(WebSocketServerProtocol):
 
         if self._fernet:
             try:
-                payload = self._fernet.decrypt(payload)
+                payload = self._fernet.decrypt(payload.encode(encoding='UTF-8'))
             except Exception as e:
                 self.report_error(
                     "There was an error while decrypting the message: %s" % e
