@@ -154,7 +154,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 self.report_error(
                     "There was an error while decrypting the message: %s" % e
                 )
-                logger.exception("Unexpected error while decrypting:")
+                logger.exception("Unexpected error while decrypting: %s" % payload)
                 return
 
         decoded_payload = six.ensure_str(payload)
