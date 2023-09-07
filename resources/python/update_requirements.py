@@ -188,7 +188,7 @@ class Updater(object):
             ))
 
             # list everything that was installed.
-            freeze_list = self._pip_freeze()
+            freeze_list = self._pip_freeze(all=True)
         finally:
             self._clean_pip()
 
