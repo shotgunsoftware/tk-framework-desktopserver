@@ -136,9 +136,12 @@ class Updater(object):
             "explicit_requirements.txt"
         )
 
-    def _pip_freeze(self):
+    def _pip_freeze(self, all=False):
         """List all packages installed."""
-        output = self._pip("freeze --all").strip()
+        cmd = "freeze"
+        if all:
+            cmd += " --all"
+        output = self._pip(cmd).strip()
         if output == "":
             return []
         else:
