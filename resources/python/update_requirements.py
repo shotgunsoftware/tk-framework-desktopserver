@@ -186,7 +186,6 @@ class Updater(object):
 
             # list everything that was installed.
             freeze_list = self._pip_freeze()
-            import pdb; pdb.set_trace()
         finally:
             self._clean_pip()
 
