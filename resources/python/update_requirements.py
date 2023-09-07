@@ -138,7 +138,7 @@ class Updater(object):
 
     def _pip_freeze(self):
         """List all packages installed."""
-        output = self._pip("freeze").strip()
+        output = self._pip("freeze --all").strip()
         if output == "":
             return []
         else:
@@ -186,6 +186,7 @@ class Updater(object):
 
             # list everything that was installed.
             freeze_list = self._pip_freeze()
+            import pdb; pdb.set_trace()
         finally:
             self._clean_pip()
 
