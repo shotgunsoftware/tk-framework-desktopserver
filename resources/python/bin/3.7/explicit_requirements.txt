@@ -10,4 +10,5 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 cffi==1.15.1
 cryptography==41.0.3
+setuptools==65.5.1
 zope.interface==5.5.2
