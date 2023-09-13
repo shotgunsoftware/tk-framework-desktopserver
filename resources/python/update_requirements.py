@@ -223,7 +223,10 @@ class Updater(object):
                 # Figure which type of dependency it is and write
                 # it to the right requirements file.
                 requirement_to_add = [dependency + "\n"]
-                if package_name in self._binary_distributions:
+                if package_name == "setuptools":
+                    bin_handler.writelines(requirement_to_add)
+                    source_handler.writelines(requirement_to_add)
+                elif package_name in self._binary_distributions:
                     bin_handler.writelines(requirement_to_add)
                 else:
                     source_handler.writelines(requirement_to_add)
