@@ -136,12 +136,9 @@ class Updater(object):
             "explicit_requirements.txt"
         )
 
-    def _pip_freeze(self, all=False):
+    def _pip_freeze(self):
         """List all packages installed."""
-        cmd = "freeze"
-        if all:
-            cmd += " --all"
-        output = self._pip(cmd).strip()
+        output = self._pip("freeze").strip()
         if output == "":
             return []
         else:
@@ -188,7 +185,7 @@ class Updater(object):
             ))
 
             # list everything that was installed.
-            freeze_list = self._pip_freeze(all=True)
+            freeze_list = self._pip_freeze()
         finally:
             self._clean_pip()
 
