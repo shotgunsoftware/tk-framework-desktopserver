@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cryptography
-Version: 41.0.3
+Version: 41.0.4
 Summary: cryptography is a package which provides cryptographic recipes and primitives to Python developers.
 Author-email: The Python Cryptographic Authority and individual contributors <cryptography-dev@python.org>
 License: Apache-2.0 OR BSD-3-Clause
@@ -35,14 +35,14 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: LICENSE.APACHE
 License-File: LICENSE.BSD
-Requires-Dist: cffi (>=1.12)
+Requires-Dist: cffi >=1.12
 Provides-Extra: docs
-Requires-Dist: sphinx (>=5.3.0) ; extra == 'docs'
-Requires-Dist: sphinx-rtd-theme (>=1.1.1) ; extra == 'docs'
+Requires-Dist: sphinx >=5.3.0 ; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme >=1.1.1 ; extra == 'docs'
 Provides-Extra: docstest
-Requires-Dist: pyenchant (>=1.6.11) ; extra == 'docstest'
-Requires-Dist: twine (>=1.12.0) ; extra == 'docstest'
-Requires-Dist: sphinxcontrib-spelling (>=4.0.1) ; extra == 'docstest'
+Requires-Dist: pyenchant >=1.6.11 ; extra == 'docstest'
+Requires-Dist: twine >=1.12.0 ; extra == 'docstest'
+Requires-Dist: sphinxcontrib-spelling >=4.0.1 ; extra == 'docstest'
 Provides-Extra: nox
 Requires-Dist: nox ; extra == 'nox'
 Provides-Extra: pep8test
@@ -53,9 +53,9 @@ Requires-Dist: check-sdist ; extra == 'pep8test'
 Provides-Extra: sdist
 Requires-Dist: build ; extra == 'sdist'
 Provides-Extra: ssh
-Requires-Dist: bcrypt (>=3.1.5) ; extra == 'ssh'
+Requires-Dist: bcrypt >=3.1.5 ; extra == 'ssh'
 Provides-Extra: test
-Requires-Dist: pytest (>=6.2.0) ; extra == 'test'
+Requires-Dist: pytest >=6.2.0 ; extra == 'test'
 Requires-Dist: pytest-benchmark ; extra == 'test'
 Requires-Dist: pytest-cov ; extra == 'test'
 Requires-Dist: pytest-xdist ; extra == 'test'
