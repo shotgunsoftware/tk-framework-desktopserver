@@ -36,6 +36,7 @@ jobs:
       - name: tk-shotgun
     extra_test_dependencies:
       - attrs==22.2.0
+      - pyOpenSSL==23.2.0
     post_tests_steps:
       - bash: python -m pytest tests/integration_tests/interpreters.py -v
         displayName: Run interpreter integration tests
