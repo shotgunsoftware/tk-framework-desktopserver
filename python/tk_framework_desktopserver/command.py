@@ -35,7 +35,7 @@ class ReadThread(Thread):
         :param p_out: Pipe to read.
         :param target_queue: Queue that will accumulate the pipe output.
         """
-        Thread.__init__(self)
+        Thread.__init__(self, daemon=True)
         self.pipe = p_out
         self.target_queue = target_queue
 
@@ -127,11 +127,9 @@ class Command(object):
             stderr_q = Queue()
 
             stdout_t = ReadThread(process.stdout, stdout_q)
-            stdout_t.setDaemon(True)
             stdout_t.start()
 
             stderr_t = ReadThread(process.stderr, stderr_q)
-            stderr_t.setDaemon(True)
             stderr_t.start()
 
             # Popen.communicate() doesn't play nicely if the stdin pipe is closed
