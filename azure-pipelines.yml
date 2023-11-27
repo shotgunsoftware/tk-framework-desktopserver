@@ -37,7 +37,7 @@ jobs:
     extra_test_dependencies:
       # Required to mock tests on Python 3.10
       - attrs==22.2.0
-      - Twisted==23.10.0
+      - Twisted==22.10.0  # We use 22.10.0 to avoid breaking CI for Python 3.7
       - certifi==2023.7.22
       - autobahn==22.12.1
       - pyOpenSSL==23.2.0
