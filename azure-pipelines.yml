@@ -1,4 +1,4 @@
-# Imports the shared Azure CI tools from the master branch of shotgunsoftware/tk-ci-tools
+# Imports the shared Azure CI tools from the master branch of shotgunsoftware/tk-ci-tools.
 resources:
   repositories:
     - repository: templates
