@@ -1,5 +1,5 @@
 
-# Copyright (c) 2023 Shotgun Software Inc.
+# Copyright (c) 2024 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
 #
