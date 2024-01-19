@@ -9,10 +9,13 @@ service-identity==21.1.0
 # modules and rebuild the binaries
 attrs==22.2.0
 cffi==1.15.1
-cryptography==41.0.7 ; sys_platform != 'linux'
-https://files.pythonhosted.org/packages/14/fd/dd5bd6ab0d12476ebca579cbfd48d31bd90fa28fa257b209df585dcf62a0/cryptography-41.0.7-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl ; sys_platform == 'linux'
 hyperlink==21.0.0
 idna==3.4
 six==1.16.0
 zope.interface==5.5.2
 setuptools==65.5.1  # CVE-2022-40897
+
+# Cryptography is a special use case for linux.
+# Default wheels requires GLIBC 2.28 (manylinux_2_28_x86_64) which is not available on CentOS 7.
+cryptography==41.0.7 ; sys_platform != 'linux'
+https://files.pythonhosted.org/packages/14/fd/dd5bd6ab0d12476ebca579cbfd48d31bd90fa28fa257b209df585dcf62a0/cryptography-41.0.7-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl ; sys_platform == 'linux'
