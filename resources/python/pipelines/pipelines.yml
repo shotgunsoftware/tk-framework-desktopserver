@@ -89,7 +89,7 @@ jobs:
   dependsOn: install_source_dependencies_3_9
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'ubuntu-latest'
+    vmImage: 'ubuntu-20.04'
   steps:
   - template: template.yml
     parameters:
@@ -108,7 +108,7 @@ jobs:
   dependsOn: install_binary_dependencies_linux_3_7
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'ubuntu-latest'
+    vmImage: 'ubuntu-20.04'
   steps:
   - template: template.yml
     parameters:
