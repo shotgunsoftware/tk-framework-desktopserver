@@ -9,9 +9,9 @@ service-identity==21.1.0
 # modules and rebuild the binaries
 attrs==22.2.0
 cffi==1.15.1
+cryptography==41.0.7 # Only for SAST. Should be also updated in resources/python/update_requirements.py
 hyperlink==21.0.0
 idna==3.4
 six==1.16.0
 zope.interface==5.5.2
 setuptools==65.5.1  # CVE-2022-40897
-cryptography==41.0.7 # Only for SAST. Should be also updated in resources/python/update_requirements.py
