@@ -694,7 +694,7 @@ class ShotgunAPI(object):
                 continue
             except TankCachingEngineBootstrapError as exc:
                 logger.error(
-                    "The ShotGrid engine failed to initialize in the caching "
+                    "The Flow Production Tracking engine failed to initialize in the caching "
                     "subprocess. This most likely corresponds to a configuration "
                     "problem in the config %r as it relates to entity type %s."
                     % (pc_descriptor, entity["type"])
@@ -747,23 +747,24 @@ class ShotgunAPI(object):
             # case.
             if filepath is None:
                 logger.warning(
-                    "ShotGrid requested a file open via local file linking, "
+                    "Flow Production Tracking requested a file open via local file linking, "
                     "but the provided file path is None."
                 )
             else:
                 logger.debug(
-                    "ShotGrid requested a file open via local file linking. "
+                    "Flow Production Tracking requested a file open via local file linking. "
                     "The file path is: %s",
                     filepath,
                 )
 
             if local_storages is None:
                 logger.debug(
-                    "Local storages were not provided by ShotGrid for the current file open request."
+                    "Local storages were not provided by Flow Production Tracking for the current file open request."
                 )
             else:
                 logger.debug(
-                    "Local storages were reported by ShotGrid: %s", local_storages
+                    "Local storages were reported by Flow Production Tracking: %s",
+                    local_storages,
                 )
 
             result = self.process_manager.open(filepath)
@@ -1534,7 +1535,7 @@ class ShotgunAPI(object):
         """
         message = (
             "An unhandled exception has occurred. To see the full error, "
-            "refer to the console in ShotGrid Desktop, or contact us via %s for "
+            "refer to the console in Flow Production Tracking Toolkit, or contact us via %s for "
             "additional help with this issue." % sgtk.support_url
         )
 

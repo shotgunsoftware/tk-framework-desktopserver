@@ -131,7 +131,8 @@ def core_info(engine):
     # the web app, the markdown will be handled and we'll end up with a bold
     # message.
     engine.log_info(
-        "You are currently running version %s of the ShotGrid Pipeline Toolkit." % cv
+        "You are currently running version %s of the Flow Production Tracking Toolkit."
+        % cv
     )
 
     if not engine.sgtk.pipeline_configuration.is_localized():
@@ -151,7 +152,8 @@ def core_info(engine):
         req_sg = installer.get_required_sg_version_for_update()
         engine.log_warning(
             "*A new version (%s) of the core API is available however "
-            "it requires a more recent version (%s) of ShotGrid!*" % (lv, req_sg)
+            "it requires a more recent version (%s) of Flow Production Tracking!*"
+            % (lv, req_sg)
         )
     elif status == TankCoreUpdater.UPDATE_POSSIBLE:
         (summary, url) = installer.get_release_notes()
