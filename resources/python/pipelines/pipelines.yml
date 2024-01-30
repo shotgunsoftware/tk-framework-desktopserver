@@ -19,7 +19,7 @@ jobs:
       python_version: 3.7
   - script: |
       git checkout ${{ parameters.branch }} || git checkout $(System.PullRequest.SourceBranch) && git checkout -b ${{ parameters.branch }}
-      git merge $(System.PullRequest.SourceBranch)
+      git merge origin/$(System.PullRequest.SourceBranch)
       git push -u origin ${{ parameters.branch }}
     displayName: Create branch if not exists or update
   - script: |
