@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyOpenSSL
-Version: 23.2.0
+Version: 24.0.0
 Summary: Python wrapper module around the OpenSSL library
 Home-page: https://pyopenssl.org/
 Author: The pyOpenSSL developers
@@ -14,27 +14,27 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Networking
-Requires-Python: >=3.6
+Requires-Python: >=3.7
 License-File: LICENSE
-Requires-Dist: cryptography (!=40.0.0,!=40.0.1,<42,>=38.0.0)
+Requires-Dist: cryptography <43,>=41.0.5
 Provides-Extra: docs
-Requires-Dist: sphinx (!=5.2.0,!=5.2.0.post0) ; extra == 'docs'
+Requires-Dist: sphinx !=5.2.0,!=5.2.0.post0,!=7.2.5 ; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme ; extra == 'docs'
 Provides-Extra: test
 Requires-Dist: flaky ; extra == 'test'
 Requires-Dist: pretend ; extra == 'test'
-Requires-Dist: pytest (>=3.0.1) ; extra == 'test'
+Requires-Dist: pytest >=3.0.1 ; extra == 'test'
 
 ========================================================
 pyOpenSSL -- A Python wrapper around the OpenSSL library
@@ -86,6 +86,53 @@ You can also join ``#pyca`` on ``irc.libera.chat`` to ask questions or get invol
 
 Release Information
 ===================
+
+24.0.0 (2024-01-22)
+-------------------
+
+Backward-incompatible changes:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Changes:
+^^^^^^^^
+
+- Added ``OpenSSL.SSL.Connection.get_selected_srtp_profile`` to determine which SRTP profile was negotiated.
+  `#1279 <https://github.com/pyca/pyopenssl/pull/1279>`_.
+
+23.3.0 (2023-10-25)
+-------------------
+
+Backward-incompatible changes:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Dropped support for Python 3.6.
+- The minimum ``cryptography`` version is now 41.0.5.
+- Removed ``OpenSSL.crypto.loads_pkcs7`` and ``OpenSSL.crypto.loads_pkcs12`` which had been deprecated for 3 years.
+- Added ``OpenSSL.SSL.OP_LEGACY_SERVER_CONNECT`` to allow legacy insecure renegotiation between OpenSSL and unpatched servers.
+  `#1234 <https://github.com/pyca/pyopenssl/pull/1234>`_.
+
+Deprecations:
+^^^^^^^^^^^^^
+
+- Deprecated ``OpenSSL.crypto.PKCS12`` (which was intended to have been deprecated at the same time as ``OpenSSL.crypto.load_pkcs12``).
+- Deprecated ``OpenSSL.crypto.NetscapeSPKI``.
+- Deprecated ``OpenSSL.crypto.CRL``
+- Deprecated ``OpenSSL.crypto.Revoked``
+- Deprecated ``OpenSSL.crypto.load_crl`` and ``OpenSSL.crypto.dump_crl``
+- Deprecated ``OpenSSL.crypto.sign`` and ``OpenSSL.crypto.verify``
+- Deprecated ``OpenSSL.crypto.X509Extension``
+
+Changes:
+^^^^^^^^
+
+- Changed ``OpenSSL.crypto.X509Store.add_crl`` to also accept
+  ``cryptography``'s ``x509.CertificateRevocationList`` arguments in addition
+  to the now deprecated ``OpenSSL.crypto.CRL`` arguments.
+- Fixed ``test_set_default_verify_paths`` test so that it is skipped if no
+  network connection is available.
 
 23.2.0 (2023-05-30)
 -------------------
