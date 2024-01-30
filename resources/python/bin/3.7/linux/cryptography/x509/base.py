@@ -8,6 +8,7 @@ import abc
 import datetime
 import os
 import typing
+import warnings
 
 from cryptography import utils
 from cryptography.hazmat.bindings._rust import x509 as rust_x509
@@ -60,7 +61,7 @@ class AttributeNotFound(Exception):
 
 def _reject_duplicate_extension(
     extension: Extension[ExtensionType],
-    extensions: typing.List[Extension[ExtensionType]],
+    extensions: list[Extension[ExtensionType]],
 ) -> None:
     # This is quadratic in the number of extensions
     for e in extensions:
@@ -70,9 +71,7 @@ def _reject_duplicate_extension(
 
 def _reject_duplicate_attribute(
     oid: ObjectIdentifier,
-    attributes: typing.List[
-        typing.Tuple[ObjectIdentifier, bytes, typing.Optional[int]]
-    ],
+    attributes: list[tuple[ObjectIdentifier, bytes, int | None]],
 ) -> None:
     # This is quadratic in the number of attributes
     for attr_oid, _, _ in attributes:
@@ -197,9 +196,23 @@ class Certificate(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
+    def not_valid_before_utc(self) -> datetime.datetime:
+        """
+        Not before time (represented as a non-naive UTC datetime)
+        """
+
+    @property
+    @abc.abstractmethod
     def not_valid_after(self) -> datetime.datetime:
         """
         Not after time (represented as UTC datetime)
+        """
+
+    @property
+    @abc.abstractmethod
+    def not_valid_after_utc(self) -> datetime.datetime:
+        """
+        Not after time (represented as a non-naive UTC datetime)
         """
 
     @property
@@ -220,7 +233,7 @@ class Certificate(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def signature_hash_algorithm(
         self,
-    ) -> typing.Optional[hashes.HashAlgorithm]:
+    ) -> hashes.HashAlgorithm | None:
         """
         Returns a HashAlgorithm corresponding to the type of the digest signed
         in the certificate.
@@ -237,7 +250,7 @@ class Certificate(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def signature_algorithm_parameters(
         self,
-    ) -> typing.Union[None, padding.PSS, padding.PKCS1v15, ec.ECDSA]:
+    ) -> None | padding.PSS | padding.PKCS1v15 | ec.ECDSA:
         """
         Returns the signature algorithm parameters.
         """
@@ -319,6 +332,14 @@ class RevokedCertificate(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
+    def revocation_date_utc(self) -> datetime.datetime:
+        """
+        Returns the date of when this certificate was revoked as a non-naive
+        UTC datetime.
+        """
+
+    @property
+    @abc.abstractmethod
     def extensions(self) -> Extensions:
         """
         Returns an Extensions object containing a list of Revoked extensions.
@@ -346,7 +367,17 @@ class _RawRevokedCertificate(RevokedCertificate):
 
     @property
     def revocation_date(self) -> datetime.datetime:
+        warnings.warn(
+            "Properties that return a naïve datetime object have been "
+            "deprecated. Please switch to revocation_date_utc.",
+            utils.DeprecatedIn42,
+            stacklevel=2,
+        )
         return self._revocation_date
+
+    @property
+    def revocation_date_utc(self) -> datetime.datetime:
+        return self._revocation_date.replace(tzinfo=datetime.timezone.utc)
 
     @property
     def extensions(self) -> Extensions:
@@ -369,7 +400,7 @@ class CertificateRevocationList(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_revoked_certificate_by_serial_number(
         self, serial_number: int
-    ) -> typing.Optional[RevokedCertificate]:
+    ) -> RevokedCertificate | None:
         """
         Returns an instance of RevokedCertificate or None if the serial_number
         is not in the CRL.
@@ -379,7 +410,7 @@ class CertificateRevocationList(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def signature_hash_algorithm(
         self,
-    ) -> typing.Optional[hashes.HashAlgorithm]:
+    ) -> hashes.HashAlgorithm | None:
         """
         Returns a HashAlgorithm corresponding to the type of the digest signed
         in the certificate.
@@ -394,6 +425,15 @@ class CertificateRevocationList(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
+    def signature_algorithm_parameters(
+        self,
+    ) -> None | padding.PSS | padding.PKCS1v15 | ec.ECDSA:
+        """
+        Returns the signature algorithm parameters.
+        """
+
+    @property
+    @abc.abstractmethod
     def issuer(self) -> Name:
         """
         Returns the X509Name with the issuer of this CRL.
@@ -401,9 +441,17 @@ class CertificateRevocationList(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def next_update(self) -> typing.Optional[datetime.datetime]:
+    def next_update(self) -> datetime.datetime | None:
         """
         Returns the date of next update for this CRL.
+        """
+
+    @property
+    @abc.abstractmethod
+    def next_update_utc(self) -> datetime.datetime | None:
+        """
+        Returns the date of next update for this CRL as a non-naive UTC
+        datetime.
         """
 
     @property
@@ -411,6 +459,14 @@ class CertificateRevocationList(metaclass=abc.ABCMeta):
     def last_update(self) -> datetime.datetime:
         """
         Returns the date of last update for this CRL.
+        """
+
+    @property
+    @abc.abstractmethod
+    def last_update_utc(self) -> datetime.datetime:
+        """
+        Returns the date of last update for this CRL as a non-naive UTC
+        datetime.
         """
 
     @property
@@ -451,13 +507,13 @@ class CertificateRevocationList(metaclass=abc.ABCMeta):
         ...
 
     @typing.overload
-    def __getitem__(self, idx: slice) -> typing.List[RevokedCertificate]:
+    def __getitem__(self, idx: slice) -> list[RevokedCertificate]:
         ...
 
     @abc.abstractmethod
     def __getitem__(
-        self, idx: typing.Union[int, slice]
-    ) -> typing.Union[RevokedCertificate, typing.List[RevokedCertificate]]:
+        self, idx: int | slice
+    ) -> RevokedCertificate | list[RevokedCertificate]:
         """
         Returns a revoked certificate (or slice of revoked certificates).
         """
@@ -510,7 +566,7 @@ class CertificateSigningRequest(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def signature_hash_algorithm(
         self,
-    ) -> typing.Optional[hashes.HashAlgorithm]:
+    ) -> hashes.HashAlgorithm | None:
         """
         Returns a HashAlgorithm corresponding to the type of the digest signed
         in the certificate.
@@ -521,6 +577,15 @@ class CertificateSigningRequest(metaclass=abc.ABCMeta):
     def signature_algorithm_oid(self) -> ObjectIdentifier:
         """
         Returns the ObjectIdentifier of the signature algorithm.
+        """
+
+    @property
+    @abc.abstractmethod
+    def signature_algorithm_parameters(
+        self,
+    ) -> None | padding.PSS | padding.PKCS1v15 | ec.ECDSA:
+        """
+        Returns the signature algorithm parameters.
         """
 
     @property
@@ -576,60 +641,24 @@ class CertificateSigningRequest(metaclass=abc.ABCMeta):
 CertificateSigningRequest.register(rust_x509.CertificateSigningRequest)
 
 
-# Backend argument preserved for API compatibility, but ignored.
-def load_pem_x509_certificate(
-    data: bytes, backend: typing.Any = None
-) -> Certificate:
-    return rust_x509.load_pem_x509_certificate(data)
+load_pem_x509_certificate = rust_x509.load_pem_x509_certificate
+load_der_x509_certificate = rust_x509.load_der_x509_certificate
 
+load_pem_x509_certificates = rust_x509.load_pem_x509_certificates
 
-def load_pem_x509_certificates(data: bytes) -> typing.List[Certificate]:
-    return rust_x509.load_pem_x509_certificates(data)
+load_pem_x509_csr = rust_x509.load_pem_x509_csr
+load_der_x509_csr = rust_x509.load_der_x509_csr
 
-
-# Backend argument preserved for API compatibility, but ignored.
-def load_der_x509_certificate(
-    data: bytes, backend: typing.Any = None
-) -> Certificate:
-    return rust_x509.load_der_x509_certificate(data)
-
-
-# Backend argument preserved for API compatibility, but ignored.
-def load_pem_x509_csr(
-    data: bytes, backend: typing.Any = None
-) -> CertificateSigningRequest:
-    return rust_x509.load_pem_x509_csr(data)
-
-
-# Backend argument preserved for API compatibility, but ignored.
-def load_der_x509_csr(
-    data: bytes, backend: typing.Any = None
-) -> CertificateSigningRequest:
-    return rust_x509.load_der_x509_csr(data)
-
-
-# Backend argument preserved for API compatibility, but ignored.
-def load_pem_x509_crl(
-    data: bytes, backend: typing.Any = None
-) -> CertificateRevocationList:
-    return rust_x509.load_pem_x509_crl(data)
-
-
-# Backend argument preserved for API compatibility, but ignored.
-def load_der_x509_crl(
-    data: bytes, backend: typing.Any = None
-) -> CertificateRevocationList:
-    return rust_x509.load_der_x509_crl(data)
+load_pem_x509_crl = rust_x509.load_pem_x509_crl
+load_der_x509_crl = rust_x509.load_der_x509_crl
 
 
 class CertificateSigningRequestBuilder:
     def __init__(
         self,
-        subject_name: typing.Optional[Name] = None,
-        extensions: typing.List[Extension[ExtensionType]] = [],
-        attributes: typing.List[
-            typing.Tuple[ObjectIdentifier, bytes, typing.Optional[int]]
-        ] = [],
+        subject_name: Name | None = None,
+        extensions: list[Extension[ExtensionType]] = [],
+        attributes: list[tuple[ObjectIdentifier, bytes, int | None]] = [],
     ):
         """
         Creates an empty X.509 certificate request (v1).
@@ -664,7 +693,7 @@ class CertificateSigningRequestBuilder:
 
         return CertificateSigningRequestBuilder(
             self._subject_name,
-            self._extensions + [extension],
+            [*self._extensions, extension],
             self._attributes,
         )
 
@@ -673,7 +702,7 @@ class CertificateSigningRequestBuilder:
         oid: ObjectIdentifier,
         value: bytes,
         *,
-        _tag: typing.Optional[_ASN1Type] = None,
+        _tag: _ASN1Type | None = None,
     ) -> CertificateSigningRequestBuilder:
         """
         Adds an X.509 attribute with an OID and associated value.
@@ -697,35 +726,46 @@ class CertificateSigningRequestBuilder:
         return CertificateSigningRequestBuilder(
             self._subject_name,
             self._extensions,
-            self._attributes + [(oid, value, tag)],
+            [*self._attributes, (oid, value, tag)],
         )
 
     def sign(
         self,
         private_key: CertificateIssuerPrivateKeyTypes,
-        algorithm: typing.Optional[_AllowedHashTypes],
+        algorithm: _AllowedHashTypes | None,
         backend: typing.Any = None,
+        *,
+        rsa_padding: padding.PSS | padding.PKCS1v15 | None = None,
     ) -> CertificateSigningRequest:
         """
         Signs the request using the requestor's private key.
         """
         if self._subject_name is None:
             raise ValueError("A CertificateSigningRequest must have a subject")
-        return rust_x509.create_x509_csr(self, private_key, algorithm)
+
+        if rsa_padding is not None:
+            if not isinstance(rsa_padding, (padding.PSS, padding.PKCS1v15)):
+                raise TypeError("Padding must be PSS or PKCS1v15")
+            if not isinstance(private_key, rsa.RSAPrivateKey):
+                raise TypeError("Padding is only supported for RSA keys")
+
+        return rust_x509.create_x509_csr(
+            self, private_key, algorithm, rsa_padding
+        )
 
 
 class CertificateBuilder:
-    _extensions: typing.List[Extension[ExtensionType]]
+    _extensions: list[Extension[ExtensionType]]
 
     def __init__(
         self,
-        issuer_name: typing.Optional[Name] = None,
-        subject_name: typing.Optional[Name] = None,
-        public_key: typing.Optional[CertificatePublicKeyTypes] = None,
-        serial_number: typing.Optional[int] = None,
-        not_valid_before: typing.Optional[datetime.datetime] = None,
-        not_valid_after: typing.Optional[datetime.datetime] = None,
-        extensions: typing.List[Extension[ExtensionType]] = [],
+        issuer_name: Name | None = None,
+        subject_name: Name | None = None,
+        public_key: CertificatePublicKeyTypes | None = None,
+        serial_number: int | None = None,
+        not_valid_before: datetime.datetime | None = None,
+        not_valid_after: datetime.datetime | None = None,
+        extensions: list[Extension[ExtensionType]] = [],
     ) -> None:
         self._version = Version.v3
         self._issuer_name = issuer_name
@@ -916,18 +956,16 @@ class CertificateBuilder:
             self._serial_number,
             self._not_valid_before,
             self._not_valid_after,
-            self._extensions + [extension],
+            [*self._extensions, extension],
         )
 
     def sign(
         self,
         private_key: CertificateIssuerPrivateKeyTypes,
-        algorithm: typing.Optional[_AllowedHashTypes],
+        algorithm: _AllowedHashTypes | None,
         backend: typing.Any = None,
         *,
-        rsa_padding: typing.Optional[
-            typing.Union[padding.PSS, padding.PKCS1v15]
-        ] = None,
+        rsa_padding: padding.PSS | padding.PKCS1v15 | None = None,
     ) -> Certificate:
         """
         Signs the certificate using the CA's private key.
@@ -962,16 +1000,16 @@ class CertificateBuilder:
 
 
 class CertificateRevocationListBuilder:
-    _extensions: typing.List[Extension[ExtensionType]]
-    _revoked_certificates: typing.List[RevokedCertificate]
+    _extensions: list[Extension[ExtensionType]]
+    _revoked_certificates: list[RevokedCertificate]
 
     def __init__(
         self,
-        issuer_name: typing.Optional[Name] = None,
-        last_update: typing.Optional[datetime.datetime] = None,
-        next_update: typing.Optional[datetime.datetime] = None,
-        extensions: typing.List[Extension[ExtensionType]] = [],
-        revoked_certificates: typing.List[RevokedCertificate] = [],
+        issuer_name: Name | None = None,
+        last_update: datetime.datetime | None = None,
+        next_update: datetime.datetime | None = None,
+        extensions: list[Extension[ExtensionType]] = [],
+        revoked_certificates: list[RevokedCertificate] = [],
     ):
         self._issuer_name = issuer_name
         self._last_update = last_update
@@ -1057,7 +1095,7 @@ class CertificateRevocationListBuilder:
             self._issuer_name,
             self._last_update,
             self._next_update,
-            self._extensions + [extension],
+            [*self._extensions, extension],
             self._revoked_certificates,
         )
 
@@ -1075,14 +1113,16 @@ class CertificateRevocationListBuilder:
             self._last_update,
             self._next_update,
             self._extensions,
-            self._revoked_certificates + [revoked_certificate],
+            [*self._revoked_certificates, revoked_certificate],
         )
 
     def sign(
         self,
         private_key: CertificateIssuerPrivateKeyTypes,
-        algorithm: typing.Optional[_AllowedHashTypes],
+        algorithm: _AllowedHashTypes | None,
         backend: typing.Any = None,
+        *,
+        rsa_padding: padding.PSS | padding.PKCS1v15 | None = None,
     ) -> CertificateRevocationList:
         if self._issuer_name is None:
             raise ValueError("A CRL must have an issuer name")
@@ -1093,15 +1133,23 @@ class CertificateRevocationListBuilder:
         if self._next_update is None:
             raise ValueError("A CRL must have a next update time")
 
-        return rust_x509.create_x509_crl(self, private_key, algorithm)
+        if rsa_padding is not None:
+            if not isinstance(rsa_padding, (padding.PSS, padding.PKCS1v15)):
+                raise TypeError("Padding must be PSS or PKCS1v15")
+            if not isinstance(private_key, rsa.RSAPrivateKey):
+                raise TypeError("Padding is only supported for RSA keys")
+
+        return rust_x509.create_x509_crl(
+            self, private_key, algorithm, rsa_padding
+        )
 
 
 class RevokedCertificateBuilder:
     def __init__(
         self,
-        serial_number: typing.Optional[int] = None,
-        revocation_date: typing.Optional[datetime.datetime] = None,
-        extensions: typing.List[Extension[ExtensionType]] = [],
+        serial_number: int | None = None,
+        revocation_date: datetime.datetime | None = None,
+        extensions: list[Extension[ExtensionType]] = [],
     ):
         self._serial_number = serial_number
         self._revocation_date = revocation_date
@@ -1152,7 +1200,7 @@ class RevokedCertificateBuilder:
         return RevokedCertificateBuilder(
             self._serial_number,
             self._revocation_date,
-            self._extensions + [extension],
+            [*self._extensions, extension],
         )
 
     def build(self, backend: typing.Any = None) -> RevokedCertificate:
