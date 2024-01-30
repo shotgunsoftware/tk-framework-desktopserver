@@ -18,16 +18,16 @@ jobs:
     parameters:
       python_version: 3.7
   - script: |
-      git fetch $(System.PullRequest.SourceBranch)
       git checkout ${{ parameters.branch }} || git checkout $(System.PullRequest.SourceBranch) && git checkout -b ${{ parameters.branch }}
-      git merge $(System.PullRequest.SourceBranch) && git push origin ${{ parameters.branch }}
+      git merge $(System.PullRequest.SourceBranch)
+      git push -u origin ${{ parameters.branch }}
     displayName: Create branch if not exists or update
   - script: |
       git checkout ${{ parameters.branch }}
       python update_requirements.py
       ./install_source_only.sh
       git commit -am "Update source requirements 3.7"
-      git push -u origin ${{ parameters.branch }}
+      git push origin ${{ parameters.branch }}
     displayName: Generate all explicit_requirements & Update source requirements
     workingDirectory: resources/python
 
