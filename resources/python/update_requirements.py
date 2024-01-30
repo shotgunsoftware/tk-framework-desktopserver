@@ -221,8 +221,8 @@ class Updater(object):
                 # Prioritized wheels require GLIBC 2.28 (manylinux_2_28_x86_64) which is not available on CentOS 7.
                 # Then, we download manylinux_2_17_x86_64 from PyPI.
                 if package_name == "cryptography":
-                    dependency = "cryptography==41.0.7 ; sys_platform != 'linux'\n"
-                    dependency += "https://files.pythonhosted.org/packages/14/fd/dd5bd6ab0d12476ebca579cbfd48d31bd90fa28fa257b209df585dcf62a0/cryptography-41.0.7-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl ; sys_platform == 'linux'"
+                    dependency = "cryptography==42.0.1 ; sys_platform != 'linux'\n"
+                    dependency += "https://files.pythonhosted.org/packages/15/41/34c4513070982a6bfa7d33ee7b1c69d3cfcb50817f1d11601497f2f8128b/cryptography-42.0.1-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl ; sys_platform == 'linux'"
 
 
                 # Figure which type of dependency it is and write
