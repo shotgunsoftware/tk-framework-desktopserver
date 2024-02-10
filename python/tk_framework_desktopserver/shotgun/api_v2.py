@@ -445,7 +445,7 @@ class ShotgunAPI(object):
             )
 
         # The first thing we do is check to see if we're dealing with a
-        # classic SGTK setup. In that case, we're going to short-circuit
+        # classic PTR setup. In that case, we're going to short-circuit
         # the get_actions call and go into a legacy setup that makes use
         # of the "tank" command by way of this api's process_manager.
         did_legacy_lookup = False
@@ -483,7 +483,7 @@ class ShotgunAPI(object):
             # path.
             if legacy_config_data:
                 logger.debug(
-                    "Classic SGTK config(s) found, proceeding with legacy code path."
+                    "Classic PTR config(s) found, proceeding with legacy code path."
                 )
                 self._legacy_process_configs(
                     legacy_config_data,
@@ -506,7 +506,7 @@ class ShotgunAPI(object):
             # The hash that acts as the key we'll use to look up our cached
             # data will be based on the entity type and the pipeline config's
             # descriptor uri. We can get the descriptor from the toolkit
-            # manager and pass that through along with the entity type from SG
+            # manager and pass that through along with the entity type from PTR
             # to the core hook that computes the hash.
             pc_descriptor = pipeline_config["descriptor"]
 
@@ -1103,7 +1103,7 @@ class ShotgunAPI(object):
         )
 
         # Once the config is cloned, we need to invalidate the in-memory cache
-        # that contains the PipelineConfiguration entities queried from SG.
+        # that contains the PipelineConfiguration entities queried from PTR.
         del self._cache[self.PIPELINE_CONFIGS]
 
     def _filter_software_entities_by_project(self, sw_entities, project):
@@ -1652,7 +1652,7 @@ class ShotgunAPI(object):
                 # The hash that acts as the key we'll use to look up our cached
                 # data will be based on the entity type and the pipeline config's
                 # descriptor uri. We can get the descriptor from the toolkit
-                # manager and pass that through along with the entity type from SG
+                # manager and pass that through along with the entity type from PTR
                 # to the core hook that computes the hash.
                 manager.pipeline_configuration = pipeline_config["id"]
                 pc_descriptor = pipeline_config["descriptor"]

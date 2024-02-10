@@ -39,7 +39,7 @@ class _Formatter(logging.Formatter, object):
         Encodes log messages as base64. This allows us to collapse multiline
         log messages into a single line of text. Before presenting the log
         messages to a user, the caller of execute_command.py will be required
-        to decode the message. Every message is tag at its head with "SGTK:",
+        to decode the message. Every message is tag at its head with "PTR:",
         making output from a logger using this formatter easily identifiable.
         """
         result = super(_Formatter, self).format(*args, **kwargs)
@@ -52,7 +52,7 @@ class _Formatter(logging.Formatter, object):
 def app_upgrade_info(engine):
     """
     Logs a message for the user that tells them how to check for app updates.
-    This is provided for legacy purposes for "classic" SGTK setups.
+    This is provided for legacy purposes for "classic" PTR setups.
 
     :param engine: The currently-running engine instance.
     """
@@ -180,7 +180,7 @@ def core_info(engine):
 def pre_engine_start_callback(logger, context):
     """
     The pre-engine-start callback that's given to the bootstrap API.
-    This callback handles attaching a custom logger to SGTK prior to
+    This callback handles attaching a custom logger to PTR prior to
     the Shotgun engine being initialized. This allows us to customize
     the output of the logger in such a way that it is easily identified
     and filtered before going back to the client for display.
@@ -229,7 +229,7 @@ def bootstrap(
     # Give it an easily-identifiable format. We'll use this in the RPC API
     # when filtering stdout before passing it up to the client. This custom
     # formatter also base64 encodes the raw log message before adding the
-    # "SGTK:" tag at its head. This will mean that multi-line log messages
+    # "PTR:" tag at its head. This will mean that multi-line log messages
     # are collapsed into a single line of text, which can then be decoded
     # by the caller of execute_command.py to get the original log message.
     handler.setFormatter(_Formatter())

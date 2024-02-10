@@ -52,9 +52,9 @@ BASE_ENTITY_TYPE_ALLOW_LIST = set(
 # logs messages to stdout. Each message is prefixed with a known
 # tag that we can then use after the command completes to identify
 # output that we want to send back to the client.
-LOGGING_PREFIX = "SGTK:"
+LOGGING_PREFIX = "PTR:"
 
-# This is part of a workaround that causes "classic" SGTK configs to
+# This is part of a workaround that causes "classic" PTR configs to
 # be processed by way of the "tank" command rather than going through
 # the more modern code path that utilizes the bootstrap API.
 LEGACY_CONFIG_ROOT = "_legacy_config_root"
