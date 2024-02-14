@@ -1535,7 +1535,7 @@ class ShotgunAPI(object):
         """
         message = (
             "An unhandled exception has occurred. To see the full error, "
-            "refer to the console in Flow Production Tracking Toolkit, or contact us via %s for "
+            "refer to the console in Flow Production Tracking, or contact us via %s for "
             "additional help with this issue." % sgtk.support_url
         )
 

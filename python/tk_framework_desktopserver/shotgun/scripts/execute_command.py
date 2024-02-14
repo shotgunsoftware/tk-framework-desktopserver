@@ -131,7 +131,7 @@ def core_info(engine):
     # the web app, the markdown will be handled and we'll end up with a bold
     # message.
     engine.log_info(
-        "You are currently running version %s of the Flow Production Tracking Toolkit."
+        "You are currently running version %s of the Flow Production Tracking."
         % cv
     )
 

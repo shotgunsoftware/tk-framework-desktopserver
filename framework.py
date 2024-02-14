@@ -344,7 +344,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         :returns: String containing an error message formatted
         """
         return (
-            "The Flow Production Tracking Toolkit needs to update the security certificate list from your %s before "
+            "The Flow Production Tracking needs to update the security certificate list from your %s before "
             "it can turn on the browser integration.\n"
             "\n"
             "%s" % (keychain_name, action)

@@ -1,6 +1,6 @@
 # Toolkit Framework Desktop Server
 
-This framework manages the integration between Flow Production Tracking Toolkit and Flow Production Tracking Web 
+This framework manages the integration between Flow Production Tracking and Flow Production Tracking Web 
 (browser integration).
 
 Officially Supported Python Versions:
