@@ -14,28 +14,14 @@ import typing
 from cryptography import utils, x509
 from cryptography.hazmat.bindings._rust import pkcs7 as rust_pkcs7
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.utils import _check_byteslike
 
+load_pem_pkcs7_certificates = rust_pkcs7.load_pem_pkcs7_certificates
 
-def load_pem_pkcs7_certificates(data: bytes) -> typing.List[x509.Certificate]:
-    from cryptography.hazmat.backends.openssl.backend import backend
+load_der_pkcs7_certificates = rust_pkcs7.load_der_pkcs7_certificates
 
-    return backend.load_pem_pkcs7_certificates(data)
-
-
-def load_der_pkcs7_certificates(data: bytes) -> typing.List[x509.Certificate]:
-    from cryptography.hazmat.backends.openssl.backend import backend
-
-    return backend.load_der_pkcs7_certificates(data)
-
-
-def serialize_certificates(
-    certs: typing.List[x509.Certificate],
-    encoding: serialization.Encoding,
-) -> bytes:
-    return rust_pkcs7.serialize_certificates(certs, encoding)
-
+serialize_certificates = rust_pkcs7.serialize_certificates
 
 PKCS7HashTypes = typing.Union[
     hashes.SHA224,
@@ -61,15 +47,16 @@ class PKCS7Options(utils.Enum):
 class PKCS7SignatureBuilder:
     def __init__(
         self,
-        data: typing.Optional[bytes] = None,
-        signers: typing.List[
-            typing.Tuple[
+        data: bytes | None = None,
+        signers: list[
+            tuple[
                 x509.Certificate,
                 PKCS7PrivateKeyTypes,
                 PKCS7HashTypes,
+                padding.PSS | padding.PKCS1v15 | None,
             ]
         ] = [],
-        additional_certs: typing.List[x509.Certificate] = [],
+        additional_certs: list[x509.Certificate] = [],
     ):
         self._data = data
         self._signers = signers
@@ -87,6 +74,8 @@ class PKCS7SignatureBuilder:
         certificate: x509.Certificate,
         private_key: PKCS7PrivateKeyTypes,
         hash_algorithm: PKCS7HashTypes,
+        *,
+        rsa_padding: padding.PSS | padding.PKCS1v15 | None = None,
     ) -> PKCS7SignatureBuilder:
         if not isinstance(
             hash_algorithm,
@@ -109,9 +98,18 @@ class PKCS7SignatureBuilder:
         ):
             raise TypeError("Only RSA & EC keys are supported at this time.")
 
+        if rsa_padding is not None:
+            if not isinstance(rsa_padding, (padding.PSS, padding.PKCS1v15)):
+                raise TypeError("Padding must be PSS or PKCS1v15")
+            if not isinstance(private_key, rsa.RSAPrivateKey):
+                raise TypeError("Padding is only supported for RSA keys")
+
         return PKCS7SignatureBuilder(
             self._data,
-            self._signers + [(certificate, private_key, hash_algorithm)],
+            [
+                *self._signers,
+                (certificate, private_key, hash_algorithm, rsa_padding),
+            ],
         )
 
     def add_certificate(
@@ -121,7 +119,7 @@ class PKCS7SignatureBuilder:
             raise TypeError("certificate must be a x509.Certificate")
 
         return PKCS7SignatureBuilder(
-            self._data, self._signers, self._additional_certs + [certificate]
+            self._data, self._signers, [*self._additional_certs, certificate]
         )
 
     def sign(
