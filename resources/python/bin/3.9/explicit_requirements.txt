@@ -9,6 +9,6 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 cffi==1.15.1
-cryptography==42.0.1 ; sys_platform != 'linux'
+cryptography==42.0.2 ; sys_platform != 'linux'
 https://files.pythonhosted.org/packages/15/41/34c4513070982a6bfa7d33ee7b1c69d3cfcb50817f1d11601497f2f8128b/cryptography-42.0.1-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl ; sys_platform == 'linux'
 zope.interface==5.5.2
