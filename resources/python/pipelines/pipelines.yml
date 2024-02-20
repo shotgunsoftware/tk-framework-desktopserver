@@ -226,9 +226,9 @@ jobs:
     displayName: Run Push Scripts
     workingDirectory: resources/python
 
-- job: install_binary_dependencies_windows_3_9
+- job: install_binary_dependencies_windows_3_10
   displayName: Install binary dependencies Windows 3.10
-  dependsOn: install_source_dependencies_3_10
+  dependsOn: install_binary_dependencies_windows_3_9
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'windows-2022'
