@@ -4,11 +4,15 @@ ignore:
   SNYK-PYTHON-SETUPTOOLS-3180412:
     - resources/python/bin/3.7/explicit_requirements.txt
     - resources/python/bin/3.9/explicit_requirements.txt
+    - resources/python/bin/3.10/explicit_requirements.txt
     - resources/python/src/3.7/explicit_requirements.txt
     - resources/python/src/3.9/explicit_requirements.txt
+    - resources/python/src/3.10/explicit_requirements.txt
 exclude:
   global:
     - resources/python/bin/3.7/explicit_requirements.txt
     - resources/python/bin/3.9/explicit_requirements.txt
+    - resources/python/bin/3.10/explicit_requirements.txt
     - resources/python/src/3.7/explicit_requirements.txt
     - resources/python/src/3.9/explicit_requirements.txt
+    - resources/python/src/3.10/explicit_requirements.txt

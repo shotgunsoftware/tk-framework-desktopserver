@@ -8,14 +8,23 @@ Officially Supported Python Versions:
 - Mac 
   - 3.7.16
   - 3.9.16
+  - 3.10.13
 - Windows 
   - 3.7.9
   - 3.9.13
+  - 3.10.13
 - Linux: 
   - 3.7.16
   - 3.9.16
+  - 3.10.13
 
-## How to update dependencies
+## CI Automation
+
+These steps are now taken care by CI automation under the [pipelines](pipelines/pipelines.yml) file.
+When changes are pushed to GitHub, it will create a new branch with the same name with the `-automated` prefix.
+Please review the changes and open a PR.
+
+## How to manually update dependencies
 
 For this documentation the examples are using the following locations, you can
 use whatever work best for you:
@@ -27,8 +36,7 @@ use whatever work best for you:
   - Mac and Linux: `$HOME/instances`
   - Windows: `$HOME\instances`
 - Python installation in windows:
-  - C:\python\3.7.9
-  - C:\python\3.9.13
+  - C:\python\3.X
 
 ### Create a branch in the repository  
 
@@ -86,17 +94,14 @@ pyenv shell 3.7.16
 python -m pip install -U pip virtualenv
 python -m virtualenv $HOME/venv/tk-framework-desktopserver-37 
 
-rm -Rf $HOME/venv/tk-framework-desktopserver-39
-pyenv install 3.9.16
-pyenv shell 3.9.16
-python -m pip install -U pip virtualenv
-python -m virtualenv $HOME/venv/tk-framework-desktopserver-39 
+# Repeat steps for Python 3.9 and 3.10
 ```
 
 Windows:
   - Use an admin powershell console.
   - Install python 3.7.9 from https://www.python.org/ftp/python/3.7.9/python-3.7.9-amd64.exe in C:\python\3.7.9
   - Install python 3.9.13 from https://www.python.org/ftp/python/3.9.13/python-3.9.13-amd64.exe in C:\python\3.9.13
+  - Install python 3.10.11 from https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe in C:\python\3.10.11
 
 ```shell
 if (test-path $HOME\venv\tk-framework-desktopserver-37) {
@@ -105,11 +110,7 @@ if (test-path $HOME\venv\tk-framework-desktopserver-37) {
 C:\python\3.7.9\python.exe -m pip install -U pip virtualenv
 C:\python\3.7.9\python.exe -m virtualenv $HOME\venv\tk-framework-desktopserver-37 
 
-if (test-path $HOME\venv\tk-framework-desktopserver-39) {
-  Remove-Item $HOME\venv\tk-framework-desktopserver-39 -Recurse -Force
-}
-C:\python\3.9.13\python.exe -m pip install -U pip virtualenv
-C:\python\3.9.13\python.exe -m virtualenv $HOME\venv\tk-framework-desktopserver-39 
+# Repeat steps for Python 3.9 and 3.10
 ```
 
 ### In Mac, update requirements.txt files
@@ -144,35 +145,7 @@ C:\python\3.9.13\python.exe -m virtualenv $HOME\venv\tk-framework-desktopserver-
   rm -f requirements.txt
   ```
 
-- resources/python/requirements/3.9/requirements.txt
-  ```shell
-  # Activate python 3.9 virtualenv
-  source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-  
-  # Copy requirements.txt to temporal folder
-  cp $HOME/instances/tk-framework-desktopserver/resources/python/requirements/3.9/requirements.txt /tmp/requirements.txt
-  
-  # Chdir to temporal folder
-  cd /tmp
-  
-  # Replace the versions numbers of the requirements.txt file
-  sed -i 's/==.*$//' requirements.txt
-  
-  # Create a temporal folder
-  mkdir temporal_requirements
-  
-  # Install the requirements in the new temporal folder
-  pip install -r requirements.txt -t temporal_requirements
-  
-  # Get the list of packages installed versions
-  pip list --path temporal_requirements
-  
-  # Compare versions and update the file $HOME/instances/tk-framework-desktopserver/resources/python/requirements/3.9/requirements.txt
-  
-  # Cleanup everything
-  rm -Rf temporal_requirements
-  rm -f requirements.txt
-  ```
+- Repeat steps for Python 3.9 and 3.10
 
 ### In Mac, activate virtualenvs and execute the script `update_requirements.py` 
 
@@ -185,8 +158,7 @@ cd $HOME/instances/tk-framework-desktopserver/resources/python
 source $HOME/venv/tk-framework-desktopserver-37/bin/activate
 python update_requirements.py --clean-pip
 
-source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-python update_requirements.py --clean-pip
+# Repeat steps for Python 3.9 and 3.10
 ```
 
 ### In Mac, activate virtualenvs and execute the script `install_source_only.sh` 
@@ -197,8 +169,7 @@ cd $HOME/instances/tk-framework-desktopserver/resources/python
 source $HOME/venv/tk-framework-desktopserver-37/bin/activate
 bash install_source_only.sh
 
-source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-bash install_source_only.sh
+# Repeat steps for Python 3.9 and 3.10
 ```
 
 ### In Mac, push changes to the repository
@@ -222,11 +193,7 @@ git add .
 git commit -am "Update binary requirements in Mac Python 3.7"
 git push
 
-source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-bash install_binary_mac.sh
-git add .
-git commit -am "Update binary requirements in Mac Python 3.9"
-git push
+# Repeat steps for Python 3.9 and 3.10
 ```
 
 Linux
@@ -242,11 +209,7 @@ git add .
 git commit -am "Update binary requirements in Linux Python 3.7"
 git push
 
-source $HOME/venv/tk-framework-desktopserver-39/bin/activate
-bash install_binary_linux.sh
-git add .
-git commit -am "Update binary requirements in Linux Python 3.9"
-git push
+# Repeat steps for Python 3.9 and 3.10
 ```
 
 Windows
@@ -260,10 +223,5 @@ git add .
 git commit -am "Update binary requirements in Windows Python 3.7"
 git push
 
-cd $HOME\instances\tk-framework-desktopserver\resources\python
-& "$HOME\venv\tk-framework-desktopserver-39\Scripts\activate.ps1"
-.\install_binary_windows.ps1
-git add .
-git commit -am "Update binary requirements in Windows Python 3.9"
-git push
+# Repeat steps for Python 3.9 and 3.10
 ```
