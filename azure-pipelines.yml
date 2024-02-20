@@ -36,6 +36,7 @@ jobs:
       - name: tk-shotgun
     extra_test_dependencies:
       # Required when binary dependencies are not bundled
+      - attrs==22.2.0    # Fix version. Otherwise tk-ci-tools will install latest
       - Twisted==22.10.0 # We use 22.10.0 to avoid breaking CI for Python 3.7
     post_tests_steps:
       - bash: python -m pytest tests/integration_tests/interpreters.py -v

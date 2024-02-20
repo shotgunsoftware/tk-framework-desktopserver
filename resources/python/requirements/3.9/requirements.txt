@@ -7,7 +7,7 @@ service-identity==21.1.0
 # When updating certifi to match the version released with Desktop, some other unrelated modules (that are second
 # level dependencies) were updating. The list below pins these versions for now until the next time we need to update
 # modules and rebuild the binaries
-attrs==23.2.0
+attrs==22.2.0
 cffi==1.15.1
 cryptography==42.0.3 # Only for SAST. Should be also updated in resources/python/update_requirements.py
 hyperlink==21.0.0
