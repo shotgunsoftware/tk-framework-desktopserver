@@ -70,6 +70,7 @@ jobs:
     workingDirectory: resources/python
 
 # ---------------------------------------------
+# Binary dependencies run also in order to prevent git race conditions
 
 - job: install_binary_dependencies_mac_3_7
   displayName: Install binary dependencies Mac 3.7
@@ -91,7 +92,7 @@ jobs:
 
 - job: install_binary_dependencies_mac_3_9
   displayName: Install binary dependencies Mac 3.9
-  dependsOn: install_source_dependencies_3_10
+  dependsOn: install_binary_dependencies_mac_3_7
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'macOS-12'
@@ -109,7 +110,7 @@ jobs:
 
 - job: install_binary_dependencies_mac_3_10
   displayName: Install binary dependencies Mac 3.10
-  dependsOn: install_source_dependencies_3_10
+  dependsOn: install_binary_dependencies_mac_3_9
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'macOS-12'
@@ -127,7 +128,7 @@ jobs:
 
 - job: install_binary_dependencies_linux_3_7
   displayName: Install binary dependencies Linux 3.7
-  dependsOn: install_source_dependencies_3_10
+  dependsOn: install_binary_dependencies_mac_3_10
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'ubuntu-20.04'
@@ -145,7 +146,7 @@ jobs:
 
 - job: install_binary_dependencies_linux_3_9
   displayName: Install binary dependencies Linux 3.9
-  dependsOn: install_source_dependencies_3_10
+  dependsOn: install_binary_dependencies_linux_3_7
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'ubuntu-20.04'
@@ -163,7 +164,7 @@ jobs:
 
 - job: install_binary_dependencies_linux_3_10
   displayName: Install binary dependencies Linux 3.10
-  dependsOn: install_source_dependencies_3_10
+  dependsOn: install_binary_dependencies_linux_3_9
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'ubuntu-20.04'
@@ -181,7 +182,7 @@ jobs:
 
 - job: install_binary_dependencies_windows_3_7
   displayName: Install binary dependencies Windows 3.7
-  dependsOn: install_source_dependencies_3_10
+  dependsOn: install_binary_dependencies_linux_3_10
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'windows-2022'
@@ -204,7 +205,7 @@ jobs:
 
 - job: install_binary_dependencies_windows_3_9
   displayName: Install binary dependencies Windows 3.9
-  dependsOn: install_source_dependencies_3_10
+  dependsOn: install_binary_dependencies_windows_3_7
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'windows-2022'
@@ -225,7 +226,7 @@ jobs:
     displayName: Run Push Scripts
     workingDirectory: resources/python
 
-- job: install_binary_dependencies_windows_3_10
+- job: install_binary_dependencies_windows_3_9
   displayName: Install binary dependencies Windows 3.10
   dependsOn: install_source_dependencies_3_10
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
