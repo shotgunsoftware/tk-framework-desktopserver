@@ -12,7 +12,7 @@ Officially Supported Python Versions:
 - Windows 
   - 3.7.9
   - 3.9.13
-  - 3.10.13
+  - 3.10.11
 - Linux: 
   - 3.7.16
   - 3.9.16
@@ -182,7 +182,7 @@ git push
 
 ### In every Operating System, activate virtualenvs and execute the corresponding script to install binaries  and then push changes to repository
 
-Mac
+#### Mac
 
 ```shell
 cd $HOME/instances/tk-framework-desktopserver/resources/python
@@ -196,7 +196,18 @@ git push
 # Repeat steps for Python 3.9 and 3.10
 ```
 
-Linux
+> Important Notice for Apple Silicon: CI uses a Intel Mac to install the binary requirements.
+> There are two specific ones that don't have wheels with fat binaries: CFFI and Zope.interface.
+> For them, we recommend to get `_cffi_backend.cpython-310-darwin.so` and `_zope_interface_coptimizations.cpython-310-darwin.so`
+> from both architectures and combine them into a fat binary using MacOS `lipo` tool
+> and replace the files in this repository when upgrading any of these requirements.
+
+```shell
+lipo _cffi_x86_64_file.so _cffi_arm64_file.so -create -output _cffi_backend.cpython-310-darwin.so
+lipo _zope_x86_64_file.so _zope_arm64_file.so -create -output _zope_interface_coptimizations.cpython-310-darwin.so
+```
+
+#### Linux
 
 ```shell
 cd $HOME/instances/tk-framework-desktopserver
@@ -212,7 +223,7 @@ git push
 # Repeat steps for Python 3.9 and 3.10
 ```
 
-Windows
+#### Windows
   - Use an admin powershell console.
 
 ```shell
