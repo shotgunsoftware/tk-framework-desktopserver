@@ -5,7 +5,7 @@ This framework manages the integration between SG Desktop and SG Web
 
 Officially Supported Python Versions:
 
-- Mac 
+- macOS
   - 3.7.16
   - 3.9.16
   - 3.10.13
@@ -30,10 +30,10 @@ For this documentation the examples are using the following locations, you can
 use whatever work best for you:
 
 - Virtualenvs base folder
-  - Mac and Linux: `$HOME/venv`
+  - macOS and Linux: `$HOME/venv`
   - Windows: `$HOME\venv`
 - Cloned repositories base folder
-  - Mac and Linux: `$HOME/instances`
+  - macOS and Linux: `$HOME/instances`
   - Windows: `$HOME\instances`
 - Python installation in windows:
   - C:\python\3.X
@@ -42,7 +42,7 @@ use whatever work best for you:
 
 You can choose any operating system to create the branch
 
-Linux or Mac:
+Linux or macOS:
 
 ```shell
 git clone git@github.com:shotgunsoftware/tk-framework-desktopserver.git $HOME/instances/tk-framework-desktopserver
@@ -62,7 +62,7 @@ git push --set-upstream origin BRANCH_NAME
 
 ### Clone and checkout the repository in every Operating System
 
-Linux and Mac:
+Linux and macOS:
 
 ```shell
 git clone git@github.com:shotgunsoftware/tk-framework-desktopserver.git $HOME/instances/tk-framework-desktopserver
@@ -83,7 +83,7 @@ git checkout BRANCH_NAME
 Create a virtualenv for every supported python version in every operating 
 system.
 
-Linux and Mac:
+Linux and macOS:
 
 We highly recommend to use [pyenv](https://github.com/pyenv/pyenv).
 
@@ -113,7 +113,7 @@ C:\python\3.7.9\python.exe -m virtualenv $HOME\venv\tk-framework-desktopserver-3
 # Repeat steps for Python 3.9 and 3.10
 ```
 
-### In Mac, update requirements.txt files
+### In macOS, update requirements.txt files
 
 - resources/python/requirements/3.7/requirements.txt
   ```shell
@@ -147,7 +147,7 @@ C:\python\3.7.9\python.exe -m virtualenv $HOME\venv\tk-framework-desktopserver-3
 
 - Repeat steps for Python 3.9 and 3.10
 
-### In Mac, activate virtualenvs and execute the script `update_requirements.py` 
+### In macOS, activate virtualenvs and execute the script `update_requirements.py` 
 
 This will bake the official versions of each package we need to install in 
 every platform (Python Version, Operating System).
@@ -161,7 +161,7 @@ python update_requirements.py --clean-pip
 # Repeat steps for Python 3.9 and 3.10
 ```
 
-### In Mac, activate virtualenvs and execute the script `install_source_only.sh` 
+### In macOS, activate virtualenvs and execute the script `install_source_only.sh` 
 
 ```shell
 cd $HOME/instances/tk-framework-desktopserver/resources/python
@@ -172,7 +172,7 @@ bash install_source_only.sh
 # Repeat steps for Python 3.9 and 3.10
 ```
 
-### In Mac, push changes to the repository
+### In macOS, push changes to the repository
 
 ```shell
 git add .
@@ -182,7 +182,7 @@ git push
 
 ### In every Operating System, activate virtualenvs and execute the corresponding script to install binaries  and then push changes to repository
 
-#### Mac
+#### macOS
 
 ```shell
 cd $HOME/instances/tk-framework-desktopserver/resources/python
@@ -190,13 +190,13 @@ cd $HOME/instances/tk-framework-desktopserver/resources/python
 source $HOME/venv/tk-framework-desktopserver-37/bin/activate
 bash install_binary_mac.sh
 git add .
-git commit -am "Update binary requirements in Mac Python 3.7"
+git commit -am "Update binary requirements in macOS Python 3.7"
 git push
 
 # Repeat steps for Python 3.9 and 3.10
 ```
 
-> Important Notice for Apple Silicon: CI uses a Intel Mac to install the binary requirements.
+> Important Notice for Apple Silicon: CI uses a Intel macOS to install the binary requirements.
 > There are two specific ones that don't have wheels with fat binaries: CFFI and Zope.interface.
 > For them, we recommend to get `_cffi_backend.cpython-310-darwin.so` and `_zope_interface_coptimizations.cpython-310-darwin.so`
 > from both architectures and combine them into a fat binary using MacOS `lipo` tool
