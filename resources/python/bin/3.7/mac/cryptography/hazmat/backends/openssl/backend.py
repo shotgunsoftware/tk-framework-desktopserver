@@ -138,7 +138,7 @@ class Backend:
         return "<OpenSSLBackend(version: {}, FIPS: {}, Legacy: {})>".format(
             self.openssl_version_text(),
             self._fips_enabled,
-            self._binding._legacy_provider_loaded,
+            rust_openssl._legacy_provider_loaded,
         )
 
     def openssl_assert(
@@ -277,7 +277,7 @@ class Backend:
         # we get an EVP_CIPHER * in the _CipherContext __init__, but OpenSSL 3
         # will return a valid pointer even though the cipher is unavailable.
         if (
-            self._binding._legacy_provider_loaded
+            rust_openssl._legacy_provider_loaded
             or not self._lib.CRYPTOGRAPHY_OPENSSL_300_OR_GREATER
         ):
             for mode_cls in [CBC, CFB, OFB, ECB]:
@@ -826,6 +826,15 @@ class Backend:
                     mac_iter,
                     0,
                 )
+                if p12 == self._ffi.NULL:
+                    errors = self._consume_errors()
+                    raise ValueError(
+                        (
+                            "Failed to create PKCS12 (does the key match the "
+                            "certificate?)"
+                        ),
+                        errors,
+                    )
 
             if (
                 self._lib.Cryptography_HAS_PKCS12_SET_MAC
