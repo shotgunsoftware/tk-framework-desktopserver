@@ -45,27 +45,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
         Get the path to a python interpreter on the current platform that
         matches the given major version.
         """
-        # python versions
-        azure_python2_versions = ["2.7.18"]
-        azure_python3_versions = [
-            "3.7.7",
-            "3.7.8",
-            "3.7.9",
-            "3.7.11",
-            "3.7.12",
-            "3.7.13",
-            "3.7.14",
-            "3.7.15",
-            "3.7.17",
-            "3.9.10",
-            "3.9.11",
-            "3.9.12",
-            "3.9.13",
-            "3.9.14",
-            "3.9.15",
-            "3.9.16",
-            "3.9.17",
-        ]
+        version = platform.python_version()
 
         # windows paths
         win_paths = {
@@ -73,10 +53,9 @@ class Python3ProjectTests(SgtkIntegrationTest):
             3: [r"C:\Program Files\Shotgun\Python3\python.exe"],
         }
 
-        for version in azure_python2_versions + azure_python3_versions:
-            win_paths[int(version[0])].append(
-                r"C:\hostedtoolcache\windows\Python\%s\x64\python.exe" % version
-            )
+        win_paths[int(version[0])].append(
+            r"C:\hostedtoolcache\windows\Python\%s\x64\python.exe" % version
+        )
 
         # linux paths
         linux_paths = {
@@ -84,10 +63,9 @@ class Python3ProjectTests(SgtkIntegrationTest):
             3: ["/opt/Shotgun/Python3/bin/python"],
         }
 
-        for version in azure_python2_versions + azure_python3_versions:
-            linux_paths[int(version[0])].append(
-                r"/opt/hostedtoolcache/Python/%s/x64/bin/python" % version
-            )
+        linux_paths[int(version[0])].append(
+            r"/opt/hostedtoolcache/Python/%s/x64/bin/python" % version
+        )
 
         # mac paths
         osx_paths = {
@@ -95,10 +73,9 @@ class Python3ProjectTests(SgtkIntegrationTest):
             3: ["/Applications/Shotgun.app/Contents/Resources/Python3/bin/python"],
         }
 
-        for version in azure_python2_versions + azure_python3_versions:
-            osx_paths[int(version[0])].append(
-                r"/Users/runner/hostedtoolcache/Python/%s/x64/bin/python" % version
-            )
+        osx_paths[int(version[0])].append(
+            r"/Users/runner/hostedtoolcache/Python/%s/x64/bin/python" % version
+        )
 
         paths = {
             "Windows": win_paths,

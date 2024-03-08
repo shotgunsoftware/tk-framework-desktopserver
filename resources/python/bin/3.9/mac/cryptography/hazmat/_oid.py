@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import typing
-
 from cryptography.hazmat.bindings._rust import (
     ObjectIdentifier as ObjectIdentifier,
 )
@@ -60,6 +58,7 @@ class NameOID:
     LOCALITY_NAME = ObjectIdentifier("2.5.4.7")
     STATE_OR_PROVINCE_NAME = ObjectIdentifier("2.5.4.8")
     STREET_ADDRESS = ObjectIdentifier("2.5.4.9")
+    ORGANIZATION_IDENTIFIER = ObjectIdentifier("2.5.4.97")
     ORGANIZATION_NAME = ObjectIdentifier("2.5.4.10")
     ORGANIZATIONAL_UNIT_NAME = ObjectIdentifier("2.5.4.11")
     SERIAL_NUMBER = ObjectIdentifier("2.5.4.5")
@@ -123,9 +122,7 @@ class SignatureAlgorithmOID:
     GOSTR3410_2012_WITH_3411_2012_512 = ObjectIdentifier("1.2.643.7.1.1.3.3")
 
 
-_SIG_OIDS_TO_HASH: typing.Dict[
-    ObjectIdentifier, typing.Optional[hashes.HashAlgorithm]
-] = {
+_SIG_OIDS_TO_HASH: dict[ObjectIdentifier, hashes.HashAlgorithm | None] = {
     SignatureAlgorithmOID.RSA_WITH_MD5: hashes.MD5(),
     SignatureAlgorithmOID.RSA_WITH_SHA1: hashes.SHA1(),
     SignatureAlgorithmOID._RSA_WITH_SHA1: hashes.SHA1(),
@@ -282,7 +279,7 @@ _OID_NAMES = {
     ExtensionOID.EXTENDED_KEY_USAGE: "extendedKeyUsage",
     ExtensionOID.FRESHEST_CRL: "freshestCRL",
     ExtensionOID.INHIBIT_ANY_POLICY: "inhibitAnyPolicy",
-    ExtensionOID.ISSUING_DISTRIBUTION_POINT: ("issuingDistributionPoint"),
+    ExtensionOID.ISSUING_DISTRIBUTION_POINT: "issuingDistributionPoint",
     ExtensionOID.AUTHORITY_INFORMATION_ACCESS: "authorityInfoAccess",
     ExtensionOID.SUBJECT_INFORMATION_ACCESS: "subjectInfoAccess",
     ExtensionOID.OCSP_NO_CHECK: "OCSPNoCheck",

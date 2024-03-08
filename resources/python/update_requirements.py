@@ -38,7 +38,7 @@ class UpdateException(Exception):
 
 class Updater(object):
     def __init__(self):
-        # python version
+        # get the running python version
         self._python_version_info = sys.version_info
 
         self._python_version_dot_format = "{}.{}".format(
@@ -47,9 +47,6 @@ class Updater(object):
             self._python_version_info.major, self._python_version_info.minor)
 
         self._is_python_3 = self._python_version_info.major == 3
-        self._is_python_2 = self._python_version_info.major == 2
-        self._is_python_37 = self._is_python_3 and self._python_version_info.minor == 7
-        self._is_python_39 = self._is_python_3 and self._python_version_info.minor == 9
 
         # packages containing binaries like pyd, so, dll
         self._binary_distributions = [
@@ -82,15 +79,6 @@ class Updater(object):
         )
 
         # paths for final requirements files
-        self._source_reqs_2_7_dir = os.path.join(
-            self._sources_dir,
-            "2.7",
-        )
-        self._source_reqs_2_7_path = os.path.join(
-            self._source_reqs_2_7_dir,
-            "explicit_requirements.txt"
-        )
-
         self._source_reqs_3_7_dir = os.path.join(
             self._sources_dir,
             "3.7",
@@ -109,12 +97,12 @@ class Updater(object):
             "explicit_requirements.txt"
         )
 
-        self._bin_reqs_2_7_dir = os.path.join(
-            self._bin_dir,
-            "2.7",
+        self._source_reqs_3_10_dir = os.path.join(
+            self._sources_dir,
+            "3.10",
         )
-        self._bin_reqs_2_7_path = os.path.join(
-            self._bin_reqs_2_7_dir,
+        self._source_reqs_3_10_path = os.path.join(
+            self._source_reqs_3_10_dir,
             "explicit_requirements.txt"
         )
 
@@ -133,6 +121,15 @@ class Updater(object):
         )
         self._bin_reqs_3_9_path = os.path.join(
             self._bin_reqs_3_9_dir,
+            "explicit_requirements.txt"
+        )
+
+        self._bin_reqs_3_10_dir = os.path.join(
+            self._bin_dir,
+            "3.10",
+        )
+        self._bin_reqs_3_10_path = os.path.join(
+            self._bin_reqs_3_10_dir,
             "explicit_requirements.txt"
         )
 
@@ -221,8 +218,8 @@ class Updater(object):
                 # Prioritized wheels require GLIBC 2.28 (manylinux_2_28_x86_64) which is not available on CentOS 7.
                 # Then, we download manylinux_2_17_x86_64 from PyPI.
                 if package_name == "cryptography":
-                    dependency = "cryptography==41.0.7 ; sys_platform != 'linux'\n"
-                    dependency += "https://files.pythonhosted.org/packages/14/fd/dd5bd6ab0d12476ebca579cbfd48d31bd90fa28fa257b209df585dcf62a0/cryptography-41.0.7-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl ; sys_platform == 'linux'"
+                    dependency = "cryptography==42.0.4 ; sys_platform != 'linux'\n"
+                    dependency += "https://files.pythonhosted.org/packages/2f/d1/6ca412147384b0b02cb343a3e8b7d3fde7ac6833c29fee9ca91f59ab5fdf/cryptography-42.0.4-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl ; sys_platform == 'linux'"
 
 
                 # Figure which type of dependency it is and write
