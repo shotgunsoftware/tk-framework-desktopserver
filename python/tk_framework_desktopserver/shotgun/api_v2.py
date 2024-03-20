@@ -445,7 +445,7 @@ class ShotgunAPI(object):
             )
 
         # The first thing we do is check to see if we're dealing with a
-        # classic SGTK setup. In that case, we're going to short-circuit
+        # classic PTR setup. In that case, we're going to short-circuit
         # the get_actions call and go into a legacy setup that makes use
         # of the "tank" command by way of this api's process_manager.
         did_legacy_lookup = False
@@ -483,7 +483,7 @@ class ShotgunAPI(object):
             # path.
             if legacy_config_data:
                 logger.debug(
-                    "Classic SGTK config(s) found, proceeding with legacy code path."
+                    "Classic PTR config(s) found, proceeding with legacy code path."
                 )
                 self._legacy_process_configs(
                     legacy_config_data,
@@ -506,7 +506,7 @@ class ShotgunAPI(object):
             # The hash that acts as the key we'll use to look up our cached
             # data will be based on the entity type and the pipeline config's
             # descriptor uri. We can get the descriptor from the toolkit
-            # manager and pass that through along with the entity type from SG
+            # manager and pass that through along with the entity type from PTR
             # to the core hook that computes the hash.
             pc_descriptor = pipeline_config["descriptor"]
 
@@ -694,7 +694,7 @@ class ShotgunAPI(object):
                 continue
             except TankCachingEngineBootstrapError as exc:
                 logger.error(
-                    "The ShotGrid engine failed to initialize in the caching "
+                    "The Flow Production Tracking engine failed to initialize in the caching "
                     "subprocess. This most likely corresponds to a configuration "
                     "problem in the config %r as it relates to entity type %s."
                     % (pc_descriptor, entity["type"])
@@ -747,23 +747,24 @@ class ShotgunAPI(object):
             # case.
             if filepath is None:
                 logger.warning(
-                    "ShotGrid requested a file open via local file linking, "
+                    "Flow Production Tracking requested a file open via local file linking, "
                     "but the provided file path is None."
                 )
             else:
                 logger.debug(
-                    "ShotGrid requested a file open via local file linking. "
+                    "Flow Production Tracking requested a file open via local file linking. "
                     "The file path is: %s",
                     filepath,
                 )
 
             if local_storages is None:
                 logger.debug(
-                    "Local storages were not provided by ShotGrid for the current file open request."
+                    "Local storages were not provided by Flow Production Tracking for the current file open request."
                 )
             else:
                 logger.debug(
-                    "Local storages were reported by ShotGrid: %s", local_storages
+                    "Local storages were reported by Flow Production Tracking: %s",
+                    local_storages,
                 )
 
             result = self.process_manager.open(filepath)
@@ -1102,7 +1103,7 @@ class ShotgunAPI(object):
         )
 
         # Once the config is cloned, we need to invalidate the in-memory cache
-        # that contains the PipelineConfiguration entities queried from SG.
+        # that contains the PipelineConfiguration entities queried from PTR.
         del self._cache[self.PIPELINE_CONFIGS]
 
     def _filter_software_entities_by_project(self, sw_entities, project):
@@ -1534,7 +1535,7 @@ class ShotgunAPI(object):
         """
         message = (
             "An unhandled exception has occurred. To see the full error, "
-            "refer to the console in ShotGrid Desktop, or contact us via %s for "
+            "refer to the console in Flow Production Tracking, or contact us via %s for "
             "additional help with this issue." % sgtk.support_url
         )
 
@@ -1651,7 +1652,7 @@ class ShotgunAPI(object):
                 # The hash that acts as the key we'll use to look up our cached
                 # data will be based on the entity type and the pipeline config's
                 # descriptor uri. We can get the descriptor from the toolkit
-                # manager and pass that through along with the entity type from SG
+                # manager and pass that through along with the entity type from PTR
                 # to the core hook that computes the hash.
                 manager.pipeline_configuration = pipeline_config["id"]
                 pc_descriptor = pipeline_config["descriptor"]

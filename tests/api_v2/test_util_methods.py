@@ -193,7 +193,7 @@ class TestUtilMethods(TestDesktopServerFramework):
 
     def test_get_software_entities(self):
         """
-        Tests to ensure that we get a proper list of software entities from SG.
+        Tests to ensure that we get a proper list of software entities from PTR.
         """
         sw_entities = [
             {"code": "3ds Max", "engine": "tk-3dsmaxplus", "id": 1, "type": "Software"},

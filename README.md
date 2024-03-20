@@ -5,11 +5,11 @@
 [![Linting](https://img.shields.io/badge/PEP8%20by-Hound%20CI-a873d1.svg)](https://houndci.com)
 
 ## Documentation
-This repository is a part of the ShotGrid Pipeline Toolkit.
+This repository is a part of the Flow Production Tracking Toolkit.
 
 - For more information about this framework and for release notes, *see the wiki section*.
 - For general information and documentation, click here: https://developer.shotgridsoftware.com/d587be80/?title=Integrations+User+Guide
-- For information about ShotGrid in general, click here: https://help.autodesk.com/view/SGSUB/ENU
+- For information about Flow Production Tracking in general, click here: https://help.autodesk.com/view/SGSUB/ENU
 
 ## Using this framework in your Setup
 All the frameworks that are part of our standard framework suite are pushed to our App Store.

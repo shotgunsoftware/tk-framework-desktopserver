@@ -141,7 +141,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
             python_major_version, interpreter_cfg_path
         )
 
-        # Create or update the pipeline configuration in SG to point to the temp config folder
+        # Create or update the pipeline configuration in PTR to point to the temp config folder
         config_descriptor_str = "sgtk:descriptor:path?path=%s" % temp_folder
         pipeline_configuration = cls.create_or_update_pipeline_configuration(
             config_name,

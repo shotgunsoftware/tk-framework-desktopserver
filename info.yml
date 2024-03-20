@@ -14,7 +14,7 @@
 configuration:
     browser_integration_hook:
         type: hook
-        description: Hook for customizing some aspects of Toolkit's integration with the ShotGrid web app.
+        description: Hook for customizing some aspects of Toolkit's integration with the Flow Production Tracking web app.
         default_value: '{self}/browser_integration.py'
 
 # the Shotgun fields that this engine needs in order to operate correctly
@@ -22,7 +22,7 @@ requires_shotgun_fields:
 
 # More verbose description of this item
 display_name: "Desktop Server Framework"
-description: "Provides the server used to listen to ShotGrid client requests, such as open file and launch dcc's."
+description: "Provides the server used to listen to Flow Production Tracking client requests, such as open file and launch dcc's."
 
 # Required minimum versions for this item to run
 requires_shotgun_version:
