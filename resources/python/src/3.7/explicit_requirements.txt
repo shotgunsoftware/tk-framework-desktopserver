@@ -15,7 +15,7 @@ autobahn==22.12.1
 certifi==2023.7.22
 constantly==15.1.0
 hyperlink==21.0.0
-idna==3.4
+idna==3.7
 incremental==22.10.0
 pyOpenSSL==24.0.0
 pyasn1-modules==0.3.0
