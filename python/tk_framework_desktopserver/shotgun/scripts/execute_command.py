@@ -22,6 +22,7 @@ CORE_INFO_COMMAND = "__core_info"
 UPGRADE_CHECK_COMMAND = "__upgrade_check"
 LOGGING_PREFIX = None
 
+
 # NOTE: Inheriting from both Formatter and object here because, before
 # Python 2.7, logging.Formatter was an old-style class. This means that
 # super() can't be used with it if you only subclass from it. Mixing in
@@ -131,8 +132,7 @@ def core_info(engine):
     # the web app, the markdown will be handled and we'll end up with a bold
     # message.
     engine.log_info(
-        "You are currently running version %s of the Flow Production Tracking."
-        % cv
+        "You are currently running version %s of the Flow Production Tracking." % cv
     )
 
     if not engine.sgtk.pipeline_configuration.is_localized():
