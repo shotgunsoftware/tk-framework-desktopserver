@@ -89,7 +89,7 @@ class ServerProtocol(WebSocketServerProtocol):
             # Known certificate error. These work for firefox and safari, but chrome rejected certificate
             # are currently indistinguishable from lost connection. This is true as of July 21st, 2015.
             certificate_error = False
-            if hasattr(reason.value, "message"):
+            try:
                 certificate_error |= (
                     reason.type is OpenSSL.SSL.Error
                     and reason.value.message[0][2] == "ssl handshake failure"
@@ -98,6 +98,8 @@ class ServerProtocol(WebSocketServerProtocol):
                     reason.type is OpenSSL.SSL.Error
                     and reason.value.message[0][2] == "tlsv1 alert unknown ca"
                 )
+            except AttributeError:
+                logger.warning("Unexpected error message in object: {}".format(reason))
 
             certificate_error |= bool(reason.check(error.CertificateError))
             certificate_error |= bool(reason.check(error.ConnectionLost))
