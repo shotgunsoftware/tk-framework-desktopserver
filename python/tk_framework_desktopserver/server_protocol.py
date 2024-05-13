@@ -41,14 +41,14 @@ class ServerProtocol(WebSocketServerProtocol):
         ENCRYPTION_HANDSHAKE_NOT_COMPLETED,
         ENCRYPTION_NOT_SUPPORTED,
     ) = (
-        (3000, u"No user information was found in this request."),
+        (3000, "No user information was found in this request."),
         (
             3001,
-            u"You are not authorized to make browser integration requests. "
-            u"Please re-authenticate in your desktop application.",
+            "You are not authorized to make browser integration requests. "
+            "Please re-authenticate in your desktop application.",
         ),
-        (3002, u"Attempted to communicate without completing encryption handshake."),
-        (3003, u"Client asked for server id when encryption is not supported."),
+        (3002, "Attempted to communicate without completing encryption handshake."),
+        (3003, "Client asked for server id when encryption is not supported."),
     )
 
     # Initial state is v2. This might change if we end up receiving a connection
@@ -90,16 +90,18 @@ class ServerProtocol(WebSocketServerProtocol):
             # are currently indistinguishable from lost connection. This is true as of July 21st, 2015.
             certificate_error = False
             try:
-                certificate_error |= (
-                    reason.type is OpenSSL.SSL.Error
-                    and reason.value.message[0][2] == "ssl handshake failure"
-                )
-                certificate_error |= (
-                    reason.type is OpenSSL.SSL.Error
-                    and reason.value.message[0][2] == "tlsv1 alert unknown ca"
-                )
-            except AttributeError:
+                message = reason.value.message[0][2]
+            except (AttributeError, IndexError):
                 logger.warning("Unexpected error message in object: {}".format(reason))
+            else:
+                certificate_error |= (
+                    reason.type is OpenSSL.SSL.Error
+                    and message == "ssl handshake failure"
+                )
+                certificate_error |= (
+                    reason.type is OpenSSL.SSL.Error
+                    and message == "tlsv1 alert unknown ca"
+                )
 
             certificate_error |= bool(reason.check(error.CertificateError))
             certificate_error |= bool(reason.check(error.ConnectionLost))
@@ -226,7 +228,10 @@ class ServerProtocol(WebSocketServerProtocol):
         # a file. This will ensure the server is as responsive as possible. Twisted will take care
         # of the thread.
         reactor.callInThread(
-            self._process_message, message_host, message, message["protocol_version"],
+            self._process_message,
+            message_host,
+            message,
+            message["protocol_version"],
         )
 
     def _validate_user(self, user_id):
@@ -364,7 +369,6 @@ class ServerProtocol(WebSocketServerProtocol):
         return self._ws_server_secret
 
     def _process_message(self, message_host, message, protocol_version):
-
         # Retrieve command from message
         command = message["command"]
 
@@ -442,7 +446,11 @@ class ServerProtocol(WebSocketServerProtocol):
         """
         # ensure_ascii allows unicode strings.
         payload = six.ensure_binary(
-            json.dumps(data, ensure_ascii=True, default=self._json_date_handler,)
+            json.dumps(
+                data,
+                ensure_ascii=True,
+                default=self._json_date_handler,
+            )
         )
 
         if self._fernet:
