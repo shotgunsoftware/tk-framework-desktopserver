@@ -1,5 +1,0 @@
-# Ignore these compiled files because they were manually fat-bundled with lipo.
-# Re add them if these dependencies are updated according to
-# this document: resources/python/README.md
-_cffi_backend.cpython-310-darwin.so
-_zope_interface_coptimizations.cpython-310-darwin.so
