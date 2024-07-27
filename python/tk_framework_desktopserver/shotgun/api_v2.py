@@ -28,12 +28,16 @@ import fnmatch
 
 import sgtk
 import sgtk.util
-from tank_vendor import six
 from sgtk import TankFileDoesNotExistError
 from sgtk.commands.clone_configuration import clone_pipeline_configuration_html
 from sgtk.authentication import serialize_user
 from . import constants
 from .. import command
+
+try:
+    from tank_vendor import sgutils
+except ImportError:
+    from tank_vendor import six as sgutils
 
 logger = sgtk.platform.get_logger(__name__)
 
@@ -313,7 +317,7 @@ class ShotgunAPI(object):
         for line in stdout.split("\n") + stderr.split("\n"):
             if line.startswith(tag):
                 filtered_output.append(
-                    six.ensure_str(base64.b64decode(line[tag_length:]))
+                    sgutils.ensure_str(base64.b64decode(line[tag_length:]))
                 )
 
         filtered_output_string = "\n".join(filtered_output)
@@ -629,9 +633,9 @@ class ShotgunAPI(object):
                     # The value can either be bytes (python 3) or a buffer (python2)
                     # ensure_str doesn't accept a buffer as input
                     try:
-                        string_data = six.ensure_str(cached_data[0])
+                        string_data = sgutils.ensure_str(cached_data[0])
                     except TypeError:
-                        string_data = six.ensure_str(str(cached_data[0]))
+                        string_data = sgutils.ensure_str(str(cached_data[0]))
 
                     try:
                         decoded_data = sgtk.util.json.loads(string_data)
@@ -1029,7 +1033,7 @@ class ShotgunAPI(object):
 
                     connection.commit()
 
-            commands_blob = sqlite3.Binary(six.ensure_binary(json.dumps(commands)))
+            commands_blob = sqlite3.Binary(sgutils.ensure_binary(json.dumps(commands)))
 
             # Since we're likely to be updating out-of-date cached data more
             # often than we're going to be inserting new rows into the cache,
@@ -1264,10 +1268,10 @@ class ShotgunAPI(object):
         logger.debug("Contents data to be used in hash generation: %s", json_data)
 
         hash_data = hashlib.md5()
-        hash_data.update(six.ensure_binary(json_data))
+        hash_data.update(sgutils.ensure_binary(json_data))
         # Base64 encode the digest, will is a binary string
         # in Python 3. This ensures we can always encode it to a str.
-        return six.ensure_str(base64.b64encode(hash_data.digest()))
+        return sgutils.ensure_str(base64.b64encode(hash_data.digest()))
 
     def _get_entities_from_payload(self, data):
         """
@@ -1540,7 +1544,7 @@ class ShotgunAPI(object):
         )
 
         if self._global_debug:
-            message = six.ensure_binary(html.escape(traceback.format_exc()))
+            message = sgutils.ensure_binary(html.escape(traceback.format_exc()))
 
         return message
 
@@ -2177,7 +2181,7 @@ class ShotgunAPI(object):
                 line = re.sub(bold_match, "*", line)
                 sanitized.append(line)
 
-        return six.ensure_binary(html.escape("\n".join(sanitized)))
+        return sgutils.ensure_binary(html.escape("\n".join(sanitized)))
 
     @sgtk.LogManager.log_timing
     def _process_commands(self, commands, project, entities):

@@ -289,7 +289,7 @@ class WebSocket(object):
 
         payload: data payload to send server.
         """
-        if isinstance(payload, six.text_type):
+        if isinstance(payload, str):
             payload = payload.encode("utf-8")
         self.send(payload, ABNF.OPCODE_PING)
 
@@ -299,7 +299,7 @@ class WebSocket(object):
 
         payload: data payload to send server.
         """
-        if isinstance(payload, six.text_type):
+        if isinstance(payload, str):
             payload = payload.encode("utf-8")
         self.send(payload, ABNF.OPCODE_PONG)
 
