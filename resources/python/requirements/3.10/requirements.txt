@@ -1,5 +1,5 @@
 Twisted==23.10.0
-certifi==2023.7.22
+certifi==2024.7.4
 autobahn==22.12.1
 pyOpenSSL==24.0.0
 service-identity==21.1.0
@@ -14,4 +14,4 @@ hyperlink==21.0.0
 idna==3.7
 six==1.16.0
 zope.interface==5.5.2
-setuptools==65.5.1  # CVE-2022-40897
+setuptools==70.0.0  # CVE-2024-6345
