@@ -187,7 +187,7 @@ def _validate(headers, key, subprotocols):
         return False, None
     result = result.lower()
 
-    if isinstance(result, six.text_type):
+    if isinstance(result, str):
         result = result.encode('utf-8')
 
     value = (key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode('utf-8')

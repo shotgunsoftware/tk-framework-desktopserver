@@ -18,7 +18,11 @@ from .logger import get_logger
 
 import sgtk.util
 from tank_vendor.six.moves.queue import Queue
-from tank_vendor import six
+
+try:
+    from tank_vendor import sgutils
+except ImportError:
+    from tank_vendor import six as sgutils
 
 logger = get_logger(__name__)
 
@@ -45,7 +49,7 @@ class ReadThread(Thread):
         is closed.
         """
         while True:
-            line = six.ensure_str(self.pipe.readline())  # blocking read
+            line = sgutils.ensure_str(self.pipe.readline())  # blocking read
             if line == "":
                 break
             self.target_queue.put(line)
@@ -227,10 +231,10 @@ class Command(object):
 
             # Read back the output from the two.
             with open(stdout_path, "rt") as stdout_file:
-                stdout_lines = [six.ensure_str(l) for l in stdout_file]
+                stdout_lines = [sgutils.ensure_str(l) for l in stdout_file]
 
             with open(stderr_path) as stderr_file:
-                stderr_lines = [six.ensure_str(l) for l in stderr_file]
+                stderr_lines = [sgutils.ensure_str(l) for l in stderr_file]
 
             # Track the result code.
             ret = process.returncode
