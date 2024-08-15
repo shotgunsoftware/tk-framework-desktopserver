@@ -11,11 +11,8 @@
 import os
 import sys
 
-from .logger import get_logger
-
 import sgtk.util
 
-logger = get_logger(__name__)
 
 # framework path
 base_path = os.path.dirname(
@@ -38,14 +35,14 @@ elif sgtk.util.is_linux():
 if os.path.exists(binaries_os_path):
     sys.path.insert(0, binaries_os_path)
 else:
-    logger.error(f"No binaries found for Python at {binaries_os_path}")
+    print(f"No binaries found for Python at {binaries_os_path}")
 
 src_os_path = os.path.join(python_path, "src", _version_dir)
 
 if os.path.exists(src_os_path):
     sys.path.insert(0, src_os_path)
 else:
-    logger.error(f"No sources found for Python at {src_os_path}")
+    print(f"No sources found for Python at {src_os_path}")
 
 
 from .server import Server
@@ -53,6 +50,7 @@ from .server import ServerProtocol
 from .settings import Settings
 from .process_manager import ProcessManager
 from .certificates import get_certificate_handler
+from .logger import get_logger
 from .shotgun import get_shotgun_api
 from .errors import (
     MissingCertificateError,
