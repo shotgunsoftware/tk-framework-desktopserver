@@ -106,6 +106,15 @@ class Updater(object):
             "explicit_requirements.txt"
         )
 
+        self._source_reqs_3_11_dir = os.path.join(
+            self._sources_dir,
+            "3.11",
+        )
+        self._source_reqs_3_11_path = os.path.join(
+            self._source_reqs_3_11_dir,
+            "explicit_requirements.txt"
+        )
+
         self._bin_reqs_3_7_dir = os.path.join(
             self._bin_dir,
             "3.7",
@@ -130,6 +139,15 @@ class Updater(object):
         )
         self._bin_reqs_3_10_path = os.path.join(
             self._bin_reqs_3_10_dir,
+            "explicit_requirements.txt"
+        )
+
+        self._bin_reqs_3_11_dir = os.path.join(
+            self._bin_dir,
+            "3.11",
+        )
+        self._bin_reqs_3_11_path = os.path.join(
+            self._bin_reqs_3_11_dir,
             "explicit_requirements.txt"
         )
 
