@@ -1,0 +1,17 @@
+Twisted==23.10.0
+certifi==2024.7.4
+autobahn==22.12.1
+pyOpenSSL==24.0.0
+service-identity==21.1.0
+
+# When updating certifi to match the version released with Desktop, some other unrelated modules (that are second
+# level dependencies) were updating. The list below pins these versions for now until the next time we need to update
+# modules and rebuild the binaries
+attrs==22.2.0
+cffi==1.15.1
+cryptography==42.0.4 # Only for SAST. Should be also updated in resources/python/update_requirements.py
+hyperlink==21.0.0
+idna==3.7
+six==1.16.0
+zope.interface==5.5.2
+setuptools==70.0.0  # CVE-2024-6345
