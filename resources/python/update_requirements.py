@@ -185,12 +185,14 @@ class Updater(object):
 
     def _get_dependencies_to_install(self):
         """Retrieve the full list of dependencies after a pip install."""
-        if self._pip_freeze():
+        freeze_list = self._pip_freeze()
+        if freeze_list:
             raise UpdateException(
                 "Please clean up your Python installation from any "
                 "dependencies by uninstalling all of them or pip freeze "
                 "will contain too many dependencies.\nYou can clean pip "
-                "using `update_requirements.py --clean-pip`"
+                "using `update_requirements.py --clean-pip`.\n"
+                f"List of detected dependencies: {freeze_list}"
             )
 
         try:
