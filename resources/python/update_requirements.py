@@ -91,6 +91,7 @@ class Updater(object):
         # No matter why we are leaving this method, we should be removing
         # what was installed.
         print("Cleaning PIP dependencies")
+        
         for dependency in self._pip_freeze():
             cmd = "uninstall -y {}".format(dependency)
             self._pip(cmd)
@@ -110,8 +111,9 @@ class Updater(object):
                     e.stderr.decode("utf-8"),
                 )
             )
-
-        return output.decode("utf-8")
+        
+        output = output.decode("utf-8")
+        return output
 
     @staticmethod
     def _git(cmd):
