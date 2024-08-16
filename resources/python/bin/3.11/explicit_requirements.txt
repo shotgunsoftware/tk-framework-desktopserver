@@ -1,0 +1,14 @@
+
+# Copyright (c) 2024 Shotgun Software Inc.
+#
+# CONFIDENTIAL AND PROPRIETARY
+#
+# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
+# Source Code License included in this distribution package. See LICENSE.
+# By accessing, using, copying or modifying this work you indicate your
+# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
+# not expressly granted therein are reserved by Shotgun Software Inc.
+cffi==1.15.1
+cryptography==42.0.4 ; sys_platform != 'linux'
+https://files.pythonhosted.org/packages/2f/d1/6ca412147384b0b02cb343a3e8b7d3fde7ac6833c29fee9ca91f59ab5fdf/cryptography-42.0.4-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl ; sys_platform == 'linux'
+zope.interface==5.5.2
