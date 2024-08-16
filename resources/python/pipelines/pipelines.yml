@@ -102,10 +102,11 @@ jobs:
 
 # ---------------------------------------------
 # Binary dependencies run also in order to prevent git race conditions
+# MacOS
 
 - job: install_binary_dependencies_mac_3_7
   displayName: Install binary dependencies Mac 3.7
-  dependsOn: install_source_dependencies_3_10
+  dependsOn: install_source_dependencies_3_11
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'macOS-12'
@@ -175,9 +176,11 @@ jobs:
     displayName: Update binary requirements
     workingDirectory: resources/python
 
+# Linux
+
 - job: install_binary_dependencies_linux_3_7
   displayName: Install binary dependencies Linux 3.7
-  dependsOn: install_binary_dependencies_mac_3_10
+  dependsOn: install_binary_dependencies_mac_3_11
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'ubuntu-20.04'
@@ -247,9 +250,11 @@ jobs:
     displayName: Update binary requirements
     workingDirectory: resources/python
 
+# Windows
+
 - job: install_binary_dependencies_windows_3_7
   displayName: Install binary dependencies Windows 3.7
-  dependsOn: install_binary_dependencies_linux_3_10
+  dependsOn: install_binary_dependencies_linux_3_11
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'windows-2022'
