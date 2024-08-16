@@ -53,7 +53,7 @@ jobs:
       ./install_source_only.sh
       git commit -am "Update source requirements 3.9"
       git push origin ${{ parameters.branch }}
-    displayName:Update source requirements 3.9
+    displayName: Update source requirements 3.9
     workingDirectory: resources/python
 
 - job: install_source_dependencies_3_10
