@@ -24,11 +24,11 @@ jobs:
     displayName: Create branch if not exists or update
   - script: |
       git checkout ${{ parameters.branch }}
-      python update_requirements.py
+      python update_requirements.py --clean-pip
       ./install_source_only.sh
       git commit -am "Update source requirements 3.7"
       git push origin ${{ parameters.branch }}
-    displayName: Generate all explicit_requirements & Update source requirements
+    displayName: Generate all explicit_requirements & Update source requirements 3.7
     workingDirectory: resources/python
 
 - job: install_source_dependencies_3_9
@@ -43,11 +43,11 @@ jobs:
       python_version: 3.9
   - script: |
       git checkout ${{ parameters.branch }}
-      python update_requirements.py
+      python update_requirements.py --clean-pip
       ./install_source_only.sh
       git commit -am "Update source requirements 3.9"
       git push origin ${{ parameters.branch }}
-    displayName: Generate all explicit_requirements & Update source requirements
+    displayName: Generate all explicit_requirements & Update source requirements 3.9
     workingDirectory: resources/python
 
 - job: install_source_dependencies_3_10
@@ -62,11 +62,11 @@ jobs:
       python_version: 3.10
   - script: |
       git checkout ${{ parameters.branch }}
-      python update_requirements.py
+      python update_requirements.py --clean-pip
       ./install_source_only.sh
       git commit -am "Update source requirements 3.10"
       git push origin ${{ parameters.branch }}
-    displayName: Generate all explicit_requirements & Update source requirements
+    displayName: Generate all explicit_requirements & Update source requirements 3.10
     workingDirectory: resources/python
 
 - job: install_source_dependencies_3_11
@@ -81,11 +81,11 @@ jobs:
       python_version: 3.11
   - script: |
       git checkout ${{ parameters.branch }}
-      python update_requirements.py
+      python update_requirements.py --clean-pip
       ./install_source_only.sh
       git commit -am "Update source requirements 3.11"
       git push origin ${{ parameters.branch }}
-    displayName: Generate all explicit_requirements & Update source requirements
+    displayName: Generate all explicit_requirements & Update source requirements 3.11
     workingDirectory: resources/python
 
 # ---------------------------------------------
