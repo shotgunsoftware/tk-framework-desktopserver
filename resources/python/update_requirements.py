@@ -98,8 +98,6 @@ class Updater(object):
 
     def _pip(self, cmd):
         """Run the pip command."""
-        print(f"Executing pip command: {cmd}")
-
         pip_cmd = "python -m pip".split() + cmd.split()
         try:
             output = subprocess.check_output(pip_cmd)
@@ -138,6 +136,7 @@ class Updater(object):
             self._pip("install -r requirements/{}/requirements.txt".format(
                 self._python_version_dot_format
             ))
+            print("All dependencies installed.")
 
             # list everything that was installed.
             freeze_list = self._pip_freeze()
