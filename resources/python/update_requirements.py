@@ -108,7 +108,7 @@ class Updater(object):
                 "Error running pip command: {}\nReturn Code:{}\n{}".format(
                     " ".join(pip_cmd),
                     e.returncode,
-                    e.stderr.decode("utf-8"),
+                    e.stderr,
                 )
             )
         
