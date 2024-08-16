@@ -29,33 +29,33 @@ variables:
 
 # Launch into the build pipeline.
 jobs:
-# - template: build-pipeline.yml@templates
-#   parameters:
-#     additional_repositories:
-#       - name: tk-framework-desktopclient
-#       - name: tk-shotgun
-#     extra_test_dependencies:
-#       # Required when binary dependencies are not bundled
-#       - attrs==22.2.0    # Fix version. Otherwise tk-ci-tools will install latest
-#       - Twisted==22.10.0 # We use 22.10.0 to avoid breaking CI for Python 3.7
-#       - certifi==2024.7.4
-#       - autobahn==22.12.1
-#       - pyOpenSSL==24.0.0
-#       - service-identity==21.1.0
-#     post_tests_steps:
-#       - bash: python -m pytest tests/integration_tests/interpreters.py -v
-#         displayName: Run interpreter integration tests
-#         env:
-#           CI: 1  # Used to skip certain tests on Azure
-#           SHOTGUN_HOST: $(sg.ci.host)
-#           SHOTGUN_SCRIPT_NAME: $(sg.ci.script.name)
-#           SHOTGUN_SCRIPT_KEY: $(sg.ci.script.key)
-#           TK_TOOLCHAIN_HOST: $(sg.ci.host)
-#           TK_TOOLCHAIN_USER_LOGIN: $(sg.ci.human.login)
-#           TK_TOOLCHAIN_USER_PASSWORD: $(sg.ci.human.password)
-#           # Sandbox each test executing based on the Azure agent name. Those are
-#           # Azure Pipelines 1-10
-#           SHOTGUN_TEST_ENTITY_SUFFIX: '$(Agent.Name)'
+- template: build-pipeline.yml@templates
+  parameters:
+    additional_repositories:
+      - name: tk-framework-desktopclient
+      - name: tk-shotgun
+    extra_test_dependencies:
+      # Required when binary dependencies are not bundled
+      - attrs==22.2.0    # Fix version. Otherwise tk-ci-tools will install latest
+      - Twisted==22.10.0 # We use 22.10.0 to avoid breaking CI for Python 3.7
+      - certifi==2024.7.4
+      - autobahn==22.12.1
+      - pyOpenSSL==24.0.0
+      - service-identity==21.1.0
+    post_tests_steps:
+      - bash: python -m pytest tests/integration_tests/interpreters.py -v
+        displayName: Run interpreter integration tests
+        env:
+          CI: 1  # Used to skip certain tests on Azure
+          SHOTGUN_HOST: $(sg.ci.host)
+          SHOTGUN_SCRIPT_NAME: $(sg.ci.script.name)
+          SHOTGUN_SCRIPT_KEY: $(sg.ci.script.key)
+          TK_TOOLCHAIN_HOST: $(sg.ci.host)
+          TK_TOOLCHAIN_USER_LOGIN: $(sg.ci.human.login)
+          TK_TOOLCHAIN_USER_PASSWORD: $(sg.ci.human.password)
+          # Sandbox each test executing based on the Azure agent name. Those are
+          # Azure Pipelines 1-10
+          SHOTGUN_TEST_ENTITY_SUFFIX: '$(Agent.Name)'
 
 - template: resources/python/pipelines/pipelines.yml
   parameters:
