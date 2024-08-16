@@ -100,16 +100,16 @@ class Updater(object):
         pip_cmd = "python -m pip".split() + cmd.split()
         try:
             output = subprocess.check_output(pip_cmd)
-
-            if self._is_python_3:
-                output = output.decode("utf-8")
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             raise UpdateException(
                 "Error running pip command: {}\n{}".format(
                     " ".join(pip_cmd),
-                    output,
+                    e.output,
                 )
             )
+        
+        if self._is_python_3:
+            output = output.decode("utf-8")
 
         return output
 
@@ -209,6 +209,7 @@ class Updater(object):
 
         dependencies = self._get_dependencies_to_install()
         print(f"List of dependencies to install: {dependencies}")
+
         self._update_requirements_file(dependencies)
 
 
