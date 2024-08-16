@@ -97,21 +97,21 @@ class Updater(object):
 
     def _pip(self, cmd):
         """Run the pip command."""
+        print(f"Executing pip command: {cmd}")
+
         pip_cmd = "python -m pip".split() + cmd.split()
         try:
             output = subprocess.check_output(pip_cmd)
         except subprocess.CalledProcessError as e:
             raise UpdateException(
-                "Error running pip command: {}\n{}".format(
+                "Error running pip command: {}\nReturn Code:{}\n{}".format(
                     " ".join(pip_cmd),
-                    e.output,
+                    e.returncode,
+                    e.stderr.decode("utf-8"),
                 )
             )
-        
-        if self._is_python_3:
-            output = output.decode("utf-8")
 
-        return output
+        return output.decode("utf-8")
 
     @staticmethod
     def _git(cmd):
