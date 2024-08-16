@@ -98,7 +98,15 @@ class Updater(object):
     def _pip(self, cmd):
         """Run the pip command."""
         pip_cmd = "python -m pip".split() + cmd.split()
-        output = subprocess.check_output(pip_cmd)
+        try:
+            output = subprocess.check_output(pip_cmd)
+        except subprocess.CalledProcessError as e:
+            raise UpdateException(
+                "Error running pip command: {}\n{}".format(
+                    " ".join(pip_cmd),
+                    e.output,
+                )
+            )
 
         if self._is_python_3:
             output = output.decode("utf-8")
@@ -159,9 +167,11 @@ class Updater(object):
             bin_dir,
             "explicit_requirements.txt"
         )
+        print(f"Writing files {source_reqs_path}, {bin_reqs_path}")
 
         for path in [source_dir, bin_dir]:
             if not os.path.isdir(path):
+                print(f"Creating directory {path}")
                 os.makedirs(path)
 
         with open(source_reqs_path, 'w') as source_handler, \
