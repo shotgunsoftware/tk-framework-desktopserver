@@ -100,16 +100,13 @@ class Updater(object):
         pip_cmd = "python -m pip".split() + cmd.split()
         try:
             output = subprocess.check_output(pip_cmd)
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             raise UpdateException(
                 "Error running pip command: {}\n{}".format(
                     " ".join(pip_cmd),
-                    e.output,
+                    output,
                 )
             )
-
-        if self._is_python_3:
-            output = output.decode("utf-8")
 
         return output
 

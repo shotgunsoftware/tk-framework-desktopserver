@@ -25,10 +25,13 @@ jobs:
   - script: |
       git checkout ${{ parameters.branch }}
       python update_requirements.py --clean-pip
+    displayName: Generate all explicit_requirements 3.7
+    workingDirectory: resources/python
+  - script: |
       ./install_source_only.sh
       git commit -am "Update source requirements 3.7"
       git push origin ${{ parameters.branch }}
-    displayName: Generate all explicit_requirements & Update source requirements 3.7
+    displayName: Update source requirements 3.7
     workingDirectory: resources/python
 
 - job: install_source_dependencies_3_9
@@ -44,10 +47,13 @@ jobs:
   - script: |
       git checkout ${{ parameters.branch }}
       python update_requirements.py --clean-pip
+    displayName: Generate all explicit_requirements 3.9
+    workingDirectory: resources/python
+  - script: |
       ./install_source_only.sh
       git commit -am "Update source requirements 3.9"
       git push origin ${{ parameters.branch }}
-    displayName: Generate all explicit_requirements & Update source requirements 3.9
+    displayName:Update source requirements 3.9
     workingDirectory: resources/python
 
 - job: install_source_dependencies_3_10
@@ -63,10 +69,13 @@ jobs:
   - script: |
       git checkout ${{ parameters.branch }}
       python update_requirements.py --clean-pip
+    displayName: Generate all explicit_requirements 3.10
+    workingDirectory: resources/python
+  - script: |
       ./install_source_only.sh
       git commit -am "Update source requirements 3.10"
       git push origin ${{ parameters.branch }}
-    displayName: Generate all explicit_requirements & Update source requirements 3.10
+    displayName: Update source requirements 3.10
     workingDirectory: resources/python
 
 - job: install_source_dependencies_3_11
@@ -82,10 +91,13 @@ jobs:
   - script: |
       git checkout ${{ parameters.branch }}
       python update_requirements.py --clean-pip
+    displayName: Generate all explicit_requirements 3.11
+    workingDirectory: resources/python
+  - script: |
       ./install_source_only.sh
       git commit -am "Update source requirements 3.11"
       git push origin ${{ parameters.branch }}
-    displayName: Generate all explicit_requirements & Update source requirements 3.11
+    displayName: Update source requirements 3.11
     workingDirectory: resources/python
 
 # ---------------------------------------------
