@@ -8,7 +8,7 @@
 # By accessing, using, copying or modifying this work you indicate your
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
-Automat==22.10.0
+Automat==24.8.0
 Twisted==23.10.0
 attrs==22.2.0
 autobahn==22.12.1
