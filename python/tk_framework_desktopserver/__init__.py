@@ -25,6 +25,7 @@ binaries_path = os.path.join(python_path, "bin")
 _py_version = sys.version_info
 _version_dir = "{}.{}".format(_py_version.major, _py_version.minor)
 
+binaries_os_path = None
 if sgtk.util.is_macos():
     binaries_os_path = os.path.join(binaries_path, _version_dir, "mac")
 elif sgtk.util.is_windows():
@@ -35,14 +36,14 @@ elif sgtk.util.is_linux():
 if os.path.exists(binaries_os_path):
     sys.path.insert(0, binaries_os_path)
 else:
-    print(f"No binaries found for Python at {binaries_os_path}")
+    raise RuntimeError(f"No binaries found for Python at {binaries_os_path}")
 
 src_os_path = os.path.join(python_path, "src", _version_dir)
 
 if os.path.exists(src_os_path):
     sys.path.insert(0, src_os_path)
 else:
-    print(f"No sources found for Python at {src_os_path}")
+    raise RuntimeError(f"No sources found for Python at {src_os_path}")
 
 
 from .server import Server
