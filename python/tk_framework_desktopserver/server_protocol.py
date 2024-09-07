@@ -25,7 +25,11 @@ from .message import Message
 from .logger import get_logger
 
 from tank_vendor.six.moves.urllib.parse import urlparse
-from tank_vendor import six
+
+try:
+    from tank_vendor import sgutils
+except ImportError:
+    from tank_vendor import six as sgutils
 
 logger = get_logger(__name__)
 
@@ -164,7 +168,7 @@ class ServerProtocol(WebSocketServerProtocol):
                 logger.exception("Unexpected error while decrypting:")
                 return
 
-        decoded_payload = six.ensure_str(payload)
+        decoded_payload = sgutils.ensure_str(payload)
 
         # Special message to get protocol version for this protocol. This message doesn't follow the
         # standard message format as it doesn't require a protocol version to be retrieved and is
@@ -358,7 +362,7 @@ class ServerProtocol(WebSocketServerProtocol):
             response = shotgun._call_rpc(
                 "retrieve_ws_server_secret", {"ws_server_id": self.factory.ws_server_id}
             )
-            ws_server_secret = six.ensure_str(response["ws_server_secret"])
+            ws_server_secret = sgutils.ensure_str(response["ws_server_secret"])
             # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
             # doesn't seem to complain however, so I'm not sure whose implementation is broken.
             if ws_server_secret[-1] != "=":
@@ -445,7 +449,7 @@ class ServerProtocol(WebSocketServerProtocol):
         :param data: Object Data that will be converted to JSON and sent to client.
         """
         # ensure_ascii allows unicode strings.
-        payload = six.ensure_binary(
+        payload = sgutils.ensure_binary(
             json.dumps(
                 data,
                 ensure_ascii=True,
