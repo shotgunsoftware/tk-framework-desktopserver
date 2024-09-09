@@ -24,11 +24,14 @@ jobs:
     displayName: Create branch if not exists or update
   - script: |
       git checkout ${{ parameters.branch }}
-      python update_requirements.py
+      python update_requirements.py --clean-pip
+    displayName: Generate all explicit_requirements 3.7
+    workingDirectory: resources/python
+  - script: |
       ./install_source_only.sh
       git commit -am "Update source requirements 3.7"
       git push origin ${{ parameters.branch }}
-    displayName: Generate all explicit_requirements & Update source requirements
+    displayName: Update source requirements 3.7
     workingDirectory: resources/python
 
 - job: install_source_dependencies_3_9
@@ -43,11 +46,14 @@ jobs:
       python_version: 3.9
   - script: |
       git checkout ${{ parameters.branch }}
-      python update_requirements.py
+      python update_requirements.py --clean-pip
+    displayName: Generate all explicit_requirements 3.9
+    workingDirectory: resources/python
+  - script: |
       ./install_source_only.sh
       git commit -am "Update source requirements 3.9"
       git push origin ${{ parameters.branch }}
-    displayName: Generate all explicit_requirements & Update source requirements
+    displayName: Update source requirements 3.9
     workingDirectory: resources/python
 
 - job: install_source_dependencies_3_10
@@ -62,19 +68,45 @@ jobs:
       python_version: 3.10
   - script: |
       git checkout ${{ parameters.branch }}
-      python update_requirements.py
+      python update_requirements.py --clean-pip
+    displayName: Generate all explicit_requirements 3.10
+    workingDirectory: resources/python
+  - script: |
       ./install_source_only.sh
       git commit -am "Update source requirements 3.10"
       git push origin ${{ parameters.branch }}
-    displayName: Generate all explicit_requirements & Update source requirements
+    displayName: Update source requirements 3.10
+    workingDirectory: resources/python
+
+- job: install_source_dependencies_3_11
+  displayName: Install source dependencies Python 3.11
+  dependsOn: install_source_dependencies_3_10
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'macOS-12'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.11
+  - script: |
+      git checkout ${{ parameters.branch }}
+      python update_requirements.py --clean-pip
+    displayName: Generate all explicit_requirements 3.11
+    workingDirectory: resources/python
+  - script: |
+      ./install_source_only.sh
+      git commit -am "Update source requirements 3.11"
+      git push origin ${{ parameters.branch }}
+    displayName: Update source requirements 3.11
     workingDirectory: resources/python
 
 # ---------------------------------------------
 # Binary dependencies run also in order to prevent git race conditions
+# MacOS
 
 - job: install_binary_dependencies_mac_3_7
   displayName: Install binary dependencies Mac 3.7
-  dependsOn: install_source_dependencies_3_10
+  dependsOn: install_source_dependencies_3_11
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'macOS-12'
@@ -126,9 +158,29 @@ jobs:
     displayName: Update binary requirements
     workingDirectory: resources/python
 
+- job: install_binary_dependencies_mac_3_11
+  displayName: Install binary dependencies Mac 3.11
+  dependsOn: install_binary_dependencies_mac_3_10
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'macOS-12'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.11
+  - script: |
+      git checkout ${{ parameters.branch }}
+      ./install_binary_mac.sh
+      git commit -am "Update binary requirements in Mac Python 3.11"
+      git push origin ${{ parameters.branch }}
+    displayName: Update binary requirements
+    workingDirectory: resources/python
+
+# Linux
+
 - job: install_binary_dependencies_linux_3_7
   displayName: Install binary dependencies Linux 3.7
-  dependsOn: install_binary_dependencies_mac_3_10
+  dependsOn: install_binary_dependencies_mac_3_11
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'ubuntu-20.04'
@@ -180,9 +232,29 @@ jobs:
     displayName: Update binary requirements
     workingDirectory: resources/python
 
+- job: install_binary_dependencies_linux_3_11
+  displayName: Install binary dependencies Linux 3.11
+  dependsOn: install_binary_dependencies_linux_3_10
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'ubuntu-20.04'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.11
+  - script: |
+      git checkout ${{ parameters.branch }}
+      ./install_binary_linux.sh
+      git commit -am "Update binary requirements in Linux Python 3.11"
+      git push origin ${{ parameters.branch }}
+    displayName: Update binary requirements
+    workingDirectory: resources/python
+
+# Windows
+
 - job: install_binary_dependencies_windows_3_7
   displayName: Install binary dependencies Windows 3.7
-  dependsOn: install_binary_dependencies_linux_3_10
+  dependsOn: install_binary_dependencies_linux_3_11
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
     vmImage: 'windows-2022'
@@ -245,6 +317,29 @@ jobs:
     workingDirectory: resources/python
   - script: |
       git commit -am "Update binary requirements in Windows Python 3.10"
+      git push origin ${{ parameters.branch }}
+    displayName: Run Push Scripts
+    workingDirectory: resources/python
+
+- job: install_binary_dependencies_windows_3_11
+  displayName: Install binary dependencies Windows 3.11
+  dependsOn: install_binary_dependencies_windows_3_10
+  condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
+  pool:
+    vmImage: 'windows-2022'
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.11
+  - script: |
+      git checkout ${{ parameters.branch }}
+    displayName: Update binary requirements
+    workingDirectory: resources/python
+  - powershell: .\install_binary_windows.ps1
+    displayName: Run PowerShell Scripts
+    workingDirectory: resources/python
+  - script: |
+      git commit -am "Update binary requirements in Windows Python 3.11"
       git push origin ${{ parameters.branch }}
     displayName: Run Push Scripts
     workingDirectory: resources/python

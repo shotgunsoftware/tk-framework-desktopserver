@@ -5,14 +5,18 @@ ignore:
     - resources/python/bin/3.7/explicit_requirements.txt
     - resources/python/bin/3.9/explicit_requirements.txt
     - resources/python/bin/3.10/explicit_requirements.txt
+    - resources/python/bin/3.11/explicit_requirements.txt
     - resources/python/src/3.7/explicit_requirements.txt
     - resources/python/src/3.9/explicit_requirements.txt
     - resources/python/src/3.10/explicit_requirements.txt
+    - resources/python/src/3.11/explicit_requirements.txt
 exclude:
   global:
     - resources/python/bin/3.7/explicit_requirements.txt
     - resources/python/bin/3.9/explicit_requirements.txt
     - resources/python/bin/3.10/explicit_requirements.txt
+    - resources/python/bin/3.11/explicit_requirements.txt
     - resources/python/src/3.7/explicit_requirements.txt
     - resources/python/src/3.9/explicit_requirements.txt
     - resources/python/src/3.10/explicit_requirements.txt
+    - resources/python/src/3.11/explicit_requirements.txt
