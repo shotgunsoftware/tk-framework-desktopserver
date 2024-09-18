@@ -1,7 +1,7 @@
 Twisted==22.10.0 # This is the last version that supports Python 3.7
 certifi==2024.7.4
 autobahn==22.12.1
-pyOpenSSL==24.0.0
+pyOpenSSL==24.2.1
 service_identity==21.1.0
 
 # When updating certifi to match the version released with Desktop, some other unrelated modules (that are second
