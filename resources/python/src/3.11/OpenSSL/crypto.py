@@ -77,8 +77,6 @@ __all__ = [
     "dump_privatekey",
     "Revoked",
     "CRL",
-    "PKCS12",
-    "NetscapeSPKI",
     "load_publickey",
     "load_privatekey",
     "dump_certificate_request",
@@ -91,7 +89,16 @@ __all__ = [
 
 
 _Key = Union[
-    dsa.DSAPrivateKey, dsa.DSAPublicKey, rsa.RSAPrivateKey, rsa.RSAPublicKey
+    dsa.DSAPrivateKey,
+    dsa.DSAPublicKey,
+    ec.EllipticCurvePrivateKey,
+    ec.EllipticCurvePublicKey,
+    ed25519.Ed25519PrivateKey,
+    ed25519.Ed25519PublicKey,
+    ed448.Ed448PrivateKey,
+    ed448.Ed448PublicKey,
+    rsa.RSAPrivateKey,
+    rsa.RSAPublicKey,
 ]
 StrOrBytesPath = Union[str, bytes, PathLike]
 PassphraseCallableT = Union[bytes, Callable[..., bytes]]
@@ -312,13 +319,16 @@ class PKey:
         if not isinstance(
             crypto_key,
             (
-                rsa.RSAPublicKey,
-                rsa.RSAPrivateKey,
-                dsa.DSAPublicKey,
                 dsa.DSAPrivateKey,
+                dsa.DSAPublicKey,
                 ec.EllipticCurvePrivateKey,
+                ec.EllipticCurvePublicKey,
                 ed25519.Ed25519PrivateKey,
+                ed25519.Ed25519PublicKey,
                 ed448.Ed448PrivateKey,
+                ed448.Ed448PublicKey,
+                rsa.RSAPrivateKey,
+                rsa.RSAPublicKey,
             ),
         ):
             raise TypeError("Unsupported key type")
@@ -330,7 +340,16 @@ class PKey:
             PublicFormat,
         )
 
-        if isinstance(crypto_key, (rsa.RSAPublicKey, dsa.DSAPublicKey)):
+        if isinstance(
+            crypto_key,
+            (
+                dsa.DSAPublicKey,
+                ec.EllipticCurvePublicKey,
+                ed25519.Ed25519PublicKey,
+                ed448.Ed448PublicKey,
+                rsa.RSAPublicKey,
+            ),
+        ):
             return load_publickey(
                 FILETYPE_ASN1,
                 crypto_key.public_bytes(
@@ -620,11 +639,10 @@ class X509Name:
 
         # Note: we really do not want str subclasses here, so we do not use
         # isinstance.
-        if type(name) is not str:  # noqa: E721
+        if type(name) is not str:
             raise TypeError(
-                "attribute name must be string, not '{:.200}'".format(
-                    type(value).__name__
-                )
+                f"attribute name must be string, not "
+                f"'{type(value).__name__:.200}'"
             )
 
         nid = _lib.OBJ_txt2nid(_byte_string(name))
@@ -975,7 +993,7 @@ class X509Req:
         """
         from cryptography.x509 import load_der_x509_csr
 
-        der = dump_certificate_request(FILETYPE_ASN1, self)
+        der = _dump_certificate_request_internal(FILETYPE_ASN1, self)
 
         return load_der_x509_csr(der)
 
@@ -999,7 +1017,7 @@ class X509Req:
         from cryptography.hazmat.primitives.serialization import Encoding
 
         der = crypto_req.public_bytes(Encoding.DER)
-        return load_certificate_request(FILETYPE_ASN1, der)
+        return _load_certificate_request_internal(FILETYPE_ASN1, der)
 
     def set_pubkey(self, pkey: PKey) -> None:
         """
@@ -1173,6 +1191,20 @@ class X509Req:
             _raise_current_error()
 
         return result
+
+
+_X509ReqInternal = X509Req
+
+utils.deprecated(
+    X509Req,
+    __name__,
+    (
+        "CSR support in pyOpenSSL is deprecated. You should use the APIs "
+        "in cryptography."
+    ),
+    DeprecationWarning,
+    name="X509Req",
+)
 
 
 class X509:
@@ -2617,304 +2649,6 @@ utils.deprecated(
 )
 
 
-class PKCS12:
-    """
-    A PKCS #12 archive.
-    """
-
-    def __init__(self) -> None:
-        self._pkey: Optional[PKey] = None
-        self._cert: Optional[X509] = None
-        self._cacerts: Optional[List[X509]] = None
-        self._friendlyname: Optional[bytes] = None
-
-    def get_certificate(self) -> Optional[X509]:
-        """
-        Get the certificate in the PKCS #12 structure.
-
-        :return: The certificate, or :py:const:`None` if there is none.
-        :rtype: :py:class:`X509` or :py:const:`None`
-        """
-        return self._cert
-
-    def set_certificate(self, cert: X509) -> None:
-        """
-        Set the certificate in the PKCS #12 structure.
-
-        :param cert: The new certificate, or :py:const:`None` to unset it.
-        :type cert: :py:class:`X509` or :py:const:`None`
-
-        :return: ``None``
-        """
-        if not isinstance(cert, X509):
-            raise TypeError("cert must be an X509 instance")
-        self._cert = cert
-
-    def get_privatekey(self) -> Optional[PKey]:
-        """
-        Get the private key in the PKCS #12 structure.
-
-        :return: The private key, or :py:const:`None` if there is none.
-        :rtype: :py:class:`PKey`
-        """
-        return self._pkey
-
-    def set_privatekey(self, pkey: PKey) -> None:
-        """
-        Set the certificate portion of the PKCS #12 structure.
-
-        :param pkey: The new private key, or :py:const:`None` to unset it.
-        :type pkey: :py:class:`PKey` or :py:const:`None`
-
-        :return: ``None``
-        """
-        if not isinstance(pkey, PKey):
-            raise TypeError("pkey must be a PKey instance")
-        self._pkey = pkey
-
-    def get_ca_certificates(self) -> Optional[Tuple[X509, ...]]:
-        """
-        Get the CA certificates in the PKCS #12 structure.
-
-        :return: A tuple with the CA certificates in the chain, or
-            :py:const:`None` if there are none.
-        :rtype: :py:class:`tuple` of :py:class:`X509` or :py:const:`None`
-        """
-        if self._cacerts is not None:
-            return tuple(self._cacerts)
-        return None
-
-    def set_ca_certificates(self, cacerts: Optional[Iterable[X509]]) -> None:
-        """
-        Replace or set the CA certificates within the PKCS12 object.
-
-        :param cacerts: The new CA certificates, or :py:const:`None` to unset
-            them.
-        :type cacerts: An iterable of :py:class:`X509` or :py:const:`None`
-
-        :return: ``None``
-        """
-        if cacerts is None:
-            self._cacerts = None
-        else:
-            cacerts = list(cacerts)
-            for cert in cacerts:
-                if not isinstance(cert, X509):
-                    raise TypeError(
-                        "iterable must only contain X509 instances"
-                    )
-            self._cacerts = cacerts
-
-    def set_friendlyname(self, name: Optional[bytes]) -> None:
-        """
-        Set the friendly name in the PKCS #12 structure.
-
-        :param name: The new friendly name, or :py:const:`None` to unset.
-        :type name: :py:class:`bytes` or :py:const:`None`
-
-        :return: ``None``
-        """
-        if name is None:
-            self._friendlyname = None
-        elif not isinstance(name, bytes):
-            raise TypeError(
-                f"name must be a byte string or None (not {name!r})"
-            )
-        self._friendlyname = name
-
-    def get_friendlyname(self) -> Optional[bytes]:
-        """
-        Get the friendly name in the PKCS# 12 structure.
-
-        :returns: The friendly name,  or :py:const:`None` if there is none.
-        :rtype: :py:class:`bytes` or :py:const:`None`
-        """
-        return self._friendlyname
-
-    def export(
-        self,
-        passphrase: Optional[bytes] = None,
-        iter: int = 2048,
-        maciter: int = 1,
-    ) -> bytes:
-        """
-        Dump a PKCS12 object as a string.
-
-        For more information, see the :c:func:`PKCS12_create` man page.
-
-        :param passphrase: The passphrase used to encrypt the structure. Unlike
-            some other passphrase arguments, this *must* be a string, not a
-            callback.
-        :type passphrase: :py:data:`bytes`
-
-        :param iter: Number of times to repeat the encryption step.
-        :type iter: :py:data:`int`
-
-        :param maciter: Number of times to repeat the MAC step.
-        :type maciter: :py:data:`int`
-
-        :return: The string representation of the PKCS #12 structure.
-        :rtype:
-        """
-        passphrase = _text_to_bytes_and_warn("passphrase", passphrase)
-
-        if self._cacerts is None:
-            cacerts = _ffi.NULL
-        else:
-            cacerts = _lib.sk_X509_new_null()
-            cacerts = _ffi.gc(cacerts, _lib.sk_X509_free)
-            for cert in self._cacerts:
-                _lib.sk_X509_push(cacerts, cert._x509)
-
-        if passphrase is None:
-            passphrase = _ffi.NULL
-
-        friendlyname = self._friendlyname
-        if friendlyname is None:
-            friendlyname = _ffi.NULL
-
-        if self._pkey is None:
-            pkey = _ffi.NULL
-        else:
-            pkey = self._pkey._pkey
-
-        if self._cert is None:
-            cert = _ffi.NULL
-        else:
-            cert = self._cert._x509
-
-        pkcs12 = _lib.PKCS12_create(
-            passphrase,
-            friendlyname,
-            pkey,
-            cert,
-            cacerts,
-            _lib.NID_pbe_WithSHA1And3_Key_TripleDES_CBC,
-            _lib.NID_pbe_WithSHA1And3_Key_TripleDES_CBC,
-            iter,
-            maciter,
-            0,
-        )
-        if pkcs12 == _ffi.NULL:
-            _raise_current_error()
-        pkcs12 = _ffi.gc(pkcs12, _lib.PKCS12_free)
-
-        bio = _new_mem_buf()
-        _lib.i2d_PKCS12_bio(bio, pkcs12)
-        return _bio_to_string(bio)
-
-
-utils.deprecated(
-    PKCS12,
-    __name__,
-    (
-        "PKCS#12 support in pyOpenSSL is deprecated. You should use the APIs "
-        "in cryptography."
-    ),
-    DeprecationWarning,
-    name="PKCS12",
-)
-
-
-class NetscapeSPKI:
-    """
-    A Netscape SPKI object.
-    """
-
-    def __init__(self) -> None:
-        spki = _lib.NETSCAPE_SPKI_new()
-        self._spki = _ffi.gc(spki, _lib.NETSCAPE_SPKI_free)
-
-    def sign(self, pkey: PKey, digest: str) -> None:
-        """
-        Sign the certificate request with this key and digest type.
-
-        :param pkey: The private key to sign with.
-        :type pkey: :py:class:`PKey`
-
-        :param digest: The message digest to use.
-        :type digest: :py:class:`str`
-
-        :return: ``None``
-        """
-        if pkey._only_public:
-            raise ValueError("Key has only public part")
-
-        if not pkey._initialized:
-            raise ValueError("Key is uninitialized")
-
-        digest_obj = _lib.EVP_get_digestbyname(_byte_string(digest))
-        if digest_obj == _ffi.NULL:
-            raise ValueError("No such digest method")
-
-        sign_result = _lib.NETSCAPE_SPKI_sign(
-            self._spki, pkey._pkey, digest_obj
-        )
-        _openssl_assert(sign_result > 0)
-
-    def verify(self, key: PKey) -> bool:
-        """
-        Verifies a signature on a certificate request.
-
-        :param PKey key: The public key that signature is supposedly from.
-
-        :return: ``True`` if the signature is correct.
-        :rtype: bool
-
-        :raises OpenSSL.crypto.Error: If the signature is invalid, or there was
-            a problem verifying the signature.
-        """
-        answer = _lib.NETSCAPE_SPKI_verify(self._spki, key._pkey)
-        if answer <= 0:
-            _raise_current_error()
-        return True
-
-    def b64_encode(self) -> bytes:
-        """
-        Generate a base64 encoded representation of this SPKI object.
-
-        :return: The base64 encoded string.
-        :rtype: :py:class:`bytes`
-        """
-        encoded = _lib.NETSCAPE_SPKI_b64_encode(self._spki)
-        result = _ffi.string(encoded)
-        _lib.OPENSSL_free(encoded)
-        return result
-
-    def get_pubkey(self) -> PKey:
-        """
-        Get the public key of this certificate.
-
-        :return: The public key.
-        :rtype: :py:class:`PKey`
-        """
-        pkey = PKey.__new__(PKey)
-        pkey._pkey = _lib.NETSCAPE_SPKI_get_pubkey(self._spki)
-        _openssl_assert(pkey._pkey != _ffi.NULL)
-        pkey._pkey = _ffi.gc(pkey._pkey, _lib.EVP_PKEY_free)
-        pkey._only_public = True
-        return pkey
-
-    def set_pubkey(self, pkey: PKey) -> None:
-        """
-        Set the public key of the certificate
-
-        :param pkey: The public key
-        :return: ``None``
-        """
-        set_result = _lib.NETSCAPE_SPKI_set_pubkey(self._spki, pkey._pkey)
-        _openssl_assert(set_result == 1)
-
-
-utils.deprecated(
-    NetscapeSPKI,
-    __name__,
-    "NetscapeSPKI support in pyOpenSSL is deprecated.",
-    DeprecationWarning,
-    name="NetscapeSPKI",
-)
-
-
 class _PassphraseHelper:
     def __init__(
         self,
@@ -3096,6 +2830,20 @@ def dump_certificate_request(type: int, req: X509Req) -> bytes:
     return _bio_to_string(bio)
 
 
+_dump_certificate_request_internal = dump_certificate_request
+
+utils.deprecated(
+    dump_certificate_request,
+    __name__,
+    (
+        "CSR support in pyOpenSSL is deprecated. You should use the APIs "
+        "in cryptography."
+    ),
+    DeprecationWarning,
+    name="dump_certificate_request",
+)
+
+
 def load_certificate_request(type: int, buffer: bytes) -> X509Req:
     """
     Load a certificate request (X509Req) from the string *buffer* encoded with
@@ -3119,9 +2867,23 @@ def load_certificate_request(type: int, buffer: bytes) -> X509Req:
 
     _openssl_assert(req != _ffi.NULL)
 
-    x509req = X509Req.__new__(X509Req)
+    x509req = _X509ReqInternal.__new__(_X509ReqInternal)
     x509req._req = _ffi.gc(req, _lib.X509_REQ_free)
     return x509req
+
+
+_load_certificate_request_internal = load_certificate_request
+
+utils.deprecated(
+    load_certificate_request,
+    __name__,
+    (
+        "CSR support in pyOpenSSL is deprecated. You should use the APIs "
+        "in cryptography."
+    ),
+    DeprecationWarning,
+    name="load_certificate_request",
+)
 
 
 def sign(pkey: PKey, data: Union[str, bytes], digest: str) -> bytes:
