@@ -2,6 +2,10 @@
 version: v1.25.0
 ignore:
   SNYK-PYTHON-SETUPTOOLS-3180412:
+    - resources/python/requirements/3.7/requirements.txt
+    - resources/python/requirements/3.9/requirements.txt
+    - resources/python/requirements/3.10/requirements.txt
+    - resources/python/requirements/3.11/requirements.txt
     - resources/python/bin/3.7/explicit_requirements.txt
     - resources/python/bin/3.9/explicit_requirements.txt
     - resources/python/bin/3.10/explicit_requirements.txt
