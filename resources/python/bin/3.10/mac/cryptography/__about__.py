@@ -5,12 +5,12 @@
 from __future__ import annotations
 
 __all__ = [
-    "__version__",
     "__author__",
     "__copyright__",
+    "__version__",
 ]
 
-__version__ = "42.0.4"
+__version__ = "43.0.1"
 
 
 __author__ = "The Python Cryptographic Authority and individual contributors"

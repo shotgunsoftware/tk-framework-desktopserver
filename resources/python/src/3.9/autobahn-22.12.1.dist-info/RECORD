@@ -1,12 +1,12 @@
-../../bin/wamp,sha256=9lvCWt0q6Ou1CcLuxUEFPbEoEbT9Zpu1LvRLs0sfdOU,260
-../../bin/xbrnetwork,sha256=c88hj_bauvjb2Kbngy1isQ1jhiwZSNSipyQXbJXBA_0,260
-../../bin/xbrnetwork-ui,sha256=WIJ2Fn1OtFg34jhhF1Ec5cOAu1DsZq7F4vhkfnEAK0k,260
+../../bin/wamp,sha256=PzqWM0Zie5IrjPpZeNmV5V_KHl0dFmc06ceJ9Zb1pM4,260
+../../bin/xbrnetwork,sha256=Odf2XkomMrbs5-2-wMl40WkVU5HzR-9x5Cfrm0cBmtQ,260
+../../bin/xbrnetwork-ui,sha256=s5jcV0TWDsBXRvU26ljG54su7RKJ1pACrNBYbCoPOGY,260
 autobahn-22.12.1.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
 autobahn-22.12.1.dist-info/LICENSE,sha256=A4fu_OVwRT2qpgYz8oZ2ADcx7soostCgBxxijjoABO8,1091
 autobahn-22.12.1.dist-info/METADATA,sha256=WaCgScMcX6Qmfz16fhUlGG2MrylhFFjn-Cm4x-amk1Q,18504
 autobahn-22.12.1.dist-info/RECORD,,
 autobahn-22.12.1.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
-autobahn-22.12.1.dist-info/WHEEL,sha256=M4n4zmFKzQZk4mLCcycNIzIXO7YPKE_b5Cw4PnhHEg8,109
+autobahn-22.12.1.dist-info/WHEEL,sha256=AHX6tWk3qWuce7vKLrj7lnulVHEdWoltgauo8bgCXgU,109
 autobahn-22.12.1.dist-info/entry_points.txt,sha256=1Kled85w4wNcdsDY1Vmk0DqcJT4WbG8ENUjHgQ_U6HU,126
 autobahn-22.12.1.dist-info/top_level.txt,sha256=i67H6_FOEnZCuafCKor2-4scMopj2B4VZiqG_K2709g,17
 autobahn/__init__.py,sha256=lY0dMcr0d49vHgofRmZas1fTf6tbuAQn_waV5k1p9sM,1921

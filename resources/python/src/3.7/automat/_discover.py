@@ -1,17 +1,10 @@
-from __future__ import annotations
-
 import collections
 import inspect
-from typing import Any, Iterator
-
-from twisted.python.modules import PythonAttribute, PythonModule, getModule
-
 from automat import MethodicalMachine
+from twisted.python.modules import PythonModule, getModule
 
-from ._typed import TypeMachine, InputProtocol, Core
 
-
-def isOriginalLocation(attr: PythonAttribute | PythonModule) -> bool:
+def isOriginalLocation(attr):
     """
     Attempt to discover if this appearance of a PythonAttribute
     representing a class refers to the module where that class was
@@ -28,9 +21,7 @@ def isOriginalLocation(attr: PythonAttribute | PythonModule) -> bool:
     return currentModule.name == sourceModule.__name__
 
 
-def findMachinesViaWrapper(
-    within: PythonModule | PythonAttribute,
-) -> Iterator[tuple[str, MethodicalMachine | TypeMachine[InputProtocol, Core]]]:
+def findMachinesViaWrapper(within):
     """
     Recursively yield L{MethodicalMachine}s and their FQPNs within a
     L{PythonModule} or a L{twisted.python.modules.PythonAttribute}
@@ -49,25 +40,17 @@ def findMachinesViaWrapper(
     @return: a generator which yields FQPN, L{MethodicalMachine} pairs.
     """
     queue = collections.deque([within])
-    visited: set[
-        PythonModule
-        | PythonAttribute
-        | MethodicalMachine
-        | TypeMachine[InputProtocol, Core]
-        | type[Any]
-    ] = set()
+    visited = set()
 
     while queue:
         attr = queue.pop()
         value = attr.load()
-        if (
-            isinstance(value, MethodicalMachine) or isinstance(value, TypeMachine)
-        ) and value not in visited:
+
+        if isinstance(value, MethodicalMachine) and value not in visited:
             visited.add(value)
             yield attr.name, value
-        elif (
-            inspect.isclass(value) and isOriginalLocation(attr) and value not in visited
-        ):
+        elif (inspect.isclass(value) and isOriginalLocation(attr) and
+              value not in visited):
             visited.add(value)
             queue.extendleft(attr.iterAttributes())
         elif isinstance(attr, PythonModule) and value not in visited:
@@ -94,7 +77,7 @@ class NoObject(InvalidFQPN):
     """
 
 
-def wrapFQPN(fqpn: str) -> PythonModule | PythonAttribute:
+def wrapFQPN(fqpn):
     """
     Given an FQPN, retrieve the object via the global Python module
     namespace and wrap it with a L{PythonModule} or a
@@ -105,13 +88,12 @@ def wrapFQPN(fqpn: str) -> PythonModule | PythonAttribute:
     if not fqpn:
         raise InvalidFQPN("FQPN was empty")
 
-    components = collections.deque(fqpn.split("."))
+    components = collections.deque(fqpn.split('.'))
 
-    if "" in components:
+    if '' in components:
         raise InvalidFQPN(
             "name must be a string giving a '.'-separated list of Python "
-            "identifiers, not %r" % (fqpn,)
-        )
+            "identifiers, not %r" % (fqpn,))
 
     component = components.popleft()
     try:
@@ -136,33 +118,27 @@ def wrapFQPN(fqpn: str) -> PythonModule | PythonAttribute:
     attribute = module
     for component in components:
         try:
-            attribute = next(
-                child
-                for child in attribute.iterAttributes()
-                if child.name.rsplit(".", 1)[-1] == component
-            )
+            attribute = next(child for child in attribute.iterAttributes()
+                             if child.name.rsplit('.', 1)[-1] == component)
         except StopIteration:
-            raise NoObject("{}.{}".format(attribute.name, component))
+            raise NoObject('{}.{}'.format(attribute.name, component))
 
     return attribute
 
 
-def findMachines(
-    fqpn: str,
-) -> Iterator[tuple[str, MethodicalMachine | TypeMachine[InputProtocol, Core]]]:
+def findMachines(fqpn):
     """
-    Recursively yield L{MethodicalMachine}s and their FQPNs in and under the a
-    Python object specified by an FQPN.
+    Recursively yield L{MethodicalMachine}s and their FQPNs in and
+    under the a Python object specified by an FQPN.
 
-    The discovery heuristic considers L{MethodicalMachine} instances that are
-    module-level attributes or class-level attributes accessible from module
-    scope.  Machines inside nested classes will be discovered, but those
-    returned from functions or methods will not be.
+    The discovery heuristic considers L{MethodicalMachine} instances
+    that are module-level attributes or class-level attributes
+    accessible from module scope.  Machines inside nested classes will
+    be discovered, but those returned from functions or methods will not be.
 
-    @param fqpn: a fully-qualified Python identifier (i.e. the dotted
-        identifier of an object defined at module or class scope, including the
-        package and modele names); where to start the search.
+    @type within: an FQPN
+    @param within: Where to start the search.
 
-    @return: a generator which yields (C{FQPN}, L{MethodicalMachine}) pairs.
+    @return: a generator which yields FQPN, L{MethodicalMachine} pairs.
     """
     return findMachinesViaWrapper(wrapFQPN(fqpn))
