@@ -1,6 +1,7 @@
 # Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities
 version: v1.25.0
 ignore:
+  # SG-31202
   SNYK-PYTHON-SETUPTOOLS-3180412:
     - resources/python/requirements/3.7/requirements.txt
     - resources/python/requirements/3.9/requirements.txt
