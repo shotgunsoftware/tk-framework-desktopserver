@@ -1,4 +1,4 @@
-#!/Users/runner/hostedtoolcache/Python/3.10.14/x64/bin/python
+#!/Users/runner/hostedtoolcache/Python/3.10.15/x64/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
