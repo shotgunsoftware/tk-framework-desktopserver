@@ -15,8 +15,6 @@ python_minor_version=$(python -c "import sys; print(sys.version_info.minor)")
 python_version="$python_major_version.$python_minor_version"
 
 # Set paths
-build_dir=$PWD
-package_filename="pkgs.zip"
 bin_dir="bin/$python_version/linux"
 requirements="bin/$python_version/explicit_requirements.txt"
 
@@ -38,14 +36,6 @@ touch $bin_dir/zope/__init__.py
 rm -rf $bin_dir/Crypto/SelfTest
 rm -rf $bin_dir/zope/interface/tests
 rm -rf $bin_dir/zope/interface/*/tests
-
-# Package
-cd $bin_dir
-zip -q -r $package_filename ./*
-cd $build_dir
-
-# Remove files
-find $bin_dir/* ! -name $package_filename -maxdepth 1 -exec rm -rf {} +
 
 # Add bin dir to repo
 git add $bin_dir

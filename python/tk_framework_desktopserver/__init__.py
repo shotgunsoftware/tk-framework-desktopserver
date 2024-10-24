@@ -29,9 +29,9 @@ binaries_os_path = None
 if sgtk.util.is_macos():
     binaries_os_path = os.path.join(binaries_path, _version_dir, "mac")
 elif sgtk.util.is_windows():
-    binaries_os_path = os.path.join(binaries_path, _version_dir, "win", "pkgs.zip")
+    binaries_os_path = os.path.join(binaries_path, _version_dir, "win")
 elif sgtk.util.is_linux():
-    binaries_os_path = os.path.join(binaries_path, _version_dir, "linux", "pkgs.zip")
+    binaries_os_path = os.path.join(binaries_path, _version_dir, "linux")
 
 if os.path.exists(binaries_os_path):
     sys.path.insert(0, binaries_os_path)

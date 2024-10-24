@@ -14,7 +14,6 @@ $python_minor_version = python -c "import sys; print(sys.version_info.minor)"
 $python_version = $python_major_version  + "." + $python_minor_version
 
 # Set paths
-$package_filename = "pkgs.zip"
 $bin_dir = "bin/$python_version/win"
 $requirements = "bin/$python_version/explicit_requirements.txt"
 
@@ -33,16 +32,6 @@ Remove-Item -LiteralPath $bin_dir\zope\interface\common\tests -Force -Recurse -E
 # For some reason zope is missing a top level init file when installed with
 # pip, so we're adding it.
 ni $bin_dir\zope\__init__.py
-
-# Package files
-Compress-Archive -Path $bin_dir\*.* -DestinationPath $package_filename
-
-# Delete files again
-Remove-Item -LiteralPath $bin_dir -Force -Recurse -ErrorAction Ignore
-mkdir $bin_dir
-
-# Move package to bin dir
-mv $package_filename $bin_dir
 
 # Add bin dir to repo
 git add $bin_dir

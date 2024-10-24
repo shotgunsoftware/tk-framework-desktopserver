@@ -189,7 +189,6 @@ jobs:
     parameters:
       python_version: 3.7
   - script: |
-      sudo apt install -y zip
       git checkout ${{ parameters.branch }}
       ./install_binary_linux.sh
       git commit -am "Update binary requirements in Linux Python 3.7"
@@ -208,7 +207,6 @@ jobs:
     parameters:
       python_version: 3.9
   - script: |
-      sudo apt install -y zip
       git checkout ${{ parameters.branch }}
       ./install_binary_linux.sh
       git commit -am "Update binary requirements in Linux Python 3.9"
@@ -227,7 +225,6 @@ jobs:
     parameters:
       python_version: 3.10
   - script: |
-      sudo apt install -y zip
       git checkout ${{ parameters.branch }}
       ./install_binary_linux.sh
       git commit -am "Update binary requirements in Linux Python 3.10"
@@ -246,7 +243,6 @@ jobs:
     parameters:
       python_version: 3.11
   - script: |
-      sudo apt install -y zip
       git checkout ${{ parameters.branch }}
       ./install_binary_linux.sh
       git commit -am "Update binary requirements in Linux Python 3.11"
