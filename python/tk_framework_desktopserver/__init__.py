@@ -29,16 +29,16 @@ binaries_os_path = None
 if sgtk.util.is_macos():
     binaries_os_path = os.path.join(binaries_path, _version_dir, "mac")
 elif sgtk.util.is_windows():
-    binaries_os_path = os.path.join(binaries_path, _version_dir, "win")
+    binaries_os_path = os.path.join(binaries_path, _version_dir, "win", "pkgs.zip")
 elif sgtk.util.is_linux():
-    binaries_os_path = os.path.join(binaries_path, _version_dir, "linux")
+    binaries_os_path = os.path.join(binaries_path, _version_dir, "linux", "pkgs.zip")
 
 if os.path.exists(binaries_os_path):
     sys.path.insert(0, binaries_os_path)
 else:
     raise RuntimeError(f"No binaries found for Python at {binaries_os_path}")
 
-src_os_path = os.path.join(python_path, "src", _version_dir)
+src_os_path = os.path.join(python_path, "src", _version_dir, "pkgs.zip")
 
 if os.path.exists(src_os_path):
     sys.path.insert(0, src_os_path)
