@@ -38,7 +38,7 @@ if os.path.exists(binaries_os_path):
 else:
     raise RuntimeError(f"No binaries found for Python at {binaries_os_path}")
 
-src_os_path = os.path.join(python_path, "src", _version_dir)
+src_os_path = os.path.join(python_path, "src", _version_dir, "pkgs.zip")
 
 if os.path.exists(src_os_path):
     sys.path.insert(0, src_os_path)
