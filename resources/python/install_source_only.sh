@@ -22,7 +22,6 @@ echo "Set base paths"
 
 requirements_filename="explicit_requirements.txt"
 package_filename="pkgs.zip"
-build_dir=$PWD
 source_dir="src/$python_version"
 source_requirements="$source_dir/$requirements_filename"
 
@@ -61,9 +60,9 @@ rm -Rf $source_dir/incremental/tests
 rm -Rf $source_dir/twisted/python/_sendmsg.so
 
 # Compress all files
-cd $source_dir
+pushd $source_dir
 zip -q -r pkgs.zip ./*
-cd $build_dir
+popd
 
 # Remove files
 find $source_dir/* ! -name $package_filename ! -name $requirements_filename -maxdepth 1 -exec rm -rf {} +
