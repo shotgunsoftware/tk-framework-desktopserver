@@ -24,7 +24,7 @@ zope/interface/__pycache__/verify.cpython-311.pyc,,
 zope/interface/_compat.py,sha256=5FoI0eLiOZ7x664mIfdMBsusxhrzYpEruoIaAwy-CQ8,5191
 zope/interface/_flatten.py,sha256=nY3YJjWfeslmcWfjfxVYkoZb2lFrVGbw30xF_sAyQ60,1056
 zope/interface/_zope_interface_coptimizations.c,sha256=Q7h4EWRStOxvsGhE5fR47AbHAQV_nVmsJClLD0_UTWA,58093
-zope/interface/_zope_interface_coptimizations.cpython-311-x86_64-linux-gnu.so,sha256=caUQ-FxuElcX-bzbBwP9MLso0gOwwdwPdNSOclM7ahs,198024
+zope/interface/_zope_interface_coptimizations.cpython-311-x86_64-linux-gnu.so,sha256=Iv_3-696ULMkZjO22IIx3_oe7gmYJQ2AQPoUWTogzhE,198024
 zope/interface/adapter.py,sha256=x6vlVmxHeVEljSKX5WNiA8SxaJ1XltL_QzEOAJILz8s,36500
 zope/interface/advice.py,sha256=CpHhuAT8nbaaymDBEXuxvJv9ZRMEtq7fgTmoUOwsS3g,7612
 zope/interface/common/__init__.py,sha256=6oLVayU_bWd4HCX7guqlxYORQr6odBzlnCobBLQpfAI,10457
