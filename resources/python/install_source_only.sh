@@ -21,7 +21,7 @@ echo "----------------------------------------------------"
 echo "Set base paths"
 
 requirements_filename="explicit_requirements.txt"
-build_dir=$PWD/build
+package_filename="pkgs.zip"
 source_dir="src/$python_version"
 source_requirements="$source_dir/$requirements_filename"
 
@@ -31,7 +31,7 @@ echo "Source Requirements: $source_requirements"
 echo "----------------------------------------------------"
 echo "Remove current packages"
 
-find $source_dir/* ! -name $requirements_filename -maxdepth 1 -exec rm -rf {} +
+find $source_dir/* ! -name $package_filename ! -name $requirements_filename -maxdepth 1 -exec rm -rf {} +
 
 echo "----------------------------------------------------"
 echo "Install new packages"
@@ -58,6 +58,14 @@ rm -Rf $source_dir/incremental/tests
 # In twisted.internet.unix, there is a mixin which we don't use that allows to copy file descriptors
 # into other processes, which we don't require. That module is compiled, so we'll delete it.
 rm -Rf $source_dir/twisted/python/_sendmsg.so
+
+# Compress all files
+pushd $source_dir
+zip -q -r pkgs.zip ./*
+popd
+
+# Remove files
+find $source_dir/* ! -name $package_filename ! -name $requirements_filename -maxdepth 1 -exec rm -rf {} +
 
 echo "----------------------------------------------------"
 echo "Adding new files to git"
