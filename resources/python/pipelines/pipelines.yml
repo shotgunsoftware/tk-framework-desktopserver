@@ -12,7 +12,7 @@ jobs:
   displayName: Install source dependencies Python 3.7
   condition: and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'macOS-12'
+    vmImage: 'macOS-14'
   steps:
   - template: template.yml
     parameters:
@@ -39,7 +39,7 @@ jobs:
   dependsOn: install_source_dependencies_3_7
   condition: and(succeeded(), not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'macOS-12'
+    vmImage: 'macOS-14'
   steps:
   - template: template.yml
     parameters:
@@ -61,7 +61,7 @@ jobs:
   dependsOn: install_source_dependencies_3_9
   condition: and(succeeded(), not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'macOS-12'
+    vmImage: 'macOS-14'
   steps:
   - template: template.yml
     parameters:
@@ -83,7 +83,7 @@ jobs:
   dependsOn: install_source_dependencies_3_10
   condition: and(succeeded(), not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'macOS-12'
+    vmImage: 'macOS-14'
   steps:
   - template: template.yml
     parameters:
@@ -109,7 +109,7 @@ jobs:
   dependsOn: install_source_dependencies_3_11
   condition: and(succeeded(), not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'macOS-12'
+    vmImage: 'macOS-14'
   steps:
   - template: template.yml
     parameters:
@@ -127,7 +127,7 @@ jobs:
   dependsOn: install_binary_dependencies_mac_3_7
   condition: and(succeeded(), not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'macOS-12'
+    vmImage: 'macOS-14'
   steps:
   - template: template.yml
     parameters:
@@ -145,7 +145,7 @@ jobs:
   dependsOn: install_binary_dependencies_mac_3_9
   condition: and(succeeded(), not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'macOS-12'
+    vmImage: 'macOS-14'
   steps:
   - template: template.yml
     parameters:
@@ -163,7 +163,7 @@ jobs:
   dependsOn: install_binary_dependencies_mac_3_10
   condition: and(succeeded(), not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'macOS-12'
+    vmImage: 'macOS-14'
   steps:
   - template: template.yml
     parameters:
@@ -183,7 +183,7 @@ jobs:
   dependsOn: install_binary_dependencies_mac_3_11
   condition: and(succeeded(), not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'ubuntu-20.04'
+    vmImage: 'ubuntu-22.04'
   steps:
   - template: template.yml
     parameters:
@@ -201,7 +201,7 @@ jobs:
   dependsOn: install_binary_dependencies_linux_3_7
   condition: and(succeeded(), not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'ubuntu-20.04'
+    vmImage: 'ubuntu-22.04'
   steps:
   - template: template.yml
     parameters:
@@ -219,7 +219,7 @@ jobs:
   dependsOn: install_binary_dependencies_linux_3_9
   condition: and(succeeded(), not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'ubuntu-20.04'
+    vmImage: 'ubuntu-22.04'
   steps:
   - template: template.yml
     parameters:
@@ -237,7 +237,7 @@ jobs:
   dependsOn: install_binary_dependencies_linux_3_10
   condition: and(succeeded(), not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')))
   pool:
-    vmImage: 'ubuntu-20.04'
+    vmImage: 'ubuntu-22.04'
   steps:
   - template: template.yml
     parameters:
