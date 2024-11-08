@@ -184,7 +184,7 @@ class Updater(object):
                 package_name = dependency.split("==")[0]
 
                 # Cryptography is a special use case for Linux.
-                # Prioritized wheels require GLIBC 2.28 (manylinux_2_28_x86_64) which is not available on CentOS 7.
+                # Prioritized wheels require GLIBC 2.28 (manylinux_2_28_x86_64) which is not available on CentOS 7. TODO - is same on Rocky8???
                 # Then, we download manylinux_2_17_x86_64 from PyPI.
                 if package_name == "cryptography":
                     dependency = "cryptography==43.0.1 ; sys_platform != 'linux'\n"
