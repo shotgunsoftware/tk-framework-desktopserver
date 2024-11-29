@@ -6,7 +6,7 @@ Required packages
 To install the required dependencies, just create a virtual environment and install tk-toolchain.
 
 ```shell
-pip install git+https://github.com/shotgunsoftware/tk-toolchain.git@master#egg=tk-toolchain
+pip install https://github.com/shotgunsoftware/tk-toolchain/archive/master.zip
 ```
 
 Also, in the same directory where this repository is located, you should clone the following repositories.
