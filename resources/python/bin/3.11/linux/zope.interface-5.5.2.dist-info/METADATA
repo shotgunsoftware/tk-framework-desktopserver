@@ -30,16 +30,16 @@ Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Provides-Extra: docs
-Requires-Dist: Sphinx ; extra == 'docs'
-Requires-Dist: repoze.sphinx.autointerface ; extra == 'docs'
+Requires-Dist: Sphinx; extra == "docs"
+Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Provides-Extra: test
-Requires-Dist: coverage >=5.0.3 ; extra == 'test'
-Requires-Dist: zope.event ; extra == 'test'
-Requires-Dist: zope.testing ; extra == 'test'
+Requires-Dist: coverage>=5.0.3; extra == "test"
+Requires-Dist: zope.event; extra == "test"
+Requires-Dist: zope.testing; extra == "test"
 Provides-Extra: testing
-Requires-Dist: coverage >=5.0.3 ; extra == 'testing'
-Requires-Dist: zope.event ; extra == 'testing'
-Requires-Dist: zope.testing ; extra == 'testing'
+Requires-Dist: coverage>=5.0.3; extra == "testing"
+Requires-Dist: zope.event; extra == "testing"
+Requires-Dist: zope.testing; extra == "testing"
 
 ====================
  ``zope.interface``
