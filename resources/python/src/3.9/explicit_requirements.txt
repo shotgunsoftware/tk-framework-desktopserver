@@ -23,6 +23,6 @@ pyasn1_modules==0.4.1
 pycparser==2.22
 service-identity==21.1.0
 six==1.16.0
-tomli==2.0.1
+tomli==2.2.1
 txaio==23.1.1
 typing_extensions==4.12.2
