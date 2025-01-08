@@ -7,6 +7,7 @@ To install the required dependencies, just create a virtual environment and inst
 
 ```shell
 pip install https://github.com/shotgunsoftware/tk-toolchain/archive/master.zip
+pip install -r tests/python/requirements.txt
 ```
 
 Also, in the same directory where this repository is located, you should clone the following repositories.
