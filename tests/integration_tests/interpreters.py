@@ -165,7 +165,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
         cls.project = cls.create_or_update_project("Python Interpreter Test Project")
 
         # Create a config for python3
-        cls.python_config = cls.create_pipeline_config_for_python_version("python3", 3)
+        cls.python_config = cls.create_pipeline_config_for_python_version("python", 3)
 
         # Bootstrap the test_engine and use it to get the client and server frameworks
         manager = sgtk.bootstrap.ToolkitManager(cls.user)
@@ -230,7 +230,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
 
     def test_get_actions(self):
         """
-        Make sure that calling "get_actions" works on both python2 and python3 projects
+        Make sure that calling "get_actions" works on python3 projects
         """
         data = {
             "entity_type": "Project",
@@ -256,8 +256,8 @@ class Python3ProjectTests(SgtkIntegrationTest):
                 )
 
         assert test_data == {
-            ("python3", self.test_app_name, "Command A"),
-            ("python3", self.test_app_name, "Command B"),
+            ("python", self.test_app_name, "Command A"),
+            ("python", self.test_app_name, "Command B"),
         }
 
 
