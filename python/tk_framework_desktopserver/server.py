@@ -26,6 +26,7 @@ from . import certificates
 from .logger import get_logger
 
 from sgtk.platform.qt import QtCore
+
 try:
     from tank_vendor import sgutils
 except ImportError:

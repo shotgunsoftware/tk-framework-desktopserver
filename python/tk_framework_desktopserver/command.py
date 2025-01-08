@@ -231,10 +231,10 @@ class Command(object):
 
             # Read back the output from the two.
             with open(stdout_path, "rt") as stdout_file:
-                stdout_lines = stdout_file
+                stdout_lines = stdout_file.copy()
 
             with open(stderr_path) as stderr_file:
-                stderr_lines = stderr_file
+                stderr_lines = stderr_file.copy()
 
             # Track the result code.
             ret = process.returncode

@@ -165,9 +165,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
         cls.project = cls.create_or_update_project("Python Interpreter Test Project")
 
         # Create a config for python3
-        cls.python_config = cls.create_pipeline_config_for_python_version(
-            "python3", 3
-        )
+        cls.python_config = cls.create_pipeline_config_for_python_version("python3", 3)
 
         # Bootstrap the test_engine and use it to get the client and server frameworks
         manager = sgtk.bootstrap.ToolkitManager(cls.user)

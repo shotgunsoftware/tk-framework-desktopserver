@@ -389,6 +389,7 @@ if __name__ == "__main__":
     try:
         sys.path = [arg_data["sys_path"]] + sys.path
         import sgtk
+
         try:
             from tank_vendor import sgutils
         except ImportError:
