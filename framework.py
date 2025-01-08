@@ -10,10 +10,10 @@
 
 import os
 import struct
+from urllib.parse import urlparse
 
 import sgtk
 import sgtk.util
-from urllib.parse import urlparse
 
 
 class DesktopserverFramework(sgtk.platform.Framework):

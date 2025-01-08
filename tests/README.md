@@ -6,7 +6,6 @@ Required packages
 To install the required dependencies, just create a virtual environment and install tk-toolchain.
 
 ```shell
-pip install https://github.com/shotgunsoftware/tk-toolchain/archive/master.zip
 pip install -r tests/python/requirements.txt
 ```
 
