@@ -9,7 +9,6 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 
-from __future__ import print_function
 import os
 import sys
 import base64
@@ -174,7 +173,7 @@ class TestServerBase(unittest.TestCase):
             """
 
             def __init__(self):
-                super(ClientProtocol, self).__init__()
+                super().__init__()
                 self._on_message_deferred = None
 
             def onConnect(self, response):
@@ -193,7 +192,7 @@ class TestServerBase(unittest.TestCase):
                 .. note::
                     Only one message can be sent at a time at the moment.
                 """
-                super(ClientProtocol, self).sendMessage(payload, isBinary=is_binary)
+                super().sendMessage(payload, isBinary=is_binary)
                 self._on_message_deferred = Deferred()
                 return self._on_message_deferred
 
@@ -537,7 +536,7 @@ class TestEncryptedServer(TestServerBase):
     __metaclass__ = CommonTestsMetaClass
 
     def setUp(self):
-        super(TestEncryptedServer, self).setUp()
+        super().setUp()
         return self.setUpClientServer(use_encryption=True)
 
     def test_calls_encrypted(self):
@@ -592,7 +591,7 @@ class TestUnencryptedServer(TestServerBase):
     __metaclass__ = CommonTestsMetaClass
 
     def setUp(self):
-        super(TestUnencryptedServer, self).setUp()
+        super().setUp()
         return self.setUpClientServer(use_encryption=False)
 
     def test_get_ws_server_id_failure(self):
@@ -624,7 +623,7 @@ class DifferentHostBase(object):
 
     class Impl(TestServerBase):
         def setUp(self):
-            super(DifferentHostBase.Impl, self).setUp()
+            super().setUp()
             print((self.__class__))
             return self.setUpClientServer(
                 use_encryption=self.use_encryption,

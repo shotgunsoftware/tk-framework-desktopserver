@@ -63,7 +63,7 @@ class ServerProtocol(WebSocketServerProtocol):
     _ws_server_secret = None
 
     def __init__(self):
-        super(WebSocketServerProtocol, self).__init__()
+        super().__init__()
         self._process_manager = ProcessManager.create()
         self._protocol_version = 2
         # When set, the message to and from the server will be encrypted.

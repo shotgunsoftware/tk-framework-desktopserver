@@ -8,7 +8,6 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-from __future__ import with_statement
 import os
 import sys
 import subprocess
@@ -266,7 +265,7 @@ class _LinuxCertificateHandler(_CertificateHandler):
         """
         :param str certificate_folder: Path where the certificates will be written.
         """
-        super(_LinuxCertificateHandler, self).__init__(certificate_folder)
+        super().__init__(certificate_folder)
 
         # Ensure that the Chrome certificate registry folder exists
         logger.info(

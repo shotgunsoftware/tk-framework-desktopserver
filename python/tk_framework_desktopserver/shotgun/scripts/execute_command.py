@@ -43,7 +43,7 @@ class _Formatter(logging.Formatter, object):
         to decode the message. Every message is tag at its head with "PTR:",
         making output from a logger using this formatter easily identifiable.
         """
-        result = super(_Formatter, self).format(*args, **kwargs)
+        result = super().format(*args, **kwargs)
         return "%s%s" % (
             LOGGING_PREFIX,
             six.ensure_str(base64.b64encode(six.ensure_binary(result))),

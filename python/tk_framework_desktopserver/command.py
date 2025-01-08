@@ -13,11 +13,11 @@ import subprocess
 from threading import Thread
 import tempfile
 import sys
+from queue import Queue
 import traceback
 from .logger import get_logger
 
 import sgtk.util
-from tank_vendor.six.moves.queue import Queue
 
 try:
     from tank_vendor import sgutils
@@ -231,10 +231,10 @@ class Command(object):
 
             # Read back the output from the two.
             with open(stdout_path, "rt") as stdout_file:
-                stdout_lines = [sgutils.ensure_str(l) for l in stdout_file]
+                stdout_lines = stdout_file
 
             with open(stderr_path) as stderr_file:
-                stderr_lines = [sgutils.ensure_str(l) for l in stderr_file]
+                stderr_lines = stderr_file
 
             # Track the result code.
             ret = process.returncode

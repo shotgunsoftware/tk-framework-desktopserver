@@ -8,13 +8,12 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-from __future__ import absolute_import
 import os
 import struct
 
 import sgtk
 import sgtk.util
-from tank_vendor.six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 
 
 class DesktopserverFramework(sgtk.platform.Framework):
@@ -23,7 +22,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
     """
 
     def __init__(self, *args, **kwargs):
-        super(DesktopserverFramework, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._server = None
         self._settings = None
         self._tk_framework_desktopserver = None
