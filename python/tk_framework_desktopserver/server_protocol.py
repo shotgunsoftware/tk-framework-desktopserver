@@ -24,7 +24,7 @@ from .process_manager import ProcessManager
 from .message import Message
 from .logger import get_logger
 
-from tank_vendor.six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 
 try:
     from tank_vendor import sgutils

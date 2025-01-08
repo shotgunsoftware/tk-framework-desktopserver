@@ -26,7 +26,10 @@ from . import certificates
 from .logger import get_logger
 
 from sgtk.platform.qt import QtCore
-from tank_vendor import six
+try:
+    from tank_vendor import sgutils
+except ImportError:
+    from tank_vendor import six as sgutils
 
 logger = get_logger(__name__)
 
@@ -103,7 +106,7 @@ class Server(object):
         if encrypt:
             # urandom is considered cryptographically secure as it calls the OS's CSRNG, so we can
             # use that to generate our own server id.
-            self._ws_server_id = six.ensure_str(
+            self._ws_server_id = sgutils.ensure_str(
                 base64.urlsafe_b64encode(os.urandom(16))
             )
         else:
@@ -200,9 +203,6 @@ class Server(object):
         """
         :returns: True if the server is up and running, False otherwise.
         """
-        if six.PY2:
-            return self._reactor_thread.isAlive()
-
         return self._reactor_thread.is_alive()
 
     def tear_down(self):
