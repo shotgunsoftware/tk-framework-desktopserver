@@ -12,7 +12,7 @@ Automat==22.10.0
 Twisted==22.10.0
 attrs==22.2.0
 autobahn==22.12.1
-certifi==2024.7.4
+certifi==2024.12.14
 constantly==15.1.0
 hyperlink==21.0.0
 idna==3.7
