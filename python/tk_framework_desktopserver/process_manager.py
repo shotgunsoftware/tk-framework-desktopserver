@@ -323,7 +323,9 @@ class ProcessManager(object):
 
     def _pick_file_or_directory_in_main_thread(self, multi=False):
         dialog = SgtkFileDialog(multi, None)
-        dialog.setResolveSymlinks(False)
+        options = dialog.options()
+        options |= QtGui.QFileDialog.DontResolveSymlinks
+        dialog.setOptions(options)
 
         # Get result.
         result = dialog.exec_()
