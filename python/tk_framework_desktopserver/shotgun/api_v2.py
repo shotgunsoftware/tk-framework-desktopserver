@@ -630,12 +630,9 @@ class ShotgunAPI(object):
                 decoded_data = None
 
                 if cached_data:
-                    # The value can either be bytes (python 3) or a buffer (python2)
+                    # The value will be bytes
                     # ensure_str doesn't accept a buffer as input
-                    try:
-                        string_data = sgutils.ensure_str(cached_data[0])
-                    except TypeError:
-                        string_data = sgutils.ensure_str(str(cached_data[0]))
+                    string_data = sgutils.ensure_str(cached_data[0])
 
                     try:
                         decoded_data = sgtk.util.json.loads(string_data)

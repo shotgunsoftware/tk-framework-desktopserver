@@ -8,23 +8,21 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import json
 import datetime
+import json
+from urllib.parse import urlparse
 
 import OpenSSL
-from cryptography.fernet import Fernet
+import sgtk
 from autobahn.twisted.websocket import WebSocketServerProtocol
+from cryptography.fernet import Fernet
 from twisted.internet import error, reactor
 
-import sgtk
-
 from . import shotgun
+from .logger import get_logger
+from .message import Message
 from .message_host import MessageHost
 from .process_manager import ProcessManager
-from .message import Message
-from .logger import get_logger
-
-from tank_vendor.six.moves.urllib.parse import urlparse
 
 try:
     from tank_vendor import sgutils
@@ -63,7 +61,7 @@ class ServerProtocol(WebSocketServerProtocol):
     _ws_server_secret = None
 
     def __init__(self):
-        super(WebSocketServerProtocol, self).__init__()
+        super().__init__()
         self._process_manager = ProcessManager.create()
         self._protocol_version = 2
         # When set, the message to and from the server will be encrypted.

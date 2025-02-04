@@ -8,8 +8,6 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-from __future__ import print_function
-
 import os
 import sys
 import json
@@ -28,12 +26,6 @@ import tk_toolchain.authentication
 logger = sgtk.LogManager.get_logger(__name__)
 
 
-@unittest.skipIf(
-    os.environ.get("CI")
-    and sys.version_info.major == 2
-    and platform.system() == "Windows",
-    "Skipping On Windows/Python2 because of error in authentication that needs to be investigated",
-)
 @unittest.skipIf(
     os.environ.get("CI") and platform.system() == "Linux",
     "Skipping On Linux because of a core dump that needs to be investigated",
@@ -156,7 +148,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
 
     @classmethod
     def setUpClass(cls):
-        super(Python3ProjectTests, cls).setUpClass()
+        super().setUpClass()
 
         cls.fixtures_root = os.path.join(
             os.path.dirname(__file__), "..", "..", "tests", "fixtures"
@@ -172,15 +164,8 @@ class Python3ProjectTests(SgtkIntegrationTest):
 
         cls.project = cls.create_or_update_project("Python Interpreter Test Project")
 
-        # Create a config for python2 and one for python3
-        if sys.version_info.major == 2:
-            cls.python_config = cls.create_pipeline_config_for_python_version(
-                "python2", 2
-            )
-        if sys.version_info.major == 3:
-            cls.python_config = cls.create_pipeline_config_for_python_version(
-                "python3", 3
-            )
+        # Create a config for python3
+        cls.python_config = cls.create_pipeline_config_for_python_version("python", 3)
 
         # Bootstrap the test_engine and use it to get the client and server frameworks
         manager = sgtk.bootstrap.ToolkitManager(cls.user)
@@ -237,20 +222,6 @@ class Python3ProjectTests(SgtkIntegrationTest):
             content = f.read()
         assert content == command_name
 
-    @unittest.skipIf(
-        sys.version_info.major == 3,
-        "Skipping if major version of python is 3",
-    )
-    def test_execute_action_python2(self):
-        """
-        Make sure that calling "execute_action" of a python2 project works
-        """
-        self._test_execute_action(self.python_config, "Command A")
-
-    @unittest.skipIf(
-        sys.version_info.major == 2,
-        "Skipping if major version of python is 2",
-    )
     def test_execute_action_python3(self):
         """
         Make sure that calling "execute_action" of a python3 project works
@@ -259,7 +230,7 @@ class Python3ProjectTests(SgtkIntegrationTest):
 
     def test_get_actions(self):
         """
-        Make sure that calling "get_actions" works on both python2 and python3 projects
+        Make sure that calling "get_actions" works on python3 projects
         """
         data = {
             "entity_type": "Project",
@@ -283,16 +254,11 @@ class Python3ProjectTests(SgtkIntegrationTest):
                 test_data = test_data.union(
                     {(pc_name, x["app_name"], x["title"]) for x in pc_data["actions"]}
                 )
-        if sys.version_info.major == 2:
-            assert test_data == {
-                ("python2", self.test_app_name, "Command A"),
-                ("python2", self.test_app_name, "Command B"),
-            }
-        else:
-            assert test_data == {
-                ("python3", self.test_app_name, "Command A"),
-                ("python3", self.test_app_name, "Command B"),
-            }
+
+        assert test_data == {
+            ("python", self.test_app_name, "Command A"),
+            ("python", self.test_app_name, "Command B"),
+        }
 
 
 if __name__ == "__main__":

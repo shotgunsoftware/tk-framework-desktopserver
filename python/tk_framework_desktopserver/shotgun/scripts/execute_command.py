@@ -23,14 +23,7 @@ UPGRADE_CHECK_COMMAND = "__upgrade_check"
 LOGGING_PREFIX = None
 
 
-# NOTE: Inheriting from both Formatter and object here because, before
-# Python 2.7, logging.Formatter was an old-style class. This means that
-# super() can't be used with it if you only subclass from it. Mixing in
-# object resolves the issue and causes no side effects in 2.7 to my
-# knowledge.
-#
-# https://stackoverflow.com/questions/1713038/super-fails-with-error-typeerror-argument-1-must-be-type-not-classobj
-class _Formatter(logging.Formatter, object):
+class _Formatter(logging.Formatter):
     """
     Custom logging formatter that base64 encodes all log messages.
     """
@@ -43,10 +36,10 @@ class _Formatter(logging.Formatter, object):
         to decode the message. Every message is tag at its head with "PTR:",
         making output from a logger using this formatter easily identifiable.
         """
-        result = super(_Formatter, self).format(*args, **kwargs)
+        result = super().format(*args, **kwargs)
         return "%s%s" % (
             LOGGING_PREFIX,
-            six.ensure_str(base64.b64encode(six.ensure_binary(result))),
+            sgutils.ensure_str(base64.b64encode(sgutils.ensure_binary(result))),
         )
 
 
@@ -329,7 +322,7 @@ def execute(
     # We need to make sure that we're not introducing unicode into the
     # environment. This cropped up with some studio-team apps that ended
     # up causing some hangs on launch.
-    core_root = six.ensure_str(core_root)
+    core_root = sgutils.ensure_str(core_root)
 
     sgtk.util.prepend_path_to_env_var(
         "PYTHONPATH",
@@ -368,7 +361,7 @@ def execute(
     # environment. This appears to happen at times, likely due to some
     # component of the path built by pipeline_configuration "infecting"
     # the resulting aggregate path.
-    config_path = six.ensure_str(config_path)
+    config_path = sgutils.ensure_str(config_path)
 
     os.environ["TANK_CURRENT_PC"] = config_path
 
@@ -396,7 +389,11 @@ if __name__ == "__main__":
     try:
         sys.path = [arg_data["sys_path"]] + sys.path
         import sgtk
-        from tank_vendor import six
+
+        try:
+            from tank_vendor import sgutils
+        except ImportError:
+            from tank_vendor import six as sgutils
     finally:
         sys.path = original_sys_path
 
