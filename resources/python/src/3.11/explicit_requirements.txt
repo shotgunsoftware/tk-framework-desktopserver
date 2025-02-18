@@ -25,3 +25,4 @@ service-identity==21.1.0
 six==1.16.0
 txaio==23.1.1
 typing_extensions==4.12.2
+cryptography>=44.0.1 # not directly required, pinned by Snyk to avoid a vulnerability
