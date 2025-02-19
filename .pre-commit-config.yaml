@@ -36,8 +36,8 @@ repos:
     # Validate yml files
     - id: check-yaml
   # Leave black at the bottom so all touchups are done before it is run.
-  - repo: https://github.com/ambv/black
-    rev: 22.3.0
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
     hooks:
     - id: black
       language_version: python3
