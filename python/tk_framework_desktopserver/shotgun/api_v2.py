@@ -2021,10 +2021,10 @@ class ShotgunAPI(object):
         project_not_cached = project_id not in self._cache[self.LEGACY_PROJECT_ACTIONS]
 
         if project_not_cached:
-            self._cache[self.LEGACY_PROJECT_ACTIONS][
-                project_id
-            ] = self.process_manager.get_project_actions(
-                config_paths,
+            self._cache[self.LEGACY_PROJECT_ACTIONS][project_id] = (
+                self.process_manager.get_project_actions(
+                    config_paths,
+                )
             )
 
         # We'll deepcopy the data before returning it. That will ensure that
