@@ -9,13 +9,10 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import os
-import sys
 
-from tank_test.tank_test_base import TankTestBase, setUpModule
 import sgtk
-from mock_test_classes import MockHost, MockConfigDescriptor
-
-from mock import patch, Mock
+from mock_test_classes import MockConfigDescriptor, MockHost
+from tank_test.tank_test_base import TankTestBase, setUpModule
 
 
 class TestDesktopServerFramework(TankTestBase):

@@ -17,7 +17,7 @@ import contextlib
 import socket
 import websocket
 
-from mock import patch, Mock
+from unittest.mock import patch, Mock
 
 from tank_test.tank_test_base import setUpModule  # noqa
 

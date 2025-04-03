@@ -10,7 +10,7 @@
 
 import os
 import sys
-from mock import Mock
+from unittest.mock import Mock
 
 from base_test import TestDesktopServerFramework
 from tank_test.tank_test_base import setUpModule  # noqa
