@@ -17,7 +17,7 @@ constantly==15.1.0
 hyperlink==21.0.0
 idna==3.7
 incremental==22.10.0
-pyOpenSSL==24.2.1
+pyOpenSSL==25.0.0
 pyasn1-modules==0.3.0
 pyasn1==0.5.1
 pycparser==2.21
