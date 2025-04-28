@@ -199,6 +199,8 @@ git push
 # Repeat steps for Python 3.9 and 3.10
 ```
 
+##### Apple Silicon
+
 > Important Notice for Apple Silicon: CI uses a Intel macOS to install the binary requirements.
 > There are two specific ones that don't have wheels with fat binaries: CFFI and Zope.interface.
 > For them, we recommend to get `_cffi_backend.cpython-310-darwin.so` and `_zope_interface_coptimizations.cpython-310-darwin.so`
