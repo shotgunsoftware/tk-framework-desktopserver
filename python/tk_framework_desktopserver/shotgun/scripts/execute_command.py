@@ -39,7 +39,7 @@ class _Formatter(logging.Formatter):
         result = super().format(*args, **kwargs)
         return "%s%s" % (
             LOGGING_PREFIX,
-            sgutils.ensure_str(base64.b64encode(sgutils.ensure_binary(result))),
+            base64.b64encode(result.encode("utf-8")).decode("utf-8"),
         )
 
 
@@ -322,7 +322,6 @@ def execute(
     # We need to make sure that we're not introducing unicode into the
     # environment. This cropped up with some studio-team apps that ended
     # up causing some hangs on launch.
-    core_root = sgutils.ensure_str(core_root)
 
     sgtk.util.prepend_path_to_env_var(
         "PYTHONPATH",
@@ -361,7 +360,7 @@ def execute(
     # environment. This appears to happen at times, likely due to some
     # component of the path built by pipeline_configuration "infecting"
     # the resulting aggregate path.
-    config_path = sgutils.ensure_str(config_path)
+    config_path = str(config_path)
 
     os.environ["TANK_CURRENT_PC"] = config_path
 
@@ -389,11 +388,6 @@ if __name__ == "__main__":
     try:
         sys.path = [arg_data["sys_path"]] + sys.path
         import sgtk
-
-        try:
-            from tank_vendor import sgutils
-        except ImportError:
-            from tank_vendor import six as sgutils
     finally:
         sys.path = original_sys_path
 
