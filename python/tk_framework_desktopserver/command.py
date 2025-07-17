@@ -44,7 +44,7 @@ class ReadThread(Thread):
         is closed.
         """
         while True:
-            line = self.pipe.readline() # blocking read
+            line = self.pipe.readline()  # blocking read
             if isinstance(line, bytes):
                 line = line.decode("utf-8")
             if line == "":
