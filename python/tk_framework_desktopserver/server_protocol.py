@@ -151,17 +151,16 @@ class ServerProtocol(WebSocketServerProtocol):
             self.report_error("Server does not handle binary requests.")
             return
 
+        decoded_payload = payload
         if self._fernet:
             try:
-                payload = self._fernet.decrypt(payload)
+                decoded_payload = self._fernet.decrypt(payload).decode("utf-8")
             except Exception as e:
                 self.report_error(
                     "There was an error while decrypting the message: %s" % e
                 )
                 logger.exception("Unexpected error while decrypting:")
                 return
-
-        decoded_payload = payload
 
         # Special message to get protocol version for this protocol. This message doesn't follow the
         # standard message format as it doesn't require a protocol version to be retrieved and is
@@ -355,7 +354,7 @@ class ServerProtocol(WebSocketServerProtocol):
             response = shotgun._call_rpc(
                 "retrieve_ws_server_secret", {"ws_server_id": self.factory.ws_server_id}
             )
-            ws_server_secret = response["ws_server_secret"]
+            ws_server_secret = response["ws_server_secret"].decode("utf-8")
             # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
             # doesn't seem to complain however, so I'm not sure whose implementation is broken.
             if ws_server_secret[-1] != "=":
