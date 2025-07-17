@@ -19,11 +19,6 @@ from .logger import get_logger
 
 import sgtk.util
 
-try:
-    from tank_vendor import sgutils
-except ImportError:
-    from tank_vendor import six as sgutils
-
 logger = get_logger(__name__)
 
 
@@ -49,7 +44,9 @@ class ReadThread(Thread):
         is closed.
         """
         while True:
-            line = sgutils.ensure_str(self.pipe.readline())  # blocking read
+            line = self.pipe.readline()  # blocking read
+            if isinstance(line, bytes):
+                line = line.decode("utf-8")
             if line == "":
                 break
             self.target_queue.put(line)
