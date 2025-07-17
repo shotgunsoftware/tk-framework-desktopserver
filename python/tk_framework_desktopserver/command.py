@@ -44,10 +44,9 @@ class ReadThread(Thread):
         is closed.
         """
         while True:
-            line = self.pipe.readline()
-            line = (
-                line.decode("utf-8") if isinstance(line, bytes) else str(line)
-            )  # blocking read
+            line = self.pipe.readline() # blocking read
+            if isinstance(line, bytes):
+                line = line.decode("utf-8")
             if line == "":
                 break
             self.target_queue.put(line)
