@@ -29,7 +29,7 @@ mkdir $bin_dir
 pip install --target $bin_dir --no-deps \
     --platform manylinux_2_28_x86_64 \
     --platform manylinux2014_x86_64 \
-    --only-binary=:all: \
+    --only-binary :all: \
     --requirement $requirements
 
 # For some reason zope is missing a top level init file when installed with
