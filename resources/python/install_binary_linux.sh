@@ -32,6 +32,8 @@ pip install --target $bin_dir --no-deps \
     --only-binary :all: \
     --requirement $requirements
 
+# Available manylinux platforms: https://deepwiki.com/pypa/manylinux#policy-and-platform-support-matrix
+
 # For some reason zope is missing a top level init file when installed with
 # pip, so we're adding it.
 touch $bin_dir/zope/__init__.py
