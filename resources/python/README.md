@@ -5,7 +5,7 @@ bundled in the `bin` and `src` directories.
 
 ## CI Automation
 
-This process is *almost* fully taken care by **CI automation** under the
+This process is *almost* fully taken care of by **CI automation** under the
 [pipelines](pipelines/pipelines.yml) file.
 When changes are pushed to GitHub, it will create a new branch with the same
 name adding the `-automated` suffix.
@@ -213,8 +213,8 @@ git push
 
 ### Install the binaries for each OS
 
-On each Operating System, activate virtualenvs, execute the corresponding script
-to install binaries, and then push changes to repository.
+On each operating system, activate virtualenvs, execute the corresponding script
+to install binaries, and then push changes to the repository.
 
 #### Linux
 
@@ -248,11 +248,11 @@ git push
 ```
 
 
-#### macOS for Intel archictecture (x86_64)
+#### macOS for Intel architecture (x86_64)
 
 > [!Important]
-> If you have a Apple Silicon computer, make sure to run Python in
-> **roseta mode** (`arch -x86_64`).
+> If you have an Apple Silicon computer, make sure to run Python in
+> **Rosetta mode** (`arch -x86_64`).
 > You might need to install a dedicated Python environment to accomplish this.
 
 ```shell
@@ -273,20 +273,17 @@ git push
 > [!Note]
 > Skip this section for Python versions 3.9 and below.
 
-Unfortunately, some Python libraries are not distributed for Universal platform
-format (*fat*) but platform specific.
-For those libraries, we need to run the process a second time here with a
-M1/M2/M3... computer and then generate Universal libraries.
+Unfortunately, some Python libraries are not distributed in Universal platform
+format (*fat*), but are platform-specific.
+For those libraries, you need to run the process a second time on an M1/M2/M3... computer and then generate Universal libraries.
 
 > [!Warning]
 > You need an Apple silicon computer for this task (ex: M1, M2, ...).
 > Also, make sure your Python environment runs in **Native mode**.
 
 > [!Important]
-> For the moment, we are only aware of two libraries not being distributed as
-> Universal libraries.
-> But this might change. So please check if other `.so` files are present.
-> If so, ajust this document.
+> Currently, only two libraries are known not to be distributed as Universal libraries.
+> However, this may change, so please check if other `.so` files are present and adjust this document accordingly.
 
 1.  Select the right folder and load the Python venv
     ```shell
@@ -375,11 +372,11 @@ M1/M2/M3... computer and then generate Universal libraries.
       (for architecture arm64):      Mach-O 64-bit bundle arm64
       ```
 
-1.  Commmit and Push
+1.  Commit and Push
 
     ```shell
     git add bin/
-    git commit -am "Update binary requirements in macOS Python 3.10 (Universal)"
+    git commit -m "Update binary requirements in macOS Python 3.10 (Universal)"
     git push
     ```
 
