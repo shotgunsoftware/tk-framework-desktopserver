@@ -26,7 +26,14 @@ rm -rf $bin_dir
 mkdir $bin_dir
 
 # Install packages
-pip install --target $bin_dir --no-deps -r $requirements
+pip install --target $bin_dir --no-deps \
+    --platform manylinux_2_28_x86_64 \
+    --platform manylinux2014_x86_64 \
+    --platform manylinux2010_x86_64 \
+    --prefer-binary \
+    --requirement $requirements
+
+# Available manylinux platforms: https://deepwiki.com/pypa/manylinux#policy-and-platform-support-matrix
 
 # For some reason zope is missing a top level init file when installed with
 # pip, so we're adding it.
