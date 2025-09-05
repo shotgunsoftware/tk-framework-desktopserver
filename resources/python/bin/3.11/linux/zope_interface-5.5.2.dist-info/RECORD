@@ -16,7 +16,7 @@ zope/interface/__pycache__/verify.cpython-311.pyc,,
 zope/interface/_compat.py,sha256=5FoI0eLiOZ7x664mIfdMBsusxhrzYpEruoIaAwy-CQ8,5191
 zope/interface/_flatten.py,sha256=nY3YJjWfeslmcWfjfxVYkoZb2lFrVGbw30xF_sAyQ60,1056
 zope/interface/_zope_interface_coptimizations.c,sha256=Q7h4EWRStOxvsGhE5fR47AbHAQV_nVmsJClLD0_UTWA,58093
-zope/interface/_zope_interface_coptimizations.cpython-311-x86_64-linux-gnu.so,sha256=5tqPjvCQSOlBArj8KtO0xdKNtXlzejBK024lp8wN50c,145176
+zope/interface/_zope_interface_coptimizations.cpython-311-x86_64-linux-gnu.so,sha256=oG9v8SElt1jVBWsT5gy7pqdDAeyehNA7InLCFVY66pI,145176
 zope/interface/adapter.py,sha256=x6vlVmxHeVEljSKX5WNiA8SxaJ1XltL_QzEOAJILz8s,36500
 zope/interface/advice.py,sha256=CpHhuAT8nbaaymDBEXuxvJv9ZRMEtq7fgTmoUOwsS3g,7612
 zope/interface/common/__init__.py,sha256=6oLVayU_bWd4HCX7guqlxYORQr6odBzlnCobBLQpfAI,10457
@@ -105,7 +105,7 @@ zope_interface-5.5.2.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrA
 zope_interface-5.5.2.dist-info/METADATA,sha256=aECwWwqbo3517WO5fwWMbx1gff_pGwasDESk-8wvawM,41563
 zope_interface-5.5.2.dist-info/RECORD,,
 zope_interface-5.5.2.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
-zope_interface-5.5.2.dist-info/WHEEL,sha256=dtgwo8rBVhCpjxN9dau7--rW9Mhl9jvZlIS83NVpTGU,104
+zope_interface-5.5.2.dist-info/WHEEL,sha256=ITVdYpiTGnryqIbOR0i1wcdISo8YPJzlx8rAyocabzM,104
 zope_interface-5.5.2.dist-info/licenses/LICENSE.txt,sha256=PmcdsR32h1FswdtbPWXkqjg-rKPCDOo_r1Og9zNdCjw,2070
 zope_interface-5.5.2.dist-info/namespace_packages.txt,sha256=QpUHvpO4wIuZDeEgKY8qZCtD-tAukB0fn_f6utzlb98,5
 zope_interface-5.5.2.dist-info/top_level.txt,sha256=QpUHvpO4wIuZDeEgKY8qZCtD-tAukB0fn_f6utzlb98,5
