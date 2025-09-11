@@ -357,7 +357,12 @@ class ServerProtocol(WebSocketServerProtocol):
             response = shotgun._call_rpc(
                 "retrieve_ws_server_secret", {"ws_server_id": self.factory.ws_server_id}
             )
-            ws_server_secret = response["ws_server_secret"].decode("utf-8")
+            ws_server_secret = response["ws_server_secret"]
+            ws_server_secret = (
+                response["ws_server_secret"].decode("utf-8")
+                if isinstance(ws_server_secret, bytes)
+                else ws_server_secret
+            )
             # FIXME: Server doesn't seem to provide a properly padded string. The Javascript side
             # doesn't seem to complain however, so I'm not sure whose implementation is broken.
             if ws_server_secret[-1] != "=":
