@@ -356,8 +356,8 @@ def execute(
     # match the project's config path instead.
     config_path = engine.sgtk.pipeline_configuration.get_path()
 
-    # Ensure that no unicode characters are introduced into the environment.  
-    # This sometimes happens when part of the path from pipeline_configuration  
+    # Ensure that no unicode characters are introduced into the environment.
+    # This sometimes happens when part of the path from pipeline_configuration
     # "contaminates" the final aggregated path.
     config_path = str(config_path)
 
