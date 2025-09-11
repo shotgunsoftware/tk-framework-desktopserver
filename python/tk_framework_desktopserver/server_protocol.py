@@ -151,16 +151,19 @@ class ServerProtocol(WebSocketServerProtocol):
             self.report_error("Server does not handle binary requests.")
             return
 
-        decoded_payload = payload
         if self._fernet:
             try:
-                decoded_payload = self._fernet.decrypt(payload).decode("utf-8")
+                decoded_payload = self._fernet.decrypt(payload)
             except Exception as e:
                 self.report_error(
                     "There was an error while decrypting the message: %s" % e
                 )
                 logger.exception("Unexpected error while decrypting:")
                 return
+
+        decoded_payload = (
+            payload.decode("utf-8") if isinstance(payload, bytes) else str(payload)
+        )
 
         # Special message to get protocol version for this protocol. This message doesn't follow the
         # standard message format as it doesn't require a protocol version to be retrieved and is
@@ -446,7 +449,6 @@ class ServerProtocol(WebSocketServerProtocol):
             ensure_ascii=True,
             default=self._json_date_handler,
         ).encode("utf-8")
-
 
         if self._fernet:
             payload = self._fernet.encrypt(payload)
