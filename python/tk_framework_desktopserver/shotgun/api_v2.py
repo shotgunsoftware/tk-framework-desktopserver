@@ -626,8 +626,9 @@ class ShotgunAPI(object):
                 if cached_data:
                     # The value will be bytes
                     # ensure_str doesn't accept a buffer as input
-                    string_data = str(cached_data[0])
-
+                    string_data = cached_data[0]
+                    if isinstance(string_data, bytes):
+                        string_data = string_data.decode("utf-8")
                     try:
                         decoded_data = sgtk.util.json.loads(string_data)
                     except Exception:
