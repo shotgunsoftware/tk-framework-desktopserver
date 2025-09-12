@@ -34,11 +34,6 @@ from sgtk.authentication import serialize_user
 from . import constants
 from .. import command
 
-try:
-    from tank_vendor import sgutils
-except ImportError:
-    from tank_vendor import six as sgutils
-
 logger = sgtk.platform.get_logger(__name__)
 
 
@@ -316,9 +311,8 @@ class ShotgunAPI(object):
         # message that wasn't on the first line of text before any newlines.
         for line in stdout.split("\n") + stderr.split("\n"):
             if line.startswith(tag):
-                filtered_output.append(
-                    sgutils.ensure_str(base64.b64decode(line[tag_length:]))
-                )
+                decoded = base64.b64decode(line[tag_length:]).decode("utf-8")
+                filtered_output.append(decoded)
 
         filtered_output_string = "\n".join(filtered_output)
 
@@ -632,8 +626,9 @@ class ShotgunAPI(object):
                 if cached_data:
                     # The value will be bytes
                     # ensure_str doesn't accept a buffer as input
-                    string_data = sgutils.ensure_str(cached_data[0])
-
+                    string_data = cached_data[0]
+                    if isinstance(string_data, bytes):
+                        string_data = string_data.decode("utf-8")
                     try:
                         decoded_data = sgtk.util.json.loads(string_data)
                     except Exception:
@@ -1030,7 +1025,7 @@ class ShotgunAPI(object):
 
                     connection.commit()
 
-            commands_blob = sqlite3.Binary(sgutils.ensure_binary(json.dumps(commands)))
+            commands_blob = sqlite3.Binary(json.dumps(commands).encode("utf-8"))
 
             # Since we're likely to be updating out-of-date cached data more
             # often than we're going to be inserting new rows into the cache,
@@ -1265,10 +1260,10 @@ class ShotgunAPI(object):
         logger.debug("Contents data to be used in hash generation: %s", json_data)
 
         hash_data = hashlib.md5()
-        hash_data.update(sgutils.ensure_binary(json_data))
+        hash_data.update(json_data.encode("utf-8"))
         # Base64 encode the digest, will is a binary string
         # in Python 3. This ensures we can always encode it to a str.
-        return sgutils.ensure_str(base64.b64encode(hash_data.digest()))
+        return base64.b64encode(hash_data.digest()).decode("utf-8")
 
     def _get_entities_from_payload(self, data):
         """
@@ -1541,7 +1536,7 @@ class ShotgunAPI(object):
         )
 
         if self._global_debug:
-            message = sgutils.ensure_binary(html.escape(traceback.format_exc()))
+            message = html.escape(traceback.format_exc()).encode("utf-8")
 
         return message
 
@@ -2178,7 +2173,7 @@ class ShotgunAPI(object):
                 line = re.sub(bold_match, "*", line)
                 sanitized.append(line)
 
-        return sgutils.ensure_binary(html.escape("\n".join(sanitized)))
+        return html.escape("\n".join(sanitized)).encode("utf-8")
 
     @sgtk.LogManager.log_timing
     def _process_commands(self, commands, project, entities):
