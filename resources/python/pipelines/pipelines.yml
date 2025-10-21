@@ -21,6 +21,8 @@ jobs:
       git checkout ${{ parameters.branch }} || git checkout $(System.PullRequest.SourceBranch) && git checkout -b ${{ parameters.branch }}
       git merge origin/$(System.PullRequest.SourceBranch)
       git push -u origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Create branch if not exists or update
   - script: |
       set -e
@@ -33,6 +35,8 @@ jobs:
       ./install_source_only.sh
       git commit --allow-empty -a -m "Update source requirements 3.7"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update source requirements 3.7
     workingDirectory: resources/python
 
@@ -56,6 +60,8 @@ jobs:
       ./install_source_only.sh
       git commit --allow-empty -a -m "Update source requirements 3.9"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update source requirements 3.9
     workingDirectory: resources/python
 
@@ -79,6 +85,8 @@ jobs:
       ./install_source_only.sh
       git commit --allow-empty -a -m "Update source requirements 3.10"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update source requirements 3.10
     workingDirectory: resources/python
 
@@ -102,6 +110,8 @@ jobs:
       ./install_source_only.sh
       git commit --allow-empty -a -m "Update source requirements 3.11"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update source requirements 3.11
     workingDirectory: resources/python
 
@@ -124,6 +134,8 @@ jobs:
       ./install_binary_mac.sh
       git commit --allow-empty -a -m "Update binary requirements in Mac Python 3.7"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update binary requirements
     workingDirectory: resources/python
 
@@ -142,6 +154,8 @@ jobs:
       ./install_binary_mac.sh
       git commit --allow-empty -a -m "Update binary requirements in Mac Python 3.9"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update binary requirements
     workingDirectory: resources/python
 
@@ -160,6 +174,8 @@ jobs:
       ./install_binary_mac.sh
       git commit --allow-empty -a -m "Update binary requirements in Mac Python 3.10"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update binary requirements
     workingDirectory: resources/python
 
@@ -178,6 +194,8 @@ jobs:
       ./install_binary_mac.sh
       git commit --allow-empty -a -m "Update binary requirements in Mac Python 3.11"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update binary requirements
     workingDirectory: resources/python
 
@@ -198,6 +216,8 @@ jobs:
       ./install_binary_linux.sh
       git commit --allow-empty -a -m "Update binary requirements in Linux Python 3.7"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update binary requirements
     workingDirectory: resources/python
 
@@ -216,6 +236,8 @@ jobs:
       ./install_binary_linux.sh
       git commit --allow-empty -a -m "Update binary requirements in Linux Python 3.9"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update binary requirements
     workingDirectory: resources/python
 
@@ -234,6 +256,8 @@ jobs:
       ./install_binary_linux.sh
       git commit --allow-empty -a -m "Update binary requirements in Linux Python 3.10"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update binary requirements
     workingDirectory: resources/python
 
@@ -252,6 +276,8 @@ jobs:
       ./install_binary_linux.sh
       git commit --allow-empty -a -m "Update binary requirements in Linux Python 3.11"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Update binary requirements
     workingDirectory: resources/python
 
@@ -276,6 +302,8 @@ jobs:
   - script: |
       git commit --allow-empty -a -m "Update binary requirements in Windows Python 3.7"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Run Push Scripts
     workingDirectory: resources/python
 
@@ -298,6 +326,8 @@ jobs:
   - script: |
       git commit --allow-empty -a -m "Update binary requirements in Windows Python 3.9"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Run Push Scripts
     workingDirectory: resources/python
 
@@ -320,6 +350,8 @@ jobs:
   - script: |
       git commit --allow-empty -a -m "Update binary requirements in Windows Python 3.10"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Run Push Scripts
     workingDirectory: resources/python
 
@@ -342,5 +374,7 @@ jobs:
   - script: |
       git commit --allow-empty -a -m "Update binary requirements in Windows Python 3.11"
       git push origin ${{ parameters.branch }}
+    env:
+      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Run Push Scripts
     workingDirectory: resources/python
