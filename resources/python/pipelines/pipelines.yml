@@ -11,7 +11,7 @@ jobs:
 - job: install_source_dependencies_3_7
   displayName: Install source dependencies Python 3.7
   pool:
-    vmImage: 'macOS-14'
+    vmImage: ubuntu-22.04
   steps:
   - template: template.yml
     parameters:
@@ -40,7 +40,7 @@ jobs:
   displayName: Install source dependencies Python 3.9
   dependsOn: install_source_dependencies_3_7
   pool:
-    vmImage: 'macOS-14'
+    vmImage: ubuntu-22.04
   steps:
   - template: template.yml
     parameters:
@@ -63,7 +63,7 @@ jobs:
   displayName: Install source dependencies Python 3.10
   dependsOn: install_source_dependencies_3_9
   pool:
-    vmImage: 'macOS-14'
+    vmImage: ubuntu-22.04
   steps:
   - template: template.yml
     parameters:
@@ -86,7 +86,7 @@ jobs:
   displayName: Install source dependencies Python 3.11
   dependsOn: install_source_dependencies_3_10
   pool:
-    vmImage: 'macOS-14'
+    vmImage: ubuntu-22.04
   steps:
   - template: template.yml
     parameters:
