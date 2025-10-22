@@ -54,6 +54,7 @@ jobs:
           # Azure Pipelines 1-10
           SHOTGUN_TEST_ENTITY_SUFFIX: '$(Agent.Name)'
 
-- template: resources/python/pipelines/pipelines.yml
-  parameters:
-    branch: $(System.PullRequest.SourceBranch)-automated
+- ${{ if and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))) }}:
+  - template: resources/python/pipelines/pipelines.yml
+    parameters:
+      branch: $(System.PullRequest.SourceBranch)-automated
