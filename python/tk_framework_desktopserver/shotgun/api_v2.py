@@ -775,7 +775,7 @@ class ShotgunAPI(object):
             if hasattr(e, "message"):
                 self.host.report_error(e.message)
             elif e.args:
-                self.host.report_error(e.args[0])
+                self.host.report_error(str(e.args[0]))
             else:
                 self.host.report_error("unknown error")
 
