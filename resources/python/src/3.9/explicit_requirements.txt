@@ -18,7 +18,7 @@ hyperlink==21.0.0
 idna==3.7
 incremental==24.7.2
 pyOpenSSL==25.0.0
-pyasn1==0.6.1
+pyasn1==0.6.2
 pyasn1_modules==0.4.2
 pycparser==2.22
 service-identity==21.1.0
