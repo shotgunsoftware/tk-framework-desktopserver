@@ -14,7 +14,7 @@ resources:
 trigger:
   branches:
     include:
-    - "*"
+    - master
   tags:
     include:
     - v*
@@ -54,6 +54,7 @@ jobs:
           CI: 1  # Used to skip certain tests on Azure
 
           COVERAGE_FILE: .coverage.interpreters
+          # Use a specific name so tk-ci-tools will properly coverage combine
 
           SHOTGUN_HOST: $(sg.ci.host)
           SHOTGUN_SCRIPT_NAME: $(sg.ci.script.name)
