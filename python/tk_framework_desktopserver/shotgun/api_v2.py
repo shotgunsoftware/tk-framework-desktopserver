@@ -214,7 +214,7 @@ class ShotgunAPI(object):
                 # The arguments list is the name of the command, then the entity
                 # type, and then a comma-separated list of entity ids.
                 entity_ids = [str(e["id"]) for e in entities]
-                (out, err, retcode) = self.process_manager.execute_toolkit_command(
+                out, err, retcode = self.process_manager.execute_toolkit_command(
                     config_entity[constants.LEGACY_CONFIG_ROOT],
                     "shotgun_run_action",
                     [data["name"], entities[0]["type"], ",".join(entity_ids)],
@@ -1017,11 +1017,9 @@ class ShotgunAPI(object):
                     self._engine.log_debug("Creating schema in sqlite db.")
 
                     # We have a brand new database. Create all tables and indices.
-                    cursor.executescript(
-                        """
+                    cursor.executescript("""
                         CREATE TABLE engine_commands (lookup_hash text, contents_hash text, commands blob);
-                    """
-                    )
+                    """)
 
                     connection.commit()
 

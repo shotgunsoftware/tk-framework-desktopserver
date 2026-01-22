@@ -149,7 +149,7 @@ def core_info(engine):
             % (lv, req_sg)
         )
     elif status == TankCoreUpdater.UPDATE_POSSIBLE:
-        (summary, url) = installer.get_release_notes()
+        summary, url = installer.get_release_notes()
 
         engine.log_info("*A new version of the Toolkit API (%s) is available!*" % lv)
         engine.log_info(
