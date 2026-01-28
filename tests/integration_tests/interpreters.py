@@ -259,7 +259,3 @@ class Python3ProjectTests(SgtkIntegrationTest):
             ("python", self.test_app_name, "Command A"),
             ("python", self.test_app_name, "Command B"),
         }
-
-
-if __name__ == "__main__":
-    ret_val = unittest.main(failfast=True, verbosity=2)

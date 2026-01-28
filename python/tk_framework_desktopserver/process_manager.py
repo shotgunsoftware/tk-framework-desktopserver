@@ -278,7 +278,7 @@ class ProcessManager(object):
                     shotgun_get_actions_dict[env_filename] = {}
                     shotgun_cache_actions_dict[cache_filename] = {}
 
-                    (out, err, code) = self.execute_toolkit_command(
+                    out, err, code = self.execute_toolkit_command(
                         pipeline_config_path,
                         "shotgun_get_actions",
                         [cache_filename, env_filename],
@@ -288,7 +288,7 @@ class ProcessManager(object):
                     )
 
                     if code == 1:
-                        (out, err, code) = self.execute_toolkit_command(
+                        out, err, code = self.execute_toolkit_command(
                             pipeline_config_path,
                             "shotgun_cache_actions",
                             [entity, cache_filename],
@@ -298,7 +298,7 @@ class ProcessManager(object):
                         )
 
                         if code == 0:
-                            (out, err, code) = self.execute_toolkit_command(
+                            out, err, code = self.execute_toolkit_command(
                                 pipeline_config_path,
                                 "shotgun_get_actions",
                                 [cache_filename, env_filename],

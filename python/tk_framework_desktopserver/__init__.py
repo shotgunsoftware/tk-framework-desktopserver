@@ -13,7 +13,6 @@ import sys
 
 import sgtk.util
 
-
 # framework path
 base_path = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
