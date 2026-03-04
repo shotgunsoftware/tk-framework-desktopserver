@@ -114,6 +114,12 @@ class Updater(object):
 
         return output
 
+    @staticmethod
+    def _git(cmd: list):
+        """Run the git command."""
+        git_cmd = ["git"] + cmd
+        subprocess.check_call(git_cmd)
+
     def _get_dependencies_to_install(self):
         """Retrieve the full list of dependencies after a pip install."""
         freeze_list = self._pip_freeze()
@@ -187,6 +193,9 @@ class Updater(object):
                     bin_handler.writelines(requirement_to_add)
                 else:
                     source_handler.writelines(requirement_to_add)
+
+        # Add the new requirements files to git
+        self._git(["add", source_reqs_path, bin_reqs_path])
 
     @staticmethod
     def _clean_before_update():

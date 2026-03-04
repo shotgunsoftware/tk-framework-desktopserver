@@ -10,7 +10,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 # Stops the script
-set -e
+set -o errexit
 
 # Get python version
 python_major_version="$(python -c "import sys; print(sys.version_info.major)")"
