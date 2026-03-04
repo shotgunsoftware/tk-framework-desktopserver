@@ -8,6 +8,7 @@ ignore:
     - resources/python/src/3.10/explicit_requirements.txt
     - resources/python/src/3.11/explicit_requirements.txt
     - resources/python/src/3.13/explicit_requirements.txt
+    # WHY &&&&??????? that's not what we want to do. Quite the opposite....
 exclude:
   global:
     # Exclude Python 3.7 deps because Snyk only scans with supported versions
