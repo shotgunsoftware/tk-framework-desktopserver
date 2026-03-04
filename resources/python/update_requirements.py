@@ -80,7 +80,7 @@ class Updater(object):
 
     def _pip_freeze(self):
         """List all packages installed."""
-        output = self._pip("freeze").strip()
+        output = self._pip(["freeze"]).strip()
         if not output:
             return []
 
