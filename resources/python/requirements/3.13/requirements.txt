@@ -1,5 +1,5 @@
 Twisted~=24.11.0
-autobahn~=25.12.2
+autobahn~=24.4.2
 certifi~=2025.7.14
 pyOpenSSL~=25.0.0
 service-identity~=24.2.0

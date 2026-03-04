@@ -81,10 +81,10 @@ class Updater(object):
     def _pip_freeze(self):
         """List all packages installed."""
         output = self._pip("freeze").strip()
-        if output == "":
+        if not output:
             return []
-        else:
-            return output.split("\n")
+
+        return output.split("\n")
 
     def _clean_pip(self):
         """Uninstall all packages with pip."""
@@ -93,14 +93,16 @@ class Updater(object):
         print("Cleaning PIP dependencies")
         
         for dependency in self._pip_freeze():
-            cmd = "uninstall -y {}".format(dependency)
-            self._pip(cmd)
+            self._pip(["uninstall", "-y", dependency])
 
-    def _pip(self, cmd):
+    def _pip(self, cmd: list):
         """Run the pip command."""
-        pip_cmd = "python -m pip".split() + cmd.split()
+        pip_cmd = ["python", "-m", "pip"] + cmd
         try:
-            output = subprocess.check_output(pip_cmd)
+            output = subprocess.check_output(
+                pip_cmd,
+                text=True,
+            )
         except subprocess.CalledProcessError as e:
             raise UpdateException(
                 "Error running pip command: {}\nReturn Code:{}\n{}".format(
@@ -109,15 +111,8 @@ class Updater(object):
                     e.output,
                 )
             )
-        
-        output = output.decode("utf-8")
-        return output
 
-    @staticmethod
-    def _git(cmd):
-        """Run the git command."""
-        git_cmd = ["git"] + cmd.split()
-        subprocess.check_output(git_cmd)
+        return output
 
     def _get_dependencies_to_install(self):
         """Retrieve the full list of dependencies after a pip install."""
@@ -133,9 +128,11 @@ class Updater(object):
 
         try:
             # pip install all the requirements into the build subfolder.
-            self._pip("install -r requirements/{}/requirements.txt".format(
-                self._python_version_dot_format
-            ))
+            self._pip([
+                "install",
+                "--requirement",
+                f"requirements/{self._python_version_dot_format}/requirements.txt",
+            ])
             print("All dependencies installed.")
 
             # list everything that was installed.
