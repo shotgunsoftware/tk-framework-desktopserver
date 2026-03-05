@@ -191,6 +191,9 @@ class Updater(object):
                 else:
                     source_handler.writelines(requirement_to_add)
 
+        # Add the new requirements files to git
+        self._git(f"add {source_reqs_path} {bin_reqs_path}")
+
     @staticmethod
     def _clean_before_update():
         return "--clean-pip" in sys.argv

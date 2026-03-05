@@ -36,16 +36,19 @@ Officially Supported Python Versions:
   - 3.9.16
   - 3.10.13
   - 3.11.9
+  - 3.13
 - Windows 
   - 3.7.9
   - 3.9.13
   - 3.10.11
   - 3.11.9
+  - 3.13
 - Linux: 
   - 3.7.16
   - 3.9.16
   - 3.10.13
   - 3.11.9
+  - 3.13
 
 This is aligned with the supported [Flow Production Tracking desktop app versions](https://help.autodesk.com/view/SGDEV/ENU/?guid=SGD_si_platform_supported_versions_html).
 
