@@ -66,7 +66,18 @@ jobs:
           # Azure Pipelines 1-10
           SHOTGUN_TEST_ENTITY_SUFFIX: '$(Agent.Name)'
 
-- ${{ if and(not(endsWith( variables['System.PullRequest.SourceBranch'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))) }}:
+# 3rd-party package regeneration pipeline.
+# Compile-time guard: never runs on master or version tags.
+# Runtime guard (job_condition): only runs when the PR branch ends with
+# '-rebuild-pkgs' (opt-in suffix). The '-automated' suffix used by the
+# generated branch never matches, so regeneration cannot trigger itself.
+# See README.md for details on how to trigger package regeneration.
+- ${{ if and(ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))) }}:
   - template: resources/python/pipelines/pipelines.yml
     parameters:
       branch: $(System.PullRequest.SourceBranch)-automated
+      job_condition: >-
+        endsWith(
+          variables['System.PullRequest.SourceBranch'],
+          '-rebuild-pkgs'
+        )

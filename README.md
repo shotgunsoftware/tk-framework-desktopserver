@@ -23,5 +23,38 @@ This is where you typically go if you want to install a framework into a project
 working on. For an overview of all the Apps and Engines in the Toolkit App Store,
 click here: https://developer.shotgridsoftware.com/162eaa4b/?title=Pipeline+Integration+Components
 
+## Regenerating 3rd-Party Packages
+
+The bundled 3rd-party packages (`resources/python/src/` and `resources/python/bin/`)
+are regenerated automatically by Azure Pipelines. This is an **opt-in** process - it
+only runs when the PR branch name **ends with `-rebuild-pkgs`**.
+
+The generated branch is named `<your-branch>-automated`, which does not end with
+`-rebuild-pkgs`, so regeneration can never trigger itself recursively.
+
+### How to trigger package regeneration
+
+1. Create a branch whose name ends with `-rebuild-pkgs`:
+   ```
+   git switch -c ticket/SG-1234-rebuild-pkgs
+   ```
+2. Open a Pull Request from that branch.
+3. Azure Pipelines will automatically run the `Py 3rd-Party Pkgs` jobs across all
+   Python versions (3.7, 3.9, 3.10, 3.11, 3.13) and platforms (Linux, Mac, Windows).
+4. The regenerated packages are committed to a new branch named
+   `ticket/SG-1234-rebuild-pkgs-automated` and pushed to the repository.
+
+Any branch that does not end with `-rebuild-pkgs` skips all regeneration jobs entirely.
+
+### Git hook (recommended)
+
+A `post-checkout` hook is provided to warn you whenever you switch to a branch that
+will trigger regeneration. The executable bit is stored in git, so no `chmod` is needed.
+To activate it, run once in the repo root:
+
+```
+git config core.hooksPath .githooks
+```
+
 ## Have a Question?
 Don't hesitate to contact us! You can find us on https://www.autodesk.com/support
