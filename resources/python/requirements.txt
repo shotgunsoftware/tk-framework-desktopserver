@@ -1,0 +1,122 @@
+# Unified requirements file for tk-framework-desktopserver Python dependencies.
+#
+# This is the single source of truth for all Python dependency versions.
+# It serves two purposes:
+#
+#   1. Building pkgs.zip - passed to update_requirements.py which calls pip
+#      under each target Python version. Pip env markers are resolved
+#      automatically based on the running interpreter.
+#
+#   2. CI test dependencies - referenced in azure-pipelines.yml as:
+#         extra_test_dependencies:
+#           - --requirement resources/python/requirements.txt
+#
+# Supported Python versions:
+#   - 3.7  (legacy; Twisted capped at 22.10.0)
+#   - 3.9  (VFX CY2022)
+#   - 3.10 (VFX CY2023)
+#   - 3.11 (VFX CY2024)
+#   - 3.13 (VFX CY2026; 3.12 was skipped - not a VFX platform year)
+#
+# When updating a dependency, run update_requirements.py for each Python
+# version to regenerate the frozen explicit_requirements.txt files, then
+# rebuild pkgs.zip with install_source_only.sh.
+
+
+# ----------------------------------------------------------------------------
+# Core async / networking framework
+# ----------------------------------------------------------------------------
+
+# Twisted - main async framework.
+# 22.10.0 is the last release supporting Python 3.7.
+# 24.10.0 is used for 3.9-3.11.
+# 24.11+ is required for 3.13 (dropped legacy code paths incompatible with
+# the new interpreter).
+Twisted==22.10.0; python_version == "3.7"
+Twisted==24.10.0; python_version > "3.7" and python_version < "3.13"
+Twisted~=24.11.0; python_version >= "3.13"
+
+# autobahn - WebSocket and WAMP protocol implementation on top of Twisted.
+# 24.x required for 3.13: rewrote internals incompatible with stricter
+# type checking in newer Python versions.
+autobahn==22.12.1; python_version < "3.13"
+autobahn~=24.4.2; python_version >= "3.13"
+
+
+# ----------------------------------------------------------------------------
+# TLS / certificate handling
+# ----------------------------------------------------------------------------
+
+# pyOpenSSL - OpenSSL bindings. 25.x compatible with all supported versions.
+pyOpenSSL==25.0.0
+
+# service-identity - certificate verification for pyOpenSSL.
+# 24.x required for 3.13 (updated type annotations, dropped older deps).
+service-identity==21.1.0; python_version < "3.13"
+service-identity~=24.2.0; python_version >= "3.13"
+
+# cryptography - low-level cryptography backend for pyOpenSSL.
+# Binary package (wheel). NOTE: only needed for SAST scanning, not runtime.
+# 44.x compatible across all supported Python versions.
+cryptography==44.0.1
+
+# cffi - C foreign function interface; dependency of cryptography.
+# Binary package (wheel). 1.17.x required for Python 3.13 (updated C API
+# adapters for the new interpreter ABI).
+cffi==1.15.1; python_version < "3.13"
+cffi~=1.17.1; python_version >= "3.13"
+
+
+# ----------------------------------------------------------------------------
+# Utility libraries
+# ----------------------------------------------------------------------------
+
+# certifi - Mozilla CA certificate bundle. Updated alongside Desktop releases.
+certifi==2026.1.4
+
+# hyperlink - Pythonic URL parsing and manipulation.
+hyperlink==21.0.0
+
+# idna - Internationalized Domain Names in Applications.
+idna==3.7; python_version < "3.13"
+idna~=3.8; python_version >= "3.13"
+
+# six - Python 2/3 compatibility shim.
+# Twisted 24.11 dropped six as a direct dependency, so not needed on 3.13.
+# Still required transitively on 3.9-3.11.
+six==1.16.0; python_version < "3.13"
+
+# zope.interface - component interface architecture; used internally by Twisted.
+# Binary package (wheel). 7.x required for Python 3.13.
+zope.interface==5.5.2; python_version < "3.13"
+zope.interface~=7.1.0; python_version >= "3.13"
+
+
+# ----------------------------------------------------------------------------
+# attrs
+# ----------------------------------------------------------------------------
+#
+# IMPORTANT: Pinned to 22.2.0 for ALL Python versions.
+# Do not upgrade without reading this carefully.
+#
+# Root cause of SG-42304 (Python 3.13 CI failure):
+#
+# attrs ships two top-level packages: `attr/` and `attrs/`. Since attrs
+# 23.2.0, `attrs/__init__.py` does `from attr import Converter`.
+#
+# During a pytest run, `attr` is imported early (as a pytest dependency) and
+# cached in sys.modules. Our __init__.py then inserts pkgs.zip at the front
+# of sys.path. However, Python never re-resolves modules already in the cache.
+# If pkgs.zip bundles attrs >= 23.2.0 while sys.modules still holds the older
+# `attr` module (without Converter), the import raises:
+#
+#     ImportError: cannot import name 'Converter' from 'attr'
+#
+# Pinning to 22.2.0 here ensures that both pkgs.zip and the CI system-level
+# install use the exact same version, so the cached module is always
+# compatible with what pkgs.zip expects.
+#
+# Twisted 24.x and autobahn 24.x only require attrs >= 22.2.0, so this is
+# fully compatible with all supported Python versions.
+#
+attrs==22.2.0

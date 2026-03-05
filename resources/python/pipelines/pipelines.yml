@@ -7,8 +7,9 @@
 parameters:
   branch: ""
 
-  # Runtime condition applied to every job. Declared here so azure-pipelines.yml
-  # owns the opt-in logic; the template applies it consistently to all jobs.
+  # Runtime condition applied to the first source job. All downstream jobs
+  # cascade-skip automatically via condition: succeeded() when the first job
+  # is skipped. Declared here so azure-pipelines.yml owns the opt-in logic.
   # Defaults to 'succeeded()' so the template is usable standalone.
   #
   # In production use (azure-pipelines.yml), this is set to skip all jobs when
@@ -19,483 +20,133 @@ parameters:
   #     packages (e.g. CI-only or documentation changes).
   job_condition: "succeeded()"
 
+  # Each entry describes one Python version to build requirements for.
+  # Per-version job order: source -> linux -> mac -> windows.
+  # Versions are chained sequentially: each version's source job depends on
+  # the previous version's windows job via prev.
+  python_versions:
+    - name: "3.7"
+      # No prev - this is the first version; it also creates the branch.
+
+    - name: "3.9"
+      prev: "3.7"
+
+    - name: "3.10"
+      prev: "3.9"
+
+    - name: "3.11"
+      prev: "3.10"
+
+    - name: "3.13"
+      prev: "3.11"
+
+  # OS platforms to build binary requirements for, in order.
+  # The first platform (linux) depends on the source job for the same version.
+  # Subsequent platforms chain via prev.
+  # The last platform (windows) acts as the cross-version dependency anchor
+  # (source_<next_version> depends on windows_<prev_version>).
+  os_platforms:
+    - name: linux
+      display_name: Linux
+      short: Lin
+      vm_image: ubuntu-22.04
+
+    - name: mac
+      display_name: Mac
+      short: Mac
+      vm_image: macOS-14
+      prev: linux
+
+    - name: windows
+      display_name: Windows
+      short: Win
+      vm_image: windows-2022
+      prev: mac
+
 jobs:
-- job: install_source_dependencies_3_7
-  displayName: Install source dependencies Python 3.7
-  condition: and(succeeded(), ${{ parameters.job_condition }})
-  pool:
-    vmImage: ubuntu-22.04
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.7
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }} || git checkout $(System.PullRequest.SourceBranch) && git checkout -b ${{ parameters.branch }}
-      git merge origin/$(System.PullRequest.SourceBranch)
-      git push -u origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Create branch if not exists or update
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      python update_requirements.py --clean-pip
-    displayName: Generate all explicit_requirements 3.7
-    workingDirectory: resources/python
-  - script: |
-      set -e
-      ./install_source_only.sh
-      git commit --allow-empty -a -m "Update source requirements 3.7"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update source requirements 3.7
-    workingDirectory: resources/python
+- ${{ each pyver in parameters.python_versions }}:
 
-- job: install_source_dependencies_3_9
-  displayName: Install source dependencies Python 3.9
-  dependsOn: install_source_dependencies_3_7
-  condition: succeeded()
-  pool:
-    vmImage: ubuntu-22.04
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.9
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      python update_requirements.py --clean-pip
-    displayName: Generate all explicit_requirements 3.9
-    workingDirectory: resources/python
-  - script: |
-      set -e
-      ./install_source_only.sh
-      git commit --allow-empty -a -m "Update source requirements 3.9"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update source requirements 3.9
-    workingDirectory: resources/python
+  # -----------------------------------------------------------------
+  # Source
+  # -----------------------------------------------------------------
+  - job: source_${{ replace(pyver.name, '.', '_') }}
+    displayName: Py 3rd-Party Pkgs - ${{ pyver.name }} - Src
+    ${{ if not(pyver.prev) }}:
+      condition: and(succeeded(), ${{ parameters.job_condition }})
+    pool:
+      vmImage: ubuntu-22.04
+    ${{ if pyver.prev }}:
+      dependsOn: windows_${{ replace(pyver.prev, '.', '_') }}
+    steps:
+    - template: template.yml
+      parameters:
+        python_version: ${{ pyver.name }}
 
-- job: install_source_dependencies_3_10
-  displayName: Install source dependencies Python 3.10
-  dependsOn: install_source_dependencies_3_9
-  condition: succeeded()
-  pool:
-    vmImage: ubuntu-22.04
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.10
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      python update_requirements.py --clean-pip
-    displayName: Generate all explicit_requirements 3.10
-    workingDirectory: resources/python
-  - script: |
-      set -e
-      ./install_source_only.sh
-      git commit --allow-empty -a -m "Update source requirements 3.10"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update source requirements 3.10
-    workingDirectory: resources/python
+    - ${{ if not(pyver.prev) }}:
+      - task: Bash@3
+        displayName: Create branch if not exists or update
+        inputs:
+          targetType: inline
+          script: |
+            set -e
+            git switch ${{ parameters.branch }} || git switch -c ${{ parameters.branch }} origin/$(System.PullRequest.SourceBranch)
+            git push -u origin ${{ parameters.branch }}
+        env:
+          GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
 
-- job: install_source_dependencies_3_11
-  displayName: Install source dependencies Python 3.11
-  dependsOn: install_source_dependencies_3_10
-  condition: succeeded()
-  pool:
-    vmImage: ubuntu-22.04
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.11
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      python update_requirements.py --clean-pip
-    displayName: Generate all explicit_requirements 3.11
-    workingDirectory: resources/python
-  - script: |
-      set -e
-      ./install_source_only.sh
-      git commit --allow-empty -a -m "Update source requirements 3.11"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update source requirements 3.11
-    workingDirectory: resources/python
+    - task: Bash@3
+      displayName: Generate all explicit_requirements ${{ pyver.name }}
+      inputs:
+        targetType: inline
+        script: |
+          set -e
+          git switch ${{ parameters.branch }}
+          python update_requirements.py --clean-pip
+        workingDirectory: resources/python
+      env:
+        GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
 
-- job: install_source_dependencies_3_13
-  displayName: Install source dependencies Python 3.13
-  dependsOn: install_source_dependencies_3_11
-  condition: succeeded()
-  pool:
-    vmImage: ubuntu-22.04
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.13
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      python update_requirements.py --clean-pip
-    displayName: Generate all explicit_requirements 3.13
-    workingDirectory: resources/python
-  - script: |
-      set -e
-      ./install_source_only.sh
-      git commit --allow-empty -a -m "Update source requirements 3.13"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update source requirements 3.13
-    workingDirectory: resources/python
+    - task: Bash@3
+      displayName: Update source requirements ${{ pyver.name }}
+      inputs:
+        targetType: inline
+        script: |
+          set -e
+          ./install_source_only.sh
+          git add src/
+          git commit --allow-empty -a -m "Update source requirements ${{ pyver.name }}"
+          git push origin ${{ parameters.branch }}
+        workingDirectory: resources/python
+      env:
+        GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
 
-# ---------------------------------------------
-# Binary dependencies run also in order to prevent git race conditions
-# MacOS
-
-- job: install_binary_dependencies_mac_3_7
-  displayName: Install binary dependencies Mac 3.7
-  dependsOn: install_source_dependencies_3_13
-  condition: succeeded()
-  pool:
-    vmImage: 'macOS-14'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.7
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      ./install_binary_mac.sh
-      git commit --allow-empty -a -m "Update binary requirements in Mac Python 3.7"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_mac_3_9
-  displayName: Install binary dependencies Mac 3.9
-  dependsOn: install_binary_dependencies_mac_3_7
-  condition: succeeded()
-  pool:
-    vmImage: 'macOS-14'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.9
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      ./install_binary_mac.sh
-      git commit --allow-empty -a -m "Update binary requirements in Mac Python 3.9"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_mac_3_10
-  displayName: Install binary dependencies Mac 3.10
-  dependsOn: install_binary_dependencies_mac_3_9
-  condition: succeeded()
-  pool:
-    vmImage: 'macOS-14'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.10
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      ./install_binary_mac.sh
-      git commit --allow-empty -a -m "Update binary requirements in Mac Python 3.10"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_mac_3_11
-  displayName: Install binary dependencies Mac 3.11
-  dependsOn: install_binary_dependencies_mac_3_10
-  condition: succeeded()
-  pool:
-    vmImage: 'macOS-14'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.11
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      ./install_binary_mac.sh
-      git commit --allow-empty -a -m "Update binary requirements in Mac Python 3.11"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_mac_3_13
-  displayName: Install binary dependencies Mac 3.13
-  dependsOn: install_binary_dependencies_mac_3_11
-  condition: succeeded()
-  pool:
-    vmImage: 'macOS-14'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.13
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      ./install_binary_mac.sh
-      git commit --allow-empty -a -m "Update binary requirements in Mac Python 3.13"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-
-# Linux
-
-- job: install_binary_dependencies_linux_3_7
-  displayName: Install binary dependencies Linux 3.7
-  dependsOn: install_binary_dependencies_mac_3_13
-  condition: succeeded()
-  pool:
-    vmImage: 'ubuntu-22.04'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.7
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      ./install_binary_linux.sh
-      git commit --allow-empty -a -m "Update binary requirements in Linux Python 3.7"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_linux_3_9
-  displayName: Install binary dependencies Linux 3.9
-  dependsOn: install_binary_dependencies_linux_3_7
-  condition: succeeded()
-  pool:
-    vmImage: 'ubuntu-22.04'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.9
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      ./install_binary_linux.sh
-      git commit --allow-empty -a -m "Update binary requirements in Linux Python 3.9"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_linux_3_10
-  displayName: Install binary dependencies Linux 3.10
-  dependsOn: install_binary_dependencies_linux_3_9
-  condition: succeeded()
-  pool:
-    vmImage: 'ubuntu-22.04'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.10
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      ./install_binary_linux.sh
-      git commit --allow-empty -a -m "Update binary requirements in Linux Python 3.10"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_linux_3_11
-  displayName: Install binary dependencies Linux 3.11
-  dependsOn: install_binary_dependencies_linux_3_10
-  condition: succeeded()
-  pool:
-    vmImage: 'ubuntu-22.04'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.11
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      ./install_binary_linux.sh
-      git commit --allow-empty -a -m "Update binary requirements in Linux Python 3.11"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_linux_3_13
-  displayName: Install binary dependencies Linux 3.13
-  dependsOn: install_binary_dependencies_linux_3_11
-  condition: succeeded()
-  pool:
-    vmImage: 'ubuntu-22.04'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.13
-  - script: |
-      set -e
-      git checkout ${{ parameters.branch }}
-      ./install_binary_linux.sh
-      git commit --allow-empty -a -m "Update binary requirements in Linux Python 3.13"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-
-# Windows
-
-- job: install_binary_dependencies_windows_3_7
-  displayName: Install binary dependencies Windows 3.7
-  dependsOn: install_binary_dependencies_linux_3_13
-  condition: succeeded()
-  pool:
-    vmImage: 'windows-2022'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.7
-  - script: |
-      git checkout ${{ parameters.branch }}
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-  - powershell: .\install_binary_windows.ps1
-    displayName: Run PowerShell Scripts
-    workingDirectory: resources/python
-  - script: |
-      git commit --allow-empty -a -m "Update binary requirements in Windows Python 3.7"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Run Push Scripts
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_windows_3_9
-  displayName: Install binary dependencies Windows 3.9
-  dependsOn: install_binary_dependencies_windows_3_7
-  condition: succeeded()
-  pool:
-    vmImage: 'windows-2022'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.9
-  - script: |
-      git checkout ${{ parameters.branch }}
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-  - powershell: .\install_binary_windows.ps1
-    displayName: Run PowerShell Scripts
-    workingDirectory: resources/python
-  - script: |
-      git commit --allow-empty -a -m "Update binary requirements in Windows Python 3.9"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Run Push Scripts
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_windows_3_10
-  displayName: Install binary dependencies Windows 3.10
-  dependsOn: install_binary_dependencies_windows_3_9
-  condition: succeeded()
-  pool:
-    vmImage: 'windows-2022'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.10
-  - script: |
-      git checkout ${{ parameters.branch }}
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-  - powershell: .\install_binary_windows.ps1
-    displayName: Run PowerShell Scripts
-    workingDirectory: resources/python
-  - script: |
-      git commit --allow-empty -a -m "Update binary requirements in Windows Python 3.10"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Run Push Scripts
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_windows_3_11
-  displayName: Install binary dependencies Windows 3.11
-  dependsOn: install_binary_dependencies_windows_3_10
-  condition: succeeded()
-  pool:
-    vmImage: 'windows-2022'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.11
-  - script: |
-      git checkout ${{ parameters.branch }}
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-  - powershell: .\install_binary_windows.ps1
-    displayName: Run PowerShell Scripts
-    workingDirectory: resources/python
-  - script: |
-      git commit --allow-empty -a -m "Update binary requirements in Windows Python 3.11"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Run Push Scripts
-    workingDirectory: resources/python
-
-- job: install_binary_dependencies_windows_3_13
-  displayName: Install binary dependencies Windows 3.13
-  dependsOn: install_binary_dependencies_windows_3_11
-  condition: succeeded()
-  pool:
-    vmImage: 'windows-2022'
-  steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.13
-  - script: |
-      git checkout ${{ parameters.branch }}
-    displayName: Update binary requirements
-    workingDirectory: resources/python
-  - powershell: .\install_binary_windows.ps1
-    displayName: Run PowerShell Scripts
-    workingDirectory: resources/python
-  - script: |
-      git commit --allow-empty -a -m "Update binary requirements in Windows Python 3.13"
-      git push origin ${{ parameters.branch }}
-    env:
-      GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
-    displayName: Run Push Scripts
-    workingDirectory: resources/python
+  # -----------------------------------------------------------------
+  # Binary (linux -> mac -> windows)
+  # -----------------------------------------------------------------
+  - ${{ each os in parameters.os_platforms }}:
+    - job: ${{ os.name }}_${{ replace(pyver.name, '.', '_') }}
+      displayName: Py 3rd-Party Pkgs - ${{ pyver.name }} - ${{ os.short }}
+      ${{ if os.prev }}:
+        dependsOn: ${{ os.prev }}_${{ replace(pyver.name, '.', '_') }}
+      ${{ else }}:
+        dependsOn: source_${{ replace(pyver.name, '.', '_') }}
+      pool:
+        vmImage: ${{ os.vm_image }}
+      steps:
+      - template: template.yml
+        parameters:
+          python_version: ${{ pyver.name }}
+      - task: Bash@3
+        displayName: Install and commit binary requirements
+        inputs:
+          targetType: inline
+          workingDirectory: resources/python
+          script: |
+            set -e
+            git switch ${{ parameters.branch }}
+            python install_binary.py
+            git add bin/
+            git commit --allow-empty -a -m "Update binary requirements in ${{ os.display_name }} Python ${{ pyver.name }}"
+            git push origin ${{ parameters.branch }}
+        env:
+          GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
