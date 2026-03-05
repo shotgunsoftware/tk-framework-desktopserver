@@ -48,7 +48,7 @@ jobs:
 #         ))
 
 - job: test_julien_1
-  displayName: Test ${{ variables['Build.Reason'] }}
+  displayName: Test 33
   pool:
     vmImage: ubuntu-22.04
   steps:
@@ -56,3 +56,20 @@ jobs:
       set -e
       echo "Hello"
       env |sort
+    displayName: Test1 - Reason ${{ variables['Build.Reason'] }}
+
+  - script: |
+      set -e
+      echo "Hello"
+    displayName: Test2 - SourceBranch ${{ variables['Build.SourceBranch'] }}
+
+  - script: |
+      set -e
+      echo "Hello"
+    displayName: Test3 - SourceBranchName ${{ variables['Build.SourceBranchName'] }}
+
+  - ${{ if eq(variables['Build.SourceBranchName'], 'tree/eeee') }}:
+    - script: |
+        set -e
+        echo "Hello"
+      displayName: Test4
