@@ -37,45 +37,50 @@ jobs:
 # Runtime guard (job_condition): skips all jobs if the PR source branch ends
 # with '-automated', preventing the generated branch's own PR from re-triggering.
 # See README.md for details on how to trigger package regeneration.
-# - ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-#   - template: resources/python/pipelines/pipelines.yml
-#     parameters:
-#       branch: $(System.PullRequest.SourceBranch)-automated
-#       job_condition: >-
-#         not(endsWith(
-#           variables['System.PullRequest.SourceBranch'],
-#           '-automated'
-#         ))
-
-- job: test_julien_1
-  displayName: Test 33
-  pool:
-    vmImage: ubuntu-22.04
-  steps:
-  - script: |
-      set -e
-      echo "Hello"
-      env |sort
-    displayName: Test1 - Reason ${{ variables['Build.Reason'] }}
-
-  - script: |
-      set -e
-      echo "Hello"
-    displayName: Test2 - SourceBranch ${{ variables['Build.SourceBranch'] }}
-
-  - script: |
-      set -e
-      echo "Hello"
-    displayName: Test3 - SourceBranchName ${{ variables['Build.SourceBranchName'] }}
-
-  - ${{ if ne(variables['Build.SourceBranchName'], 'gggg') }}:
+- ${{ if and(not(endsWith( variables['Build.SourceBranchName'], '-automated')), ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))) }}:
+#  - template: resources/python/pipelines/pipelines.yml
+#    parameters:
+#      branch: $(System.PullRequest.SourceBranch)-automated
+  - job: test_julien_1
+    displayName: Test 33
+    pool:
+      vmImage: ubuntu-22.04
+    steps:
     - script: |
         set -e
         echo "Hello"
-      displayName: Test4 - should not run
+        env |sort
+      displayName: Test1
 
-  - ${{ if eq(variables['Build.SourceBranchName'], 'gggg') }}:
-    - script: |
-        set -e
-        echo "Hello"
-      displayName: Test5 - should run
+# - job: test_julien_1
+#   displayName: Test 33
+#   pool:
+#     vmImage: ubuntu-22.04
+#   steps:
+#   - script: |
+#       set -e
+#       echo "Hello"
+#       env |sort
+#     displayName: Test1 - Reason ${{ variables['Build.Reason'] }}
+
+#   - script: |
+#       set -e
+#       echo "Hello"
+#     displayName: Test2 - SourceBranch ${{ variables['Build.SourceBranch'] }}
+
+#   - script: |
+#       set -e
+#       echo "Hello"
+#     displayName: Test3 - SourceBranchName ${{ variables['Build.SourceBranchName'] }}
+
+#   - ${{ if ne(variables['Build.SourceBranchName'], 'gggg') }}:
+#     - script: |
+#         set -e
+#         echo "Hello"
+#       displayName: Test4 - should not run
+
+#   - ${{ if eq(variables['Build.SourceBranchName'], 'gggg') }}:
+#     - script: |
+#         set -e
+#         echo "Hello"
+#       displayName: Test5 - should run
