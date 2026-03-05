@@ -1,5 +1,5 @@
 
-# Copyright (c) 2025 Shotgun Software Inc.
+# Copyright (c) 2026 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
 #
@@ -9,6 +9,7 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 Automat==25.4.16
+Incremental==24.11.0
 Twisted==24.10.0
 attrs==22.2.0
 autobahn==22.12.1
@@ -16,13 +17,13 @@ certifi==2024.12.14
 constantly==23.10.4
 hyperlink==21.0.0
 idna==3.7
-incremental==24.7.2
+packaging==26.0
 pyOpenSSL==25.0.0
-pyasn1==0.6.1
+pyasn1==0.6.2
 pyasn1_modules==0.4.2
-pycparser==2.22
+pycparser==2.23
 service-identity==21.1.0
 six==1.16.0
-tomli==2.2.1
+tomli==2.4.0
 txaio==23.6.1
 typing_extensions==4.15.0
