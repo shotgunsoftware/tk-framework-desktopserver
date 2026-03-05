@@ -68,8 +68,14 @@ jobs:
       echo "Hello"
     displayName: Test3 - SourceBranchName ${{ variables['Build.SourceBranchName'] }}
 
-  - ${{ if eq(variables['Build.SourceBranchName'], 'tree/eeee') }}:
+  - ${{ if ne(variables['Build.SourceBranchName'], 'gggg') }}:
     - script: |
         set -e
         echo "Hello"
-      displayName: Test4
+      displayName: Test4 - should not run
+
+  - ${{ if eq(variables['Build.SourceBranchName'], 'gggg') }}:
+    - script: |
+        set -e
+        echo "Hello"
+      displayName: Test5 - should run
