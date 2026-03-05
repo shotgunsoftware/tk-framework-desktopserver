@@ -52,9 +52,6 @@ jobs:
   pool:
     vmImage: ubuntu-22.04
   steps:
-  - template: template.yml
-    parameters:
-      python_version: 3.11
   - script: |
       set -e
       echo "Hello"
