@@ -5,7 +5,7 @@ bundled in the `bin` and `src` directories.
 
 ## CI Automation
 
-This process is *almost* fully taken care of by **CI automation** under the
+This process is fully taken care of by **CI automation** under the
 [pipelines](pipelines/pipelines.yml) file.
 
 ### How to trigger the regeneration pipeline
@@ -39,20 +39,13 @@ condition in [pipelines.yml](pipelines/pipelines.yml): all regen jobs are
 skipped when `System.PullRequest.SourceBranch` ends with `-automated` or
 `-no-rebuild`.
 
-> [!Important]
-> **Wait! Did you say almost?**
->
-> On one hand, Azure CI currently only provides Intel architecture macOS
-> runners.
-> On the other hand, there are two specific Python libraries that don't provide
-> *Universal* wheels on pypi.org: [CFFI](https://pypi.org/project/cffi) and
-> [Zope.interface](https://pypi.org/project/zope.interface).
->
-> So unfortunately, our CI is not able to do it all for macOS at the moment
-> (SG-40224).
-> Once the CI has finished building the `-automated` branch, **you MUST check
-> it out and manually run the
-> [macOS for Apple silicon architecture (arm64)](#macos-for-apple-silicon-architecture-arm64) section**!
+> [!Note]
+> The `install_binary_mac.sh` script automatically produces universal binaries
+> for Python 3.10+ by cross-compiling architecture-specific packages (such as
+> [CFFI](https://pypi.org/project/cffi) and
+> [Zope.interface](https://pypi.org/project/zope.interface)) using `ARCHFLAGS`
+> and combining the results with `lipo`. No Apple Silicon machine is required -
+> the script works correctly on any macOS, including Intel CI runners (SG-40224).
 
 
 ## Support Python versions
@@ -279,12 +272,12 @@ git push
 ```
 
 
-#### macOS for Intel architecture (x86_64)
+#### macOS
 
-> [!Important]
-> If you have an Apple Silicon computer, make sure to run Python in
-> **Rosetta mode** (`arch -x86_64`).
-> You might need to install a dedicated Python environment to accomplish this.
+> [!Note]
+> The script works on any macOS machine (Intel or Apple Silicon). For Python
+> 3.10+, it automatically produces universal binaries by cross-compiling
+> architecture-specific packages and combining them with `lipo`.
 
 ```shell
 cd $HOME/instances/tk-framework-desktopserver/resources/python
@@ -295,121 +288,5 @@ git add .
 git commit -am "Update binary requirements in macOS Python 3.7"
 git push
 
-# Repeat steps for Python 3.9 and 3.10
+# Repeat steps for each supported Python version
 ```
-
-
-#### macOS for Apple silicon architecture (arm64)
-
-> [!Note]
-> Skip this section for Python versions 3.9 and below.
-
-Unfortunately, some Python libraries are not distributed in Universal platform
-format (*fat*), but are platform-specific.
-For those libraries, you need to run the process a second time on an M1/M2/M3... computer and then generate Universal libraries.
-
-> [!Warning]
-> You need an Apple silicon computer for this task (ex: M1, M2, ...).
-> Also, make sure your Python environment runs in **Native mode**.
-
-> [!Important]
-> Currently, only two libraries are known not to be distributed as Universal libraries.
-> However, this may change, so please check if other `.so` files are present and adjust this document accordingly.
-
-1.  Select the right folder and load the Python venv
-    ```shell
-    cd $HOME/instances/tk-framework-desktopserver/resources/python
-    source $HOME/venv/tk-framework-desktopserver-310/bin/activate
-    ```
-
-1.  Confirm the current  `-darwin.so` are Intel-only platform (x86_64)
-    * CFFI library
-      ```shell
-      $ file bin/3.10/mac/_cffi_backend.cpython-310-darwin.so
-      Mach-O 64-bit bundle x86_64
-      ```
-    * Zope Interface library
-      ```shell
-      $ file bin/3.10/mac/zope/interface/_zope_interface_coptimizations.cpython-310-darwin.so
-      Mach-O 64-bit bundle x86_64
-      ```
-
-1.  Rename the `-darwin.so` files to `-x86_64.so`
-    * CFFI library
-      ```shell
-      mv bin/3.10/mac/_cffi_backend.cpython-310-darwin.so _cffi_backend.cpython-310-x86_64.so
-      ```
-    * Zope Interface library
-      ```shell
-      mv bin/3.10/mac/zope/interface/_zope_interface_coptimizations.cpython-310-darwin.so \
-        _zope_interface_coptimizations.cpython-310-x86_64.so
-      ```
-
-1.  Execute the install script (in silicon mode)
-    ```shell
-    ./install_binary_mac.sh
-    ```
-
-1.  Confirm that the new `-darwin.so` are Silicon-only platform (arm64)
-    * CFFI library
-      ```shell
-      $ file bin/3.10/mac/_cffi_backend.cpython-310-darwin.so
-      Mach-O Mach-O 64-bit bundle arm64
-      ```
-    * Zope Interface library
-      ```shell
-      $ file bin/3.10/mac/zope/interface/_zope_interface_coptimizations.cpython-310-darwin.so
-      Mach-O 64-bit bundle arm64
-      ```
-
-1.  Rename the new `-darwin.so` files to `-arm64.so`
-    * CFFI library
-      ```shell
-      mv bin/3.10/mac/_cffi_backend.cpython-310-darwin.so _cffi_backend.cpython-310-arm64.so
-      ```
-    * Zope Interface library
-      ```shell
-      mv bin/3.10/mac/zope/interface/_zope_interface_coptimizations.cpython-310-darwin.so \
-        _zope_interface_coptimizations.cpython-310-arm64.so
-      ```
-
-1.  Combine the two `.so` files into a Universal library using the native
-    macOS `lipo` tool
-    * CFFI library
-      ```shell
-      lipo _cffi_backend.cpython-310-x86_64.so _cffi_backend.cpython-310-arm64.so -create \
-        -output bin/3.10/mac/_cffi_backend.cpython-310-darwin.so
-      ```
-    * Zope Interface library
-      ```shell
-      lipo _zope_interface_coptimizations.cpython-310-x86_64.so \
-        _zope_interface_coptimizations.cpython-310-arm64.so -create -output \
-        bin/3.10/mac/zope/interface/_zope_interface_coptimizations.cpython-310-darwin.so
-      ```
-
-1.  Confirm that the `-darwin.so` files are now Universal with both platforms
-    * CFFI library
-      ```shell
-      $ file bin/3.10/mac/_cffi_backend.cpython-310-darwin.so
-      Mach-O universal binary with 2 architectures: [x86_64:Mach-O 64-bit bundle x86_64] [arm64:Mach-O 64-bit bundle arm64]
-      (for architecture x86_64):     Mach-O 64-bit bundle x86_64
-      (for architecture arm64):      Mach-O 64-bit bundle arm64
-      ```
-    * Zope Interface library
-      ```shell
-      $ file bin/3.10/mac/zope/interface/_zope_interface_coptimizations.cpython-310-darwin.so
-      Mach-O universal binary with 2 architectures: [x86_64:Mach-O 64-bit bundle x86_64] [arm64:Mach-O 64-bit bundle arm64]
-      (for architecture x86_64):     Mach-O 64-bit bundle x86_64
-      (for architecture arm64):      Mach-O 64-bit bundle arm64
-      ```
-
-1.  Commit and Push
-
-    ```shell
-    git add bin/
-    git commit -m "Update binary requirements in macOS Python 3.10 (Universal)"
-    git push
-    ```
-
-> [!Important]
-> Repeat the Process for each Python version 3.10+!
