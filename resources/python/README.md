@@ -7,9 +7,37 @@ bundled in the `bin` and `src` directories.
 
 This process is *almost* fully taken care of by **CI automation** under the
 [pipelines](pipelines/pipelines.yml) file.
-When changes are pushed to GitHub, it will create a new branch with the same
-name adding the `-automated` suffix.
-Please review the changes and open a PR.
+
+### How to trigger the regeneration pipeline
+
+Open a Pull Request from any branch that does **not** end with `-automated` or
+`-no-rebuild`. The pipeline will:
+
+1. Regenerate all source and binary requirements for every supported Python
+   version and OS.
+2. Commit the results to a new branch named `<your-branch>-automated`.
+3. Push the branch and open a PR for review.
+
+### Opting out of the regeneration pipeline
+
+Sometimes you want to open a PR without triggering the package regeneration
+(e.g. a documentation or CI-only change). Simply name your branch with the
+`-no-rebuild` suffix:
+
+```shell
+git switch -c ticket/SG-12345-fix-docs-no-rebuild
+```
+
+The CI tests will still run normally - only the regen jobs are skipped.
+
+### Why the `-automated` branch does not re-trigger the pipeline
+
+When the pipeline pushes the `-automated` branch and opens a PR for it, that
+PR would normally queue the pipeline again and create an
+`<your-branch>-automated-automated` branch. This is prevented by a runtime
+condition in [pipelines.yml](pipelines/pipelines.yml): all regen jobs are
+skipped when `System.PullRequest.SourceBranch` ends with `-automated` or
+`-no-rebuild`.
 
 > [!Important]
 > **Wait! Did you say almost?**
