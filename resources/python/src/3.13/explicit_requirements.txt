@@ -13,7 +13,7 @@ Incremental==24.11.0
 Twisted==24.11.0
 attrs==22.2.0
 autobahn==24.4.2
-certifi==2025.7.14
+certifi==2026.1.4
 constantly==23.10.4
 hyperlink==21.0.0
 idna==3.11
