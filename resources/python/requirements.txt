@@ -1,22 +1,9 @@
-# Unified requirements file for tk-framework-desktopserver Python dependencies.
-#
-# This is the single source of truth for all Python dependency versions.
-# It serves two purposes:
-#
-#   1. Building pkgs.zip - passed to update_requirements.py which calls pip
-#      under each target Python version. Pip env markers are resolved
-#      automatically based on the running interpreter.
-#
-#   2. CI test dependencies - referenced in azure-pipelines.yml as:
-#         extra_test_dependencies:
-#           - --requirement resources/python/requirements.txt
-#
 # Supported Python versions:
 #   - 3.7  (legacy; Twisted capped at 22.10.0)
 #   - 3.9  (VFX CY2022)
 #   - 3.10 (VFX CY2023)
 #   - 3.11 (VFX CY2024)
-#   - 3.13 (VFX CY2026; 3.12 was skipped - not a VFX platform year)
+#   - 3.13 (VFX CY2026)
 #
 # When updating a dependency, run update_requirements.py for each Python
 # version to regenerate the frozen explicit_requirements.txt files, then
@@ -32,8 +19,8 @@
 # 24.10.0 is used for 3.9-3.11.
 # 24.11+ is required for 3.13 (dropped legacy code paths incompatible with
 # the new interpreter).
-Twisted==22.10.0; python_version == "3.7"
-Twisted==24.10.0; python_version > "3.7" and python_version < "3.13"
+Twisted==22.10.0; python_version < "3.9"
+Twisted==24.10.0; python_version >= "3.9" and python_version < "3.13"
 Twisted~=24.11.0; python_version >= "3.13"
 
 # autobahn - WebSocket and WAMP protocol implementation on top of Twisted.
@@ -58,7 +45,8 @@ service-identity~=24.2.0; python_version >= "3.13"
 # cryptography - low-level cryptography backend for pyOpenSSL.
 # Binary package (wheel). NOTE: only needed for SAST scanning, not runtime.
 # 44.x compatible across all supported Python versions.
-cryptography==44.0.1
+cryptography==44.0.3; python_version < "3.13"
+cryptography~=44.0.1; python_version >= "3.13"
 
 # cffi - C foreign function interface; dependency of cryptography.
 # Binary package (wheel). 1.17.x required for Python 3.13 (updated C API

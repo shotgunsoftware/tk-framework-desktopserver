@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Shotgun Software Inc.
+# Copyright (c) 2026 Shotgun Software Inc.
 #
 # CONFIDENTIAL AND PROPRIETARY
 #
@@ -147,5 +147,3 @@ for pattern in [
 ]:
     for match in bin_dir.glob(pattern):
         shutil.rmtree(match, ignore_errors=True)
-
-

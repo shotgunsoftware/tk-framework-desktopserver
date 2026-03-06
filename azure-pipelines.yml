@@ -37,7 +37,7 @@ jobs:
     extra_test_dependencies:
       # All runtime dependencies come from the unified requirements file.
       # This guarantees CI-installed versions match what pkgs.zip bundles,
-      # preventing sys.modules version conflicts (see SG-42304). TODO
+      # preventing sys.modules version conflicts.
       - --requirement=azure-pipelines/requirements.txt
     post_tests_steps:
       - task: Bash@3

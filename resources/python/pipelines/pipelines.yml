@@ -70,7 +70,7 @@ jobs:
   # Source
   # -----------------------------------------------------------------
   - job: source_${{ replace(pyver.name, '.', '_') }}
-    displayName: Py 3rd-Party Pkgs - ${{ pyver.name }} - Src
+    displayName: Pkg Req - Py ${{ pyver.name }} - Src
     ${{ if not(pyver.prev) }}:
       condition: and(succeeded(), ${{ parameters.job_condition }})
     pool:
@@ -125,7 +125,7 @@ jobs:
   # -----------------------------------------------------------------
   - ${{ each os in parameters.os_platforms }}:
     - job: ${{ os.name }}_${{ replace(pyver.name, '.', '_') }}
-      displayName: Py 3rd-Party Pkgs - ${{ pyver.name }} - ${{ os.short }}
+      displayName: Pkg Req - Py ${{ pyver.name }} - ${{ os.short }}
       ${{ if os.prev }}:
         dependsOn: ${{ os.prev }}_${{ replace(pyver.name, '.', '_') }}
       ${{ else }}:
