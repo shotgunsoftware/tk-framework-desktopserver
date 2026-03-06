@@ -45,8 +45,8 @@ service-identity~=24.2.0; python_version >= "3.13"
 # cryptography - low-level cryptography backend for pyOpenSSL.
 # Binary package (wheel). NOTE: only needed for SAST scanning, not runtime.
 # 44.x compatible across all supported Python versions.
-cryptography==44.0.3; python_version < "3.13"
-cryptography~=44.0.1; python_version >= "3.13"
+cryptography==44.0.1; python_version < "3.13"
+cryptography~=44.0.3; python_version >= "3.13"
 
 # cffi - C foreign function interface; dependency of cryptography.
 # Binary package (wheel). 1.17.x required for Python 3.13 (updated C API
