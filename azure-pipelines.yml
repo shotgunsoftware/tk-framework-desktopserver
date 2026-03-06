@@ -66,15 +66,15 @@ jobs:
           # Azure Pipelines 1-10
           SHOTGUN_TEST_ENTITY_SUFFIX: '$(Agent.Name)'
 
-# 3rd-party package regeneration pipeline.
-# Compile-time guard: excludes master and tags (Build.SourceBranch is reliable
-# at compile time for those cases).
-# Runtime guard (job_condition): skips all jobs when the PR source branch ends
-# with '-automated' or '-no-rebuild', preventing the generated branch's own PR
-# from re-triggering. System.PullRequest.SourceBranch is only reliable at
-# runtime, not in ${{ if }} expressions.
-# See resources/python/README.md for details on how to trigger regeneration.
+
 - ${{ if and(ne(variables['Build.SourceBranch'], 'refs/heads/master'), not(startsWith(variables['Build.SourceBranch'], 'refs/tags/'))) }}:
+  # 3rd-party package regeneration pipeline.
+  # Compile-time guard: excludes master and tags (Build.SourceBranch is reliable
+  # at compile time for those cases).
+  # Runtime guard (job_condition): skips all jobs when the PR source branch ends
+  # with '-automated' or '-no-rebuild', preventing the generated branch's own PR
+  # from re-triggering. System.PullRequest.SourceBranch is only reliable at
+  # runtime, not in ${{ if }} expressions.
   - template: resources/python/pipelines/pipelines.yml
     parameters:
       branch: $(System.PullRequest.SourceBranch)-automated

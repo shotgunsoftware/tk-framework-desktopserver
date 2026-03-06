@@ -25,7 +25,7 @@ Sometimes you want to open a PR without triggering the package regeneration
 `-no-rebuild` suffix:
 
 ```shell
-git checkout -b ticket/SG-12345-fix-docs-no-rebuild
+git switch -c ticket/SG-12345-fix-docs-no-rebuild
 ```
 
 The CI tests will still run normally - only the regen jobs are skipped.
