@@ -19,7 +19,7 @@ hyperlink==21.0.0
 idna==3.11
 packaging==26.0
 pyOpenSSL==25.0.0
-pyasn1==0.6.2
+pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==3.0
 service-identity==24.2.0
