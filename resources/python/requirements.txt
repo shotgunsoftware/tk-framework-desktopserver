@@ -33,15 +33,16 @@ certifi==2026.1.4
 #   ↳ Twisted
 # Pinned to match the version bundled with FPT Desktop
 
-cffi==1.15.1 ; python_version <  "3.13"
-cffi~=1.17.1 ; python_version >= "3.13"
+cffi==1.15.1 ; python_version <  "3.9"
+cffi>=1.17.1 ; python_version >= "3.9"
 # Required by:
 #   → cryptography → autobahn
 #                  ↳ pyOpenSSL
 #                  ↳ service-identity
+# Require bump for CVE-2026-27459 as sub level depenbdency of pyOpenSSL
 
 cryptography==44.0.1 ; python_version <  "3.9"
-cryptography~=46.0.5 ; python_version >= "3.9"
+cryptography>=46.0.5 ; python_version >= "3.9"
 # Required by:
 #   → autobahn
 #   ↳ pyOpenSSL
@@ -49,24 +50,24 @@ cryptography~=46.0.5 ; python_version >= "3.9"
 # CVE-2026-26007 - bump from 44.0.1 - Python 3.7 is N/A
 
 hyperlink==21.0.0 ; python_version <  "3.13"
-hyperlink~=21.0.0 ; python_version >= "3.13"
+hyperlink>=21.0.0 ; python_version >= "3.13"
 # Required by:
 #   → autobahn
 #   ↳ Twisted
 
 idna==3.7 ; python_version <  "3.13"
-idna~=3.8 ; python_version >= "3.13"
+idna>=3.8 ; python_version >= "3.13"
 # Required by:
 #   → hyperlink → autobahn
 #               ↳ Twisted
 
 pyasn1==0.5.1 ; python_version <  "3.9" # Last version supporting 3.7
-pyasn1~=0.6.3 ; python_version >= "3.9"
+pyasn1>=0.6.3 ; python_version >= "3.9"
 # Required by: service-identity
 # CVE-2026-30922 - bump from 0.6.2 - Python 3.7 is N/A 
 
 service-identity==21.1.0 ; python_version <  "3.13"
-service-identity~=24.2.0 ; python_version >= "3.13"
+service-identity>=24.2.0 ; python_version >= "3.13"
 # Required by:
 #   → Twisted
 
@@ -75,5 +76,5 @@ six==1.16.0 ; python_version <  "3.13"
 # service-identity 24.x (Python 3.13+) no longer requires six
 
 zope.interface==5.5.2 ; python_version <  "3.13"
-zope.interface~=7.1.0 ; python_version >= "3.13"
+zope.interface>=7.1.0 ; python_version >= "3.13"
 # Required by: Twisted
