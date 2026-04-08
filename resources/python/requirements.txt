@@ -33,33 +33,33 @@ certifi==2026.1.4
 # Pinned to match the version bundled with FPT Desktop
 
 cffi==1.15.1 ; python_version <  "3.13"
-cffi~=1.17.1 ; python_version >= "3.13"
+cffi>=1.17.1 ; python_version >= "3.13"
 # Required by:
 #   → cryptography → autobahn
 #                  ↳ pyOpenSSL
 #                  ↳ service-identity
 
 cryptography==44.0.1 ; python_version <  "3.13"
-cryptography~=44.0.1 ; python_version >= "3.13"
+cryptography>=44.0.1 ; python_version >= "3.13"
 # Required by:
 #   → autobahn
 #   ↳ pyOpenSSL
 #   ↳ service-identity
 
 hyperlink==21.0.0 ; python_version <  "3.13"
-hyperlink~=21.0.0 ; python_version >= "3.13"
+hyperlink>=21.0.0 ; python_version >= "3.13"
 # Required by:
 #   → autobahn
 #   ↳ Twisted
 
 idna==3.7 ; python_version <  "3.13"
-idna~=3.8 ; python_version >= "3.13"
+idna>=3.8 ; python_version >= "3.13"
 # Required by:
 #   → hyperlink → autobahn
 #               ↳ Twisted
 
 service-identity==21.1.0 ; python_version <  "3.13"
-service-identity~=24.2.0 ; python_version >= "3.13"
+service-identity>=24.2.0 ; python_version >= "3.13"
 # Required by:
 #   → Twisted
 
@@ -68,5 +68,5 @@ six==1.16.0 ; python_version <  "3.13"
 # service-identity 24.x (Python 3.13+) no longer requires six
 
 zope.interface==5.5.2 ; python_version <  "3.13"
-zope.interface~=7.1.0 ; python_version >= "3.13"
+zope.interface>=7.1.0 ; python_version >= "3.13"
 # Required by: Twisted
