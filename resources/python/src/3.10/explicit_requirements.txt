@@ -18,12 +18,12 @@ constantly==23.10.4
 hyperlink==21.0.0
 idna==3.7
 packaging==26.0
-pyOpenSSL==25.0.0
-pyasn1==0.6.2
+pyOpenSSL==26.0.0
+pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==3.0
 service-identity==21.1.0
 six==1.16.0
-tomli==2.4.0
+tomli==2.4.1
 txaio==25.9.2
 typing_extensions==4.15.0
