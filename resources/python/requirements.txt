@@ -1,0 +1,72 @@
+autobahn==22.12.1 ; python_version < "3.13"
+autobahn~=24.4.2 ; python_version >= "3.13"
+
+pyopenssl==25.0.0 ; python_version < "3.13"
+pyopenssl~=25.0.0 ; python_version >= "3.13"
+
+twisted==22.10.0 ; python_version == "3.7"
+# Last version of Twisted supporting Python 3.7
+twisted==24.10.0 ; python_version >= "3.9" and python_version < "3.13"
+twisted~=24.11.0 ; python_version >= "3.13"
+
+# Selected sub-level dependencies
+# (pinned for traceability, SAST scanning, CVE notes, ...)
+
+attrs==22.2.0
+# Required by:
+#   → service-identity
+#   ↳ Twisted
+# Do not upgrade attrs. The CI pipeline installs attrs==22.2.0 as a
+# system-level test dependency (see extra_test_dependencies in
+# azure-pipelines.yml). pytest also imports attrs early, caching it in
+# sys.modules. From attrs 23.2.0, `attrs/__init__.py` imports `Converter`
+# from `attr`. If the bundled version is newer than the cached one, that
+# import fails with:
+#   ImportError: cannot import name 'Converter' from 'attr'
+# Twisted 24.x and autobahn 24.x only require attrs>=22.2.0, so this is safe.
+
+certifi==2026.1.4
+# Required by:
+#   → pyOpenSSL
+#   ↳ Twisted
+# Pinned to match the version bundled with FPT Desktop
+
+cffi==1.15.1 ; python_version < "3.13"
+cffi~=1.17.1 ; python_version >= "3.13"
+# Required by:
+#   → cryptography → autobahn
+#                  ↳ pyOpenSSL
+#                  ↳ service-identity
+
+cryptography==44.0.1 ; python_version < "3.13"
+cryptography~=44.0.1 ; python_version >= "3.13"
+# Required by:
+#   → autobahn
+#   ↳ pyOpenSSL
+#   ↳ service-identity
+# Binary dist - version pinned here for Snyk/SAST scanning only
+
+hyperlink==21.0.0 ; python_version < "3.13"
+hyperlink~=21.0.0 ; python_version >= "3.13"
+# Required by:
+#   → autobahn
+#   ↳ Twisted
+
+idna==3.7 ; python_version < "3.13"
+idna~=3.8 ; python_version >= "3.13"
+# Required by:
+#   → hyperlink → autobahn
+#               ↳ Twisted
+
+service-identity==21.1.0 ; python_version < "3.13"
+service-identity~=24.2.0 ; python_version >= "3.13"
+# Required by:
+#   → Twisted
+
+six==1.16.0 ; python_version < "3.13"
+# Required by: service-identity
+# service-identity 24.x (Python 3.13+) no longer requires six
+
+zope.interface==5.5.2 ; python_version < "3.13"
+zope.interface~=7.1.0 ; python_version >= "3.13"
+# Required by: Twisted

@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/resources/python/src"
+    schedule:
+      interval: "weekly"
+    # Scan only explicit_requirements.txt files generated in src/ and bin/.
+    # resources/python/requirements.txt is a template used to generate those
+    # files and should not be scanned directly.
+
+  - package-ecosystem: "pip"
+    directory: "/resources/python/bin"
+    schedule:
+      interval: "weekly"
