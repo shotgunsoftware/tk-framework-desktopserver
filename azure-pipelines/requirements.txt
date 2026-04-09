@@ -1,0 +1,13 @@
+# Required when binary dependencies are not bundled
+attrs==22.2.0    # Fix version. Otherwise tk-ci-tools will install latest
+
+# Twisted must match the version bundled in pkgs.zip/src/ for the corresponding
+# Python version. If the test environment installs a different version, it gets
+# loaded first and causes a sys.modules version conflict at runtime (see SG-42304).
+Twisted==22.10.0 ; python_version <  "3.9"
+Twisted==24.10.0 ; python_version >= "3.9" and python_version < "3.13"
+Twisted~=24.11.0 ; python_version >= "3.13"
+
+# websocket-client is a test-only dependency (not bundled in pkgs.zip).
+websocket-client==1.6.1 ; python_version <  "3.9"  # Last version supporting Python 3.7
+websocket-client~=1.9.0 ; python_version >= "3.9"

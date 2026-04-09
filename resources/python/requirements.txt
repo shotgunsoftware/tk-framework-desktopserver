@@ -7,6 +7,8 @@
 #
 # When updating a dependency, follow the process described in README.md.
 # CI handles regeneration automatically.
+# Note: Twisted and attrs are also pinned in azure-pipelines/requirements.txt
+# and must be kept in sync with the versions here.
 
 # ============================================================================ #
 # Direct dependencies
