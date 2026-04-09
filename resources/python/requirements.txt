@@ -17,6 +17,7 @@
 
 #-------------------------------------------------------------------------------
 # autobahn
+# CVE-2020-35678 - fixed in 20.12.3
 autobahn==22.12.1 ; python_version <  "3.13"
 autobahn~=24.4.2  ; python_version >= "3.13"
 
@@ -29,8 +30,7 @@ pyopenssl~=25.0.0 ; python_version >= "3.13"
 # Twisted
 # CVE-2022-21712 - fixed in 22.1
 # CVE-2022-24801 - fixed in 22.1
-# CVE-2024-41671 - fixed in 24.10.0 - N/A for Python 3.7
-# CVE-2024-41810 - fixed in 24.10.0 - N/A for Python 3.7
+# CVE-2024-41671 & CVE-2024-41810 - fixed in 24.10.0 - N/A for Python 3.7
 twisted==22.10.0 ; python_version <  "3.9" # Last version supporting 3.7
 twisted==24.10.0 ; python_version >= "3.9" and python_version < "3.13"
 twisted~=24.11.0 ; python_version >= "3.13"
