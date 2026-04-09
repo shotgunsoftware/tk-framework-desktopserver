@@ -69,7 +69,7 @@ certifi==2026.1.4
 #   → cryptography → autobahn
 #                  ↳ pyOpenSSL
 #                  ↳ service-identity
-cffi==1.15.1 ; python_version <  "3.13"
+cffi>=1.15.1 ; python_version <  "3.13"
 cffi>=1.17.1 ; python_version >= "3.13"
 
 #-------------------------------------------------------------------------------
@@ -86,16 +86,14 @@ cffi>=1.17.1 ; python_version >= "3.13"
 # CVE-2024-4603  - fixed in 43.0.1
 # CVE-2024-6119  - fixed in 43.0.1
 # CVE-2024-12797 - fixed in 44.0.1
-cryptography==44.0.1 ; python_version <  "3.13"
-cryptography>=44.0.1 ; python_version >= "3.13"
+cryptography>=44.0.1
 
 #-------------------------------------------------------------------------------
 # hyperlink
 # Required by:
 #   → autobahn
 #   ↳ Twisted
-hyperlink==21.0.0 ; python_version <  "3.13"
-hyperlink>=21.0.0 ; python_version >= "3.13"
+hyperlink>=21.0.0
 
 #-------------------------------------------------------------------------------
 # idna
@@ -103,14 +101,14 @@ hyperlink>=21.0.0 ; python_version >= "3.13"
 #   → hyperlink → autobahn
 #               ↳ Twisted
 # CVE-2024-3651 - fixed in 3.7
-idna==3.7 ; python_version <  "3.13"
+idna>=3.7 ; python_version <  "3.13"
 idna>=3.8 ; python_version >= "3.13"
 
 #-------------------------------------------------------------------------------
 # service-identity
 # Required by:
 #   → Twisted
-service-identity==21.1.0 ; python_version <  "3.13"
+service-identity>=21.1.0 ; python_version <  "3.13"
 service-identity>=24.2.0 ; python_version >= "3.13"
 
 #-------------------------------------------------------------------------------
@@ -122,5 +120,5 @@ six==1.16.0 ; python_version < "3.13"
 #-------------------------------------------------------------------------------
 # zope.interface
 # Required by: Twisted
-zope.interface==5.5.2 ; python_version <  "3.13"
+zope.interface>=5.5.2 ; python_version <  "3.13"
 zope.interface>=7.1.0 ; python_version >= "3.13"
