@@ -21,9 +21,11 @@
 autobahn==22.12.1 ; python_version <  "3.13"
 autobahn~=24.4.2  ; python_version >= "3.13"
 
+#-------------------------------------------------------------------------------
+# pyOpenSSL
+# CVE-2026-27459 - fixed in 25.0.0 - Python 3.7 is N/A
 pyopenssl==25.0.0 ; python_version <  "3.9"
 pyopenssl~=26.0.0 ; python_version >= "3.9"
-# CVE-2026-27459 - bump from 25.0.0 - Python 3.7 is N/A 
 
 #-------------------------------------------------------------------------------
 # Twisted
@@ -109,7 +111,7 @@ idna>=3.8 ; python_version >= "3.13"
 #-------------------------------------------------------------------------------
 # pyasn1
 # Required by: service-identity
-# CVE-2026-30922 - fixed in 0.6.2 - Python 3.7 is N/A 
+# CVE-2026-30922 - fixed in 0.6.2 - Python 3.7 is N/A
 pyasn1>=0.6.3 ; python_version >= "3.9"
 
 #-------------------------------------------------------------------------------
