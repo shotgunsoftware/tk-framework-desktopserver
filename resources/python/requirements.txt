@@ -22,13 +22,15 @@ autobahn~=24.4.2  ; python_version >= "3.13"
 
 #-------------------------------------------------------------------------------
 # pyOpenSSL
-# CVE-2026-27459 - fixed in 26.0.0 - N/A for Python 3.7
 pyopenssl==25.0.0 ; python_version <  "3.13"
 pyopenssl~=25.0.0 ; python_version >= "3.13"
 
 #-------------------------------------------------------------------------------
 # Twisted
-# CVE-2022-21712 - fixed in 22.10.0 - applied to all Python versions
+# CVE-2022-21712 - fixed in 22.1
+# CVE-2022-24801 - fixed in 22.1
+# CVE-2024-41671 - fixed in 24.10.0 - N/A for Python 3.7
+# CVE-2024-41810 - fixed in 24.10.0 - N/A for Python 3.7
 twisted==22.10.0 ; python_version <  "3.9" # Last version supporting 3.7
 twisted==24.10.0 ; python_version >= "3.9" and python_version < "3.13"
 twisted~=24.11.0 ; python_version >= "3.13"
@@ -76,9 +78,14 @@ cffi>=1.17.1 ; python_version >= "3.13"
 #   → autobahn
 #   ↳ pyOpenSSL
 #   ↳ service-identity
-# CVE-2023-49083 - fixed in 41.0.7 - applied to all Python versions
-# CVE-2024-2511, CVE-2024-4603, CVE-2024-6119 - fixed in 43.0.1 - applied to all Python versions
-# CVE-2026-26007 - fixed in 46.x - N/A for Python 3.7
+# CVE-2023-2650  - fixed in 41.0.0
+# CVE-2023-4807  - fixed in 41.0.5
+# CVE-2023-5678  - fixed in 41.0.7
+# CVE-2023-49083 - fixed in 41.0.7
+# CVE-2024-2511  - fixed in 43.0.1
+# CVE-2024-4603  - fixed in 43.0.1
+# CVE-2024-6119  - fixed in 43.0.1
+# CVE-2024-12797 - fixed in 44.0.1
 cryptography==44.0.1 ; python_version <  "3.13"
 cryptography>=44.0.1 ; python_version >= "3.13"
 
@@ -95,7 +102,7 @@ hyperlink>=21.0.0 ; python_version >= "3.13"
 # Required by:
 #   → hyperlink → autobahn
 #               ↳ Twisted
-# CVE-2024-3651 - fixed in 3.7 - applied to all Python versions
+# CVE-2024-3651 - fixed in 3.7
 idna==3.7 ; python_version <  "3.13"
 idna>=3.8 ; python_version >= "3.13"
 
