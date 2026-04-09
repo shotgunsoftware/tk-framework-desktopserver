@@ -1,72 +1,117 @@
+# Targeted Python versions:
+#   - 3.7  (legacy)
+#   - 3.9  (VFX CY2022)
+#   - 3.10 (VFX CY2023)
+#   - 3.11 (VFX CY2024)
+#   - 3.13 (VFX CY2026)
+#
+# When updating a dependency, follow the process described in README.md.
+# CI handles regeneration automatically.
+
+# ============================================================================ #
+# Direct dependencies
+#   Version constraints balance code compatibility and CVE requirements.
+#
+
+#-------------------------------------------------------------------------------
+# autobahn
 autobahn==22.12.1 ; python_version <  "3.13"
 autobahn~=24.4.2  ; python_version >= "3.13"
 
+#-------------------------------------------------------------------------------
+# pyOpenSSL
+# CVE-2026-27459 - fixed in 26.0.0 - N/A for Python 3.7
 pyopenssl==25.0.0 ; python_version <  "3.13"
 pyopenssl~=25.0.0 ; python_version >= "3.13"
 
+#-------------------------------------------------------------------------------
+# Twisted
+# CVE-2022-21712 - fixed in 22.10.0 - applied to all Python versions
 twisted==22.10.0 ; python_version <  "3.9" # Last version supporting 3.7
 twisted==24.10.0 ; python_version >= "3.9" and python_version < "3.13"
 twisted~=24.11.0 ; python_version >= "3.13"
 
-# -----------------------------------------------------------------------------#
-# Selected sub-level dependencies                                              #
-# (pinned for traceability, SAST scanning, CVE notes, ...)                     #
-# -----------------------------------------------------------------------------#
+# ============================================================================ #
+# Selected sub-level dependencies
+#   CVE-driven: minimum versions (>= x.y.z).
+#   Other reasons (e.g. compatibility, bundling): pinned to a specific version.
+#
 
-attrs==22.2.0
+#-------------------------------------------------------------------------------
+# attrs
 # Required by:
 #   → service-identity
 #   ↳ Twisted
-# Do not upgrade attrs. The CI pipeline installs attrs==22.2.0 as a
-# system-level test dependency (see extra_test_dependencies in
-# azure-pipelines.yml). pytest also imports attrs early, caching it in
-# sys.modules. From attrs 23.2.0, `attrs/__init__.py` imports `Converter`
-# from `attr`. If the bundled version is newer than the cached one, that
-# import fails with:
+# Do not upgrade! The CI pipeline installs attrs==22.2.0 as a system-level test
+# dependency (see extra_test_dependencies in azure-pipelines.yml). pytest also
+# imports attrs early, caching it in sys.modules. From attrs 23.2.0,
+# `attrs/__init__.py` imports `Converter` from `attr`. If the bundled version is
+# newer than the cached one, that import fails with:
 #   ImportError: cannot import name 'Converter' from 'attr'
 # Twisted 24.x and autobahn 24.x only require attrs>=22.2.0, so this is safe.
+attrs==22.2.0
 
-certifi==2026.1.4
+#-------------------------------------------------------------------------------
+# certifi
 # Required by:
 #   → pyOpenSSL
 #   ↳ Twisted
 # Pinned to match the version bundled with FPT Desktop
+certifi==2026.1.4
 
-cffi==1.15.1 ; python_version <  "3.13"
-cffi>=1.17.1 ; python_version >= "3.13"
+#-------------------------------------------------------------------------------
+# cffi
 # Required by:
 #   → cryptography → autobahn
 #                  ↳ pyOpenSSL
 #                  ↳ service-identity
+cffi==1.15.1 ; python_version <  "3.13"
+cffi>=1.17.1 ; python_version >= "3.13"
 
-cryptography==44.0.1 ; python_version <  "3.13"
-cryptography>=44.0.1 ; python_version >= "3.13"
+#-------------------------------------------------------------------------------
+# cryptography
 # Required by:
 #   → autobahn
 #   ↳ pyOpenSSL
 #   ↳ service-identity
+# CVE-2023-49083 - fixed in 41.0.7 - applied to all Python versions
+# CVE-2024-2511, CVE-2024-4603, CVE-2024-6119 - fixed in 43.0.1 - applied to all Python versions
+# CVE-2026-26007 - fixed in 46.x - N/A for Python 3.7
+cryptography==44.0.1 ; python_version <  "3.13"
+cryptography>=44.0.1 ; python_version >= "3.13"
 
-hyperlink==21.0.0 ; python_version <  "3.13"
-hyperlink>=21.0.0 ; python_version >= "3.13"
+#-------------------------------------------------------------------------------
+# hyperlink
 # Required by:
 #   → autobahn
 #   ↳ Twisted
+hyperlink==21.0.0 ; python_version <  "3.13"
+hyperlink>=21.0.0 ; python_version >= "3.13"
 
-idna==3.7 ; python_version <  "3.13"
-idna>=3.8 ; python_version >= "3.13"
+#-------------------------------------------------------------------------------
+# idna
 # Required by:
 #   → hyperlink → autobahn
 #               ↳ Twisted
+# CVE-2024-3651 - fixed in 3.7 - applied to all Python versions
+idna==3.7 ; python_version <  "3.13"
+idna>=3.8 ; python_version >= "3.13"
 
-service-identity==21.1.0 ; python_version <  "3.13"
-service-identity>=24.2.0 ; python_version >= "3.13"
+#-------------------------------------------------------------------------------
+# service-identity
 # Required by:
 #   → Twisted
+service-identity==21.1.0 ; python_version <  "3.13"
+service-identity>=24.2.0 ; python_version >= "3.13"
 
-six==1.16.0 ; python_version <  "3.13"
+#-------------------------------------------------------------------------------
+# six
 # Required by: service-identity
 # service-identity 24.x (Python 3.13+) no longer requires six
+six==1.16.0 ; python_version < "3.13"
 
+#-------------------------------------------------------------------------------
+# zope.interface
+# Required by: Twisted
 zope.interface==5.5.2 ; python_version <  "3.13"
 zope.interface>=7.1.0 ; python_version >= "3.13"
-# Required by: Twisted
