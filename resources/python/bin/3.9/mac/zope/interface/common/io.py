@@ -18,11 +18,11 @@ that they implement the appropriate interface.
 
 .. versionadded:: 5.0.0
 """
-from __future__ import absolute_import
 
 import io as abc
 
 from zope.interface.common import ABCInterface
+
 
 # pylint:disable=inherit-non-class,
 # pylint:disable=no-member
@@ -37,16 +37,7 @@ class IRawIOBase(IIOBase):
 
 class IBufferedIOBase(IIOBase):
     abc = abc.BufferedIOBase
-    try:
-        import cStringIO
-    except ImportError:
-        # Python 3
-        extra_classes = ()
-    else:
-        import StringIO
-        extra_classes = (StringIO.StringIO, cStringIO.InputType, cStringIO.OutputType)
-        del cStringIO
-        del StringIO
+    extra_classes = ()
 
 
 class ITextIOBase(IIOBase):
