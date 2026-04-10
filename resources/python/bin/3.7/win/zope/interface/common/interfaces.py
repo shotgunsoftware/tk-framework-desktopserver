@@ -16,17 +16,14 @@
 from zope.interface import Interface
 from zope.interface import classImplements
 
+
 class IException(Interface):
     "Interface for `Exception`"
 classImplements(Exception, IException)
 
 
 class IStandardError(IException):
-    "Interface for `StandardError` (Python 2 only.)"
-try:
-    classImplements(StandardError, IStandardError)
-except NameError:  #pragma NO COVER
-    pass # StandardError does not exist in Python 3
+    "Interface for `StandardError` (no longer existing.)"
 
 
 class IWarning(IException):
