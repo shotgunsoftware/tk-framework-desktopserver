@@ -17,13 +17,13 @@ that they implement the appropriate interface.
 
 .. versionadded:: 5.0.0
 """
-from __future__ import absolute_import
 
 from zope.interface import classImplements
-
+from zope.interface._compat import PY313_OR_OLDER
 from zope.interface.common import collections
-from zope.interface.common import numbers
 from zope.interface.common import io
+from zope.interface.common import numbers
+
 
 __all__ = [
     'IList',
@@ -35,6 +35,7 @@ __all__ = [
     'IDict',
     'IFile',
 ]
+
 
 # pylint:disable=no-self-argument
 class IList(collections.IMutableSequence):
@@ -60,35 +61,36 @@ class ITuple(collections.ISequence):
 
 class ITextString(collections.ISequence):
     """
-    Interface for text (unicode) strings.
+    Interface for text ("unicode") strings.
 
-    On Python 2, this is :class:`unicode`. On Python 3,
-    this is :class:`str`
+    This is :class:`str`
     """
-    extra_classes = (type(u'unicode'),)
+    extra_classes = (str,)
 
 
-class IByteString(collections.IByteString):
-    """
-    Interface for immutable byte strings.
+if PY313_OR_OLDER:
+    class IByteString(collections.IByteString):
+        """
+        Interface for immutable byte strings.
 
-    On all Python versions this is :class:`bytes`.
+        On all Python versions this is :class:`bytes`.
 
-    Unlike :class:`zope.interface.common.collections.IByteString`
-    (the parent of this interface) this does *not* include
-    :class:`bytearray`.
-    """
-    extra_classes = (bytes,)
+        Unlike :class:`zope.interface.common.collections.IByteString`
+        (the parent of this interface) this does *not* include
+        :class:`bytearray`.
+        """
+        extra_classes = (bytes,)
 
 
-class INativeString(IByteString if str is bytes else ITextString):
+class INativeString(ITextString):
     """
     Interface for native strings.
 
-    On all Python versions, this is :class:`str`. On Python 2,
-    this extends :class:`IByteString`, while on Python 3 it extends
+    On all Python versions, this is :class:`str`. Tt extends
     :class:`ITextString`.
     """
+
+
 # We're not extending ABCInterface so extra_classes won't work
 classImplements(str, INativeString)
 
@@ -111,15 +113,12 @@ class IFile(io.IIOBase):
     """
     Interface for :class:`file`.
 
-    It is recommended to use the interfaces from :mod:`zope.interface.common.io`
-    instead of this interface.
+    It is recommended to use the interfaces from
+    :mod:`zope.interface.common.io` instead of this interface.
 
     On Python 3, there is no single implementation of this interface;
     depending on the arguments, the :func:`open` builtin can return
     many different classes that implement different interfaces from
     :mod:`zope.interface.common.io`.
     """
-    try:
-        extra_classes = (file,)
-    except NameError:
-        extra_classes = ()
+    extra_classes = ()
