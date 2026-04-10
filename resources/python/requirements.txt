@@ -47,8 +47,8 @@ twisted~=24.11.0 ; python_version >= "3.13"
 #   → service-identity
 #   ↳ Twisted
 # Do not upgrade! The CI pipeline installs attrs==22.2.0 as a system-level test
-# dependency (see extra_test_dependencies in azure-pipelines.yml). pytest also
-# imports attrs early, caching it in sys.modules. From attrs 23.2.0,
+# dependency (see azure-pipelines/requirements.txt). pytest also imports attrs
+# early, caching it in sys.modules. From attrs 23.2.0,
 # `attrs/__init__.py` imports `Converter` from `attr`. If the bundled version is
 # newer than the cached one, that import fails with:
 #   ImportError: cannot import name 'Converter' from 'attr'
