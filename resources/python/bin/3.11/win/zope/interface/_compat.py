@@ -20,51 +20,20 @@ used during early bootstrapping.
 """
 import os
 import sys
-import types
 
-if sys.version_info[0] < 3:
 
-    def _normalize_name(name):
-        if isinstance(name, basestring):
-            return unicode(name)
-        raise TypeError("name must be a regular or unicode string")
+PY313_OR_OLDER = sys.version_info < (3, 14)
 
-    CLASS_TYPES = (type, types.ClassType)
-    STRING_TYPES = (basestring,)
 
-    _BUILTINS = '__builtin__'
+def _normalize_name(name):
+    if isinstance(name, bytes):
+        name = str(name, 'ascii')
+    if isinstance(name, str):
+        return name
+    raise TypeError("name must be a string or ASCII-only bytes")
 
-    PYTHON3 = False
-    PYTHON2 = True
-
-else:
-
-    def _normalize_name(name):
-        if isinstance(name, bytes):
-            name = str(name, 'ascii')
-        if isinstance(name, str):
-            return name
-        raise TypeError("name must be a string or ASCII-only bytes")
-
-    CLASS_TYPES = (type,)
-    STRING_TYPES = (str,)
-
-    _BUILTINS = 'builtins'
-
-    PYTHON3 = True
-    PYTHON2 = False
 
 PYPY = hasattr(sys, 'pypy_version_info')
-PYPY2 = PYTHON2 and PYPY
-
-def _skip_under_py3k(test_method):
-    import unittest
-    return unittest.skipIf(sys.version_info[0] >= 3, "Only on Python 2")(test_method)
-
-
-def _skip_under_py2(test_method):
-    import unittest
-    return unittest.skipIf(sys.version_info[0] < 3, "Only on Python 3")(test_method)
 
 
 def _c_optimizations_required():
@@ -92,7 +61,7 @@ def _c_optimizations_available():
     try:
         from zope.interface import _zope_interface_coptimizations as c_opt
         return c_opt
-    except catch: # pragma: no cover (only Jython doesn't build extensions)
+    except catch:  # pragma: no cover (only Jython doesn't build extensions)
         return False
 
 
@@ -155,7 +124,7 @@ def _use_c_impl(py_impl, name=None, globs=None):
             return py_impl
 
         c_opt = _c_optimizations_available()
-        if not c_opt: # pragma: no cover (only Jython doesn't build extensions)
+        if not c_opt:  # pragma: no cover (Jython doesn't build extensions)
             return py_impl
 
         __traceback_info__ = c_opt
