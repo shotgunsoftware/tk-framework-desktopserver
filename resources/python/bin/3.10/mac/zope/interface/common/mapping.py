@@ -29,8 +29,8 @@ implement ``IMutableMapping``, but *do not* implement any of the
 interfaces in this module.
 """
 from zope.interface import Interface
-from zope.interface._compat import PYTHON2 as PY2
 from zope.interface.common import collections
+
 
 class IItemMapping(Interface):
     """Simplest readable mapping object
@@ -96,27 +96,17 @@ class IEnumerableMapping(collections.ISized, IReadMapping):
         """Return the items of the mapping object.
         """
 
+
 class IMapping(IWriteMapping, IEnumerableMapping):
     ''' Simple mapping interface '''
+
 
 class IIterableMapping(IEnumerableMapping):
     """A mapping that has distinct methods for iterating
     without copying.
 
-    On Python 2, a `dict` has these methods, but on Python 3
-    the methods defined in `IEnumerableMapping` already iterate
-    without copying.
     """
 
-    if PY2:
-        def iterkeys():
-            "iterate over keys; equivalent to ``__iter__``"
-
-        def itervalues():
-            "iterate over values"
-
-        def iteritems():
-            "iterate over items"
 
 class IClonableMapping(Interface):
     """Something that can produce a copy of itself.
@@ -127,17 +117,15 @@ class IClonableMapping(Interface):
     def copy():
         "return copy of dict"
 
+
 class IExtendedReadMapping(IIterableMapping):
     """
     Something with a particular method equivalent to ``__contains__``.
 
-    On Python 2, `dict` provides this method, but it was removed
+    On Python 2, `dict` provided the ``has_key`` method, but it was removed
     in Python 3.
     """
 
-    if PY2:
-        def has_key(key):
-            """Tell if a key exists in the mapping; equivalent to ``__contains__``"""
 
 class IExtendedWriteMapping(IWriteMapping):
     """Additional mutation methods.
@@ -169,9 +157,14 @@ class IExtendedWriteMapping(IWriteMapping):
         """remove and return some (key, value) pair as a
         2-tuple; but raise KeyError if mapping is empty"""
 
+
 class IFullMapping(
-        collections.IMutableMapping,
-        IExtendedReadMapping, IExtendedWriteMapping, IClonableMapping, IMapping,):
+    collections.IMutableMapping,
+    IExtendedReadMapping,
+    IExtendedWriteMapping,
+    IClonableMapping,
+    IMapping,
+):
     """
     Full mapping interface.
 

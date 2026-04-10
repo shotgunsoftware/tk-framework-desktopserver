@@ -26,6 +26,7 @@ __all__ = [
     'InvalidInterface',
 ]
 
+
 class Invalid(Exception):
     """A specification is violated
     """
@@ -55,7 +56,7 @@ class _TargetInvalid(Invalid):
 
     def _get_arg_or_default(self, ix, default=None):
         try:
-            return self.args[ix] # pylint:disable=unsubscriptable-object
+            return self.args[ix]  # pylint:disable=unsubscriptable-object
         except self._NOT_GIVEN_CATCH:
             return default
 
@@ -92,7 +93,7 @@ class _TargetInvalid(Invalid):
         target = self.target
         if target is self._NOT_GIVEN:
             return "An object"
-        return "The object %r" % (target,)
+        return f"The object {target!r}"
 
     @property
     def _str_description(self):
@@ -105,7 +106,7 @@ class _TargetInvalid(Invalid):
     _str_trailer = '.'
 
     def __str__(self):
-        return "%s %s%s%s%s" % (
+        return "{} {}{}{}{}".format(
             self._str_subject,
             self._str_description,
             self._str_conjunction,
@@ -146,7 +147,7 @@ class BrokenImplementation(_TargetInvalid):
 
     @property
     def name(self):
-        return self.args[1] # pylint:disable=unsubscriptable-object
+        return self.args[1]  # pylint:disable=unsubscriptable-object
 
     @property
     def _str_details(self):
@@ -157,7 +158,9 @@ class BrokenImplementation(_TargetInvalid):
 
 class BrokenMethodImplementation(_TargetInvalid):
     """
-    BrokenMethodImplementation(method, message[, implementation, interface, target])
+    BrokenMethodImplementation(
+        method, message[, implementation, interface, target]
+    )
 
     The *target* (optional) has a *method* in *implementation* that violates
     its contract in a way described by *mess*.
@@ -181,24 +184,23 @@ class BrokenMethodImplementation(_TargetInvalid):
 
     @property
     def method(self):
-        return self.args[0] # pylint:disable=unsubscriptable-object
+        return self.args[0]  # pylint:disable=unsubscriptable-object
 
     @property
     def mess(self):
-        return self.args[1] # pylint:disable=unsubscriptable-object
+        return self.args[1]  # pylint:disable=unsubscriptable-object
 
     @staticmethod
     def __implementation_str(impl):
         # It could be a callable or some arbitrary object, we don't
         # know yet.
-        import inspect # Inspect is a heavy-weight dependency, lots of imports
+        import inspect  # Inspect is a heavy-weight dependency, lots of imports
         try:
             sig = inspect.signature
             formatsig = str
         except AttributeError:
             sig = inspect.getargspec
-            f = inspect.formatargspec
-            formatsig = lambda sig: f(*sig) # pylint:disable=deprecated-method
+            formatsig = inspect.formatargspec
 
         try:
             sig = sig(impl)
@@ -224,7 +226,7 @@ class BrokenMethodImplementation(_TargetInvalid):
             message = message.replace("implementation", '%r')
             message = message % (self.__implementation_str(impl),)
 
-        return 'The contract of %s is violated because %s' % (
+        return 'The contract of {} is violated because {}'.format(
             repr(self.method) if isinstance(self.method, str) else self.method,
             message,
         )
@@ -244,11 +246,11 @@ class MultipleInvalid(_TargetInvalid):
     _NOT_GIVEN_CATCH = ()
 
     def __init__(self, interface, target, exceptions):
-        super(MultipleInvalid, self).__init__(interface, target, tuple(exceptions))
+        super().__init__(interface, target, tuple(exceptions))
 
     @property
     def exceptions(self):
-        return self.args[2] # pylint:disable=unsubscriptable-object
+        return self.args[2]  # pylint:disable=unsubscriptable-object
 
     @property
     def _str_details(self):
@@ -259,13 +261,14 @@ class MultipleInvalid(_TargetInvalid):
             for x in self.exceptions
         )
 
-    _str_conjunction = ':' # We don't want a trailing space, messes up doctests
+    _str_conjunction = ':'  # no trailing space, messes up doctests
     _str_trailer = ''
 
 
 class InvalidInterface(Exception):
     """The interface has invalid contents
     """
+
 
 class BadImplements(TypeError):
     """An implementation assertion is invalid
