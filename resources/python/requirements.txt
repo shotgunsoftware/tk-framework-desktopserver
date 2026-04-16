@@ -23,8 +23,9 @@ autobahn~=24.4.2  ; python_version >= "3.13"
 
 #-------------------------------------------------------------------------------
 # pyOpenSSL
-pyopenssl==25.0.0 ; python_version <  "3.13"
-pyopenssl~=25.0.0 ; python_version >= "3.13"
+# CVE-2026-27459 - fixed in 26.0.0 - Python 3.7 is N/A
+pyopenssl==25.0.0 ; python_version <  "3.9"
+pyopenssl~=26.0.0 ; python_version >= "3.9"
 
 #-------------------------------------------------------------------------------
 # Twisted
@@ -47,8 +48,8 @@ twisted~=24.11.0 ; python_version >= "3.13"
 #   → service-identity
 #   ↳ Twisted
 # Do not upgrade! The CI pipeline installs attrs==22.2.0 as a system-level test
-# dependency (see azure-pipelines/requirements.txt). pytest also imports attrs
-# early, caching it in sys.modules. From attrs 23.2.0,
+# dependency (see extra_test_dependencies in azure-pipelines.yml). pytest also
+# imports attrs early, caching it in sys.modules. From attrs 23.2.0,
 # `attrs/__init__.py` imports `Converter` from `attr`. If the bundled version is
 # newer than the cached one, that import fails with:
 #   ImportError: cannot import name 'Converter' from 'attr'
@@ -69,8 +70,8 @@ certifi==2026.1.4
 #   → cryptography → autobahn
 #                  ↳ pyOpenSSL
 #                  ↳ service-identity
-cffi>=1.15.1 ; python_version <  "3.13"
-cffi>=1.17.1 ; python_version >= "3.13"
+cffi>=1.15.1 ; python_version <  "3.9"
+cffi>=1.17.1 ; python_version >= "3.9"
 
 #-------------------------------------------------------------------------------
 # cryptography
@@ -86,7 +87,9 @@ cffi>=1.17.1 ; python_version >= "3.13"
 # CVE-2024-4603  - fixed in 43.0.1
 # CVE-2024-6119  - fixed in 43.0.1
 # CVE-2024-12797 - fixed in 44.0.1
-cryptography>=44.0.1
+# CVE-2026-26007 - bump from 44.0.1 - Python 3.7 is N/A
+cryptography>=44.0.1 ; python_version <  "3.9"
+cryptography>=46.0.5 ; python_version >= "3.9"
 
 #-------------------------------------------------------------------------------
 # hyperlink
@@ -103,6 +106,13 @@ hyperlink>=21.0.0
 # CVE-2024-3651 - fixed in 3.7
 idna>=3.7 ; python_version <  "3.13"
 idna>=3.8 ; python_version >= "3.13"
+
+
+#-------------------------------------------------------------------------------
+# pyasn1
+# Required by: service-identity
+# CVE-2026-30922 - fixed in 0.6.3 - Python 3.7 is N/A
+pyasn1>=0.6.3 ; python_version >= "3.9"
 
 #-------------------------------------------------------------------------------
 # service-identity
