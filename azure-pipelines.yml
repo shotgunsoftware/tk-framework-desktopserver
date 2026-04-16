@@ -35,9 +35,10 @@ jobs:
       - name: tk-framework-desktopclient
       - name: tk-shotgun
     extra_test_dependencies:
-      # All runtime dependencies come from the unified requirements file.
-      # This guarantees CI-installed versions match what pkgs.zip bundles,
-      # preventing sys.modules version conflicts.
+      # CI installs dependencies from the dedicated Azure Pipelines
+      # requirements file, which must be kept in sync with the unified
+      # runtime requirements so CI-installed versions match what pkgs.zip
+      # bundles, preventing sys.modules version conflicts.
       - --requirement=azure-pipelines/requirements.txt
     post_tests_steps:
       - task: Bash@3
