@@ -27,20 +27,19 @@ There are three flavors of declarations:
 __docformat__ = 'restructuredtext'
 
 import sys
+import weakref
 from types import FunctionType
 from types import MethodType
 from types import ModuleType
-import weakref
 
-from zope.interface.advice import addClassAdvisor
-from zope.interface.interface import Interface
-from zope.interface.interface import InterfaceClass
-from zope.interface.interface import SpecificationBase
-from zope.interface.interface import Specification
-from zope.interface.interface import NameAndModuleComparisonMixin
-from zope.interface._compat import CLASS_TYPES as DescriptorAwareMetaClasses
-from zope.interface._compat import PYTHON3
 from zope.interface._compat import _use_c_impl
+from zope.interface.interface import Interface
+from zope.interface.interface import InterfaceBase
+from zope.interface.interface import InterfaceClass
+from zope.interface.interface import NameAndModuleComparisonMixin
+from zope.interface.interface import Specification
+from zope.interface.interface import SpecificationBase
+
 
 __all__ = [
     # None. The public APIs of this module are
@@ -52,11 +51,6 @@ __all__ = [
 # Registry of class-implementation specifications
 BuiltinImplementationSpecifications = {}
 
-_ADVICE_ERROR = ('Class advice impossible in Python3.  '
-                 'Use the @%s class decorator instead.')
-
-_ADVICE_WARNING = ('The %s API is deprecated, and will not work in Python3  '
-                   'Use the @%s class decorator instead.')
 
 def _next_super_class(ob):
     # When ``ob`` is an instance of ``super``, return
@@ -68,7 +62,8 @@ def _next_super_class(ob):
     next_class = complete_mro[complete_mro.index(class_that_invoked_super) + 1]
     return next_class
 
-class named(object):
+
+class named:
 
     def __init__(self, name):
         self.name = name
@@ -110,7 +105,7 @@ class Declaration(Specification):
             if not [
                 j
                 for j in other.interfaces()
-                if i.extends(j, 0) # non-strict extends
+                if i.extends(j, 0)  # non-strict extends
             ]
         ])
 
@@ -121,10 +116,10 @@ class Declaration(Specification):
 
         .. versionchanged:: 5.4.0
            Now tries to preserve a consistent resolution order. Interfaces
-           being added to this object are added to the front of the resulting resolution
-           order if they already extend an interface in this object. Previously,
-           they were always added to the end of the order, which easily resulted in
-           invalid orders.
+           being added to this object are added to the front of the resulting
+           resolution order if they already extend an interface in this
+           object. Previously, they were always added to the end of the order,
+           which easily resulted in invalid orders.
         """
         before = []
         result = list(self.interfaces())
@@ -178,9 +173,11 @@ class Declaration(Specification):
                 # classes.)
                 this_name = iface.__name__
                 duplicate_transform = _implements_name
-            elif (isinstance(iface, Implements)
-                  and not iface.declared
-                  and iface.inherit in interfaces):
+            elif (
+                isinstance(iface, Implements) and
+                not iface.declared and
+                iface.inherit in interfaces
+            ):
                 # If nothing is declared, there's no need to even print this;
                 # it would just show as ``classImplements(Class)``, and the
                 # ``Class`` has typically already.
@@ -223,13 +220,15 @@ class _ImmutableDeclaration(Declaration):
     @__bases__.setter
     def __bases__(self, new_bases):
         # We expect the superclass constructor to set ``self.__bases__ = ()``.
-        # Rather than attempt to special case that in the constructor and allow
-        # setting __bases__ only at that time, it's easier to just allow setting
-        # the empty tuple at any time. That makes ``x.__bases__ = x.__bases__`` a nice
-        # no-op too. (Skipping the superclass constructor altogether is a recipe
-        # for maintenance headaches.)
+        # Rather than attempt to special case that in the constructor and
+        # allow setting __bases__ only at that time, it's easier to just allow
+        # setting the empty tuple at any time. That makes ``x.__bases__ =
+        # x.__bases__`` a nice no-op too. (Skipping the superclass constructor
+        # altogether is a recipe for maintenance headaches.)
         if new_bases != ():
-            raise TypeError("Cannot set non-empty bases on shared empty Declaration.")
+            raise TypeError(
+                "Cannot set non-empty bases on shared empty Declaration."
+            )
 
     # As the immutable empty declaration, we cannot be changed.
     # This means there's no logical reason for us to have dependents
@@ -253,20 +252,20 @@ class _ImmutableDeclaration(Declaration):
 
     def weakref(self, callback=None):
         # We're a singleton, we never go away. So there's no need to return
-        # distinct weakref objects here; their callbacks will never
-        # be called. Instead, we only need to return a callable that
-        # returns ourself. The easiest one is to return _ImmutableDeclaration
-        # itself; testing on Python 3.8 shows that's faster than a function that
-        # returns _empty. (Remember, one goal is to avoid allocating any
-        # object, and that includes a method.)
+        # distinct weakref objects here; their callbacks will never be called.
+        # Instead, we only need to return a callable that returns ourself. The
+        # easiest one is to return _ImmutableDeclaration itself; testing on
+        # Python 3.8 shows that's faster than a function that returns _empty.
+        # (Remember, one goal is to avoid allocating any object, and that
+        # includes a method.)
         return _ImmutableDeclaration
 
     @property
     def _v_attrs(self):
-        # _v_attrs is not a public, documented property, but some client
-        # code uses it anyway as a convenient place to cache things. To keep
-        # the empty declaration truly immutable, we must ignore that. That includes
-        # ignoring assignments as well.
+        # _v_attrs is not a public, documented property, but some client code
+        # uses it anyway as a convenient place to cache things. To keep the
+        # empty declaration truly immutable, we must ignore that. That
+        # includes ignoring assignments as well.
         return {}
 
     @_v_attrs.setter
@@ -282,26 +281,28 @@ class _ImmutableDeclaration(Declaration):
 
 class Implements(NameAndModuleComparisonMixin,
                  Declaration):
-    # Inherit from NameAndModuleComparisonMixin to be
-    # mutually comparable with InterfaceClass objects.
-    # (The two must be mutually comparable to be able to work in e.g., BTrees.)
-    # Instances of this class generally don't have a __module__ other than
-    # `zope.interface.declarations`, whereas they *do* have a __name__ that is the
-    # fully qualified name of the object they are representing.
+    # Inherit from NameAndModuleComparisonMixin to be mutually comparable with
+    # InterfaceClass objects.  (The two must be mutually comparable to be able
+    # to work in e.g., BTrees.) Instances of this class generally don't have a
+    # __module__ other than `zope.interface.declarations`, whereas they *do*
+    # have a __name__ that is the fully qualified name of the object they are
+    # representing.
 
     # Note, though, that equality and hashing are still identity based. This
-    # accounts for things like nested objects that have the same name (typically
-    # only in tests) and is consistent with pickling. As far as comparisons to InterfaceClass
-    # goes, we'll never have equal name and module to those, so we're still consistent there.
-    # Instances of this class are essentially intended to be unique and are
-    # heavily cached (note how our __reduce__ handles this) so having identity
-    # based hash and eq should also work.
+    # accounts for things like nested objects that have the same name
+    # (typically only in tests) and is consistent with pickling. As far as
+    # comparisons to InterfaceClass goes, we'll never have equal name and
+    # module to those, so we're still consistent there.  Instances of this
+    # class are essentially intended to be unique and are heavily cached (note
+    # how our __reduce__ handles this) so having identity based hash and eq
+    # should also work.
 
-    # We want equality and hashing to be based on identity. However, we can't actually
-    # implement __eq__/__ne__ to do this because sometimes we get wrapped in a proxy.
-    # We need to let the proxy types implement these methods so they can handle unwrapping
-    # and then rely on: (1) the interpreter automatically changing `implements == proxy` into
-    # `proxy == implements` (which will call proxy.__eq__ to do the unwrapping) and then
+    # We want equality and hashing to be based on identity. However, we can't
+    # actually implement __eq__/__ne__ to do this because sometimes we get
+    # wrapped in a proxy.  We need to let the proxy types implement these
+    # methods so they can handle unwrapping and then rely on: (1) the
+    # interpreter automatically changing `implements == proxy` into `proxy ==
+    # implements` (which will call proxy.__eq__ to do the unwrapping) and then
     # (2) the default equality and hashing semantics being identity based.
 
     # class whose specification should be used as additional base
@@ -320,11 +321,11 @@ class Implements(NameAndModuleComparisonMixin,
 
     @classmethod
     def named(cls, name, *bases):
-        # Implementation method: Produce an Implements interface with
-        # a fully fleshed out __name__ before calling the constructor, which
-        # sets bases to the given interfaces and which may pass this object to
-        # other objects (e.g., to adjust dependents). If they're sorting or comparing
-        # by name, this needs to be set.
+        # Implementation method: Produce an Implements interface with a fully
+        # fleshed out __name__ before calling the constructor, which sets
+        # bases to the given interfaces and which may pass this object to
+        # other objects (e.g., to adjust dependents). If they're sorting or
+        # comparing by name, this needs to be set.
         inst = cls.__new__(cls)
         inst.__name__ = name
         inst.__init__(*bases)
@@ -335,17 +336,20 @@ class Implements(NameAndModuleComparisonMixin,
             del self._super_cache
         except AttributeError:
             pass
-        return super(Implements, self).changed(originally_changed)
+        return super().changed(originally_changed)
 
     def __repr__(self):
         if self.inherit:
-            name = getattr(self.inherit, '__name__', None) or _implements_name(self.inherit)
+            name = (
+                getattr(self.inherit, '__name__', None) or
+                _implements_name(self.inherit)
+            )
         else:
             name = self.__name__
         declared_names = self._argument_names_for_repr(self.declared)
         if declared_names:
             declared_names = ', ' + declared_names
-        return 'classImplements(%s%s)' % (name, declared_names)
+        return f'classImplements({name}{declared_names})'
 
     def __reduce__(self):
         return implementedBy, (self.inherit, )
@@ -360,6 +364,12 @@ def _implements_name(ob):
     # equality and hashing is still based on identity.
     # It might be nice to use __qualname__ on Python 3, but that would produce
     # different values between Py2 and Py3.
+
+    # Special-case 'InterfaceBase':  its '__module__' member descriptor
+    # behaves differently across Python 3.x versions.
+    if ob is InterfaceBase:
+        return 'zope.interface.interface.InterfaceBase'
+
     return (getattr(ob, '__module__', '?') or '?') + \
         '.' + (getattr(ob, '__name__', '?') or '?')
 
@@ -377,7 +387,7 @@ def _implementedBy_super(sup):
     # that excludes the classes being skipped over but
     # includes everything else.
     implemented_by_self = implementedBy(sup.__self_class__)
-    cache = implemented_by_self._super_cache # pylint:disable=protected-access
+    cache = implemented_by_self._super_cache  # pylint:disable=protected-access
     if cache is None:
         cache = implemented_by_self._super_cache = weakref.WeakKeyDictionary()
 
@@ -412,7 +422,9 @@ def _implementedBy_super(sup):
 
 
 @_use_c_impl
-def implementedBy(cls): # pylint:disable=too-many-return-statements,too-many-branches
+def implementedBy(
+    cls
+):  # pylint:disable=too-many-return-statements,too-many-branches
     """Return the interfaces implemented for a class' instances
 
       The value returned is an `~zope.interface.interfaces.IDeclaration`.
@@ -466,10 +478,10 @@ def implementedBy(cls): # pylint:disable=too-many-return-statements,too-many-bra
     spec_name = _implements_name(cls)
     if spec is not None:
         # old-style __implemented__ = foo declaration
-        spec = (spec, ) # tuplefy, as it might be just an int
+        spec = (spec, )          # tuplefy, as it might be just an int
         spec = Implements.named(spec_name, *_normalizeargs(spec))
-        spec.inherit = None    # old-style implies no inherit
-        del cls.__implemented__ # get rid of the old-style declaration
+        spec.inherit = None      # old-style implies no inherit
+        del cls.__implemented__  # get rid of the old-style declaration
     else:
         try:
             bases = cls.__bases__
@@ -486,13 +498,11 @@ def implementedBy(cls): # pylint:disable=too-many-return-statements,too-many-bra
         if not hasattr(cls, '__providedBy__'):
             cls.__providedBy__ = objectSpecificationDescriptor
 
-        if (isinstance(cls, DescriptorAwareMetaClasses)
-                and '__provides__' not in cls.__dict__):
+        if isinstance(cls, type) and '__provides__' not in cls.__dict__:
             # Make sure we get a __provides__ descriptor
             cls.__provides__ = ClassProvides(
-                cls,
-                getattr(cls, '__class__', type(cls)),
-                )
+                cls, getattr(cls, '__class__', type(cls)),
+            )
 
     except TypeError:
         if not isinstance(cls, type):
@@ -510,9 +520,10 @@ def classImplementsOnly(cls, *interfaces):
     specifications (`~zope.interface.interfaces.IDeclaration` objects).
 
     The interfaces given (including the interfaces in the specifications)
-    replace any previous declarations, *including* inherited definitions. If you
-    wish to preserve inherited declarations, you can pass ``implementedBy(cls)``
-    in *interfaces*. This can be used to alter the interface resolution order.
+    replace any previous declarations, *including* inherited definitions. If
+    you wish to preserve inherited declarations, you can pass
+    ``implementedBy(cls)`` in *interfaces*. This can be used to alter the
+    interface resolution order.
     """
     spec = implementedBy(cls)
     # Clear out everything inherited. It's important to
@@ -529,8 +540,8 @@ def classImplements(cls, *interfaces):
     """
     Declare additional interfaces implemented for instances of a class
 
-    The arguments after the class are one or more interfaces or
-    interface specifications (`~zope.interface.interfaces.IDeclaration` objects).
+    The arguments after the class are one or more interfaces or interface
+    specifications (`~zope.interface.interfaces.IDeclaration` objects).
 
     The interfaces given (including the interfaces in the specifications)
     are added to any interfaces previously declared. An effort is made to
@@ -542,13 +553,14 @@ def classImplements(cls, *interfaces):
        based on inheritance, in order to try to maintain a consistent
        resolution order. Previously, all interfaces were added to the end.
     .. versionchanged:: 5.1.0
-       If *cls* is already declared to implement an interface (or derived interface)
-       in *interfaces* through inheritance, the interface is ignored. Previously, it
-       would redundantly be made direct base of *cls*, which often produced inconsistent
-       interface resolution orders. Now, the order will be consistent, but may change.
-       Also, if the ``__bases__`` of the *cls* are later changed, the *cls* will no
-       longer be considered to implement such an interface (changing the ``__bases__`` of *cls*
-       has never been supported).
+       If *cls* is already declared to implement an interface (or derived
+       interface) in *interfaces* through inheritance, the interface is
+       ignored. Previously, it would redundantly be made direct base of *cls*,
+       which often produced inconsistent interface resolution orders. Now, the
+       order will be consistent, but may change.  Also, if the ``__bases__``
+       of the *cls* are later changed, the *cls* will no longer be considered
+       to implement such an interface (changing the ``__bases__`` of *cls* has
+       never been supported).
     """
     spec = implementedBy(cls)
     interfaces = tuple(_normalizeargs(interfaces))
@@ -586,9 +598,9 @@ def classImplementsFirst(cls, iface):
 def _classImplements_ordered(spec, before=(), after=()):
     # Elide everything already inherited.
     # Except, if it is the root, and we don't already declare anything else
-    # that would imply it, allow the root through. (TODO: When we disallow non-strict
-    # IRO, this part of the check can be removed because it's not possible to re-declare
-    # like that.)
+    # that would imply it, allow the root through. (TODO: When we disallow
+    # non-strict IRO, this part of the check can be removed because it's not
+    # possible to re-declare like that.)
     before = [
         x
         for x in before
@@ -603,8 +615,8 @@ def _classImplements_ordered(spec, before=(), after=()):
     # eliminate duplicates
     new_declared = []
     seen = set()
-    for l in before, spec.declared, after:
-        for b in l:
+    for lst in before, spec.declared, after:
+        for b in lst:
             if b not in seen:
                 new_declared.append(b)
                 seen.add(b)
@@ -612,7 +624,7 @@ def _classImplements_ordered(spec, before=(), after=()):
     spec.declared = tuple(new_declared)
 
     # compute the bases
-    bases = new_declared # guaranteed no dupes
+    bases = new_declared  # guaranteed no dupes
 
     if spec.inherit is not None:
         for c in spec.inherit.__bases__:
@@ -631,25 +643,24 @@ def _implements_advice(cls):
     return cls
 
 
-class implementer(object):
+class implementer:
     """
     Declare the interfaces implemented by instances of a class.
 
     This function is called as a class decorator.
 
-    The arguments are one or more interfaces or interface
-    specifications (`~zope.interface.interfaces.IDeclaration`
-    objects).
+    The arguments are one or more interfaces or interface specifications
+    (`~zope.interface.interfaces.IDeclaration` objects).
 
-    The interfaces given (including the interfaces in the
-    specifications) are added to any interfaces previously declared,
-    unless the interface is already implemented.
+    The interfaces given (including the interfaces in the specifications) are
+    added to any interfaces previously declared, unless the interface is
+    already implemented.
 
     Previous declarations include declarations for base classes unless
     implementsOnly was used.
 
-    This function is provided for convenience. It provides a more
-    convenient way to call `classImplements`. For example::
+    This function is provided for convenience. It provides a more convenient
+    way to call `classImplements`. For example::
 
         @implementer(I1)
         class C(object):
@@ -670,9 +681,8 @@ class implementer(object):
         self.interfaces = interfaces
 
     def __call__(self, ob):
-        if isinstance(ob, DescriptorAwareMetaClasses):
-            # This is the common branch for new-style (object) and
-            # on Python 2 old-style classes.
+        if isinstance(ob, type):
+            # This is the common branch for classes.
             classImplements(ob, *self.interfaces)
             return ob
 
@@ -684,7 +694,8 @@ class implementer(object):
             raise TypeError("Can't declare implements", ob)
         return ob
 
-class implementer_only(object):
+
+class implementer_only:
     """Declare the only interfaces implemented by instances of a class
 
       This function is called as a class decorator.
@@ -723,88 +734,6 @@ class implementer_only(object):
         classImplementsOnly(ob, *self.interfaces)
         return ob
 
-def _implements(name, interfaces, do_classImplements):
-    # This entire approach is invalid under Py3K.  Don't even try to fix
-    # the coverage for this block there. :(
-    frame = sys._getframe(2) # pylint:disable=protected-access
-    locals = frame.f_locals # pylint:disable=redefined-builtin
-
-    # Try to make sure we were called from a class def. In 2.2.0 we can't
-    # check for __module__ since it doesn't seem to be added to the locals
-    # until later on.
-    if locals is frame.f_globals or '__module__' not in locals:
-        raise TypeError(name+" can be used only from a class definition.")
-
-    if '__implements_advice_data__' in locals:
-        raise TypeError(name+" can be used only once in a class definition.")
-
-    locals['__implements_advice_data__'] = interfaces, do_classImplements
-    addClassAdvisor(_implements_advice, depth=3)
-
-def implements(*interfaces):
-    """
-    Declare interfaces implemented by instances of a class.
-
-    .. deprecated:: 5.0
-        This only works for Python 2. The `implementer` decorator
-        is preferred for all versions.
-
-    This function is called in a class definition.
-
-    The arguments are one or more interfaces or interface
-    specifications (`~zope.interface.interfaces.IDeclaration`
-    objects).
-
-    The interfaces given (including the interfaces in the
-    specifications) are added to any interfaces previously declared.
-
-    Previous declarations include declarations for base classes unless
-    `implementsOnly` was used.
-
-    This function is provided for convenience. It provides a more
-    convenient way to call `classImplements`. For example::
-
-        implements(I1)
-
-    is equivalent to calling::
-
-        classImplements(C, I1)
-
-    after the class has been created.
-    """
-    # This entire approach is invalid under Py3K.  Don't even try to fix
-    # the coverage for this block there. :(
-    if PYTHON3:
-        raise TypeError(_ADVICE_ERROR % 'implementer')
-    _implements("implements", interfaces, classImplements)
-
-def implementsOnly(*interfaces):
-    """Declare the only interfaces implemented by instances of a class
-
-      This function is called in a class definition.
-
-      The arguments are one or more interfaces or interface
-      specifications (`~zope.interface.interfaces.IDeclaration` objects).
-
-      Previous declarations including declarations for base classes
-      are overridden.
-
-      This function is provided for convenience. It provides a more
-      convenient way to call `classImplementsOnly`. For example::
-
-        implementsOnly(I1)
-
-      is equivalent to calling::
-
-        classImplementsOnly(I1)
-
-      after the class has been created.
-    """
-    # This entire approach is invalid under Py3K.  Don't even try to fix
-    # the coverage for this block there. :(
-    if PYTHON3:
-        raise TypeError(_ADVICE_ERROR % 'implementer_only')
-    _implements("implementsOnly", interfaces, classImplementsOnly)
 
 ##############################################################################
 #
@@ -819,22 +748,23 @@ class Provides(Declaration):  # Really named ProvidesClass
     def __init__(self, cls, *interfaces):
         self.__args = (cls, ) + interfaces
         self._cls = cls
-        Declaration.__init__(self, *self._add_interfaces_to_cls(interfaces, cls))
+        Declaration.__init__(
+            self, *self._add_interfaces_to_cls(interfaces, cls)
+        )
 
     # Added to by ``moduleProvides``, et al
     _v_module_names = ()
 
     def __repr__(self):
-        # The typical way to create instances of this
-        # object is via calling ``directlyProvides(...)`` or ``alsoProvides()``,
-        # but that's not the only way. Proxies, for example,
-        # directly use the ``Provides(...)`` function (which is the
-        # more generic method, and what we pickle as). We're after the most
-        # readable, useful repr in the common case, so we use the most
-        # common name.
+        # The typical way to create instances of this object is via calling
+        # ``directlyProvides(...)`` or ``alsoProvides()``, but that's not the
+        # only way. Proxies, for example, directly use the ``Provides(...)``
+        # function (which is the more generic method, and what we pickle as).
+        # We're after the most readable, useful repr in the common case, so we
+        # use the most common name.
         #
-        # We also cooperate with ``moduleProvides`` to attempt to do the
-        # right thing for that API. See it for details.
+        # We also cooperate with ``moduleProvides`` to attempt to do the right
+        # thing for that API. See it for details.
         function_name = 'directlyProvides'
         if self._cls is ModuleType and self._v_module_names:
             # See notes in ``moduleProvides``/``directlyProvides``
@@ -849,9 +779,9 @@ class Provides(Declaration):  # Really named ProvidesClass
             if len(mod_names) == 1:
                 mod_names = "sys.modules[%r]" % mod_names[0]
             ordered_names = (
-                '%s, ' % (mod_names,)
+                f'{mod_names}, '
             ) + ordered_names
-        return "%s(%s)" % (
+        return "{}({})".format(
             function_name,
             ordered_names,
         )
@@ -874,14 +804,21 @@ class Provides(Declaration):  # Really named ProvidesClass
 
         raise AttributeError('__provides__')
 
+
 ProvidesClass = Provides
+
 
 # Registry of instance declarations
 # This is a memory optimization to allow objects to share specifications.
 InstanceDeclarations = weakref.WeakValueDictionary()
 
-def Provides(*interfaces): # pylint:disable=function-redefined
-    """Cache instance declarations
+
+def Provides(*interfaces):  # pylint:disable=function-redefined
+    """Declaration for an instance of *cls*.
+
+       The correct signature is ``cls, *interfaces``.
+       The *cls* is necessary to avoid the
+       construction of inconsistent resolution orders.
 
       Instance declarations are shared among instances that have the same
       declaration. The declarations are cached in a weak value dictionary.
@@ -893,10 +830,11 @@ def Provides(*interfaces): # pylint:disable=function-redefined
 
     return spec
 
+
 Provides.__safe_for_unpickling__ = True
 
 
-def directlyProvides(object, *interfaces): # pylint:disable=redefined-builtin
+def directlyProvides(object, *interfaces):  # pylint:disable=redefined-builtin
     """Declare interfaces declared directly for an object
 
       The arguments after the object are one or more interfaces or interface
@@ -908,10 +846,9 @@ def directlyProvides(object, *interfaces): # pylint:disable=redefined-builtin
     cls = getattr(object, '__class__', None)
     if cls is not None and getattr(cls, '__class__', None) is cls:
         # It's a meta class (well, at least it it could be an extension class)
-        # Note that we can't get here from Py3k tests:  there is no normal
+        # Note that we can't get here from the tests:  there is no normal
         # class which isn't descriptor aware.
-        if not isinstance(object,
-                          DescriptorAwareMetaClasses):
+        if not isinstance(object, type):
             raise TypeError("Attempt to make an interface declaration on a "
                             "non-descriptor-aware class")
 
@@ -919,12 +856,7 @@ def directlyProvides(object, *interfaces): # pylint:disable=redefined-builtin
     if cls is None:
         cls = type(object)
 
-    issub = False
-    for damc in DescriptorAwareMetaClasses:
-        if issubclass(cls, damc):
-            issub = True
-            break
-    if issub:
+    if issubclass(cls, type):
         # we have a class or type.  We'll use a special descriptor
         # that provides some extra caching
         object.__provides__ = ClassProvides(object, cls, *interfaces)
@@ -935,8 +867,7 @@ def directlyProvides(object, *interfaces): # pylint:disable=redefined-builtin
             provides._v_module_names += (object.__name__,)
 
 
-
-def alsoProvides(object, *interfaces): # pylint:disable=redefined-builtin
+def alsoProvides(object, *interfaces):  # pylint:disable=redefined-builtin
     """Declare interfaces declared directly for an object
 
     The arguments after the object are one or more interfaces or interface
@@ -948,7 +879,7 @@ def alsoProvides(object, *interfaces): # pylint:disable=redefined-builtin
     directlyProvides(object, directlyProvidedBy(object), *interfaces)
 
 
-def noLongerProvides(object, interface): # pylint:disable=redefined-builtin
+def noLongerProvides(object, interface):  # pylint:disable=redefined-builtin
     """ Removes a directly provided interface from an object.
     """
     directlyProvides(object, directlyProvidedBy(object) - interface)
@@ -996,22 +927,24 @@ class ClassProvides(Declaration, ClassProvidesBase):
         self._cls = cls
         self._implements = implementedBy(cls)
         self.__args = (cls, metacls, ) + interfaces
-        Declaration.__init__(self, *self._add_interfaces_to_cls(interfaces, metacls))
+        Declaration.__init__(
+            self, *self._add_interfaces_to_cls(interfaces, metacls)
+        )
 
     def __repr__(self):
-        # There are two common ways to get instances of this object:
-        # The most interesting way is calling ``@provider(..)`` as a decorator
-        # of a class; this is the same as calling ``directlyProvides(cls, ...)``.
+        # There are two common ways to get instances of this object: The most
+        # interesting way is calling ``@provider(..)`` as a decorator of a
+        # class; this is the same as calling ``directlyProvides(cls, ...)``.
         #
-        # The other way is by default: anything that invokes ``implementedBy(x)``
-        # will wind up putting an instance in ``type(x).__provides__``; this includes
-        # the ``@implementer(...)`` decorator. Those instances won't have any
-        # interfaces.
+        # The other way is by default: anything that invokes
+        # ``implementedBy(x)`` will wind up putting an instance in
+        # ``type(x).__provides__``; this includes the ``@implementer(...)``
+        # decorator. Those instances won't have any interfaces.
         #
         # Thus, as our repr, we go with the ``directlyProvides()`` syntax.
         interfaces = (self._cls, ) + self.__args[2:]
         ordered_names = self._argument_names_for_repr(interfaces)
-        return "directlyProvides(%s)" % (ordered_names,)
+        return f"directlyProvides({ordered_names})"
 
     def __reduce__(self):
         return self.__class__, self.__args
@@ -1020,26 +953,28 @@ class ClassProvides(Declaration, ClassProvidesBase):
     __get__ = ClassProvidesBase.__get__
 
 
-def directlyProvidedBy(object): # pylint:disable=redefined-builtin
+# autopep8: off (it breaks the statements in the "if")
+def directlyProvidedBy(object):  # pylint:disable=redefined-builtin
     """Return the interfaces directly provided by the given object
 
     The value returned is an `~zope.interface.interfaces.IDeclaration`.
     """
     provides = getattr(object, "__provides__", None)
     if (
-            provides is None # no spec
+            provides is None  # no spec
             # We might have gotten the implements spec, as an
             # optimization. If so, it's like having only one base, that we
             # lop off to exclude class-supplied declarations:
-            or isinstance(provides, Implements)
+            or isinstance(provides, Implements)  # noqa W503
     ):
         return _empty
 
     # Strip off the class part of the spec:
     return Declaration(provides.__bases__[:-1])
+# autopep8: on
 
 
-def classProvides(*interfaces):
+class provider:
     """Declare interfaces provided directly by a class
 
       This function is called in a class definition.
@@ -1059,47 +994,16 @@ def classProvides(*interfaces):
       This function is provided for convenience. It provides a more convenient
       way to call `directlyProvides` for a class. For example::
 
-        classProvides(I1)
+        @provider(I1)
+        class C:
+            pass
 
       is equivalent to calling::
 
-        directlyProvides(theclass, I1)
+        directlyProvides(C, I1)
 
       after the class has been created.
     """
-    # This entire approach is invalid under Py3K.  Don't even try to fix
-    # the coverage for this block there. :(
-
-    if PYTHON3:
-        raise TypeError(_ADVICE_ERROR % 'provider')
-
-    frame = sys._getframe(1) # pylint:disable=protected-access
-    locals = frame.f_locals # pylint:disable=redefined-builtin
-
-    # Try to make sure we were called from a class def
-    if (locals is frame.f_globals) or ('__module__' not in locals):
-        raise TypeError("classProvides can be used only from a "
-                        "class definition.")
-
-    if '__provides__' in locals:
-        raise TypeError(
-            "classProvides can only be used once in a class definition.")
-
-    locals["__provides__"] = _normalizeargs(interfaces)
-
-    addClassAdvisor(_classProvides_advice, depth=2)
-
-def _classProvides_advice(cls):
-    # This entire approach is invalid under Py3K.  Don't even try to fix
-    # the coverage for this block there. :(
-    interfaces = cls.__dict__['__provides__']
-    del cls.__provides__
-    directlyProvides(cls, *interfaces)
-    return cls
-
-
-class provider(object):
-    """Class decorator version of classProvides"""
 
     def __init__(self, *interfaces):
         self.interfaces = interfaces
@@ -1132,8 +1036,8 @@ def moduleProvides(*interfaces):
 
       directlyProvides(sys.modules[__name__], I1)
     """
-    frame = sys._getframe(1) # pylint:disable=protected-access
-    locals = frame.f_locals # pylint:disable=redefined-builtin
+    frame = sys._getframe(1)  # pylint:disable=protected-access
+    locals = frame.f_locals   # pylint:disable=redefined-builtin
 
     # Try to make sure we were called from a module body
     if (locals is not frame.f_globals) or ('__name__' not in locals):
@@ -1144,18 +1048,18 @@ def moduleProvides(*interfaces):
         raise TypeError(
             "moduleProvides can only be used once in a module definition.")
 
-    # Note: This is cached based on the key ``(ModuleType, *interfaces)``;
-    # One consequence is that any module that provides the same interfaces
-    # gets the same ``__repr__``, meaning that you can't tell what module
-    # such a declaration came from. Adding the module name to ``_v_module_names``
-    # attempts to correct for this; it works in some common situations, but fails
-    # (1) after pickling (the data is lost) and (2) if declarations are
-    # actually shared and (3) if the alternate spelling of ``directlyProvides()``
-    # is used. Problem (3)  is fixed by cooperating with ``directlyProvides``
-    # to maintain this information, and problem (2) is worked around by
-    # printing all the names, but (1) is unsolvable without introducing
-    # new classes or changing the stored data...but it doesn't actually matter,
-    # because ``ModuleType`` can't be pickled!
+    # Note: This is cached based on the key ``(ModuleType, *interfaces)``; One
+    # consequence is that any module that provides the same interfaces gets
+    # the same ``__repr__``, meaning that you can't tell what module such a
+    # declaration came from. Adding the module name to ``_v_module_names``
+    # attempts to correct for this; it works in some common situations, but
+    # fails (1) after pickling (the data is lost) and (2) if declarations are
+    # actually shared and (3) if the alternate spelling of
+    # ``directlyProvides()`` is used. Problem (3)  is fixed by cooperating
+    # with ``directlyProvides`` to maintain this information, and problem (2)
+    # is worked around by printing all the names, but (1) is unsolvable
+    # without introducing new classes or changing the stored data...but it
+    # doesn't actually matter, because ``ModuleType`` can't be pickled!
     p = locals["__provides__"] = Provides(ModuleType,
                                           *_normalizeargs(interfaces))
     p._v_module_names += (locals['__name__'],)
@@ -1174,7 +1078,8 @@ def ObjectSpecification(direct, cls):
 
     These combine information for the object and for it's classes.
     """
-    return Provides(cls, direct) # pragma: no cover fossil
+    return Provides(cls, direct)  # pragma: no cover fossil
+
 
 @_use_c_impl
 def getObjectSpecification(ob):
@@ -1210,7 +1115,7 @@ def providedBy(ob):
 
     # Try to get __providedBy__
     try:
-        if isinstance(ob, super): # Some objects raise errors on isinstance()
+        if isinstance(ob, super):  # Some objects raise errors on isinstance()
             return implementedBy(ob)
 
         r = ob.__providedBy__
@@ -1257,11 +1162,11 @@ def providedBy(ob):
 
 
 @_use_c_impl
-class ObjectSpecificationDescriptor(object):
+class ObjectSpecificationDescriptor:
     """Implement the ``__providedBy__`` attribute
 
-    The ``__providedBy__`` attribute computes the interfaces provided by
-    an object. If an object has an ``__provides__`` attribute, that is returned.
+    The ``__providedBy__`` attribute computes the interfaces provided by an
+    object. If an object has an ``__provides__`` attribute, that is returned.
     Otherwise, `implementedBy` the *cls* is returned.
 
     .. versionchanged:: 5.4.0
@@ -1307,6 +1212,7 @@ def _normalizeargs(sequence, output=None):
             _normalizeargs(v, output)
 
     return output
+
 
 _empty = _ImmutableDeclaration()
 

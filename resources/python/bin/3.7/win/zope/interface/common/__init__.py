@@ -13,11 +13,12 @@
 import itertools
 from types import FunctionType
 
-from zope.interface import classImplements
 from zope.interface import Interface
-from zope.interface.interface import fromFunction
+from zope.interface import classImplements
 from zope.interface.interface import InterfaceClass
 from zope.interface.interface import _decorator_non_return
+from zope.interface.interface import fromFunction
+
 
 __all__ = [
     # Nothing public here.
@@ -28,7 +29,7 @@ __all__ = [
 # pylint:disable=no-self-argument,no-method-argument
 # pylint:disable=unexpected-special-method-signature
 
-class optional(object):
+class optional:
     # Apply this decorator to a method definition to make it
     # optional (remove it from the list of required names), overriding
     # the definition inherited from the ABC.
@@ -162,7 +163,7 @@ class ABCInterfaceClass(InterfaceClass):
             return ''
 
         docs = "\n\nThe following methods are optional:\n - " + "\n-".join(
-            "%s\n%s" % (k, v.__doc__) for k, v in optionals.items()
+            "{}\n{}".format(k, v.__doc__) for k, v in optionals.items()
         )
         return docs
 
@@ -175,7 +176,7 @@ class ABCInterfaceClass(InterfaceClass):
                 return "`%s`" % name
             if mod == '_io':
                 mod = 'io'
-            return "`%s.%s`" % (mod, name)
+            return "`{}.{}`".format(mod, name)
         implementations_doc = "\n - ".join(
             ref(c)
             for c in sorted(self.getRegisteredConformers(), key=ref)
@@ -187,7 +188,7 @@ class ABCInterfaceClass(InterfaceClass):
         based_on_doc = based_on_doc.splitlines()
         based_on_doc = based_on_doc[0] if based_on_doc else ''
 
-        doc = """Interface for the ABC `%s.%s`.\n\n%s%s%s""" % (
+        doc = """Interface for the ABC `{}.{}`.\n\n{}{}{}""".format(
             based_on.__module__, based_on.__name__,
             attrs.get('__doc__', based_on_doc),
             self.__optional_methods_to_docs(attrs),

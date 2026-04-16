@@ -15,15 +15,16 @@
 """
 # pylint:disable=protected-access
 import sys
-from types import MethodType
-from types import FunctionType
 import weakref
+from types import FunctionType
+from types import MethodType
+from typing import Union
 
+from zope.interface import ro
 from zope.interface._compat import _use_c_impl
-from zope.interface._compat import PYTHON2 as PY2
 from zope.interface.exceptions import Invalid
 from zope.interface.ro import ro as calculate_ro
-from zope.interface import ro
+
 
 __all__ = [
     # Most of the public API from this module is directly exported
@@ -63,7 +64,7 @@ def taggedValue(key, value):
     return _decorator_non_return
 
 
-class Element(object):
+class Element:
     """
     Default implementation of `zope.interface.interfaces.IElement`.
     """
@@ -128,7 +129,7 @@ SpecificationBasePy = object # filled by _use_c_impl.
 
 
 @_use_c_impl
-class SpecificationBase(object):
+class SpecificationBase:
     # This object is the base of the inheritance hierarchy for ClassProvides:
     #
     # ClassProvides < ClassProvidesBase, Declaration
@@ -174,7 +175,7 @@ class SpecificationBase(object):
     __call__ = isOrExtends
 
 
-class NameAndModuleComparisonMixin(object):
+class NameAndModuleComparisonMixin:
     # Internal use. Implement the basic sorting operators (but not (in)equality
     # or hashing). Subclasses must provide ``__name__`` and ``__module__``
     # attributes. Subclasses will be mutually comparable; but because equality
@@ -648,7 +649,7 @@ class _InterfaceMetaClass(type):
         return cls.__module
 
     def __repr__(cls):
-        return "<class '%s.%s'>" % (
+        return "<class '{}.{}'>".format(
             cls.__module,
             cls.__name__,
         )
@@ -720,27 +721,6 @@ class InterfaceClass(_InterfaceClassBase):
                 cls_bases,
                 needs_custom_class
             )
-        elif PY2 and bases and len(bases) > 1:
-            bases_with_custom_methods = tuple(
-                type(b)
-                for b in bases
-                if issubclass(type(b), _InterfaceClassWithCustomMethods)
-            )
-
-            # If we have a subclass of InterfaceClass in *bases*,
-            # Python 3 is smart enough to pass that as *cls*, but Python
-            # 2 just passes whatever the first base in *bases* is. This means that if
-            # we have multiple inheritance, and one of our bases has already defined
-            # a custom method like ``__adapt__``, we do the right thing automatically
-            # and extend it on Python 3, but not necessarily on Python 2. To fix this, we need
-            # to run the MRO algorithm and get the most derived base manually.
-            # Note that this only works for consistent resolution orders
-            if bases_with_custom_methods:
-                cls = type( # pylint:disable=self-cls-assignment
-                    name + "<WithCustomMethods>",
-                    bases_with_custom_methods,
-                    {}
-                ).__mro__[1] # Not the class we created, the most derived.
 
         return _InterfaceClassBase.__new__(cls)
 
@@ -793,7 +773,7 @@ class InterfaceClass(_InterfaceClassBase):
         Specification.__init__(self, bases)
         self.__attrs = self.__compute_attrs(attrs)
 
-        self.__identifier__ = "%s.%s" % (__module__, name)
+        self.__identifier__ = "{}.{}".format(__module__, name)
 
     def __compute_attrs(self, attrs):
         # Make sure that all recorded attributes (and methods) are of type
@@ -819,6 +799,12 @@ class InterfaceClass(_InterfaceClassBase):
                 '__qualname__',
                 # __annotations__: PEP 3107 (Python 3.0+)
                 '__annotations__',
+                # __static_attributes__: Python 3.13a6+
+                # https://github.com/python/cpython/pull/115913
+                '__static_attributes__',
+                # __firstlineno__: Python 3.13b1+
+                # https://github.com/python/cpython/pull/118475
+                '__firstlineno__',
             )
             and aval is not _decorator_non_return
         }
@@ -930,7 +916,7 @@ class InterfaceClass(_InterfaceClassBase):
             return self._v_repr
         except AttributeError:
             name = str(self)
-            r = "<%s %s>" % (self.__class__.__name__, name)
+            r = "<{} {}>".format(self.__class__.__name__, name)
             self._v_repr = r # pylint:disable=attribute-defined-outside-init
             return r
 
@@ -938,7 +924,7 @@ class InterfaceClass(_InterfaceClassBase):
         name = self.__name__
         m = self.__ibmodule__
         if m:
-            name = '%s.%s' % (m, name)
+            name = '{}.{}'.format(m, name)
         return name
 
     def _call_conform(self, conform):
@@ -962,6 +948,14 @@ class InterfaceClass(_InterfaceClassBase):
 
     def __reduce__(self):
         return self.__name__
+
+    def __or__(self, other):
+        """Allow type hinting syntax: Interface | None."""
+        return Union[self, other]
+
+    def __ror__(self, other):
+        """Allow type hinting syntax: None | Interface."""
+        return Union[other, self]
 
 Interface = InterfaceClass("Interface", __module__='zope.interface')
 # Interface is the only member of its own SRO.
@@ -1000,7 +994,7 @@ class Attribute(Element):
         return of + (self.__name__ or '<unknown>') + self._get_str_info()
 
     def __repr__(self):
-        return "<%s.%s object at 0x%x %s>" % (
+        return "<{}.{} object at 0x{:x} {}>".format(
             type(self).__module__,
             type(self).__name__,
             id(self),
@@ -1143,8 +1137,9 @@ def _wire():
 # pylint:disable=wrong-import-position
 from zope.interface.declarations import implementedBy
 from zope.interface.declarations import providedBy
-from zope.interface.exceptions import InvalidInterface
 from zope.interface.exceptions import BrokenImplementation
+from zope.interface.exceptions import InvalidInterface
+
 
 # This ensures that ``Interface`` winds up in the flattened()
 # list of the immutable declaration. It correctly overrides changed()

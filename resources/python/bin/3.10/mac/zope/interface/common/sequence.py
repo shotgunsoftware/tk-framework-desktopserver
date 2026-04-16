@@ -32,7 +32,7 @@ in this module.
 __docformat__ = 'restructuredtext'
 from zope.interface import Interface
 from zope.interface.common import collections
-from zope.interface._compat import PYTHON2 as PY2
+
 
 class IMinimalSequence(collections.IIterable):
     """Most basic sequence interface.
@@ -55,6 +55,7 @@ class IMinimalSequence(collections.IIterable):
         Declaring this interface does not specify whether `__getitem__`
         supports slice objects."""
 
+
 class IFiniteSequence(collections.ISized, IMinimalSequence):
     """
     A sequence of bound size.
@@ -62,6 +63,7 @@ class IFiniteSequence(collections.ISized, IMinimalSequence):
     .. versionchanged:: 5.0.0
        Extend ``ISized``
     """
+
 
 class IReadSequence(collections.IContainer, IFiniteSequence):
     """
@@ -107,14 +109,6 @@ class IReadSequence(collections.IContainer, IFiniteSequence):
     def __rmul__(n):
         """``x.__rmul__(n) <==> n * x``"""
 
-    if PY2:
-        def __getslice__(i, j):
-            """``x.__getslice__(i, j) <==> x[i:j]``
-
-            Use of negative indices is not supported.
-
-            Deprecated since Python 2.0 but still a part of `UserList`.
-            """
 
 class IExtendedReadSequence(IReadSequence):
     """Full read interface for lists"""
@@ -127,6 +121,7 @@ class IExtendedReadSequence(IReadSequence):
 
         Return first index of *value*
         """
+
 
 class IUniqueMemberWriteSequence(Interface):
     """The write contract for a sequence that may enforce unique members"""
@@ -144,23 +139,6 @@ class IUniqueMemberWriteSequence(Interface):
         Declaring this interface does not specify whether `__delitem__`
         supports slice objects.
         """
-
-    if PY2:
-        def __setslice__(i, j, other):
-            """``x.__setslice__(i, j, other) <==> x[i:j] = other``
-
-            Use of negative indices is not supported.
-
-            Deprecated since Python 2.0 but still a part of `UserList`.
-            """
-
-        def __delslice__(i, j):
-            """``x.__delslice__(i, j) <==> del x[i:j]``
-
-            Use of negative indices is not supported.
-
-            Deprecated since Python 2.0 but still a part of `UserList`.
-            """
 
     def __iadd__(y):
         """``x.__iadd__(y) <==> x += y``"""
@@ -186,11 +164,13 @@ class IUniqueMemberWriteSequence(Interface):
     def extend(iterable):
         """Extend list by appending elements from the iterable"""
 
+
 class IWriteSequence(IUniqueMemberWriteSequence):
     """Full write contract for sequences"""
 
     def __imul__(n):
         """``x.__imul__(n) <==> x *= n``"""
+
 
 class ISequence(IReadSequence, IWriteSequence):
     """
