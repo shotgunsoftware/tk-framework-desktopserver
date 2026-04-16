@@ -133,9 +133,7 @@ class Updater(object):
 
         try:
             # pip install all the requirements into the build subfolder.
-            self._pip("install -r requirements/{}/requirements.txt".format(
-                self._python_version_dot_format
-            ))
+            self._pip("install -r requirements.txt")
             print("All dependencies installed.")
 
             # list everything that was installed.
