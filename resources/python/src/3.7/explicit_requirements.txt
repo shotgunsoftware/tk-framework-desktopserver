@@ -19,7 +19,7 @@ idna==3.10
 incremental==22.10.0
 pyOpenSSL==25.0.0
 pyasn1-modules==0.3.0
-pyasn1==0.5.1
+pyasn1==0.6.3
 pycparser==2.21
 service-identity==21.1.0
 six==1.16.0
