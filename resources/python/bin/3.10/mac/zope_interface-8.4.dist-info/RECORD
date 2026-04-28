@@ -100,10 +100,10 @@ zope/interface/tests/test_ro.py,sha256=Z1K4CbcTkTtuEOc3y3ceXLsKjwkmO_GqYqqwzqFgv
 zope/interface/tests/test_sorting.py,sha256=-lMIltkIv7Dxu_HRuYtsa6HXVf1fk_jM0gUYHEvj0ac,2222
 zope/interface/tests/test_verify.py,sha256=JnVLFlHGgVn8fC6u-WPW-mDtfmSuDA2PC0sglWuVBjI,19200
 zope/interface/verify.py,sha256=cEaIWPcS6gT97RkQW2SQJxxuUP7wRrwYwsJtXqo8jdE,7333
-zope_interface-8.3.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
-zope_interface-8.3.dist-info/METADATA,sha256=xxfng0GJlptPpgzTuxFe2WiBd-jluHqg5RVyhLezO4I,46180
-zope_interface-8.3.dist-info/RECORD,,
-zope_interface-8.3.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
-zope_interface-8.3.dist-info/WHEEL,sha256=Z9yh3GAsDyqKz8YztpLq0SCGNJWSzitpp0D1xIfXzBE,111
-zope_interface-8.3.dist-info/licenses/LICENSE.txt,sha256=PmcdsR32h1FswdtbPWXkqjg-rKPCDOo_r1Og9zNdCjw,2070
-zope_interface-8.3.dist-info/top_level.txt,sha256=QpUHvpO4wIuZDeEgKY8qZCtD-tAukB0fn_f6utzlb98,5
+zope_interface-8.4.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+zope_interface-8.4.dist-info/METADATA,sha256=8Bna7OFvxgkXriRqnM7000I60g28ee17STxV-EQnhcw,46295
+zope_interface-8.4.dist-info/RECORD,,
+zope_interface-8.4.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+zope_interface-8.4.dist-info/WHEEL,sha256=Z9yh3GAsDyqKz8YztpLq0SCGNJWSzitpp0D1xIfXzBE,111
+zope_interface-8.4.dist-info/licenses/LICENSE.txt,sha256=PmcdsR32h1FswdtbPWXkqjg-rKPCDOo_r1Og9zNdCjw,2070
+zope_interface-8.4.dist-info/top_level.txt,sha256=QpUHvpO4wIuZDeEgKY8qZCtD-tAukB0fn_f6utzlb98,5
