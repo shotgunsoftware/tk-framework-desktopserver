@@ -10,7 +10,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 Automat==25.4.16
 Incremental==24.11.0
-Twisted==24.11.0
+Twisted==26.4.0rc2
 attrs==22.2.0
 autobahn==24.4.2
 certifi==2026.1.4
