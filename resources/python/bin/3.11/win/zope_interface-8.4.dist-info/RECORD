@@ -15,7 +15,7 @@ zope/interface/__pycache__/verify.cpython-311.pyc,,
 zope/interface/_compat.py,sha256=jFKOZQasUwWLY0ytB5ZcTe0OzZILpGRDo7MGK2Ni33o,4552
 zope/interface/_flatten.py,sha256=Ij7iFkJvFoofx2g4xdSshhw66gVPI5xtWXayD5qjmNA,1095
 zope/interface/_zope_interface_coptimizations.c,sha256=DrW1dXSZtMtMNydwrwjTN1KkgfgyNGRGvVtY38I5eSk,81037
-zope/interface/_zope_interface_coptimizations.cp311-win_amd64.pyd,sha256=Ebmf-6-VJoTGwTE4rqD1pe7vZsgtgWOM3SaiVrwgNlg,32768
+zope/interface/_zope_interface_coptimizations.cp311-win_amd64.pyd,sha256=27spm2_K-3GSj6NJTtGXKy_6qav-QmJjCmQJyjYC4Zs,32768
 zope/interface/adapter.py,sha256=AAnXrMv4yjRWwGC8SqsvQ_VzZXia3bAV0cHCz82ljcY,37695
 zope/interface/advice.py,sha256=wp1NZCcndBu2OVNJvilPL-w1cNaS4ZNYePdWj8pSOb4,4039
 zope/interface/common/__init__.py,sha256=chA1ocAiw4YGstx9jmu6HzH-8hlcGnxKur2QafNzG_U,10935
@@ -100,10 +100,10 @@ zope/interface/tests/test_ro.py,sha256=FDak9Bn32N83ka-wfZcpVabPZuhIHwqz6GOl9-6V0
 zope/interface/tests/test_sorting.py,sha256=cHql5tqAxHMIurZ4OPWhZ7m0UvUMONpMknmn6ZODfe8,2308
 zope/interface/tests/test_verify.py,sha256=qxRizo4dzngbyebgoyBIoTSG4byEXgCZngTveqbfdx0,19856
 zope/interface/verify.py,sha256=4p9XWQ5AW-F7aahFWJQjLFaMFsxGZWG5SJc_8niw1v4,7542
-zope_interface-8.3.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
-zope_interface-8.3.dist-info/METADATA,sha256=tRKB2Hta_TxkngB-WUEd2D9DynIce98Y3LQDkpHIhUc,47486
-zope_interface-8.3.dist-info/RECORD,,
-zope_interface-8.3.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
-zope_interface-8.3.dist-info/WHEEL,sha256=bVDps4tOb0nHmbMU4uK7h9NZsZJmyTqcRbrvK3TZLY4,102
-zope_interface-8.3.dist-info/licenses/LICENSE.txt,sha256=bHkPG2Oy1PmxiQVWnzhtYjAlM1wCWbZQ6AyenUetrS0,2114
-zope_interface-8.3.dist-info/top_level.txt,sha256=QpUHvpO4wIuZDeEgKY8qZCtD-tAukB0fn_f6utzlb98,5
+zope_interface-8.4.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+zope_interface-8.4.dist-info/METADATA,sha256=duiy9fG_LBT_HxPZ1G-unBzDJeKhxIefwyXy1P4VKVc,47607
+zope_interface-8.4.dist-info/RECORD,,
+zope_interface-8.4.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+zope_interface-8.4.dist-info/WHEEL,sha256=bVDps4tOb0nHmbMU4uK7h9NZsZJmyTqcRbrvK3TZLY4,102
+zope_interface-8.4.dist-info/licenses/LICENSE.txt,sha256=bHkPG2Oy1PmxiQVWnzhtYjAlM1wCWbZQ6AyenUetrS0,2114
+zope_interface-8.4.dist-info/top_level.txt,sha256=QpUHvpO4wIuZDeEgKY8qZCtD-tAukB0fn_f6utzlb98,5
