@@ -10,14 +10,14 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 Automat==25.4.16
 Incremental==24.11.0
-Twisted==26.4.0rc2
+Twisted==24.11.0
 attrs==22.2.0
 autobahn==24.4.2
 certifi==2026.1.4
 constantly==23.10.4
 hyperlink==21.0.0
-idna==3.11
-packaging==26.0
+idna==3.13
+packaging==26.2
 pyOpenSSL==26.0.0
 pyasn1==0.6.3
 pyasn1_modules==0.4.2
