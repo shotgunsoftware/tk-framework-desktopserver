@@ -14,8 +14,8 @@ zope/interface/__pycache__/ro.cpython-313.pyc,,
 zope/interface/__pycache__/verify.cpython-313.pyc,,
 zope/interface/_compat.py,sha256=8FPCPdRAl2Mlkc45-FBvuN8i1kvYLEkIionVgjk2AP0,4413
 zope/interface/_flatten.py,sha256=NKviK4ZyLBCjxXvz5voI9pV_ui2SLqUhubbqZkvgEcg,1059
-zope/interface/_zope_interface_coptimizations.c,sha256=yc-Vn6JwVRBpHi7mFB2OMaoY3mcfE0VgvWh9cVn6LqE,78207
-zope/interface/_zope_interface_coptimizations.cpython-313-darwin.so,sha256=yRhfr-i8m2IuQKUY1A1OrWfUlTCsjZVF4Cs2INJ8AuE,42280
+zope/interface/_zope_interface_coptimizations.c,sha256=FOWzlFe6iuVbYd1EV-bEwislx5HV6KUMaYsSU0X0FT8,78751
+zope/interface/_zope_interface_coptimizations.cpython-313-darwin.so,sha256=GKGM_t4LV1TRcLAMGN2J_YKhGPiyFFFT5-Fmxl-2drY,42344
 zope/interface/adapter.py,sha256=XN9PD8OrRmP1ZJy2gPvAMXtiOnKcHL34doH0HaKHguQ,36647
 zope/interface/advice.py,sha256=YftOBzbXuWQ3AuJImMtYv4SYbE7ubJrjodXzTgYR-dk,3918
 zope/interface/common/__init__.py,sha256=ho-q_3jeKVq-jO-5xrN9_Q4PR0o8PDwja5NYsO7qTI0,10644
@@ -92,7 +92,7 @@ zope/interface/tests/test_declarations.py,sha256=KWEwjHA4lGgrwGTef64npdfjOBpcNVO
 zope/interface/tests/test_document.py,sha256=0JIYe0GWvDPkr_IBACPw-8HsHNJyNNHBU_lUHYOXd9M,17220
 zope/interface/tests/test_element.py,sha256=z9Q2hYwPVzMX05NpA_IeiHoAb4qhTiHI57XQI38w4zQ,1120
 zope/interface/tests/test_exceptions.py,sha256=axXG_D_Ug3wdk1r3C_4dHOsOF4h-IvTt1RFyJfkAUz8,6495
-zope/interface/tests/test_interface.py,sha256=aWQAkBNgvA2M_s-gPac1XOwpi5ltkcDFy5KHyy2Gga0,93419
+zope/interface/tests/test_interface.py,sha256=TvG1F53AHTAJNVYt2yYY3MzKDHjaxx4VCHbeRZmt9BI,94647
 zope/interface/tests/test_interfaces.py,sha256=l4SCfUmVfBO1UoZLsTOOvDyoYUM7Wex3J67uR7taFpQ,4395
 zope/interface/tests/test_odd_declarations.py,sha256=0DBSBIoOUdSRcDnhiScexGhZ2mVydYWnlJOBvny76Uo,7660
 zope/interface/tests/test_registry.py,sha256=8CyxRkJ46ITauSGp86y1gSN4KHvZNVPTVKgjD13aXBk,112599
@@ -100,10 +100,10 @@ zope/interface/tests/test_ro.py,sha256=Z1K4CbcTkTtuEOc3y3ceXLsKjwkmO_GqYqqwzqFgv
 zope/interface/tests/test_sorting.py,sha256=-lMIltkIv7Dxu_HRuYtsa6HXVf1fk_jM0gUYHEvj0ac,2222
 zope/interface/tests/test_verify.py,sha256=JnVLFlHGgVn8fC6u-WPW-mDtfmSuDA2PC0sglWuVBjI,19200
 zope/interface/verify.py,sha256=cEaIWPcS6gT97RkQW2SQJxxuUP7wRrwYwsJtXqo8jdE,7333
-zope_interface-8.3.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
-zope_interface-8.3.dist-info/METADATA,sha256=xxfng0GJlptPpgzTuxFe2WiBd-jluHqg5RVyhLezO4I,46180
-zope_interface-8.3.dist-info/RECORD,,
-zope_interface-8.3.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
-zope_interface-8.3.dist-info/WHEEL,sha256=vooGeo-9MGW3T54fq_9e1AxsrH1e3im5eavhyU30AhA,111
-zope_interface-8.3.dist-info/licenses/LICENSE.txt,sha256=PmcdsR32h1FswdtbPWXkqjg-rKPCDOo_r1Og9zNdCjw,2070
-zope_interface-8.3.dist-info/top_level.txt,sha256=QpUHvpO4wIuZDeEgKY8qZCtD-tAukB0fn_f6utzlb98,5
+zope_interface-8.5.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+zope_interface-8.5.dist-info/METADATA,sha256=GxLjPi_DKMZpx5mKdmd5-eV8marX8q7bXxXQFKnlTeU,47152
+zope_interface-8.5.dist-info/RECORD,,
+zope_interface-8.5.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+zope_interface-8.5.dist-info/WHEEL,sha256=6O-Qg3-SWc5i8OPk4dI7Pr1OMUpAgWlPVVVdf_hYmoE,110
+zope_interface-8.5.dist-info/licenses/LICENSE.txt,sha256=PmcdsR32h1FswdtbPWXkqjg-rKPCDOo_r1Og9zNdCjw,2070
+zope_interface-8.5.dist-info/top_level.txt,sha256=QpUHvpO4wIuZDeEgKY8qZCtD-tAukB0fn_f6utzlb98,5
