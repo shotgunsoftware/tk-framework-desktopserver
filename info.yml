@@ -27,3 +27,4 @@ description: "Provides the server used to listen to Flow Production Tracking cli
 # Required minimum versions for this item to run
 requires_shotgun_version:
 requires_core_version: "v0.19.18"
+minimum_python_version: "3.9"
