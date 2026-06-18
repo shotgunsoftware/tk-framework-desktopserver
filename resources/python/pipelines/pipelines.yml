@@ -31,7 +31,7 @@ jobs:
       python_version: 3.9
   - script: |
       set -e
-      git checkout ${{ parameters.branch }} || git checkout $(System.PullRequest.SourceBranch) && git checkout -b ${{ parameters.branch }}
+      git checkout ${{ parameters.branch }} || (git checkout $(System.PullRequest.SourceBranch) && git checkout -b ${{ parameters.branch }})
       git merge origin/$(System.PullRequest.SourceBranch)
       git push -u origin ${{ parameters.branch }}
     env:
