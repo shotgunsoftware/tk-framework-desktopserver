@@ -1,5 +1,4 @@
 # Targeted Python versions:
-#   - 3.7  (legacy)
 #   - 3.9  (VFX CY2022)
 #   - 3.10 (VFX CY2023)
 #   - 3.11 (VFX CY2024)
@@ -23,17 +22,15 @@ autobahn~=24.4.2  ; python_version >= "3.13"
 
 #-------------------------------------------------------------------------------
 # pyOpenSSL
-# CVE-2026-27459 - fixed in 26.0.0 - Python 3.7 is N/A
-pyopenssl==25.0.0 ; python_version <  "3.9"
-pyopenssl~=26.0.0 ; python_version >= "3.9"
+# CVE-2026-27459 - fixed in 26.0.0
+pyopenssl~=26.0.0
 
 #-------------------------------------------------------------------------------
 # Twisted
 # CVE-2022-21712 - fixed in 22.1
 # CVE-2022-24801 - fixed in 22.1
-# CVE-2024-41671 & CVE-2024-41810 - fixed in 24.10.0 - N/A for Python 3.7
-twisted==22.10.0 ; python_version <  "3.9" # Last version supporting 3.7
-twisted==24.10.0 ; python_version >= "3.9" and python_version < "3.13"
+# CVE-2024-41671 & CVE-2024-41810 - fixed in 24.10.0
+twisted==24.10.0 ; python_version <  "3.13"
 twisted~=24.11.0 ; python_version >= "3.13"
 
 # ============================================================================ #
@@ -70,8 +67,7 @@ certifi==2026.1.4
 #   → cryptography → autobahn
 #                  ↳ pyOpenSSL
 #                  ↳ service-identity
-cffi>=1.15.1 ; python_version <  "3.9"
-cffi>=1.17.1 ; python_version >= "3.9"
+cffi>=1.17.1
 
 #-------------------------------------------------------------------------------
 # cryptography
@@ -87,9 +83,8 @@ cffi>=1.17.1 ; python_version >= "3.9"
 # CVE-2024-4603  - fixed in 43.0.1
 # CVE-2024-6119  - fixed in 43.0.1
 # CVE-2024-12797 - fixed in 44.0.1
-# CVE-2026-26007 - bump from 44.0.1 - Python 3.7 is N/A
-cryptography>=44.0.1 ; python_version <  "3.9"
-cryptography>=46.0.5 ; python_version >= "3.9"
+# CVE-2026-26007 - fixed in 46.0.5
+cryptography>=46.0.5
 
 #-------------------------------------------------------------------------------
 # hyperlink
@@ -111,8 +106,8 @@ idna>=3.8 ; python_version >= "3.13"
 #-------------------------------------------------------------------------------
 # pyasn1
 # Required by: service-identity
-# CVE-2026-30922 - fixed in 0.6.3 - Python 3.7 is N/A
-pyasn1>=0.6.3 ; python_version >= "3.9"
+# CVE-2026-30922 - fixed in 0.6.3
+pyasn1>=0.6.3
 
 #-------------------------------------------------------------------------------
 # service-identity
