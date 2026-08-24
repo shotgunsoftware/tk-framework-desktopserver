@@ -1,6 +1,5 @@
 [packaging]
 exclude=
-    azure-pipelines
     resources/python/build
     resources/python/pipelines
     resources/python/*.bat
