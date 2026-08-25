@@ -1,11 +1,10 @@
 [packaging]
 exclude=
-    # Remove CI files.
-    .travis.yml*
-    appveyor.yml
-    # Remove unneeded files.
-    tests
     resources/python/build
-    resources/python/*.txt
-    resources/python/*.sh
+    resources/python/pipelines
     resources/python/*.bat
+    resources/python/*.md
+    resources/python/*.ps1
+    resources/python/*.py
+    resources/python/*.sh
+    resources/python/*.txt
