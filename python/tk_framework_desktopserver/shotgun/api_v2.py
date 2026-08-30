@@ -772,7 +772,12 @@ class ShotgunAPI(object):
             self.host.reply(reply)
         except Exception as e:
             logger.exception(e)
-            self.host.report_error(e.message)
+            if hasattr(e, "message"):
+                self.host.report_error(e.message)
+            elif e.args:
+                self.host.report_error(str(e.args[0]))
+            else:
+                self.host.report_error("unknown error")
 
     def pick_file_or_directory(self, data):
         """
