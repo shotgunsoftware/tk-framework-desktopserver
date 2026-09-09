@@ -25,4 +25,5 @@ display_name: "Desktop Server Framework"
 description: "Provides the server used to listen to Flow Production Tracking client requests, such as open file and launch dcc's."
 
 # Required minimum versions for this item to run
+requires_shotgun_version:
 requires_core_version: "v0.19.18"
