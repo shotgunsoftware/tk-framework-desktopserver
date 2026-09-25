@@ -226,11 +226,18 @@ class Command(object):
             )
             process.wait()
 
-            # Read back the output from the two.
-            with open(stdout_path, "rt") as stdout_file:
+            # Read back the output from the two. Decode as utf-8 with
+            # errors="replace" rather than relying on the OS locale codec:
+            # on non-utf-8 locales (e.g. cp932 on Japanese Windows) open()
+            # would otherwise raise UnicodeDecodeError on non-ASCII output.
+            with open(
+                stdout_path, "rt", encoding="utf-8", errors="replace"
+            ) as stdout_file:
                 stdout_lines = [l for l in stdout_file]
 
-            with open(stderr_path) as stderr_file:
+            with open(
+                stderr_path, "rt", encoding="utf-8", errors="replace"
+            ) as stderr_file:
                 stderr_lines = [l for l in stderr_file]
 
             # Track the result code.
@@ -240,7 +247,7 @@ class Command(object):
             logger.exception("Error running subprocess:")
 
             ret = 1
-            stderr_lines = [traceback.format_exc().split()]
+            stderr_lines = traceback.format_exc().split()
             stderr_lines.append("%s" % args)
 
         # Don't lose any sleep over temporary files that can't be deleted.
