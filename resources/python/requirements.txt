@@ -17,21 +17,27 @@
 #-------------------------------------------------------------------------------
 # autobahn
 # CVE-2020-35678 - fixed in 20.12.3
+# CVE-2026-77528 - fixed in 26.7.1 - not upgraded, not exploitable here:
+#   only affects permessage-deflate, which the server never enables (autobahn
+#   declines compression offers by default). 26.7.1 also requires Python 3.11+,
+#   ships binary wheels only (no macOS x86_64) and adds binary dependencies
+#   (cbor2, msgpack, ujson).
 autobahn==22.12.1 ; python_version <  "3.13"
 autobahn~=24.4.2  ; python_version >= "3.13"
 
 #-------------------------------------------------------------------------------
 # pyOpenSSL
 # CVE-2026-27459 - fixed in 26.0.0
-pyopenssl~=26.0.0
+# 26.4.0 required by cryptography 50 (pyOpenSSL 26.0.0 requires cryptography<47)
+pyopenssl~=26.4.0
 
 #-------------------------------------------------------------------------------
 # Twisted
 # CVE-2022-21712 - fixed in 22.1
 # CVE-2022-24801 - fixed in 22.1
 # CVE-2024-41671 & CVE-2024-41810 - fixed in 24.10.0
-twisted==24.10.0 ; python_version <  "3.13"
-twisted~=24.11.0 ; python_version >= "3.13"
+# CVE-2026-42304 - fixed in 26.4.0 - requires Python 3.9.12+
+twisted~=26.4.0
 
 # ============================================================================ #
 # Selected sub-level dependencies
@@ -84,7 +90,10 @@ cffi>=1.17.1
 # CVE-2024-6119  - fixed in 43.0.1
 # CVE-2024-12797 - fixed in 44.0.1
 # CVE-2026-26007 - fixed in 46.0.5
-cryptography>=46.0.5
+# GHSA-537c-gmf6-5ccf - fixed in 48.0.1
+# CVE-2026-69248 & CVE-2026-69249 - fixed in 49.0.0
+# CVE-2026-69247 - fixed in 50.0.0
+cryptography>=50.0.0
 
 #-------------------------------------------------------------------------------
 # hyperlink
@@ -99,15 +108,9 @@ hyperlink>=21.0.0
 #   → hyperlink → autobahn
 #               ↳ Twisted
 # CVE-2024-3651 - fixed in 3.7
-idna>=3.7 ; python_version <  "3.13"
-idna>=3.8 ; python_version >= "3.13"
+# CVE-2026-45409 - fixed in 3.15
+idna>=3.15
 
-
-#-------------------------------------------------------------------------------
-# pyasn1
-# Required by: service-identity
-# CVE-2026-30922 - fixed in 0.6.3
-pyasn1>=0.6.3
 
 #-------------------------------------------------------------------------------
 # service-identity
@@ -115,6 +118,13 @@ pyasn1>=0.6.3
 #   → Twisted
 service-identity>=21.1.0 ; python_version <  "3.13"
 service-identity>=24.2.0 ; python_version >= "3.13"
+
+#-------------------------------------------------------------------------------
+# setuptools
+# Required by: autobahn (24.x, Python 3.13+)
+# Python 3.13 virtualenvs no longer include setuptools, so it gets bundled.
+# CVE-2026-59890 - fixed in 83.0.0
+setuptools>=83.0.0 ; python_version >= "3.13"
 
 #-------------------------------------------------------------------------------
 # six
