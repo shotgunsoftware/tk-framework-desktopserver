@@ -4,10 +4,13 @@
 
 from __future__ import annotations
 
+import os
+import sys
 import threading
 import types
 import typing
-from collections.abc import Callable, Mapping
+import warnings
+from collections.abc import Callable
 
 import cryptography
 from cryptography.exceptions import InternalError
@@ -33,7 +36,7 @@ def _openssl_assert(ok: bool) -> None:
 
 def build_conditional_library(
     lib: typing.Any,
-    conditional_names: Mapping[str, Callable[[], list[str]]],
+    conditional_names: dict[str, Callable[[], list[str]]],
 ) -> typing.Any:
     conditional_lib = types.ModuleType("lib")
     conditional_lib._original_lib = lib  # type: ignore[attr-defined]
@@ -105,3 +108,15 @@ def _verify_package_version(version: str) -> None:
 _verify_package_version(cryptography.__version__)
 
 Binding.init_static_locks()
+
+if (
+    sys.platform == "win32"
+    and os.environ.get("PROCESSOR_ARCHITEW6432") is not None
+):
+    warnings.warn(
+        "You are using cryptography on a 32-bit Python on a 64-bit Windows "
+        "Operating System. Cryptography will be significantly faster if you "
+        "switch to using a 64-bit Python.",
+        UserWarning,
+        stacklevel=2,
+    )

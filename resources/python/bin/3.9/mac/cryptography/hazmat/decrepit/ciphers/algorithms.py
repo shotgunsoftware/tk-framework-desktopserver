@@ -32,9 +32,6 @@ class TripleDES(BlockCipherAlgorithm):
     key_sizes = frozenset([64, 128, 192])
 
     def __init__(self, key: bytes):
-        # Check the key type before the length-based deprecation warnings so
-        # an invalid key type doesn't trigger a spurious warning.
-        utils._check_byteslike("key", key)
         if len(key) == 8:
             warnings.warn(
                 "Single-key TripleDES (8-byte keys) is deprecated and "

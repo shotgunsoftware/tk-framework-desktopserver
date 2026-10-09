@@ -144,10 +144,6 @@ class Backend:
                     hashes.SHA512,
                     hashes.SHA512_224,
                     hashes.SHA512_256,
-                    hashes.SHA3_224,
-                    hashes.SHA3_256,
-                    hashes.SHA3_384,
-                    hashes.SHA3_512,
                 ),
             )
         return self.hash_supported(algorithm)
@@ -160,6 +156,9 @@ class Backend:
                 return False
 
         return rust_openssl.ciphers.cipher_supported(cipher, mode)
+
+    def pbkdf2_hmac_supported(self, algorithm: hashes.HashAlgorithm) -> bool:
+        return self.hmac_supported(algorithm)
 
     def _consume_errors(self) -> list[rust_openssl.OpenSSLError]:
         return rust_openssl.capture_error_stack()
@@ -253,7 +252,10 @@ class Backend:
         )
 
     def dh_supported(self) -> bool:
-        return not rust_openssl.CRYPTOGRAPHY_IS_BORINGSSL
+        return (
+            not rust_openssl.CRYPTOGRAPHY_IS_BORINGSSL
+            and not rust_openssl.CRYPTOGRAPHY_IS_AWSLC
+        )
 
     def dh_x942_serialization_supported(self) -> bool:
         return self._lib.Cryptography_HAS_EVP_PKEY_DHX == 1
@@ -301,9 +303,10 @@ class Backend:
         )
 
     def poly1305_supported(self) -> bool:
-        if rust_openssl.CRYPTOGRAPHY_IS_AWSLC:
-            return True
         return not self._fips_enabled
+
+    def pkcs7_supported(self) -> bool:
+        return True
 
 
 backend = Backend()

@@ -24,10 +24,6 @@ class InvalidToken(Exception):
 
 _MAX_CLOCK_SKEW = 60
 
-# Hoisted to module level so each operation doesn't reconstruct them.
-_PKCS7_128 = padding.PKCS7(128)
-_SHA256 = hashes.SHA256()
-
 
 class Fernet:
     def __init__(
@@ -48,7 +44,6 @@ class Fernet:
 
         self._signing_key = key[:16]
         self._encryption_key = key[16:]
-        self._aes = algorithms.AES(self._encryption_key)
 
     @classmethod
     def generate_key(cls) -> bytes:
@@ -66,9 +61,12 @@ class Fernet:
     ) -> bytes:
         utils._check_bytes("data", data)
 
-        padder = _PKCS7_128.padder()
+        padder = padding.PKCS7(algorithms.AES.block_size).padder()
         padded_data = padder.update(data) + padder.finalize()
-        encryptor = Cipher(self._aes, modes.CBC(iv)).encryptor()
+        encryptor = Cipher(
+            algorithms.AES(self._encryption_key),
+            modes.CBC(iv),
+        ).encryptor()
         ciphertext = encryptor.update(padded_data) + encryptor.finalize()
 
         basic_parts = (
@@ -78,7 +76,7 @@ class Fernet:
             + ciphertext
         )
 
-        h = HMAC(self._signing_key, _SHA256)
+        h = HMAC(self._signing_key, hashes.SHA256())
         h.update(basic_parts)
         hmac = h.finalize()
         return base64.urlsafe_b64encode(basic_parts + hmac)
@@ -127,8 +125,8 @@ class Fernet:
         return timestamp, data
 
     def _verify_signature(self, data: bytes) -> None:
-        h = HMAC(self._signing_key, _SHA256)
-        h.update(memoryview(data)[:-32])
+        h = HMAC(self._signing_key, hashes.SHA256())
+        h.update(data[:-32])
         try:
             h.verify(data[-32:])
         except InvalidSignature:
@@ -150,16 +148,17 @@ class Fernet:
 
         self._verify_signature(data)
 
-        mv = memoryview(data)
         iv = data[9:25]
-        ciphertext = mv[25:-32]
-        decryptor = Cipher(self._aes, modes.CBC(iv)).decryptor()
+        ciphertext = data[25:-32]
+        decryptor = Cipher(
+            algorithms.AES(self._encryption_key), modes.CBC(iv)
+        ).decryptor()
         plaintext_padded = decryptor.update(ciphertext)
         try:
             plaintext_padded += decryptor.finalize()
         except ValueError:
             raise InvalidToken
-        unpadder = _PKCS7_128.unpadder()
+        unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
 
         unpadded = unpadder.update(plaintext_padded)
         try:
@@ -199,15 +198,9 @@ class MultiFernet:
         return self._fernets[0]._encrypt_from_parts(p, timestamp, iv)
 
     def decrypt(self, msg: bytes | str, ttl: int | None = None) -> bytes:
-        if ttl is None:
-            time_info = None
-        else:
-            time_info = (ttl, int(time.time()))
-        # Parse the token once rather than once per key.
-        timestamp, data = Fernet._get_unverified_token_data(msg)
         for f in self._fernets:
             try:
-                return f._decrypt_data(data, timestamp, time_info)
+                return f.decrypt(msg, ttl)
             except InvalidToken:
                 pass
         raise InvalidToken
@@ -215,26 +208,17 @@ class MultiFernet:
     def decrypt_at_time(
         self, msg: bytes | str, ttl: int, current_time: int
     ) -> bytes:
-        if ttl is None:
-            raise ValueError(
-                "decrypt_at_time() can only be used with a non-None ttl"
-            )
-        # Parse the token once rather than once per key.
-        timestamp, data = Fernet._get_unverified_token_data(msg)
         for f in self._fernets:
             try:
-                return f._decrypt_data(data, timestamp, (ttl, current_time))
+                return f.decrypt_at_time(msg, ttl, current_time)
             except InvalidToken:
                 pass
         raise InvalidToken
 
     def extract_timestamp(self, msg: bytes | str) -> int:
-        # Parse the token once rather than once per key.
-        timestamp, data = Fernet._get_unverified_token_data(msg)
         for f in self._fernets:
             try:
-                f._verify_signature(data)
-                return timestamp
+                return f.extract_timestamp(msg)
             except InvalidToken:
                 pass
         raise InvalidToken

@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import abc
-import sys
 
 from cryptography.hazmat.bindings._rust import openssl as rust_openssl
 from cryptography.utils import Buffer
@@ -104,23 +103,11 @@ class SHA1(HashAlgorithm):
     digest_size = 20
     block_size = 64
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHA1):
-            return NotImplemented
-
-        return True
-
 
 class SHA512_224(HashAlgorithm):  # noqa: N801
     name = "sha512-224"
     digest_size = 28
     block_size = 128
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHA512_224):
-            return NotImplemented
-
-        return True
 
 
 class SHA512_256(HashAlgorithm):  # noqa: N801
@@ -128,23 +115,11 @@ class SHA512_256(HashAlgorithm):  # noqa: N801
     digest_size = 32
     block_size = 128
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHA512_256):
-            return NotImplemented
-
-        return True
-
 
 class SHA224(HashAlgorithm):
     name = "sha224"
     digest_size = 28
     block_size = 64
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHA224):
-            return NotImplemented
-
-        return True
 
 
 class SHA256(HashAlgorithm):
@@ -152,23 +127,11 @@ class SHA256(HashAlgorithm):
     digest_size = 32
     block_size = 64
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHA256):
-            return NotImplemented
-
-        return True
-
 
 class SHA384(HashAlgorithm):
     name = "sha384"
     digest_size = 48
     block_size = 128
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHA384):
-            return NotImplemented
-
-        return True
 
 
 class SHA512(HashAlgorithm):
@@ -176,23 +139,11 @@ class SHA512(HashAlgorithm):
     digest_size = 64
     block_size = 128
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHA512):
-            return NotImplemented
-
-        return True
-
 
 class SHA3_224(HashAlgorithm):  # noqa: N801
     name = "sha3-224"
     digest_size = 28
     block_size = None
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHA3_224):
-            return NotImplemented
-
-        return True
 
 
 class SHA3_256(HashAlgorithm):  # noqa: N801
@@ -200,35 +151,17 @@ class SHA3_256(HashAlgorithm):  # noqa: N801
     digest_size = 32
     block_size = None
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHA3_256):
-            return NotImplemented
-
-        return True
-
 
 class SHA3_384(HashAlgorithm):  # noqa: N801
     name = "sha3-384"
     digest_size = 48
     block_size = None
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHA3_384):
-            return NotImplemented
-
-        return True
-
 
 class SHA3_512(HashAlgorithm):  # noqa: N801
     name = "sha3-512"
     digest_size = 64
     block_size = None
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHA3_512):
-            return NotImplemented
-
-        return True
 
 
 class SHAKE128(HashAlgorithm, ExtendableOutputFunction):
@@ -244,19 +177,9 @@ class SHAKE128(HashAlgorithm, ExtendableOutputFunction):
 
         self._digest_size = digest_size
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHAKE128):
-            return NotImplemented
-
-        return self._digest_size == other._digest_size
-
     @property
     def digest_size(self) -> int:
         return self._digest_size
-
-    @classmethod
-    def xof(cls):
-        return cls(sys.maxsize)
 
 
 class SHAKE256(HashAlgorithm, ExtendableOutputFunction):
@@ -272,31 +195,15 @@ class SHAKE256(HashAlgorithm, ExtendableOutputFunction):
 
         self._digest_size = digest_size
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SHAKE256):
-            return NotImplemented
-
-        return self._digest_size == other._digest_size
-
     @property
     def digest_size(self) -> int:
         return self._digest_size
-
-    @classmethod
-    def xof(cls):
-        return cls(sys.maxsize)
 
 
 class MD5(HashAlgorithm):
     name = "md5"
     digest_size = 16
     block_size = 64
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, MD5):
-            return NotImplemented
-
-        return True
 
 
 class BLAKE2b(HashAlgorithm):
@@ -310,12 +217,6 @@ class BLAKE2b(HashAlgorithm):
             raise ValueError("Digest size must be 64")
 
         self._digest_size = digest_size
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, BLAKE2b):
-            return NotImplemented
-
-        return self._digest_size == other._digest_size
 
     @property
     def digest_size(self) -> int:
@@ -334,12 +235,6 @@ class BLAKE2s(HashAlgorithm):
 
         self._digest_size = digest_size
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, BLAKE2s):
-            return NotImplemented
-
-        return self._digest_size == other._digest_size
-
     @property
     def digest_size(self) -> int:
         return self._digest_size
@@ -349,9 +244,3 @@ class SM3(HashAlgorithm):
     name = "sm3"
     digest_size = 32
     block_size = 64
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SM3):
-            return NotImplemented
-
-        return True

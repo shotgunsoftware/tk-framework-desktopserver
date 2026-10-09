@@ -2,8 +2,6 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-from __future__ import annotations
-
 from cryptography.hazmat.asn1.asn1 import (
     TLV,
     BitString,
@@ -22,7 +20,6 @@ from cryptography.hazmat.asn1.asn1 import (
     encode_der,
     sequence,
     set,
-    value_set,
 )
 
 __all__ = [
@@ -43,5 +40,4 @@ __all__ = [
     "encode_der",
     "sequence",
     "set",
-    "value_set",
 ]

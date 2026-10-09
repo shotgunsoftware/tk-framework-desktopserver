@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import builtins
 import dataclasses
-import enum
 import sys
 import types
 import typing
@@ -19,7 +18,6 @@ else:
     LiteralString = typing.LiteralString
 
 from cryptography.hazmat.bindings._rust import declarative_asn1
-from cryptography.hazmat.bindings._rust import x509 as rust_x509
 
 if sys.version_info < (3, 10):
     NoneType = type(None)
@@ -58,25 +56,6 @@ decode_der = declarative_asn1.decode_der
 encode_der = declarative_asn1.encode_der
 
 
-_X509_TYPES = (
-    rust_x509.Certificate,
-    rust_x509.CertificateSigningRequest,
-    rust_x509.CertificateRevocationList,
-)
-
-
-def _check_x509_field_annotations(
-    field_type: typing.Any,
-    annotation: declarative_asn1.Annotation,
-    field_name: str,
-) -> None:
-    if field_type in _X509_TYPES and isinstance(annotation.encoding, Implicit):
-        raise TypeError(
-            f"field '{field_name}' has an IMPLICIT annotation, but "
-            "IMPLICIT annotations are not supported for X.509 types."
-        )
-
-
 def _is_union(field_type: type) -> bool:
     # NOTE: types.UnionType for `T | U`, typing.Union for `Union[T, U]`.
     # TODO: Drop the `hasattr()` once the minimum supported Python version
@@ -87,42 +66,6 @@ def _is_union(field_type: type) -> bool:
         else (typing.Union,)
     )
     return typing.get_origin(field_type) in union_types
-
-
-def _resolve_type_aliases(field_type: typing.Any) -> typing.Any:
-    # Recursively resolve PEP 695 (`type X = ...`) type aliases (Python
-    # 3.12+) to their underlying value, so that the rest of the
-    # normalization logic never encounters an alias. Aliases can refer
-    # to other aliases and can appear at any level of nesting (e.g.
-    # inside `Annotated[...]`, unions, or `list[...]`).
-    if sys.version_info < (3, 12):
-        return field_type
-
-    while isinstance(field_type, typing.TypeAliasType):
-        field_type = field_type.__value__
-
-    args = typing.get_args(field_type)
-    resolved_args = tuple(_resolve_type_aliases(arg) for arg in args)
-    if resolved_args == args:
-        # No aliases anywhere inside: return the type unchanged.
-        return field_type
-
-    if _is_union(field_type):
-        # `X | Y` unions can't be rebuilt through their origin like
-        # other generics below: `typing.get_origin` returns
-        # `types.UnionType` for them, which is only subscriptable on
-        # Python 3.14+. Rebuilding through `typing.Union` also
-        # flattens any nested union introduced by an alias of a union
-        # (e.g. `Time | int` where `type Time = UTCTime |
-        # GeneralizedTime`), just like `typing.Union` would have done
-        # if the alias had been written inline.
-        return typing.Union[resolved_args]
-
-    # An alias appeared inside a generic (e.g. `Annotated[Time, ...]`,
-    # `list[MyInt]`, or `SetOf[MyInt]`): re-parameterize the generic
-    # with the resolved arguments. Subscripting with a tuple is
-    # equivalent to subscripting with multiple arguments.
-    return typing.get_origin(field_type)[resolved_args]
 
 
 def _extract_annotation(
@@ -163,8 +106,6 @@ def _extract_annotation(
 def _normalize_field_type(
     field_type: typing.Any, field_name: str
 ) -> declarative_asn1.AnnotatedType:
-    field_type = _resolve_type_aliases(field_type)
-
     # Strip the `Annotated[...]` off, and populate the annotation
     # from it if it exists.
     if typing.get_origin(field_type) is typing.Annotated:
@@ -203,17 +144,11 @@ def _normalize_field_type(
                 "DEFAULT annotations are not supported for TLV types."
             )
 
-    _check_x509_field_annotations(field_type, annotation, field_name)
-
     if hasattr(field_type, "__asn1_root__"):
         root_type = field_type.__asn1_root__
         if not isinstance(
             root_type,
-            (
-                declarative_asn1.Type.Sequence,
-                declarative_asn1.Type.Set,
-                declarative_asn1.Type.ValueSet,
-            ),
+            (declarative_asn1.Type.Sequence, declarative_asn1.Type.Set),
         ):
             raise TypeError(f"unsupported root type: {root_type}")
         return declarative_asn1.AnnotatedType(
@@ -231,11 +166,6 @@ def _normalize_field_type(
                     "optional TLV types (`TLV | None`) are not "
                     "currently supported"
                 )
-            # For optional types, the annotation is associated with the
-            # union, so we check it against the inner type here.
-            _check_x509_field_annotations(
-                optional_type, annotation, field_name
-            )
             annotated_type = _normalize_field_type(optional_type, field_name)
 
             if not annotated_type.annotation.is_empty():
@@ -466,50 +396,6 @@ else:
         )(cls)
         _register_asn1_set(dataclass_cls)
         return dataclass_cls
-
-
-def value_set(
-    value_type: type,
-) -> typing.Callable[[type[U]], type[U]]:
-    """
-    A class decorator that registers an `enum.Enum` subclass as an
-    ASN.1 value set of the given underlying type. All the member
-    values must be instances of `value_type`. Members are encoded as
-    their value; decoding fails if the decoded value does not match
-    any member.
-    """
-    rust_type = declarative_asn1.non_root_python_to_rust(value_type)
-
-    def decorator(cls: type[U]) -> type[U]:
-        if not issubclass(cls, enum.Enum):
-            raise TypeError(
-                "value sets can only be defined from enum.Enum subclasses"
-            )
-        members = list(cls)
-        if not members:
-            raise TypeError(
-                f"value set '{cls.__name__}' must have at least one member"
-            )
-        for member in members:
-            if not isinstance(member.value, value_type):
-                raise TypeError(
-                    f"member '{member.name}' of value set '{cls.__name__}' "
-                    f"must have a value of type "
-                    f"'{value_type.__name__}', got: "
-                    f"'{type(member.value).__name__}'"
-                )
-        inner = declarative_asn1.AnnotatedType(
-            rust_type, declarative_asn1.Annotation()
-        )
-        # Map from member value to member, used for O(1) lookups when
-        # decoding. This requires the member values to be hashable.
-        value_map = {member.value: member for member in members}
-        root = declarative_asn1.Type.ValueSet(cls, inner, value_map)
-
-        setattr(cls, "__asn1_root__", root)
-        return cls
-
-    return decorator
 
 
 # TODO: replace with `Default[U]` once the min Python version is >= 3.12

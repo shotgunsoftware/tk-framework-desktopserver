@@ -10,6 +10,7 @@ import os
 import re
 import typing
 import warnings
+from base64 import encodebytes as _base64_encode
 from dataclasses import dataclass
 
 from cryptography import utils
@@ -165,6 +166,14 @@ def _ecdsa_key_type(public_key: ec.EllipticCurvePublicKey) -> bytes:
             f"Unsupported curve for ssh private key: {curve.name!r}"
         )
     return _ECDSA_KEY_TYPE[curve.name]
+
+
+def _ssh_pem_encode(
+    data: utils.Buffer,
+    prefix: bytes = _SK_START + b"\n",
+    suffix: bytes = _SK_END + b"\n",
+) -> bytes:
+    return b"".join([prefix, _base64_encode(data), suffix])
 
 
 def _check_block_size(data: utils.Buffer, block_len: int) -> None:
@@ -860,7 +869,7 @@ def _serialize_ssh_private_key(
     if ciph is not None:
         ciph.encryptor().update_into(buf[ofs:mlen], buf[ofs:])
 
-    return bytes(buf[:mlen])
+    return _ssh_pem_encode(buf[:mlen])
 
 
 SSHPublicKeyTypes = typing.Union[
@@ -1144,13 +1153,10 @@ def _parse_exts_opts(exts_opts: memoryview) -> dict[bytes, bytes]:
 
 def ssh_key_fingerprint(
     key: SSHPublicKeyTypes,
-    hash_algorithm: hashes.MD5 | hashes.SHA1 | hashes.SHA256,
+    hash_algorithm: hashes.MD5 | hashes.SHA256,
 ) -> bytes:
-    if not isinstance(
-        hash_algorithm,
-        (hashes.MD5, hashes.SHA1, hashes.SHA256),
-    ):
-        raise TypeError("hash_algorithm must be either MD5, SHA1, or SHA256")
+    if not isinstance(hash_algorithm, (hashes.MD5, hashes.SHA256)):
+        raise TypeError("hash_algorithm must be either MD5 or SHA256")
 
     key_type = _get_ssh_key_type(key)
     kformat = _lookup_kformat(key_type)
