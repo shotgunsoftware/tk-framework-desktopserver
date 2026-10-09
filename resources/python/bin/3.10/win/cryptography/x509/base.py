@@ -4,11 +4,9 @@
 
 from __future__ import annotations
 
-import abc
 import datetime
 import os
 import typing
-import warnings
 from collections.abc import Iterable
 
 from cryptography import utils
@@ -30,7 +28,6 @@ from cryptography.hazmat.primitives.asymmetric.types import (
 )
 from cryptography.x509.extensions import (
     Extension,
-    Extensions,
     ExtensionType,
     _make_sequence_methods,
 )
@@ -161,75 +158,7 @@ class InvalidVersion(Exception):
 
 
 Certificate = rust_x509.Certificate
-
-
-class RevokedCertificate(metaclass=abc.ABCMeta):
-    @property
-    @abc.abstractmethod
-    def serial_number(self) -> int:
-        """
-        Returns the serial number of the revoked certificate.
-        """
-
-    @property
-    @abc.abstractmethod
-    def revocation_date(self) -> datetime.datetime:
-        """
-        Returns the date of when this certificate was revoked.
-        """
-
-    @property
-    @abc.abstractmethod
-    def revocation_date_utc(self) -> datetime.datetime:
-        """
-        Returns the date of when this certificate was revoked as a non-naive
-        UTC datetime.
-        """
-
-    @property
-    @abc.abstractmethod
-    def extensions(self) -> Extensions:
-        """
-        Returns an Extensions object containing a list of Revoked extensions.
-        """
-
-
-# Runtime isinstance checks need this since the rust class is not a subclass.
-RevokedCertificate.register(rust_x509.RevokedCertificate)
-
-
-class _RawRevokedCertificate(RevokedCertificate):
-    def __init__(
-        self,
-        serial_number: int,
-        revocation_date: datetime.datetime,
-        extensions: Extensions,
-    ):
-        self._serial_number = serial_number
-        self._revocation_date = revocation_date
-        self._extensions = extensions
-
-    @property
-    def serial_number(self) -> int:
-        return self._serial_number
-
-    @property
-    def revocation_date(self) -> datetime.datetime:
-        warnings.warn(
-            "Properties that return a naïve datetime object have been "
-            "deprecated. Please switch to revocation_date_utc.",
-            utils.DeprecatedIn42,
-            stacklevel=2,
-        )
-        return self._revocation_date
-
-    @property
-    def revocation_date_utc(self) -> datetime.datetime:
-        return self._revocation_date.replace(tzinfo=datetime.timezone.utc)
-
-    @property
-    def extensions(self) -> Extensions:
-        return self._extensions
+RevokedCertificate = rust_x509.RevokedCertificate
 
 
 CertificateRevocationList = rust_x509.CertificateRevocationList
@@ -837,11 +766,7 @@ class RevokedCertificateBuilder:
             raise ValueError(
                 "A revoked certificate must have a revocation date"
             )
-        return _RawRevokedCertificate(
-            self._serial_number,
-            self._revocation_date,
-            Extensions(self._extensions),
-        )
+        return rust_x509.create_revoked_certificate(self)
 
 
 def random_serial_number() -> int:

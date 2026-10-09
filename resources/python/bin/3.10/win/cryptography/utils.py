@@ -26,17 +26,14 @@ DeprecatedIn40 = CryptographyDeprecationWarning
 DeprecatedIn41 = CryptographyDeprecationWarning
 DeprecatedIn42 = CryptographyDeprecationWarning
 DeprecatedIn43 = CryptographyDeprecationWarning
-DeprecatedIn46 = CryptographyDeprecationWarning
+DeprecatedIn47 = CryptographyDeprecationWarning
 
 
 # If you're wondering why we don't use `Buffer`, it's because `Buffer` would
 # be more accurately named: Bufferable. It means something which has an
 # `__buffer__`. Which means you can't actually treat the result as a buffer
 # (and do things like take a `len()`).
-if sys.version_info >= (3, 9):
-    Buffer = typing.Union[bytes, bytearray, memoryview]
-else:
-    Buffer = typing.ByteString
+Buffer = typing.Union[bytes, bytearray, memoryview]
 
 
 def _check_bytes(name: str, value: bytes) -> None:
@@ -75,8 +72,8 @@ class _ModuleWithDeprecations(types.ModuleType):
         super().__init__(module.__name__)
         self.__dict__["_module"] = module
 
-    def __getattr__(self, attr: str) -> object:
-        obj = getattr(self._module, attr)
+    def __getattr__(self, name: str) -> typing.Any:
+        obj = getattr(self._module, name)
         if isinstance(obj, _DeprecatedValue):
             warnings.warn(obj.message, obj.warning_class, stacklevel=2)
             obj = obj.value
