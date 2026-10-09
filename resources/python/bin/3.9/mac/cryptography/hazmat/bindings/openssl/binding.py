@@ -4,19 +4,15 @@
 
 from __future__ import annotations
 
-import os
-import sys
 import threading
 import types
 import typing
-import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 import cryptography
 from cryptography.exceptions import InternalError
 from cryptography.hazmat.bindings._rust import _openssl, openssl
 from cryptography.hazmat.bindings.openssl._conditional import CONDITIONAL_NAMES
-from cryptography.utils import CryptographyDeprecationWarning
 
 
 def _openssl_assert(ok: bool) -> None:
@@ -37,7 +33,7 @@ def _openssl_assert(ok: bool) -> None:
 
 def build_conditional_library(
     lib: typing.Any,
-    conditional_names: dict[str, Callable[[], list[str]]],
+    conditional_names: Mapping[str, Callable[[], list[str]]],
 ) -> typing.Any:
     conditional_lib = types.ModuleType("lib")
     conditional_lib._original_lib = lib  # type: ignore[attr-defined]
@@ -59,7 +55,7 @@ class Binding:
     """
 
     lib: typing.ClassVar[typing.Any] = None
-    ffi = _openssl.ffi
+    ffi: typing.Any = _openssl.ffi
     _lib_loaded = False
     _init_lock = threading.Lock()
 
@@ -109,29 +105,3 @@ def _verify_package_version(version: str) -> None:
 _verify_package_version(cryptography.__version__)
 
 Binding.init_static_locks()
-
-if (
-    sys.platform == "win32"
-    and os.environ.get("PROCESSOR_ARCHITEW6432") is not None
-):
-    warnings.warn(
-        "You are using cryptography on a 32-bit Python on a 64-bit Windows "
-        "Operating System. Cryptography will be significantly faster if you "
-        "switch to using a 64-bit Python.",
-        UserWarning,
-        stacklevel=2,
-    )
-
-if (
-    not openssl.CRYPTOGRAPHY_IS_LIBRESSL
-    and not openssl.CRYPTOGRAPHY_IS_BORINGSSL
-    and not openssl.CRYPTOGRAPHY_IS_AWSLC
-    and not openssl.CRYPTOGRAPHY_OPENSSL_300_OR_GREATER
-):
-    warnings.warn(
-        "You are using OpenSSL < 3.0. Support for OpenSSL < 3.0 is deprecated "
-        "and will be removed in the next release. Please upgrade to OpenSSL "
-        "3.0 or later.",
-        CryptographyDeprecationWarning,
-        stacklevel=2,
-    )
