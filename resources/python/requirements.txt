@@ -28,8 +28,10 @@ autobahn~=24.4.2  ; python_version >= "3.13"
 #-------------------------------------------------------------------------------
 # pyOpenSSL
 # CVE-2026-27459 - fixed in 26.0.0
-# 26.4.0 required by cryptography 50 (pyOpenSSL 26.0.0 requires cryptography<47)
-pyopenssl~=26.4.0
+# CVE-2026-40475 - fixed in 26.1.0
+# 26.2.x is the only series supporting cryptography 48 (26.1.x requires
+# cryptography<48, 26.3.0+ requires cryptography>=49). See cryptography below.
+pyopenssl~=26.2.0
 
 #-------------------------------------------------------------------------------
 # Twisted
@@ -91,9 +93,15 @@ cffi>=1.17.1
 # CVE-2024-12797 - fixed in 44.0.1
 # CVE-2026-26007 - fixed in 46.0.5
 # GHSA-537c-gmf6-5ccf - fixed in 48.0.1
-# CVE-2026-69248 & CVE-2026-69249 - fixed in 49.0.0
-# CVE-2026-69247 - fixed in 50.0.0
-cryptography>=50.0.0
+# CVE-2026-69248 & CVE-2026-69249 - fixed in 49.0.0 - not upgraded, see below
+# CVE-2026-69247 - fixed in 50.0.0 - not upgraded, see below
+# Capped at 48.0.x: 49.0.0 dropped x86_64 macOS support (arm64 wheels only),
+#   and the macOS bundles must include x86_64 (universal for Python 3.10+).
+#   The CVEs fixed in 49.0.0 and 50.0.0 are not exploitable here: they only
+#   affect cryptography's X.509 path validation (cryptography.x509.verification)
+#   and PKCS#7 decryption, which nothing bundled uses. TLS verification goes
+#   through OpenSSL via pyOpenSSL.
+cryptography~=48.0.1
 
 #-------------------------------------------------------------------------------
 # hyperlink
