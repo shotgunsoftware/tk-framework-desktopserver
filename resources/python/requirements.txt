@@ -127,12 +127,6 @@ service-identity>=24.2.0 ; python_version >= "3.13"
 setuptools>=83.0.0 ; python_version >= "3.13"
 
 #-------------------------------------------------------------------------------
-# six
-# Required by: service-identity
-# service-identity 24.x (Python 3.13+) no longer requires six
-six==1.16.0 ; python_version < "3.13"
-
-#-------------------------------------------------------------------------------
 # zope.interface
 # Required by: Twisted
 zope.interface>=5.5.2 ; python_version <  "3.13"
