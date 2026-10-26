@@ -11,12 +11,14 @@
 import os
 import sys
 import subprocess
-import random
 import datetime
 from .logger import get_logger
 from .errors import CertificateRegistrationError
 
-from OpenSSL import crypto
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 
 import sgtk
 
@@ -91,50 +93,61 @@ class _CertificateHandler(object):
         Creates a self-signed certificate.
         """
 
-        # This code is heavily inspired from:
-        # https://skippylovesmalorie.wordpress.com/2010/02/12/how-to-generate-a-self-signed-certificate-using-pyopenssl/
+        # Built with cryptography's X.509 APIs: pyOpenSSL 26.2.0 removed
+        # X509Extension and deprecated the rest of its certificate building APIs.
 
         # Clean the certificate destination
         self._clean_folder_for_file(self._cert_path)
         self._clean_folder_for_file(self._key_path)
 
         # create a key pair
-        k = crypto.PKey()
-        k.generate_key(crypto.TYPE_RSA, 2048)
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
         # create a self-signed cert
-        cert = crypto.X509()
-
-        # Chrome deprecated CN matching
-        # https://textslashplain.com/2017/03/10/chrome-deprecates-subject-cn-matching/
-        # This fixes the issue: http://stackoverflow.com/a/37440167/1074536
-        san_list = [b"DNS:localhost"]
-        cert.add_extensions(
-            [crypto.X509Extension(b"subjectAltName", False, b", ".join(san_list))]
+        name = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
+                x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "California"),
+                x509.NameAttribute(NameOID.LOCALITY_NAME, "San Rafael"),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Autodesk"),
+                x509.NameAttribute(
+                    NameOID.ORGANIZATIONAL_UNIT_NAME, "Shotgun Software"
+                ),
+                x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
+            ]
         )
-        cert.get_subject().C = "US"
-        cert.get_subject().ST = "California"
-        cert.get_subject().L = "San Rafael"
-        cert.get_subject().O = "Autodesk"
-        cert.get_subject().OU = "Shotgun Software"
-        cert.get_subject().CN = "localhost"
-        # Generate a random serial number since Firefox is picky about
-        # serial number reuse.
-        cert.set_serial_number(random.getrandbits(128))
-        # Set the certificate version to 2, which supports X509 extensions.
-        cert.set_version(2)  # 0 = version 1, 1 = version, 2 = version 3.
-        cert.gmtime_adj_notBefore(0)
-        # 10 years should be enough for everyone
-        cert.gmtime_adj_notAfter(10 * 365 * 24 * 60 * 60)
-        cert.set_issuer(cert.get_subject())
-        cert.set_pubkey(k)
-        cert.sign(k, "sha256")
+        now = datetime.datetime.now(datetime.timezone.utc)
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(name)
+            .issuer_name(name)
+            .public_key(key.public_key())
+            # Generate a random serial number since Firefox is picky about
+            # serial number reuse.
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now)
+            # 10 years should be enough for everyone
+            .not_valid_after(now + datetime.timedelta(days=10 * 365))
+            # Chrome deprecated CN matching
+            # https://textslashplain.com/2017/03/10/chrome-deprecates-subject-cn-matching/
+            # This fixes the issue: http://stackoverflow.com/a/37440167/1074536
+            .add_extension(
+                x509.SubjectAlternativeName([x509.DNSName("localhost")]),
+                critical=False,
+            )
+            .sign(key, hashes.SHA256())
+        )
 
         # Write the certificate and key back to disk.
+        self._write_file(self._cert_path, cert.public_bytes(serialization.Encoding.PEM))
         self._write_file(
-            self._cert_path, crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+            self._key_path,
+            key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            ),
         )
-        self._write_file(self._key_path, crypto.dump_privatekey(crypto.FILETYPE_PEM, k))
 
     def register(self):
         """

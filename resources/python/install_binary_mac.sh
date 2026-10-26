@@ -26,7 +26,10 @@ rm -rf $bin_dir
 mkdir $bin_dir
 
 # Install packages natively
-pip install --target $bin_dir --no-deps -r $requirements
+# cryptography must come from a PyPI wheel, which bundles OpenSSL statically. A
+# source build would link against the build machine's OpenSSL (e.g. Homebrew),
+# which users don't have, so fail instead of building it (SG-45601).
+pip install --target $bin_dir --no-deps --only-binary cryptography -r $requirements
 
 # Python 3.10+ is bundled with SGD Universal builds (SGD 1.9+), which run
 # natively on both Intel and Apple Silicon. Some packages (e.g. cffi,
@@ -56,6 +59,7 @@ if [ "$python_minor_version" -ge 10 ]; then
         --no-deps \
         --no-binary cffi \
         --no-binary zope.interface \
+        --only-binary cryptography \
         -r "$requirements"
 
     find "$tmp_cross" -name "*.so" | while read cross_so; do
