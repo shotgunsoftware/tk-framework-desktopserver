@@ -124,6 +124,94 @@ class ServerProtocol(WebSocketServerProtocol):
         logger.info("Connection accepted.")
         self._wss_key = response.headers["sec-websocket-key"]
 
+    def dataReceived(self, data):
+        """
+        Override dataReceived to intercept Chrome's Local Network Access preflight
+        requests before Autobahn's WebSocket handshake processing.
+
+        Chrome 147+ sends an HTTP OPTIONS preflight with
+        Access-Control-Request-Private-Network: true before attempting a WebSocket
+        connection to a local network address (e.g. localhost).
+        """
+        if data.startswith(b"OPTIONS "):
+            self._handle_lna_preflight(data)
+            return
+        super().dataReceived(data)
+
+    def _handle_lna_preflight(self, data):
+        """
+        Respond to Chrome's Local Network Access (LNA) OPTIONS preflight request.
+
+        Chrome 147+ introduced LNA restrictions for WebSockets. When a public-origin
+        page connects to localhost, Chrome first sends an OPTIONS preflight with
+        Access-Control-Request-Private-Network: true. Responding with
+        Access-Control-Allow-Private-Network: true allows the WebSocket upgrade to
+        proceed without triggering a user permission prompt.
+        """
+        origin = None
+        is_lna_preflight = False
+        try:
+            for line in data.split(b"\r\n"):
+                lower = line.lower()
+                if lower.startswith(b"origin:"):
+                    origin = line.split(b":", 1)[1].strip().decode(
+                        "utf-8", errors="replace"
+                    )
+                elif lower.startswith(b"access-control-request-private-network:"):
+                    is_lna_preflight = (
+                        line.split(b":", 1)[1].strip().lower() == b"true"
+                    )
+        except Exception:
+            logger.exception("Error parsing LNA preflight headers.")
+
+        if not is_lna_preflight:
+            logger.debug("OPTIONS request missing LNA header, returning 405.")
+            self.transport.write(
+                b"HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\n\r\n"
+            )
+            self.transport.loseConnection()
+            return
+
+        if not self._is_origin_allowed(origin):
+            logger.warning("LNA preflight from disallowed origin: %s", origin)
+            self.transport.write(
+                b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n"
+            )
+            self.transport.loseConnection()
+            return
+
+        logger.debug("Responding to Chrome LNA preflight from origin: %s", origin)
+        origin_bytes = (origin or "").encode("utf-8")
+        response = (
+            b"HTTP/1.1 200 OK\r\n"
+            b"Access-Control-Allow-Private-Network: true\r\n"
+            b"Access-Control-Allow-Origin: " + origin_bytes + b"\r\n"
+            b"Access-Control-Allow-Methods: GET\r\n"
+            b"Access-Control-Allow-Headers: *\r\n"
+            b"Content-Length: 0\r\n"
+            b"\r\n"
+        )
+        self.transport.write(response)
+        self.transport.loseConnection()
+
+    def _is_origin_allowed(self, origin):
+        """
+        Check if the given origin is in the list of allowed hosts.
+
+        :param origin: Origin URL string from the request headers
+            (e.g. "https://mysite.shotgunstudio.com").
+        :returns: True if the origin is allowed, False otherwise.
+        """
+        if not origin:
+            return False
+        try:
+            parsed = urlparse(origin)
+            origin_host = (parsed.hostname or parsed.netloc).lower()
+            return origin_host in self.factory.host_aliases
+        except Exception:
+            logger.exception("Error validating LNA preflight origin: %s", origin)
+            return False
+
     def onMessage(self, payload, is_binary):
         """
         Called by 'WebSocketServerProtocol' when we receive a message from the websocket.
