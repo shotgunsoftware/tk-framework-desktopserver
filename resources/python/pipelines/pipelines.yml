@@ -406,3 +406,64 @@ jobs:
       GH_ACCESS_TOKEN: $(GITHUB_ACCESS_TOKEN)
     displayName: Run Push Scripts
     workingDirectory: resources/python
+
+# ---------------------------------------------
+# Open a pull request for the generated branch, mirroring the original PR
+
+- job: open_pull_request
+  displayName: Open pull request for generated branch
+  dependsOn: install_binary_dependencies_windows_3_13
+  condition: succeeded()
+  pool:
+    vmImage: ubuntu-22.04
+  steps:
+  - template: template.yml
+    parameters:
+      python_version: 3.13
+  - bash: |
+      set -euo pipefail
+
+      existing_pr=$(gh pr list \
+        --repo "${REPO}" \
+        --head "${HEAD_BRANCH}" \
+        --state open \
+        --json url \
+        --jq '.[0].url // empty')
+      if [ -n "${existing_pr}" ]; then
+        echo "Pull request already open for ${HEAD_BRANCH}: ${existing_pr}"
+        exit 0
+      fi
+
+      base_branch=$(gh pr view "${ORIGINAL_PR}" \
+        --repo "${REPO}" \
+        --json baseRefName \
+        --jq .baseRefName)
+      title=$(gh pr view "${ORIGINAL_PR}" --repo "${REPO}" --json title --jq .title)
+
+      body_file="$(Agent.TempDirectory)/automated_pr_body.md"
+      {
+        echo "Automated 3rd-party package regeneration for #${ORIGINAL_PR}."
+        echo
+        echo "---"
+        echo "Resolves #${ORIGINAL_PR}"
+        echo
+        gh pr view "${ORIGINAL_PR}" --repo "${REPO}" --json body --jq .body
+      } > "${body_file}"
+
+      new_pr_url=$(gh pr create \
+        --repo "${REPO}" \
+        --base "${base_branch}" \
+        --head "${HEAD_BRANCH}" \
+        --title "${title} (automated)" \
+        --body-file "${body_file}")
+      echo "Created pull request: ${new_pr_url}"
+
+      gh pr comment "${ORIGINAL_PR}" \
+        --repo "${REPO}" \
+        --body "Automated pull request created (to be tested): #${new_pr_url##*/}"
+    env:
+      GH_TOKEN: $(GITHUB_ACCESS_TOKEN)
+      HEAD_BRANCH: ${{ parameters.branch }}
+      ORIGINAL_PR: $(System.PullRequest.PullRequestNumber)
+      REPO: $(Build.Repository.Name)
+    displayName: Create pull request
