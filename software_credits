@@ -76,17 +76,6 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-=== certifi (https://pypi.org/project/certifi/) ==========================
-
-Copyright © 2024 Contributors
-This Autodesk software contains the unmodified python-certifi 2024.07.04
-package. The use and distribution terms for this software are covered by the
-Mozilla Public License 2.0 (https://www.mozilla.org/en-US/MPL/2.0/ ). By using
-this software in any fashion, you are agreeing to be bound by the terms of this
-license. The source code for python-certifi is available from
-https://github.com/certifi/python-certifi/releases/tag/2024.07.04
-
-
 === cffi (https://pypi.org/project/cffi/) ==========================
 
 Except when otherwise stated (look for LICENSE files in directories or
