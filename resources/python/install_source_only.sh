@@ -60,8 +60,11 @@ rm -Rf $source_dir/incremental/tests
 rm -Rf $source_dir/twisted/python/_sendmsg.so
 
 # Compress all files
+# Start from an empty archive: zip only adds and updates entries, so packages and
+# files dropped from the requirements would otherwise stay in pkgs.zip (SG-45937).
 pushd $source_dir
-zip -q -r pkgs.zip ./*
+rm -f $package_filename
+zip -q -r $package_filename ./*
 popd
 
 # Remove files
