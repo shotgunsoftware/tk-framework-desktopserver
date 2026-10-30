@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.interface
-Version: 8.3
+Version: 8.7
 Summary: Interfaces for Python
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -16,14 +16,14 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Provides-Extra: docs
@@ -75,13 +75,64 @@ For detailed documentation, please see https://zopeinterface.readthedocs.io/en/l
 Change log
 ==========
 
+8.7 (2026-10-15)
+----------------
+
+- Release Python 3.15 binary wheels.
+
+- Fix free-threaded (no-GIL) data races in the C lookup caches.  Concurrent
+  ``lookup()`` and ``changed()`` calls could crash while cache fields were
+  being replaced.  Their lifetimes are now guarded by a critical section on
+  Python 3.13+. Also affects GIL builds.
+  (`#380 <https://github.com/zopefoundation/zope.interface/issues/380>`_)
+
+- Fix reference leaks in the C optimizations when the lazy import of
+  ``zope.interface.declarations`` fails partway through.
+  (`#363 <https://github.com/zopefoundation/zope.interface/issues/363>`_)
+
+- Drop support for Python 3.10.
+
+- Remove the C optimizations' code path for static types, which was only
+  used on Python < 3.11.
+  (`#394 <https://github.com/zopefoundation/zope.interface/pull/394>`_)
+
+
+8.6 (2026-08-20)
+----------------
+
+- Add support for Python 3.15.
+
+
+8.5 (2026-05-26)
+----------------
+
+- Build and upload free-threaded (``cp314t``, ``cp315t``) wheels for all
+  platforms.
+  Expand CI testing for free-threaded Python 3.14t from Linux-only to all
+  platforms (macOS, Windows), and add 3.15t CI.
+  See `issue 374 <https://github.com/zopefoundation/zope.interface/issues/374>`_.
+
+- Replace all remaining ``PyDict_GetItem()`` calls in the C extension with
+  exception-safe alternatives (``PyDict_Contains``, ``PyDict_GetItemWithError``).
+  ``PyDict_GetItem`` silently swallows exceptions from ``__hash__``/``__eq__``,
+  causing ``isOrExtends()`` to return ``False`` instead of raising ``TypeError``
+  for unhashable objects. Also use ``PyType_GetDict()`` on Python 3.13+ for
+  free-threading safety when accessing the type dict.
+  See `issue 357 <https://github.com/zopefoundation/zope.interface/issues/357>`_.
+
+8.4 (2026-04-25)
+----------------
+
+- Add support for automatically building and publishing Windows/ARM64 wheels.
+
+
 8.3 (2026-04-10)
 ----------------
 
 - Add support for free-threaded Python 3.14t: declare ``Py_mod_gil_not_used``
-  in C extension, replace borrowed-reference ``PyDict_GetItem()`` with strong-
-  reference ``PyDict_GetItemRef()`` in cache lookups, and use ``Py_TYPE()``
-  macro instead of direct ``ob_type`` struct access.
+  in C extension, replace borrowed-reference ``PyDict_GetItem()`` with
+  strong-reference ``PyDict_GetItemRef()`` in cache lookups, and use
+  ``Py_TYPE()`` macro instead of direct ``ob_type`` struct access.
 
 - Add CI testing for free-threaded Python 3.14t (Linux).
 
