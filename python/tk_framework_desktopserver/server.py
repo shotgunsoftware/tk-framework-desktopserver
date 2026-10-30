@@ -173,7 +173,14 @@ class Server(object):
         self.factory.ws_server_id = self._ws_server_id
         self.factory.setProtocolOptions(echoCloseCodeReason=True)
         try:
-            self.listener = listenWS(self.factory, self.context_factory)
+            # Bind to the loopback interface only. The browser integration is a
+            # local channel: the web app connects over localhost, or a hostname
+            # that resolves to 127.0.0.1, so there is no reason to accept
+            # connections from other hosts. Without an explicit interface the
+            # listener would bind every interface. See SG-46036.
+            self.listener = listenWS(
+                self.factory, self.context_factory, interface="127.0.0.1"
+            )
         except error.CannotListenError as e:
             raise PortBusyError(str(e))
 
