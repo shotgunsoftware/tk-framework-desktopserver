@@ -1558,8 +1558,8 @@ class GeneralNames:
         # just one value.
         objs = (i for i in self if isinstance(i, type))
         if type != OtherName:
-            return [i.value for i in objs]
-        return list(objs)
+            return [i.value for i in objs]  # type: ignore[return-value,unused-ignore]
+        return list(objs)  # type: ignore[return-value,unused-ignore]
 
     def __repr__(self) -> str:
         return f"<GeneralNames({self._general_names})>"
@@ -2111,9 +2111,14 @@ class IssuingDistributionPoint(ExtensionType):
         )
 
     def __hash__(self) -> int:
+        if self.full_name is not None:
+            full_name: tuple[GeneralName, ...] | None = tuple(self.full_name)
+        else:
+            full_name = None
+
         return hash(
             (
-                self.full_name,
+                full_name,
                 self.relative_name,
                 self.only_contains_user_certs,
                 self.only_contains_ca_certs,
