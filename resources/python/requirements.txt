@@ -67,7 +67,7 @@ attrs==22.2.0
 #   → pyOpenSSL
 #   ↳ Twisted
 # Pinned to match the version bundled with FPT Desktop
-certifi==2026.1.4
+certifi==2026.10.18
 
 #-------------------------------------------------------------------------------
 # cffi
