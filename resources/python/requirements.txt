@@ -39,6 +39,13 @@ pyopenssl~=26.2.0
 # CVE-2022-24801 - fixed in 22.1
 # CVE-2024-41671 & CVE-2024-41810 - fixed in 24.10.0
 # CVE-2026-42304 - fixed in 26.4.0 - requires Python 3.9.12+
+# CVE-2026-106454 - not fixed in any release - not exploitable here, see below
+# CVE-2026-115774, CVE-2026-115775, CVE-2026-115776, CVE-2026-115778 &
+#   CVE-2026-115877 - fixed in 26.10.0rc1 - not upgraded, not exploitable here,
+#   see below. 26.10.0 is only a release candidate, requiring Python 3.10+.
+# These CVEs only affect the IMAP4 (twisted.mail), IRC and XMPP
+#   (twisted.words), telnet (twisted.conch) and HTTP (twisted.web) servers. We
+#   only use twisted.internet, with autobahn for WebSockets.
 twisted~=26.4.0
 
 # ============================================================================ #
@@ -60,14 +67,6 @@ twisted~=26.4.0
 #   ImportError: cannot import name 'Converter' from 'attr'
 # Twisted 24.x and autobahn 24.x only require attrs>=22.2.0, so this is safe.
 attrs==22.2.0
-
-#-------------------------------------------------------------------------------
-# certifi
-# Required by:
-#   → pyOpenSSL
-#   ↳ Twisted
-# Pinned to match the version bundled with FPT Desktop
-certifi==2026.1.4
 
 #-------------------------------------------------------------------------------
 # cffi
@@ -132,7 +131,8 @@ service-identity>=24.2.0
 # Required by: autobahn (24.x, Python 3.13+)
 # Python 3.13 virtualenvs no longer include setuptools, so it gets bundled.
 # CVE-2026-59890 - fixed in 83.0.0
-setuptools>=83.0.0 ; python_version >= "3.13"
+# GHSA-xmj3-9gf7-h52w - fixed in 84.1.0
+setuptools>=84.1.0 ; python_version >= "3.13"
 
 #-------------------------------------------------------------------------------
 # zope.interface

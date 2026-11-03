@@ -15,3 +15,12 @@ steps:
     architecture: 'x64'
 
 - template: internal/configure-git.yml@templates
+
+# The credential helper above only applies to https://github.com/shotgunsoftware/.
+# Git LFS leaves the path out of its credential requests unless useHttpPath is
+# set, so the helper never answers and pushing with LFS fails (SG-45937).
+- task: Bash@3
+  displayName: Send the repository path in Git LFS credential requests
+  inputs:
+    targetType: inline
+    script: git config --global credential.https://github.com/shotgunsoftware/.useHttpPath true
