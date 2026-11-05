@@ -48,9 +48,9 @@ class ServerProtocol(WebSocketServerProtocol):
         (3003, "Client asked for server id when encryption is not supported."),
     )
 
-    # Initial state is v2. This might change if we end up receiving a connection
-    # from a client at v1.
-    SUPPORTED_PROTOCOL_VERSIONS = (1, 2)
+    # Only v2 is supported. v1 requests carry no user id, so they can never pass
+    # user validation and are rejected up front instead. See SG-46036.
+    SUPPORTED_PROTOCOL_VERSIONS = (2,)
 
     # Cached result of the server secret retrieval
     _ws_server_secret = None
@@ -176,7 +176,7 @@ class ServerProtocol(WebSocketServerProtocol):
             message = json.loads(decoded_payload)
         except ValueError as e:
             self.report_error(
-                "Error in decoding the message's json data: %s" % e.message
+                "Error in decoding the message's json data: %s" % e
             )
             return
 
@@ -191,21 +191,16 @@ class ServerProtocol(WebSocketServerProtocol):
 
         self._protocol_version = message["protocol_version"]
 
-        if self._protocol_version == 2:
-            # Version 2 of the protocol can only answer requests from the site and user the server
-            # is authenticated into. Validate this.
+        # The protocol can only answer requests from the site and user the server is
+        # authenticated into. Validate this.
 
-            # Try to get the user information. If that fails, we need to report the error.
-            try:
-                user_id = message["command"]["data"]["user"]["entity"]["id"]
-            except Exception as e:
-                logger.exception(
-                    "Unexpected error while trying to retrieve the user id:"
-                )
-                self.sendClose(*self.USER_INFO_NOT_FOUND)
-                return
-        else:
-            user_id = None
+        # Try to get the user information. If that fails, we need to report the error.
+        try:
+            user_id = message["command"]["data"]["user"]["entity"]["id"]
+        except Exception:
+            logger.exception("Unexpected error while trying to retrieve the user id:")
+            self.sendClose(*self.USER_INFO_NOT_FOUND)
+            return
 
         if not self._validate_user(user_id):
             self.factory.notifier.different_user_requested.emit(self._origin, user_id)
