@@ -11,11 +11,95 @@
 import sys
 import os
 import glob
+import ntpath
 from .command import Command
+from .logger import get_logger
 
 from sgtk.platform.qt import QtGui, QtCore
 import sgtk.util
 from .sgtk_file_dialog import SgtkFileDialog
+
+logger = get_logger(__name__)
+
+# Extensions that the open command refuses on every platform, because opening such a
+# file with its default application runs code: executables, scripts, shortcuts,
+# installers and application bundles.
+BLOCKED_OPEN_EXTENSIONS = frozenset(
+    [
+        ".action",
+        ".app",
+        ".appimage",
+        ".application",
+        ".appref-ms",
+        ".appx",
+        ".appxbundle",
+        ".bash",
+        ".bat",
+        ".chm",
+        ".cmd",
+        ".com",
+        ".command",
+        ".cpl",
+        ".csh",
+        ".desktop",
+        ".diagcab",
+        ".exe",
+        ".gadget",
+        ".hta",
+        ".inf",
+        ".ins",
+        ".isp",
+        ".jar",
+        ".js",
+        ".jse",
+        ".ksh",
+        ".library-ms",
+        ".lnk",
+        ".mpkg",
+        ".msc",
+        ".msh",
+        ".msi",
+        ".msix",
+        ".msixbundle",
+        ".msp",
+        ".mst",
+        ".pif",
+        ".pkg",
+        ".ps1",
+        ".ps1xml",
+        ".ps2",
+        ".psc1",
+        ".psd1",
+        ".psm1",
+        ".py",
+        ".pyc",
+        ".pyo",
+        ".pyw",
+        ".pyz",
+        ".reg",
+        ".run",
+        ".scf",
+        ".scr",
+        ".sct",
+        ".settingcontent-ms",
+        ".sh",
+        ".shb",
+        ".terminal",
+        ".tool",
+        ".url",
+        ".vb",
+        ".vbe",
+        ".vbs",
+        ".website",
+        ".workflow",
+        ".ws",
+        ".wsc",
+        ".wsf",
+        ".wsh",
+        ".xbap",
+        ".zsh",
+    ]
+)
 
 
 def _create_invoker():
@@ -81,12 +165,21 @@ class ExecuteTankCommandError(Exception):
     pass
 
 
+class OpenFileRejectedError(Exception):
+    """
+    Raised when the open command refuses a path that could run code.
+    """
+
+
 class ProcessManager(object):
     """
     OS Interface for Shotgun Commands.
     """
 
     platform_name = "unknown"
+
+    # Normalized Windows paths of the site's local storage roots, read on first use.
+    _storage_roots = None
 
     def _get_toolkit_script_name(self):
         return "shotgun"
@@ -103,16 +196,130 @@ class ProcessManager(object):
         """
         return os.environ.get("SHOTGUN_PLUGIN_LAUNCHER")
 
+    @staticmethod
+    def _get_extension(filepath):
+        """
+        Get the extension of a path the way Windows resolves it.
+
+        Windows ignores trailing dots and spaces, so "file.exe. " runs as "file.exe".
+
+        :param filepath: String file path.
+        :returns: String lowercase extension, including the dot.
+        """
+        name = ntpath.basename(filepath.rstrip("/\\")).rstrip(" .")
+        return ntpath.splitext(name)[1].lower()
+
+    def _get_storage_roots(self):
+        """
+        Get the Windows paths of the site's local storage roots.
+
+        They are read from Flow Production Tracking rather than from the request, so
+        a client cannot add its own. The result is cached on success only.
+
+        :returns: List of normalized Windows paths.
+        """
+        if self._storage_roots is None:
+            try:
+                storages = sgtk.platform.current_bundle().shotgun.find(
+                    "LocalStorage", [], ["windows_path"]
+                )
+            except Exception:
+                logger.exception("Could not retrieve the local storage roots:")
+                return []
+            self._storage_roots = [
+                self._normalize_windows_path(storage["windows_path"])
+                for storage in storages
+                if storage.get("windows_path")
+            ]
+        return self._storage_roots
+
+    @staticmethod
+    def _normalize_windows_path(filepath):
+        """
+        Normalize a Windows path for comparison: backslashes, no "..", lowercase.
+
+        :param filepath: String file path.
+        :returns: String normalized path.
+        """
+        return ntpath.normcase(ntpath.normpath(filepath))
+
+    def _verify_windows_path(self, filepath):
+        """
+        Reject Windows paths that would make the shell run code or reach a remote host.
+
+        This check must run before the path is touched: even checking that a UNC path
+        exists connects to its server and sends it the user's credentials.
+
+        :param filepath: String file path that should be opened.
+        :raises OpenFileRejectedError: If the path is an alternate data stream, or a
+            UNC path outside the site's local storage roots.
+        """
+        normalized = self._normalize_windows_path(filepath)
+        drive, rest = ntpath.splitdrive(normalized)
+
+        # "file.txt:stream" names an alternate data stream, which can hide a program.
+        if ":" in rest:
+            raise OpenFileRejectedError(
+                "Refusing to open [%s]: alternate data streams are not supported."
+                % filepath
+            )
+
+        # UNC paths (\\server\share, //server/share, \\?\ and \\.\ device paths) can
+        # point at a remote host. Only allow those inside a local storage root.
+        if normalized.startswith("\\\\"):
+            for root in self._get_storage_roots():
+                if normalized == root or normalized.startswith(
+                    root.rstrip("\\") + "\\"
+                ):
+                    return
+            raise OpenFileRejectedError(
+                "Refusing to open [%s]: network paths are only supported inside the "
+                "site's local storage roots." % filepath
+            )
+
     def _verify_file_open(self, filepath):
         """
         Verify that a file can be opened.
 
+        Opening a file hands it to its default application, so paths that would run
+        code are rejected: executables, scripts, shortcuts and application bundles,
+        and on Windows UNC paths outside the site's local storage roots and alternate
+        data streams.
+
         :param filepath: String file path that should be opened.
+        :raises OpenFileRejectedError: If opening filepath could run code.
         :raises: Exception If filepath cannot be opened.
         """
+        if not isinstance(filepath, str) or not filepath:
+            raise OpenFileRejectedError(
+                "Error opening path [%s]. Invalid path." % filepath
+            )
+
+        if sgtk.util.is_windows():
+            self._verify_windows_path(filepath)
+
+        self._verify_extension(filepath)
 
         if not os.path.exists(filepath):
             raise Exception("Error opening path [%s]. Path not found." % filepath)
+
+        # A symbolic link named like a movie could point at a program.
+        self._verify_extension(os.path.realpath(filepath), filepath)
+
+    def _verify_extension(self, path, filepath=None):
+        """
+        Reject a path whose extension is in :data:`BLOCKED_OPEN_EXTENSIONS`.
+
+        :param path: String path to check.
+        :param filepath: String path requested, for the error message. Defaults to path.
+        :raises OpenFileRejectedError: If the extension is blocked.
+        """
+        extension = self._get_extension(path)
+        if extension in BLOCKED_OPEN_EXTENSIONS:
+            raise OpenFileRejectedError(
+                "Refusing to open [%s]: %s files can run code."
+                % (filepath or path, extension)
+            )
 
     def _get_full_toolkit_path(self, pipeline_config_path):
         """
@@ -223,7 +430,7 @@ class ProcessManager(object):
         except Exception as e:
             # call_cmd is not including sentitive information in the error message, so this won't
             # either.
-            raise Exception("Error executing toolkit command: " + e.message)
+            raise Exception("Error executing toolkit command: %s" % e)
 
     def _add_action_output(self, actions, out, err, code):
         """

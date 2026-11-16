@@ -88,7 +88,7 @@ class ShotgunAPI(object):
 
             self.host.reply(reply)
         except Exception as e:
-            self.host.report_error(e.message)
+            self.host.report_error(str(e))
 
     def echo(self, data):
         """
@@ -142,7 +142,7 @@ class ShotgunAPI(object):
             )
             self._handle_toolkit_output(out, err, returncode)
         except Exception as e:
-            self.host.report_error(e.message)
+            self.host.report_error(str(e))
 
     def executeTankCommand(self, data):
         """

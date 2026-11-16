@@ -772,7 +772,7 @@ class ShotgunAPI(object):
             self.host.reply(reply)
         except Exception as e:
             logger.exception(e)
-            self.host.report_error(e.message)
+            self.host.report_error(str(e))
 
     def pick_file_or_directory(self, data):
         """

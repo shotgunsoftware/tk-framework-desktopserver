@@ -9,6 +9,7 @@
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
 import os
+import shutil
 import subprocess
 from threading import Thread
 import tempfile
@@ -20,6 +21,15 @@ from .logger import get_logger
 import sgtk.util
 
 logger = get_logger(__name__)
+
+# Extensions of the scripts that Windows always runs through cmd.exe, even without
+# shell=True.
+_BATCH_EXTENSIONS = (".bat", ".cmd")
+
+# Characters that cmd.exe still interprets inside a quoted argument, or that would
+# end the quoted argument early. A batch file argument containing one of them could
+# inject commands, so such arguments are rejected.
+_UNSAFE_BATCH_CHARACTERS = frozenset('\x00\n\r"%!')
 
 
 class ReadThread(Thread):
@@ -85,9 +95,9 @@ class Command(object):
                 del env[var]
 
         # Launch the child process
-        # Due to discrepencies on how child file descriptors and shell=True are
-        # handled on Windows and Unix, we'll provide two implementations. See the Windows
-        # implementation for more details.
+        # Windows needs output redirected to files and batch files quoted for cmd.exe,
+        # so we'll provide two implementations. See the Windows implementation for
+        # more details.
         if sgtk.util.is_windows():
             ret, stdout_lines, stderr_lines = Command._call_cmd_win32(args, env)
         else:
@@ -163,15 +173,53 @@ class Command(object):
             logger.exception("Error running subprocess:")
 
             ret = 1
-            stderr_lines = traceback.format_exc().split()
+            stderr_lines = traceback.format_exc().splitlines(True)
             stderr_lines.append("%s" % args)
 
         return ret, stdout_lines, stderr_lines
 
     @staticmethod
+    def _build_batch_command_line(args):
+        """
+        Builds a cmd.exe command line that runs a batch file with the given arguments.
+
+        Every argument is quoted, and arguments containing characters that cmd.exe
+        would still interpret inside quotes are rejected, so no argument can inject
+        commands.
+
+        :param args: Command line tokens. The first one is the batch file.
+
+        :returns: The command line to pass to cmd.exe /s /c.
+
+        :raises ValueError: If an argument cannot be passed safely to a batch file.
+        """
+        quoted_args = []
+        for arg in args:
+            if not isinstance(arg, str):
+                raise ValueError(
+                    "Batch file arguments must be strings, got %s." % type(arg).__name__
+                )
+            if _UNSAFE_BATCH_CHARACTERS.intersection(arg):
+                raise ValueError(
+                    "A batch file argument contains a character that cannot be passed "
+                    'safely: ", %, !, a newline or a null character.'
+                )
+            # The batch file usually hands its arguments on to a program that treats
+            # backslashes before a quote as escapes, so double the trailing ones.
+            trailing_backslashes = len(arg) - len(arg.rstrip("\\"))
+            quoted_args.append('"%s%s"' % (arg, "\\" * trailing_backslashes))
+
+        # With /s, cmd.exe removes the outer quotes and runs the rest as it is.
+        return '"%s"' % " ".join(quoted_args)
+
+    @staticmethod
     def _call_cmd_win32(args, env):
         """
         Runs a command in a separate process. Implementation for Windows.
+
+        The command is never run through a shell. Batch files, which Windows can only
+        run through cmd.exe, are run with every argument quoted and validated by
+        :meth:`_build_batch_command_line`.
 
         :param args: Command line tokens.
         :param env: Environment variables to set for the subprocess.
@@ -180,10 +228,9 @@ class Command(object):
         """
         stdout_lines = []
         stderr_lines = []
+        stdout_path = None
+        stderr_path = None
         try:
-            stdout_path = Command._create_temp_file()
-            stderr_path = Command._create_temp_file()
-
             # On Windows, file descriptors like sockets can be inherited by child
             # process and are only closed when the main process and all child
             # processes are closed. This is bad because it means that the port
@@ -191,40 +238,55 @@ class Command(object):
             # or tank commands are running. Therefore, closing the Desktop and
             # restarting it for example wouldn't free the port and would give the
             # "port 9000 already in use" error we've seen before.
-
+            #
             # To avoid this, close_fds needs to be specified when launching a child
-            # process. However, there's a catch. On Windows, specifying close_fds
-            # also means that you can't share stdout, stdin and stderr with the child
-            # process, which is required here because we want to capture the output
-            # of the process.
+            # process. Since Python 3.7, close_fds can be combined with redirected
+            # standard handles on Windows: only those handles are inherited. The
+            # output is redirected to two temporary files rather than pipes, which
+            # are read when the child process is over.
+            #
+            # A batch file can only run through cmd.exe, which parses the whole
+            # command line, so it is run explicitly with strictly quoted arguments.
+            # Anything else is run directly, with no shell. shutil.which resolves a
+            # name without an extension the way the shell used to, through PATHEXT.
+            executable = shutil.which(args[0]) or args[0]
+            extension = os.path.splitext(executable.rstrip(" ."))[1].lower()
+            if extension in _BATCH_EXTENSIONS:
+                cmd_exe = os.path.join(
+                    os.environ.get("SystemRoot", "C:\\Windows"), "System32", "cmd.exe"
+                )
+                batch_command_line = Command._build_batch_command_line(
+                    [executable] + list(args[1:])
+                )
+                popen_args = '"%s" /e:on /v:off /s /c %s' % (
+                    cmd_exe,
+                    batch_command_line,
+                )
+            else:
+                cmd_exe = None
+                popen_args = [executable] + list(args[1:])
 
-            # Therefore on Windows we'll invoke the code in a shell environment. The
-            # output will be redirected to two temporary files which will be read
-            # when the child process is over.
+            stdout_path = Command._create_temp_file()
+            stderr_path = Command._create_temp_file()
 
-            # Ideally, we'd be using this implementation on Unix as well. After all,
-            # the syntax of the command line is the same. However, specifying shell=True
-            # on Unix means that the following ["ls", "-al"] would be invoked like this:
-            # ["/bin/sh", "-c", "ls", "-al"]. This means that only ls is sent to the
-            # shell and -al is considered to be an argument of the shell and not part
-            # of what needs to be launched. The naive solution would be to quote the
-            # argument list and pass ["\"ls -al \""] to Popen, but that would ignore
-            # the fact that there could already be quotes on that command line and
-            # they would need to be escaped as well. Python 2's only utility to
-            # escape strings for the command line is pipes.quote, which is deprecated.
-
-            # Because of these reasons, we'll keep both implementations for now.
-
-            args = args + ["1>", stdout_path, "2>", stderr_path]
-
-            # Prevents the cmd.exe dialog from appearing on Windows.
+            # Prevents a console window from appearing on Windows.
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
-            process = subprocess.Popen(
-                args, close_fds=True, startupinfo=startupinfo, env=env, shell=True
-            )
-            process.wait()
+            with open(stdout_path, "wb") as stdout_file, open(
+                stderr_path, "wb"
+            ) as stderr_file:
+                process = subprocess.Popen(
+                    popen_args,
+                    close_fds=True,
+                    env=env,
+                    executable=cmd_exe,
+                    startupinfo=startupinfo,
+                    stderr=stderr_file,
+                    stdin=subprocess.DEVNULL,
+                    stdout=stdout_file,
+                )
+                process.wait()
 
             # Read back the output from the two. Decode as utf-8 with
             # errors="replace" rather than relying on the OS locale codec:
@@ -247,17 +309,16 @@ class Command(object):
             logger.exception("Error running subprocess:")
 
             ret = 1
-            stderr_lines = traceback.format_exc().split()
+            stderr_lines = traceback.format_exc().splitlines(True)
             stderr_lines.append("%s" % args)
 
         # Don't lose any sleep over temporary files that can't be deleted.
-        try:
-            os.remove(stdout_path)
-        except:
-            pass
-        try:
-            os.remove(stderr_path)
-        except:
-            pass
+        for temp_path in (stdout_path, stderr_path):
+            if temp_path is None:
+                continue
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
 
         return ret, stdout_lines, stderr_lines
