@@ -184,7 +184,7 @@ class TestCallCmdWin32NoShell(unittest.TestCase):
     def _write_batch_file(self, name, lines):
         path = os.path.join(self.temp_dir, name)
         with open(path, "w") as f:
-            f.write("\r\n".join(["@echo off"] + lines) + "\r\n")
+            f.write("\r\n".join(["@echo off", *lines, ""]))
         return path
 
     def _write_echo_batch_file(self):
@@ -221,7 +221,7 @@ class TestCallCmdWin32NoShell(unittest.TestCase):
                 sys.executable,
                 "-c",
                 "import sys; print(sys.argv[1:])",
-                "a & echo x > " + self.marker,
+                f"a & echo x > {self.marker}",
             ]
         )
         self.assertEqual(ret, 0, err)
@@ -274,9 +274,9 @@ class TestCallCmdWin32NoShell(unittest.TestCase):
     def test_batch_file_injection_is_rejected(self):
         batch_file = self._write_echo_batch_file()
         for arg in (
-            "a&echo x>" + self.marker,
-            "b|echo x>" + self.marker,
-            '"&echo x>"' + self.marker + '"&rem "',
+            f"a&echo x>{self.marker}",
+            f"b|echo x>{self.marker}",
+            f'"&echo x>"{self.marker}"&rem "',
             "%COMSPEC%",
         ):
             with self.subTest(arg=arg):

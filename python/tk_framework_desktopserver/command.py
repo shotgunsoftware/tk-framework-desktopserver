@@ -204,7 +204,7 @@ class Command(object):
         for arg in args:
             if not isinstance(arg, str):
                 raise ValueError(
-                    "Batch file arguments must be strings, got %s." % type(arg).__name__
+                    f"Batch file arguments must be strings, got {type(arg).__name__}."
                 )
 
         batch_file, batch_args = args[0], args[1:]
@@ -221,12 +221,12 @@ class Command(object):
                 )
 
         # list2cmdline quotes only the arguments that need it, as shell=True did.
-        command_line = '"%s"' % batch_file
+        command_line = f'"{batch_file}"'
         if batch_args:
-            command_line += " " + subprocess.list2cmdline(batch_args)
+            command_line += f" {subprocess.list2cmdline(batch_args)}"
 
         # With /s, cmd.exe removes the outer quotes and runs the rest as it is.
-        return '"%s"' % command_line
+        return f'"{command_line}"'
 
     @staticmethod
     def _call_cmd_win32(args, env):
@@ -274,10 +274,7 @@ class Command(object):
                 batch_command_line = Command._build_batch_command_line(
                     [executable] + list(args[1:])
                 )
-                popen_args = '"%s" /e:on /v:off /s /c %s' % (
-                    cmd_exe,
-                    batch_command_line,
-                )
+                popen_args = f'"{cmd_exe}" /e:on /v:off /s /c {batch_command_line}'
             else:
                 cmd_exe = None
                 popen_args = [executable] + list(args[1:])
