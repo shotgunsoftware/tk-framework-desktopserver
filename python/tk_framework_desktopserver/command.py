@@ -26,10 +26,15 @@ logger = get_logger(__name__)
 # shell=True.
 _BATCH_EXTENSIONS = (".bat", ".cmd")
 
-# Characters that cmd.exe still interprets inside a quoted argument, or that would
-# end the quoted argument early. A batch file argument containing one of them could
-# inject commands, so such arguments are rejected.
-_UNSAFE_BATCH_CHARACTERS = frozenset('\x00\n\r"%!')
+# Characters that cmd.exe still interprets inside quotes, or that would end the
+# quotes early. The batch file path is always quoted, so it only must not contain
+# these.
+_UNSAFE_BATCH_PATH_CHARACTERS = frozenset('\x00\n\r"%!')
+
+# Characters that cmd.exe interprets anywhere in a command line. A batch file reads
+# its own arguments again, for example with %~1, which removes any quotes, so quoting
+# cannot protect an argument: one containing these characters is rejected instead.
+_UNSAFE_BATCH_ARGUMENT_CHARACTERS = _UNSAFE_BATCH_PATH_CHARACTERS | frozenset("&()<>^|")
 
 
 class ReadThread(Thread):
@@ -183,9 +188,12 @@ class Command(object):
         """
         Builds a cmd.exe command line that runs a batch file with the given arguments.
 
-        Every argument is quoted, and arguments containing characters that cmd.exe
-        would still interpret inside quotes are rejected, so no argument can inject
-        commands.
+        The batch file path is always quoted. The arguments are quoted as they always
+        were, only when they contain spaces, so that batch files such as tank.bat,
+        which compare "%1" with a value, see them unchanged. Arguments containing a
+        character that cmd.exe interprets are rejected, because the batch file reads
+        them again and quoting cannot protect them, so no argument can inject
+        commands however the batch file uses it.
 
         :param args: Command line tokens. The first one is the batch file.
 
@@ -193,24 +201,32 @@ class Command(object):
 
         :raises ValueError: If an argument cannot be passed safely to a batch file.
         """
-        quoted_args = []
         for arg in args:
             if not isinstance(arg, str):
                 raise ValueError(
-                    "Batch file arguments must be strings, got %s." % type(arg).__name__
+                    f"Batch file arguments must be strings, got {type(arg).__name__}."
                 )
-            if _UNSAFE_BATCH_CHARACTERS.intersection(arg):
+
+        batch_file, batch_args = args[0], args[1:]
+        if _UNSAFE_BATCH_PATH_CHARACTERS.intersection(batch_file):
+            raise ValueError(
+                "The batch file path contains a character that cannot be passed "
+                'safely: ", %, !, a newline or a null character.'
+            )
+        for arg in batch_args:
+            if _UNSAFE_BATCH_ARGUMENT_CHARACTERS.intersection(arg):
                 raise ValueError(
                     "A batch file argument contains a character that cannot be passed "
-                    'safely: ", %, !, a newline or a null character.'
+                    'safely: one of " % ! & ( ) < > ^ |, a newline or a null character.'
                 )
-            # The batch file usually hands its arguments on to a program that treats
-            # backslashes before a quote as escapes, so double the trailing ones.
-            trailing_backslashes = len(arg) - len(arg.rstrip("\\"))
-            quoted_args.append('"%s%s"' % (arg, "\\" * trailing_backslashes))
+
+        # list2cmdline quotes only the arguments that need it, as shell=True did.
+        command_line = f'"{batch_file}"'
+        if batch_args:
+            command_line += f" {subprocess.list2cmdline(batch_args)}"
 
         # With /s, cmd.exe removes the outer quotes and runs the rest as it is.
-        return '"%s"' % " ".join(quoted_args)
+        return f'"{command_line}"'
 
     @staticmethod
     def _call_cmd_win32(args, env):
@@ -218,7 +234,7 @@ class Command(object):
         Runs a command in a separate process. Implementation for Windows.
 
         The command is never run through a shell. Batch files, which Windows can only
-        run through cmd.exe, are run with every argument quoted and validated by
+        run through cmd.exe, are run with their arguments validated by
         :meth:`_build_batch_command_line`.
 
         :param args: Command line tokens.
@@ -246,7 +262,7 @@ class Command(object):
             # are read when the child process is over.
             #
             # A batch file can only run through cmd.exe, which parses the whole
-            # command line, so it is run explicitly with strictly quoted arguments.
+            # command line, so it is run explicitly with validated arguments.
             # Anything else is run directly, with no shell. shutil.which resolves a
             # name without an extension the way the shell used to, through PATHEXT.
             executable = shutil.which(args[0]) or args[0]
@@ -258,10 +274,7 @@ class Command(object):
                 batch_command_line = Command._build_batch_command_line(
                     [executable] + list(args[1:])
                 )
-                popen_args = '"%s" /e:on /v:off /s /c %s' % (
-                    cmd_exe,
-                    batch_command_line,
-                )
+                popen_args = f'"{cmd_exe}" /e:on /v:off /s /c {batch_command_line}'
             else:
                 cmd_exe = None
                 popen_args = [executable] + list(args[1:])

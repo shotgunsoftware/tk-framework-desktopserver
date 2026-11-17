@@ -95,28 +95,69 @@ class TestCallCmdWin32(unittest.TestCase):
 
 class TestBuildBatchCommandLine(unittest.TestCase):
     """
-    SG-47020: batch files always run through cmd.exe, so every argument must be
-    quoted, and arguments that cmd.exe would still interpret must be rejected.
+    SG-47020: batch files always run through cmd.exe, and read their own arguments
+    again, so arguments are quoted as shell=True always did and arguments containing
+    a character that cmd.exe interprets are rejected.
     """
 
-    def test_every_argument_is_quoted(self):
+    def test_arguments_are_quoted_as_before(self):
+        """
+        Only arguments with spaces are quoted, as subprocess did with shell=True, so
+        tank.bat's IF "%1"=="shotgun_get_actions" still matches.
+        """
         line = Command._build_batch_command_line(
-            ["C:\\Program Files\\cfg\\tank.bat", "shotgun_run_action", "a & b|c<d>e^f"]
+            [
+                "C:\\cfg\\tank.bat",
+                "shotgun_get_actions",
+                "shotgun_windows_shot.txt",
+                "with space",
+                "123,456",
+            ]
         )
         self.assertEqual(
             line,
-            '""C:\\Program Files\\cfg\\tank.bat" "shotgun_run_action" "a & b|c<d>e^f""',
+            '""C:\\cfg\\tank.bat" shotgun_get_actions shotgun_windows_shot.txt '
+            '"with space" 123,456"',
         )
 
-    def test_trailing_backslashes_are_doubled(self):
-        line = Command._build_batch_command_line(["x.bat", "C:\\dir\\"])
-        self.assertEqual(line, '""x.bat" "C:\\dir\\\\""')
+    def test_batch_file_path_may_contain_parentheses(self):
+        line = Command._build_batch_command_line(
+            ["C:\\Program Files (x86)\\cfg\\tank.bat", "shotgun_run_action"]
+        )
+        self.assertEqual(
+            line, '""C:\\Program Files (x86)\\cfg\\tank.bat" shotgun_run_action"'
+        )
 
-    def test_unsafe_characters_are_rejected(self):
-        for arg in ('a"&calc', "%PATH%", "!x!", "a\nb", "a\rb", "a\x00b"):
+    def test_trailing_backslashes_are_doubled_when_quoted(self):
+        line = Command._build_batch_command_line(["x.bat", "C:\\my dir\\"])
+        self.assertEqual(line, '""x.bat" "C:\\my dir\\\\""')
+
+    def test_unsafe_argument_characters_are_rejected(self):
+        for arg in (
+            'a"&calc',
+            "%PATH%",
+            "!x!",
+            "a&calc",
+            "a & calc",
+            "a|calc",
+            "a>file",
+            "a<file",
+            "a^b",
+            "a(b",
+            "a)b",
+            "a\nb",
+            "a\rb",
+            "a\x00b",
+        ):
             with self.subTest(arg=arg):
-                with self.assertRaises(ValueError):
+                with self.assertRaisesRegex(ValueError, "cannot be passed safely"):
                     Command._build_batch_command_line(["x.bat", arg])
+
+    def test_unsafe_batch_file_path_characters_are_rejected(self):
+        for path in ('C:\\a"b\\x.bat', "C:\\%TEMP%\\x.bat", "C:\\a!b\\x.bat"):
+            with self.subTest(path=path):
+                with self.assertRaisesRegex(ValueError, "cannot be passed safely"):
+                    Command._build_batch_command_line([path, "arg"])
 
     def test_non_string_arguments_are_rejected(self):
         with self.assertRaises(ValueError):
@@ -126,26 +167,42 @@ class TestBuildBatchCommandLine(unittest.TestCase):
 @windows_only
 class TestCallCmdWin32NoShell(unittest.TestCase):
     """
-    SG-47020: commands run without shell=True, and arguments passed to a batch file
-    reach it literally instead of being run by cmd.exe.
+    SG-47020: commands run without shell=True, arguments reach executables
+    literally, and arguments that a batch file could run as commands are rejected.
     """
 
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp(prefix="sg47020 dir ")
         self.addCleanup(self._remove_temp_dir)
+        self.marker = os.path.join(self.temp_dir, "injected")
 
     def _remove_temp_dir(self):
         for name in os.listdir(self.temp_dir):
             os.remove(os.path.join(self.temp_dir, name))
         os.rmdir(self.temp_dir)
 
-    def _write_batch_file(self):
-        """Write a batch file that prints each argument on its own line."""
-        path = os.path.join(self.temp_dir, "print args.bat")
+    def _write_batch_file(self, name, lines):
+        path = os.path.join(self.temp_dir, name)
         with open(path, "w") as f:
-            f.write("@echo off\r\n:loop\r\nif [%1]==[] goto end\r\n")
-            f.write("echo ARG=%~1\r\nshift\r\ngoto loop\r\n:end\r\n")
+            f.write("\r\n".join(["@echo off", *lines, ""]))
         return path
+
+    def _write_echo_batch_file(self):
+        """
+        Write a batch file that prints each argument with %~1, which removes the
+        quotes, so any cmd.exe character in an argument would run.
+        """
+        return self._write_batch_file(
+            "print args.bat",
+            [
+                ":loop",
+                "if [%1]==[] goto end",
+                "echo ARG=%~1",
+                "shift",
+                "goto loop",
+                ":end",
+            ],
+        )
 
     def test_popen_is_called_without_shell(self):
         with patch(
@@ -159,43 +216,75 @@ class TestCallCmdWin32NoShell(unittest.TestCase):
         self.assertFalse(popen.call_args.kwargs.get("shell", False))
 
     def test_executable_arguments_are_not_interpreted(self):
-        marker = os.path.join(self.temp_dir, "injected")
         ret, out, err = Command.call_cmd(
             [
                 sys.executable,
                 "-c",
                 "import sys; print(sys.argv[1:])",
-                "a & echo x > " + marker,
+                f"a & echo x > {self.marker}",
             ]
         )
         self.assertEqual(ret, 0, err)
         self.assertIn("a & echo x > ", out)
-        self.assertFalse(os.path.exists(marker))
+        self.assertFalse(os.path.exists(self.marker))
 
-    def test_batch_file_arguments_are_passed_literally(self):
-        marker = os.path.join(self.temp_dir, "injected")
-        batch_file = self._write_batch_file()
+    def test_batch_file_arguments_are_passed(self):
+        batch_file = self._write_echo_batch_file()
         ret, out, err = Command.call_cmd(
-            [batch_file, "plain", "with space", "a&echo x>" + marker, "b|c"]
+            [batch_file, "shotgun_run_action", "with space", "Shot", "123,456"]
         )
 
+        # cmd.exe splits %1 on commas, as it always has; tank.bat passes its
+        # arguments on with %*, which keeps "123,456" whole.
         self.assertEqual(ret, 0, err)
         self.assertEqual(
             [line for line in out.splitlines() if line.startswith("ARG=")],
-            ["ARG=plain", "ARG=with space", "ARG=a&echo x>" + marker, "ARG=b|c"],
+            [
+                "ARG=shotgun_run_action",
+                "ARG=with space",
+                "ARG=Shot",
+                "ARG=123",
+                "ARG=456",
+            ],
         )
-        self.assertFalse(os.path.exists(marker))
 
-    def test_batch_file_quote_injection_is_rejected(self):
-        marker = os.path.join(self.temp_dir, "injected")
-        batch_file = self._write_batch_file()
+    def test_tank_style_argument_comparison_still_matches(self):
+        """
+        tank.bat starts with IF "%1"=="shotgun_get_actions", which only matches if
+        the argument is passed without quotes.
+        """
+        batch_file = self._write_batch_file(
+            "tank.bat",
+            [
+                'IF "%1"=="shotgun_get_actions" GOTO CHECK_CACHE',
+                "echo SLOW",
+                "exit /b 0",
+                ":CHECK_CACHE",
+                "echo CACHE %2 %3",
+                "exit /b 0",
+            ],
+        )
         ret, out, err = Command.call_cmd(
-            [batch_file, '"&echo x>"' + marker + '"&rem "']
+            [batch_file, "shotgun_get_actions", "cache.txt", "env.yml"]
         )
 
-        self.assertEqual(ret, 1)
-        self.assertIn("cannot be passed safely", err)
-        self.assertFalse(os.path.exists(marker))
+        self.assertEqual(ret, 0, err)
+        self.assertIn("CACHE cache.txt env.yml", out)
+
+    def test_batch_file_injection_is_rejected(self):
+        batch_file = self._write_echo_batch_file()
+        for arg in (
+            f"a&echo x>{self.marker}",
+            f"b|echo x>{self.marker}",
+            f'"&echo x>"{self.marker}"&rem "',
+            "%COMSPEC%",
+        ):
+            with self.subTest(arg=arg):
+                ret, out, err = Command.call_cmd([batch_file, arg])
+
+                self.assertEqual(ret, 1)
+                self.assertIn("cannot be passed safely", err)
+                self.assertFalse(os.path.exists(self.marker))
 
 
 if __name__ == "__main__":
