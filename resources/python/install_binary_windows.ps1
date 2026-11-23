@@ -26,12 +26,6 @@ pip install --target $bin_dir --no-deps -r $requirements
 
 # Remove tests to thin out the packages
 Remove-Item -LiteralPath $bin_dir\Crypto\SelfTest -Force -Recurse -ErrorAction Ignore
-Remove-Item -LiteralPath $bin_dir\zope\interface\tests -Force -Recurse -ErrorAction Ignore
-Remove-Item -LiteralPath $bin_dir\zope\interface\common\tests -Force -Recurse -ErrorAction Ignore
-
-# For some reason zope is missing a top level init file when installed with
-# pip, so we're adding it.
-ni $bin_dir\zope\__init__.py
 
 # Add bin dir to repo
 git add $bin_dir

@@ -5,10 +5,6 @@ __pycache__/
 # Mac
 .DS_Store
 
-# Twisted Unit Test Artifacts
-_trial_temp*/
-_trial_temp*
-
 # Jetbrains
 .idea/
 

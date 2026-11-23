@@ -12,11 +12,9 @@ import datetime
 import json
 from urllib.parse import urlparse
 
-import OpenSSL
 import sgtk
-from autobahn.twisted.websocket import WebSocketServerProtocol
 from cryptography.fernet import Fernet
-from twisted.internet import error, reactor
+from websockets.exceptions import ConnectionClosed
 
 from . import shotgun
 from .logger import get_logger
@@ -27,9 +25,9 @@ from .process_manager import ProcessManager
 logger = get_logger(__name__)
 
 
-class ServerProtocol(WebSocketServerProtocol):
+class ServerProtocol(object):
     """
-    Server Protocol
+    Handles the messages of one websocket connection.
     """
 
     (
@@ -55,12 +53,20 @@ class ServerProtocol(WebSocketServerProtocol):
     # Cached result of the server secret retrieval
     _ws_server_secret = None
 
-    def __init__(self):
-        super().__init__()
-        self._process_manager = ProcessManager.create()
-        self._protocol_version = 2
+    def __init__(self, server, connection):
+        """
+        :param server: The :class:`~tk_framework_desktopserver.Server`.
+        :param connection: The websockets ``ServerConnection``, after a successful
+            opening handshake.
+        """
+        self._connection = connection
         # When set, the message to and from the server will be encrypted.
         self._fernet = None
+        self._origin = connection.request.headers.get("Origin", "").lower()
+        self._process_manager = ProcessManager.create()
+        self._protocol_version = 2
+        self._server = server
+        self._wss_key = connection.request.headers["Sec-WebSocket-Key"]
 
     @property
     def process_manager(self):
@@ -76,57 +82,31 @@ class ServerProtocol(WebSocketServerProtocol):
         """
         return self._protocol_version
 
-    def connectionLost(self, reason):
+    def run(self):
         """
-        Called when connection is lost
-
-        :param reason: Object Reason for connection lost
-        """
-        try:
-            # Known certificate error. These work for firefox and safari, but chrome rejected certificate
-            # are currently indistinguishable from lost connection. This is true as of July 21st, 2015.
-            certificate_error = False
-            try:
-                message = reason.value.message[0][2]
-            except (AttributeError, IndexError):
-                logger.warning("Unexpected error message in object: {}".format(reason))
-            else:
-                certificate_error |= (
-                    reason.type is OpenSSL.SSL.Error
-                    and message == "ssl handshake failure"
-                )
-                certificate_error |= (
-                    reason.type is OpenSSL.SSL.Error
-                    and message == "tlsv1 alert unknown ca"
-                )
-
-            certificate_error |= bool(reason.check(error.CertificateError))
-            certificate_error |= bool(reason.check(error.ConnectionLost))
-
-            if certificate_error:
-                logger.info("Certificate error!")
-            else:
-                logger.info("Connection closed.")
-        except Exception:
-            logger.exception("Unexpected error while losing connection.")
-
-        logger.debug("Reason received for connection loss: %s", reason)
-
-    def onConnect(self, response):
-        """
-        Called upon client connection to server. This is where we decide if we accept the connection
-        or refuse it based on domain origin.
-
-        :param response: Object Response information.
+        Handles messages until the connection closes.
         """
         # If we reach this point, then it means SSL handshake went well..
-        self._origin = response.origin.lower()
         logger.info("Connection accepted.")
-        self._wss_key = response.headers["sec-websocket-key"]
+        try:
+            for payload in self._connection:
+                # Text messages are received as str, binary messages as bytes.
+                is_binary = isinstance(payload, bytes)
+                if not is_binary:
+                    payload = payload.encode("utf-8")
+                self.onMessage(payload, is_binary)
+        except ConnectionClosed:
+            pass
+        logger.info("Connection closed.")
+        logger.debug(
+            "Connection closed with code %s: %s",
+            self._connection.close_code,
+            self._connection.close_reason,
+        )
 
     def onMessage(self, payload, is_binary):
         """
-        Called by 'WebSocketServerProtocol' when we receive a message from the websocket.
+        Called by :meth:`run` when we receive a message from the websocket.
 
         Captures any errors launched by the handling of the message, logs it and reports
         a generic user message back to the browser.
@@ -139,7 +119,7 @@ class ServerProtocol(WebSocketServerProtocol):
 
     def _on_message(self, payload, is_binary):
         """
-        Called by 'WebSocketServerProtocol' when we receive a message from the websocket
+        Called by :meth:`onMessage` when we receive a message from the websocket
 
         Entry point into our Shotgun API.
 
@@ -175,9 +155,7 @@ class ServerProtocol(WebSocketServerProtocol):
         try:
             message = json.loads(decoded_payload)
         except ValueError as e:
-            self.report_error(
-                "Error in decoding the message's json data: %s" % e.message
-            )
+            self.report_error("Error in decoding the message's json data: %s" % e)
             return
 
         message_host = MessageHost(self, message)
@@ -202,14 +180,14 @@ class ServerProtocol(WebSocketServerProtocol):
                 logger.exception(
                     "Unexpected error while trying to retrieve the user id:"
                 )
-                self.sendClose(*self.USER_INFO_NOT_FOUND)
+                self._send_close(*self.USER_INFO_NOT_FOUND)
                 return
         else:
             user_id = None
 
         if not self._validate_user(user_id):
-            self.factory.notifier.different_user_requested.emit(self._origin, user_id)
-            self.sendClose(*self.UNAUTHORIZED_USER)
+            self._server.notifier.different_user_requested.emit(self._origin, user_id)
+            self._send_close(*self.UNAUTHORIZED_USER)
             return
 
         if message["command"]["name"] == "get_ws_server_id":
@@ -220,13 +198,12 @@ class ServerProtocol(WebSocketServerProtocol):
         # the public server id and we've turned on encryption by initializing the Fernet instance.
         if self._is_using_encryption() and not self._fernet:
             logger.error(self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED[1])
-            self.sendClose(*self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
+            self._send_close(*self.ENCRYPTION_HANDSHAKE_NOT_COMPLETED)
             return
 
         # Run each request from a thread, even though it might be something very simple like opening
-        # a file. This will ensure the server is as responsive as possible. Twisted will take care
-        # of the thread.
-        reactor.callInThread(
+        # a file. This will ensure the server is as responsive as possible.
+        self._server.submit(
             self._process_message,
             message_host,
             message,
@@ -247,7 +224,7 @@ class ServerProtocol(WebSocketServerProtocol):
 
         # origin is formatted such as https://xyz.shotgunstudio.com:port_number
         # host is https://xyz.shotgunstudio.com:port_number
-        host_network = self.factory.host.lower()
+        host_network = self._server.host.lower()
         parsed_host = urlparse(self._origin)
         # When the network location has a port number, the hostname and port
         # members are not None, in which case we want just the hostname and don't
@@ -259,29 +236,29 @@ class ServerProtocol(WebSocketServerProtocol):
         if user_id:
             # If we're on the right site and have the correct user, we're fine.
             if (
-                origin_network in self.factory.host_aliases
-                and user_id == self.factory.user_id
+                origin_network in self._server.host_aliases
+                and user_id == self._server.user_id
             ):
                 return True
             else:
                 # Otherwise report an error and log some stats.
                 logger.debug("Browser integration request received a different user.")
                 logger.debug("Desktop site: %s", host_network)
-                logger.debug("Desktop user: %s", self.factory.user_id)
-                logger.debug("Host aliases: %s", self.factory.host_aliases)
+                logger.debug("Desktop user: %s", self._server.user_id)
+                logger.debug("Host aliases: %s", self._server.host_aliases)
                 logger.debug("Origin site: %s", origin_network)
                 logger.debug("Origin user: %s", user_id)
                 return False
         else:
             # If we're on the right site when using protocol v1
-            if origin_network in self.factory.host_aliases:
+            if origin_network in self._server.host_aliases:
                 # we're good to go.
                 return True
             else:
                 # Otherwise report an error and log some stats.
                 logger.debug("Browser integration request received a different user.")
                 logger.debug("Desktop site: %s", host_network)
-                logger.debug("Host aliases: %s", self.factory.host_aliases)
+                logger.debug("Host aliases: %s", self._server.host_aliases)
                 logger.debug("Origin site: %s", origin_network)
                 return False
 
@@ -305,7 +282,7 @@ class ServerProtocol(WebSocketServerProtocol):
 
         :returns: True if this connection will require encryption.
         """
-        return True if self.factory.ws_server_id else False
+        return True if self._server.ws_server_id else False
 
     def _handle_get_ws_server_id(self, message):
         """
@@ -317,12 +294,12 @@ class ServerProtocol(WebSocketServerProtocol):
 
         if not self._is_using_encryption():
             logger.error(self.ENCRYPTION_NOT_SUPPORTED[1])
-            self.sendClose(*self.ENCRYPTION_NOT_SUPPORTED)
+            self._send_close(*self.ENCRYPTION_NOT_SUPPORTED)
             return
 
         # Build a response for the web app.
         message = Message(message["id"], self._protocol_version)
-        message.reply({"ws_server_id": self.factory.ws_server_id})
+        message.reply({"ws_server_id": self._server.ws_server_id})
 
         # send the response.
         self.json_reply(message.data)
@@ -355,7 +332,7 @@ class ServerProtocol(WebSocketServerProtocol):
             shotgun = sgtk.platform.current_bundle().shotgun
             # FIXME: Make this method public on the Shotgun API.
             response = shotgun._call_rpc(
-                "retrieve_ws_server_secret", {"ws_server_id": self.factory.ws_server_id}
+                "retrieve_ws_server_secret", {"ws_server_id": self._server.ws_server_id}
             )
             ws_server_secret = response["ws_server_secret"]
             ws_server_secret = (
@@ -457,7 +434,21 @@ class ServerProtocol(WebSocketServerProtocol):
 
         if self._fernet:
             payload = self._fernet.encrypt(payload)
-        self.sendMessage(payload, False)
+
+        # Requests reply from their own thread. websockets serializes sends.
+        try:
+            self._connection.send(payload, text=True)
+        except ConnectionClosed:
+            logger.debug("Connection closed, reply dropped.")
+
+    def _send_close(self, code, reason):
+        """
+        Closes the connection.
+
+        :param code: Close code.
+        :param reason: Close reason.
+        """
+        self._connection.close(code, reason)
 
     def _json_date_handler(self, obj):
         """
