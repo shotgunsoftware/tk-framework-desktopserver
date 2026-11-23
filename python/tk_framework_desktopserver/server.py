@@ -12,9 +12,9 @@ import base64
 import html
 import http
 import os
+import queue
 import ssl
 import threading
-from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import parse_qs, quote, urlparse
 
 from sgtk.platform.qt import QtCore
@@ -90,6 +90,73 @@ class _LoggingSSLSocket(ssl.SSLSocket):
             raise
 
 
+class _RequestPool(object):
+    """
+    Runs requests in daemon threads.
+
+    Unlike :class:`concurrent.futures.ThreadPoolExecutor`, whose threads Python
+    joins at exit, a request that is still running doesn't keep Desktop from
+    quitting: it stops when the interpreter exits.
+    """
+
+    # Tells a worker thread to stop.
+    _STOP = object()
+
+    def __init__(self, size):
+        """
+        Starts the worker threads.
+
+        :param size: Number of requests processed at the same time.
+        """
+        self._queue = queue.SimpleQueue()
+        self._threads = [
+            threading.Thread(
+                daemon=True,
+                name="desktopserver-request-%d" % index,
+                target=self._work,
+            )
+            for index in range(size)
+        ]
+        for thread in self._threads:
+            thread.start()
+
+    def shutdown(self):
+        """
+        Drops queued requests and stops each worker thread once its running
+        request returns. Doesn't wait.
+        """
+        while True:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                break
+        for _ in self._threads:
+            self._queue.put(self._STOP)
+
+    def submit(self, func, *args):
+        """
+        Queues a request.
+
+        :param func: Function to call.
+        :param args: Arguments to pass to the function.
+        """
+        self._queue.put((func, args))
+
+    def _work(self):
+        """
+        Runs queued requests until told to stop.
+        """
+        while True:
+            request = self._queue.get()
+            if request is self._STOP:
+                return
+            func, args = request
+            try:
+                func(*args)
+            except Exception:
+                logger.exception("Unexpected error while processing a request:")
+
+
 class Server(object):
     _DEFAULT_PORT = 9000
     _DEFAULT_KEYS_PATH = "../resources/keys"
@@ -146,7 +213,7 @@ class Server(object):
         self._closing = False
         self._connections = set()
         self._connections_lock = threading.Lock()
-        self._executor = None
+        self._request_pool = None
         self._server_thread = None
         self._websocket_server = None
 
@@ -217,13 +284,15 @@ class Server(object):
 
     def submit(self, func, *args):
         """
-        Runs a request in the thread pool.
+        Runs a request in the request pool. Requests that arrive while the server
+        stops are dropped.
 
         :param func: Function to call.
         :param args: Arguments to pass to the function.
         """
-        future = self._executor.submit(func, *args)
-        future.add_done_callback(self._log_request_failure)
+        request_pool = self._request_pool
+        if request_pool:
+            request_pool.submit(func, *args)
 
     def tear_down(self):
         """
@@ -248,9 +317,9 @@ class Server(object):
                 logger.warning("Timed out while closing browser connections.")
             self._websocket_server = None
 
-        if self._executor:
-            self._executor.shutdown(cancel_futures=True, wait=False)
-            self._executor = None
+        if self._request_pool:
+            self._request_pool.shutdown()
+            self._request_pool = None
 
         if self._server_thread:
             self._server_thread.join(self._SHUTDOWN_TIMEOUT)
@@ -324,18 +393,6 @@ class Server(object):
         finally:
             with self._connections_lock:
                 self._connections.discard(connection)
-
-    def _log_request_failure(self, future):
-        """
-        Logs any exception that escaped a request.
-
-        :param future: :class:`concurrent.futures.Future` of the request.
-        """
-        if not future.cancelled() and future.exception():
-            logger.error(
-                "Unexpected error while processing a request:",
-                exc_info=future.exception(),
-            )
 
     def _process_request(self, connection, request):
         """
@@ -416,10 +473,7 @@ class Server(object):
         except OSError as e:
             raise PortBusyError(str(e))
 
-        self._executor = ThreadPoolExecutor(
-            max_workers=self._MAX_WORKERS,
-            thread_name_prefix="desktopserver-request",
-        )
+        self._request_pool = _RequestPool(self._MAX_WORKERS)
 
     def _start_server_thread(self):
         """

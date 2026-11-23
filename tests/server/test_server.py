@@ -162,6 +162,8 @@ class MockShotgunApi(object):
     release = threading.Event()
     # Set when a wait command started.
     started = threading.Event()
+    # Thread that ran the last wait command.
+    wait_thread = None
 
     def __init__(self, host, process_manager, wss_key):
         self._host = host
@@ -170,6 +172,7 @@ class MockShotgunApi(object):
         self._host.reply({"value": payload["value"] * 3})
 
     def wait(self, payload):
+        MockShotgunApi.wait_thread = threading.current_thread()
         self.started.set()
         self.release.wait(30)
         self._host.reply({"value": "done"})
@@ -616,6 +619,8 @@ class CommonTests(object):
         self._activate_encryption_if_required()
         self._send_message("wait", None, encrypt=self.use_encryption)
         self.assertTrue(MockShotgunApi.started.wait(5))
+        # Python doesn't wait for daemon threads at exit, so Desktop can quit.
+        self.assertTrue(MockShotgunApi.wait_thread.daemon)
 
         # Like a browser, answer the closing handshake while tear_down runs.
         received = []
