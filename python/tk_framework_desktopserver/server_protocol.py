@@ -48,9 +48,9 @@ class ServerProtocol(WebSocketServerProtocol):
         (3003, "Client asked for server id when encryption is not supported."),
     )
 
-    # Initial state is v2. This might change if we end up receiving a connection
-    # from a client at v1.
-    SUPPORTED_PROTOCOL_VERSIONS = (1, 2)
+    # Only v2 is supported. v1 requests carry no user id, so they can never pass
+    # user validation and are rejected up front instead. See SG-46036.
+    SUPPORTED_PROTOCOL_VERSIONS = (2,)
 
     # Cached result of the server secret retrieval
     _ws_server_secret = None
@@ -176,7 +176,7 @@ class ServerProtocol(WebSocketServerProtocol):
             message = json.loads(decoded_payload)
         except ValueError as e:
             self.report_error(
-                "Error in decoding the message's json data: %s" % e.message
+                "Error in decoding the message's json data: %s" % e
             )
             return
 
@@ -191,21 +191,16 @@ class ServerProtocol(WebSocketServerProtocol):
 
         self._protocol_version = message["protocol_version"]
 
-        if self._protocol_version == 2:
-            # Version 2 of the protocol can only answer requests from the site and user the server
-            # is authenticated into. Validate this.
+        # The protocol can only answer requests from the site and user the server is
+        # authenticated into. Validate this.
 
-            # Try to get the user information. If that fails, we need to report the error.
-            try:
-                user_id = message["command"]["data"]["user"]["entity"]["id"]
-            except Exception as e:
-                logger.exception(
-                    "Unexpected error while trying to retrieve the user id:"
-                )
-                self.sendClose(*self.USER_INFO_NOT_FOUND)
-                return
-        else:
-            user_id = None
+        # Try to get the user information. If that fails, we need to report the error.
+        try:
+            user_id = message["command"]["data"]["user"]["entity"]["id"]
+        except Exception:
+            logger.exception("Unexpected error while trying to retrieve the user id:")
+            self.sendClose(*self.USER_INFO_NOT_FOUND)
+            return
 
         if not self._validate_user(user_id):
             self.factory.notifier.different_user_requested.emit(self._origin, user_id)
@@ -255,35 +250,24 @@ class ServerProtocol(WebSocketServerProtocol):
         # the network location safely.
         origin_network = (parsed_host.hostname or parsed_host.netloc).lower()
 
-        # The user id is only going to be present with protocol v2.
-        if user_id:
-            # If we're on the right site and have the correct user, we're fine.
-            if (
-                origin_network in self.factory.host_aliases
-                and user_id == self.factory.user_id
-            ):
-                return True
-            else:
-                # Otherwise report an error and log some stats.
-                logger.debug("Browser integration request received a different user.")
-                logger.debug("Desktop site: %s", host_network)
-                logger.debug("Desktop user: %s", self.factory.user_id)
-                logger.debug("Host aliases: %s", self.factory.host_aliases)
-                logger.debug("Origin site: %s", origin_network)
-                logger.debug("Origin user: %s", user_id)
-                return False
-        else:
-            # If we're on the right site when using protocol v1
-            if origin_network in self.factory.host_aliases:
-                # we're good to go.
-                return True
-            else:
-                # Otherwise report an error and log some stats.
-                logger.debug("Browser integration request received a different user.")
-                logger.debug("Desktop site: %s", host_network)
-                logger.debug("Host aliases: %s", self.factory.host_aliases)
-                logger.debug("Origin site: %s", origin_network)
-                return False
+        # A request is only accepted when it comes from an allowed site and
+        # carries the id of the user this server is authenticated as. A request
+        # without a user id (protocol v1) or with a falsy id such as 0 no longer
+        # satisfies the user check. See SG-46036.
+        if origin_network not in self.factory.host_aliases:
+            logger.debug("Browser integration request from an unexpected origin.")
+            logger.debug("Desktop site: %s", host_network)
+            logger.debug("Host aliases: %s", self.factory.host_aliases)
+            logger.debug("Origin site: %s", origin_network)
+            return False
+
+        if not user_id or user_id != self.factory.user_id:
+            logger.debug("Browser integration request for a different or missing user.")
+            logger.debug("Desktop user: %s", self.factory.user_id)
+            logger.debug("Origin user: %s", user_id)
+            return False
+
+        return True
 
     def _handle_get_protocol_version(self):
         """
