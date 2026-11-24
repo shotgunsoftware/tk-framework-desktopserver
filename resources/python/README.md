@@ -10,19 +10,26 @@ This process is fully taken care of by **CI automation** under the
 
 ### How to trigger the regeneration pipeline
 
-Open a Pull Request from any branch that does **not** end with `-automated` or
-`-no-rebuild`. The pipeline will:
+Open a Pull Request that changes a `requirements.txt` file, from any branch that
+does **not** end with `-automated` or `-no-rebuild`. The pipeline will:
 
-1. Regenerate all source and binary requirements for every supported Python
+1. Detect whether the Pull Request changes a `requirements.txt` file. If not,
+   all the regen jobs are skipped.
+2. Regenerate all source and binary requirements for every supported Python
    version and OS.
-2. Commit the results to a new branch named `<your-branch>-automated`.
-3. Push the branch and open a PR for review.
+3. Commit the results to a new branch named `<your-branch>-automated`.
+4. Push the branch and open a PR for review.
+
+The detection compares the Pull Request with its target branch, so once a Pull
+Request changes a `requirements.txt` file, every new commit pushed to it
+regenerates the packages again. Changes limited to the install scripts or
+`update_requirements.py` do not trigger the regeneration.
 
 ### Opting out of the regeneration pipeline
 
-Sometimes you want to open a PR without triggering the package regeneration
-(e.g. a documentation or CI-only change). Simply name your branch with the
-`-no-rebuild` suffix:
+PRs that do not change a `requirements.txt` file skip the package regeneration
+automatically. To skip it even when a `requirements.txt` file changes, name
+your branch with the `-no-rebuild` suffix:
 
 ```shell
 git switch -c ticket/SG-12345-fix-docs-no-rebuild
