@@ -35,14 +35,8 @@ pip install --target $bin_dir --no-deps \
 
 # Available manylinux platforms: https://deepwiki.com/pypa/manylinux#policy-and-platform-support-matrix
 
-# For some reason zope is missing a top level init file when installed with
-# pip, so we're adding it.
-touch $bin_dir/zope/__init__.py
-
 # Remove tests to thin out the packages
 rm -rf $bin_dir/Crypto/SelfTest
-rm -rf $bin_dir/zope/interface/tests
-rm -rf $bin_dir/zope/interface/*/tests
 
 # Add bin dir to repo
 git add $bin_dir

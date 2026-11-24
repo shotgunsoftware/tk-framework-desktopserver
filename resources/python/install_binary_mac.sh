@@ -32,9 +32,8 @@ mkdir $bin_dir
 pip install --target $bin_dir --no-deps --only-binary cryptography -r $requirements
 
 # Python 3.10+ is bundled with SGD Universal builds (SGD 1.9+), which run
-# natively on both Intel and Apple Silicon. Some packages (e.g. cffi,
-# zope.interface) do not publish universal wheels on PyPI, so we
-# cross-compile them for the opposite architecture using ARCHFLAGS and
+# natively on both Intel and Apple Silicon. Some packages (e.g. cffi) do not
+# publish universal wheels on PyPI, so we cross-compile them for the opposite architecture using ARCHFLAGS and
 # combine the results into universal binaries with lipo.
 # This works on any macOS machine without needing an arm64 runner.
 #
@@ -58,7 +57,6 @@ if [ "$python_minor_version" -ge 10 ]; then
         --target "$tmp_cross" \
         --no-deps \
         --no-binary cffi \
-        --no-binary zope.interface \
         --only-binary cryptography \
         -r "$requirements"
 
@@ -75,14 +73,8 @@ if [ "$python_minor_version" -ge 10 ]; then
     done
 fi
 
-# For some reason zope is missing a top level init file when installed with
-# pip, so we're adding it.
-touch $bin_dir/zope/__init__.py
-
 # Remove tests to thin out the packages
 rm -rf $bin_dir/Crypto/SelfTest
-rm -rf $bin_dir/zope/interface/tests
-rm -rf $bin_dir/zope/interface/*/tests
 
 # Add bin dir to repo
 git add $bin_dir

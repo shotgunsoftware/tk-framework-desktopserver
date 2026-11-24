@@ -73,7 +73,7 @@ class DesktopserverFramework(sgtk.platform.Framework):
         :param parent: Parent widget for any pop-ups to show during initialization.
         :type parent: :class:`PySide.QtGui.QWidget`
         """
-        # Twisted only runs on 64-bits.
+        # The bundled binaries are 64-bit only.
         # No not even attempt to import the framework, as it will cause 64-bits DLLs to be loaded.
         if not self.__is_64bit_python():
             self.logger.warning(

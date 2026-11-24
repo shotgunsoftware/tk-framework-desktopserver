@@ -51,7 +51,6 @@ class Updater(object):
         # packages containing binaries like pyd, so, dll
         self._binary_distributions = [
             "cffi",
-            "zope.interface",
             "cryptography",
         ]
 
@@ -141,9 +140,6 @@ class Updater(object):
         finally:
             self._clean_pip()
 
-        # autobahn needs to be installed AFTER Twisted, so sorts in
-        # alphanumerical order. Uppercase T is before lowercase A, so that's
-        # good enough.
         return sorted(freeze_list)
 
     def _update_requirements_file(self, dependencies):

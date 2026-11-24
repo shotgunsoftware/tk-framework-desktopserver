@@ -49,9 +49,7 @@ skipped when `System.PullRequest.SourceBranch` ends with `-automated` or
 > [!Note]
 > The `install_binary_mac.sh` script automatically produces universal binaries
 > for Python 3.10+ by cross-compiling architecture-specific packages (such as
-> [CFFI](https://pypi.org/project/cffi) and
-> [Zope.interface](https://pypi.org/project/zope.interface)) using `ARCHFLAGS`
-> and combining the results with `lipo`. No Apple Silicon machine is required -
+> [CFFI](https://pypi.org/project/cffi)) using `ARCHFLAGS` and combining the results with `lipo`. No Apple Silicon machine is required -
 > the script works correctly on any macOS, including Intel CI runners (SG-40224).
 
 
