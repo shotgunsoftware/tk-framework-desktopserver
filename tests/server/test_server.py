@@ -758,6 +758,27 @@ class TestEncryptedServer(CommonTests, TestServerBase):
             (3002, "Attempted to communicate without completing encryption handshake."),
         )
 
+    def test_secret_retrieved_before_server_id_reply(self):
+        """
+        Ensures the server retrieves its secret before sending its id. Otherwise
+        the client and the server ask for the secret of a new id at the same time,
+        and Flow Production Tracking can give each a different secret.
+        """
+        retrieved = threading.Event()
+        call_rpc = self._mockgun._call_rpc
+
+        def slow_call_rpc(name, payload, *args):
+            time.sleep(0.5)
+            result = call_rpc(name, payload, *args)
+            retrieved.set()
+            return result
+
+        self._mockgun._call_rpc = slow_call_rpc
+        self._send_message("get_ws_server_id", None)
+        payload = json.loads(self._receive())
+        self.assertTrue(retrieved.is_set())
+        self.assertEqual(payload["reply"]["ws_server_id"], self.server.ws_server_id)
+
 
 class TestUnencryptedServer(CommonTests, TestServerBase):
     """

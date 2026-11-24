@@ -281,15 +281,21 @@ class ServerProtocol(object):
             self._send_close(*self.ENCRYPTION_NOT_SUPPORTED)
             return
 
+        # Retrieve the secret before replying. The client asks Flow Production
+        # Tracking for the same secret as soon as it receives the server id, and
+        # two concurrent first requests for a new id can return different secrets.
+        ws_server_secret = self._retrieve_server_secret()
+
         # Build a response for the web app.
         message = Message(message["id"], self._protocol_version)
         message.reply({"ws_server_id": self._server.ws_server_id})
 
-        # send the response.
+        # Send the response, unencrypted.
         self.json_reply(message.data)
 
-        # Create a Fernet instance so we can start encrypting and decrypting messages from now on.
-        self._fernet = Fernet(self._retrieve_server_secret())
+        # Create a Fernet instance so we can start encrypting and decrypting messages
+        # from now on. The next message is only read once this method returns.
+        self._fernet = Fernet(ws_server_secret)
 
     def _retrieve_server_secret(self):
         """
