@@ -65,9 +65,8 @@ class DesktopserverFramework(sgtk.platform.Framework):
         """
         Initializes the desktop server.
 
-        The server actually supports two protocols, named v1 and v2. v1 can be used to process requests from any
-        users from any sites, while v2 can only be used to process requests from the currently authenticated
-        user.
+        The server only processes requests from the currently authenticated user on the
+        current site (protocol v2). Protocol v1 requests are rejected.
 
         :param str host: Host for which we desire to answer requests.
         :param int user_id: Id of the user for which we desire to answer requests.

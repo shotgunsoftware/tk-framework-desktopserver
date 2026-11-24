@@ -49,6 +49,10 @@ from cryptography.hazmat.primitives import hashes, serialization  # noqa
 from cryptography.hazmat.primitives.asymmetric import ec  # noqa
 from cryptography.x509.oid import NameOID  # noqa
 
+# Default for ``_send_message``'s ``user_id``: send the authenticated user's id. A
+# sentinel is used so tests can send explicit falsy ids such as 0 or None (null).
+AUTHENTICATED_USER = object()
+
 HOSTNAME = "shotgunlocalhost.com"
 
 UNAUTHORIZED_USER = (
@@ -371,18 +375,23 @@ class TestServerBase(unittest.TestCase):
         data,
         encrypt=False,
         protocol_version=2,
-        user_id=None,
+        user_id=AUTHENTICATED_USER,
         client=None,
     ):
         """
         Sends a message to the websocket server in the expected format.
+
+        :param user_id: Id of the user sending the request. Defaults to the
+            authenticated user. Any other value, including 0 and None, is sent as is.
         """
+        if user_id is AUTHENTICATED_USER:
+            user_id = self._user["id"]
         payload = {
             "id": 1,
             "protocol_version": protocol_version,
             "command": {
                 "name": command,
-                "data": {"user": {"entity": {"id": user_id or self._user["id"]}}},
+                "data": {"user": {"entity": {"id": user_id}}},
             },
         }
         if data:
@@ -526,6 +535,12 @@ class CommonTests(object):
             self._receive(), (3000, "No user information was found in this request.")
         )
 
+    def test_null_user(self):
+        """
+        Ensures a request with a null user id is rejected.
+        """
+        self._assert_unauthorized_user(None)
+
     def test_oversize_message(self):
         """
         Makes sure messages over 1 MiB, the websockets default, close the
@@ -550,6 +565,20 @@ class CommonTests(object):
         )
         with self.assertRaises(PortBusyError):
             server.start()
+
+    def test_protocol_v1_rejected(self):
+        """
+        Ensures protocol v1 requests, which carry no user id, are rejected as an
+        unsupported protocol version, even from an allowed origin.
+        """
+        self._activate_encryption_if_required()
+        self._send_message(
+            "repeat_value",
+            {"value": "hello"},
+            encrypt=self.use_encryption,
+            protocol_version=1,
+        )
+        self._is_error(self._receive_json(), "Unsupported protocol version: 1.")
 
     def test_redirect(self):
         """
@@ -673,6 +702,28 @@ class CommonTests(object):
                 timeout=5,
             )
 
+    def test_zero_user(self):
+        """
+        Ensures a request with a user id of 0 is rejected.
+        """
+        self._assert_unauthorized_user(0)
+
+    def _assert_unauthorized_user(self, user_id):
+        """
+        Sends a request with the given user id and ensures the server closes the
+        connection as unauthorized, before dispatching the command.
+
+        :param user_id: Id of the user sending the request.
+        """
+        self._activate_encryption_if_required()
+        self._send_message(
+            "repeat_value",
+            {"value": "hello"},
+            encrypt=self.use_encryption,
+            user_id=user_id,
+        )
+        self.assertEqual(self._receive(), UNAUTHORIZED_USER)
+
 
 class TestEncryptedServer(CommonTests, TestServerBase):
     """
@@ -724,23 +775,6 @@ class TestUnencryptedServer(CommonTests, TestServerBase):
             self._receive(),
             (3003, "Client asked for server id when encryption is not supported."),
         )
-
-    def test_protocol_v1(self):
-        """
-        Makes sure protocol v1 requests, which have no user, are processed.
-        """
-        self._send_payload(
-            json.dumps(
-                {
-                    "id": 1,
-                    "protocol_version": 1,
-                    "command": {"name": "repeat_value", "data": {"value": "hello"}},
-                }
-            )
-        )
-        payload = json.loads(self._receive())
-        self.assertEqual(payload["protocol_version"], 1)
-        self.assertEqual(payload["reply"], {"value": "hellohellohello"})
 
 
 class DifferentHostTests(object):
