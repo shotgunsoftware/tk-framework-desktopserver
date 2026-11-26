@@ -4,7 +4,6 @@ resources:
     - repository: templates
       type: github
       name: shotgunsoftware/tk-ci-tools
-      # Testing the tk-ci-tools branch, revert to master before merging.
       ref: refs/heads/master
       endpoint: shotgunsoftware
 
