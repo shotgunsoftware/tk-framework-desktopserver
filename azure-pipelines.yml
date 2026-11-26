@@ -34,12 +34,13 @@ jobs:
     additional_repositories:
       - name: tk-framework-desktopclient
       - name: tk-shotgun
-    extra_test_dependencies:
-      # CI installs dependencies from the dedicated Azure Pipelines
-      # requirements file, which must be kept in sync with the unified
-      # runtime requirements so CI-installed versions match what pkgs.zip
-      # bundles, preventing sys.modules version conflicts.
-      - --requirement=azure-pipelines/requirements.txt
+    run_tests_parameters:
+      pip_requirements:
+        # CI installs dependencies from the dedicated Azure Pipelines
+        # requirements file, which must be kept in sync with the unified
+        # runtime requirements so CI-installed versions match what pkgs.zip
+        # bundles, preventing sys.modules version conflicts.
+        - --requirement=azure-pipelines/requirements.txt
     post_tests_steps:
       - task: Bash@3
         displayName: Run interpreter integration tests
