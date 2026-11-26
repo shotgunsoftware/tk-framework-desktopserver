@@ -8,9 +8,8 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-from .message import Message
 from .logger import get_logger
-from twisted.internet import reactor
+from .message import Message
 
 logger = get_logger(__name__)
 
@@ -25,7 +24,7 @@ class MessageHost(object):
         """
         Message Host Constructor
 
-        :param host: WebSocketServerProtocol instance of actual host to communicate with.
+        :param host: ServerProtocol instance of actual host to communicate with.
         :param message: Message related to this host communication.
         """
         self._host = host
@@ -44,8 +43,8 @@ class MessageHost(object):
         self._send_message(message.data)
 
     def _send_message(self, data):
-        # Writing to a protocol is not thread safe and must be called from reactor thread.
-        reactor.callFromThread(lambda: self._host.json_reply(data))
+        # Called from the request's thread. json_reply is thread safe.
+        self._host.json_reply(data)
 
     def report_error(self, error_message, error_data=None):
         """

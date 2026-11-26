@@ -8,17 +8,24 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-
-import os
-import sys
 import base64
-import json
 import contextlib
+import datetime
+import http.client
+import json
+import os
+import shutil
 import socket
+import ssl
+import struct
+import sys
+import tempfile
+import threading
+import time
+import unittest
+from unittest.mock import Mock, patch
+
 import websocket
-
-from unittest.mock import patch, Mock
-
 from tank_test.tank_test_base import setUpModule  # noqa
 
 import sgtk
@@ -33,46 +40,134 @@ sys.path.insert(0, os.path.join(repo_root, "python"))
 sgtk.platform.qt.QtCore = Mock()
 sgtk.platform.qt.QtGui = Mock()
 
-# Doing this import will add the twisted librairies
+# Doing this import will add the bundled libraries.
 import tk_framework_desktopserver  # noqa
 
-from twisted.trial import unittest
-from twisted.internet import ssl
-from autobahn.twisted.websocket import (
-    connectWS,
-    WebSocketClientFactory,
-    WebSocketClientProtocol,
-)
-from twisted.internet.defer import Deferred
-from twisted.internet import reactor, threads
-from cryptography.fernet import Fernet
-
-from twisted.internet import base
-
-base.DelayedCall.debug = True
+from cryptography import x509  # noqa
+from cryptography.fernet import Fernet  # noqa
+from cryptography.hazmat.primitives import hashes, serialization  # noqa
+from cryptography.hazmat.primitives.asymmetric import ec  # noqa
+from cryptography.x509.oid import NameOID  # noqa
 
 # Default for ``_send_message``'s ``user_id``: send the authenticated user's id. A
 # sentinel is used so tests can send explicit falsy ids such as 0 or None (null).
 AUTHENTICATED_USER = object()
 
+HOSTNAME = "shotgunlocalhost.com"
 
-# Source: https://stackoverflow.com/a/45690594/10429444
+UNAUTHORIZED_USER = (
+    3001,
+    "You are not authorized to make browser integration requests. "
+    "Please re-authenticate in your desktop application.",
+)
+
+
 def find_free_port():
     """
     Finds a free port on the current computer.
     """
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(("localhost", 0))
+        s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
+
+
+def create_certificates(folder):
+    """
+    Creates a root certificate authority, an intermediate one and a server
+    certificate signed by the intermediate one.
+
+    Writes server.crt, holding the server and intermediate certificates, and
+    server.key to the folder, like the shotgunlocalhost certificates.
+
+    :returns: Path to the root certificate, which clients must trust.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    def create(name, issuer_name, issuer_key, is_ca):
+        key = ec.generate_private_key(ec.SECP256R1())
+        builder = (
+            x509.CertificateBuilder()
+            .issuer_name(
+                x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, issuer_name)])
+            )
+            .not_valid_after(now + datetime.timedelta(days=1))
+            .not_valid_before(now - datetime.timedelta(days=1))
+            .public_key(key.public_key())
+            .serial_number(x509.random_serial_number())
+            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, name)]))
+            .add_extension(
+                x509.BasicConstraints(ca=is_ca, path_length=None), critical=True
+            )
+            .add_extension(
+                x509.SubjectKeyIdentifier.from_public_key(key.public_key()),
+                critical=False,
+            )
+            .add_extension(
+                x509.AuthorityKeyIdentifier.from_issuer_public_key(
+                    (issuer_key or key).public_key()
+                ),
+                critical=False,
+            )
+        )
+        if is_ca:
+            builder = builder.add_extension(
+                x509.KeyUsage(
+                    content_commitment=False,
+                    crl_sign=True,
+                    data_encipherment=False,
+                    decipher_only=False,
+                    digital_signature=True,
+                    encipher_only=False,
+                    key_agreement=False,
+                    key_cert_sign=True,
+                    key_encipherment=False,
+                ),
+                critical=True,
+            )
+        else:
+            builder = builder.add_extension(
+                x509.SubjectAlternativeName([x509.DNSName(name)]), critical=False
+            )
+        certificate = builder.sign(issuer_key or key, hashes.SHA256())
+        return certificate, key
+
+    root, root_key = create("Test root", "Test root", None, True)
+    intermediate, intermediate_key = create(
+        "Test intermediate", "Test root", root_key, True
+    )
+    server, server_key = create(HOSTNAME, "Test intermediate", intermediate_key, False)
+
+    def pem(certificate):
+        return certificate.public_bytes(serialization.Encoding.PEM)
+
+    with open(os.path.join(folder, "root.crt"), "wb") as f:
+        f.write(pem(root))
+    with open(os.path.join(folder, "server.crt"), "wb") as f:
+        f.write(pem(server) + pem(intermediate))
+    with open(os.path.join(folder, "server.key"), "wb") as f:
+        f.write(
+            server_key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.TraditionalOpenSSL,
+                serialization.NoEncryption(),
+            )
+        )
+    return os.path.join(folder, "root.crt")
 
 
 class MockShotgunApi(object):
     """
-    Mocks the v2 protocol with a custom method.
+    Mocks the v2 protocol with custom methods.
     """
 
-    PUBLIC_API_METHODS = ["repeat_value", "missing_attribute"]
+    PUBLIC_API_METHODS = ["missing_attribute", "repeat_value", "wait"]
+
+    # Set to let the wait commands return.
+    release = threading.Event()
+    # Set when a wait command started.
+    started = threading.Event()
+    # Thread that ran the last wait command.
+    wait_thread = None
 
     def __init__(self, host, process_manager, wss_key):
         self._host = host
@@ -80,28 +175,43 @@ class MockShotgunApi(object):
     def repeat_value(self, payload):
         self._host.reply({"value": payload["value"] * 3})
 
+    def wait(self, payload):
+        MockShotgunApi.wait_thread = threading.current_thread()
+        self.started.set()
+        self.release.wait(30)
+        self._host.reply({"value": "done"})
+
 
 class TestServerBase(unittest.TestCase):
-    def setUpClientServer(
-        self,
-        use_encryption=False,
-        origin="https://site.shotgunstudio.com",
-        host_aliases=None,
-    ):
+    """
+    Starts a server and connects a client to it.
+    """
 
-        if not host_aliases:
-            host_aliases = ["site.shotgunstudio.com"]
+    origin = "https://site.shotgunstudio.com"
+    host_aliases = ["site.shotgunstudio.com"]
+    use_encryption = False
 
-        self._use_encryption = use_encryption
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._keys_path = tempfile.mkdtemp()
+        cls._root_certificate = create_certificates(cls._keys_path)
 
-        # Create a mockgun instance and add support for the _call_rpc method which is used to get
-        # the secret.
-        sg_host = "https://127.0.0.1"
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls._keys_path)
+        super().tearDownClass()
+
+    def setUp(self):
+        super().setUp()
+
+        # Create a mockgun instance and add support for the _call_rpc method, which
+        # is used to get the secret.
         Shotgun.set_schema_paths(
             os.path.join(fixtures_root, "mockgun", "schema.pickle"),
             os.path.join(fixtures_root, "mockgun", "schema_entity.pickle"),
         )
-        self._mockgun = Shotgun(sg_host)
+        self._mockgun = Shotgun("https://127.0.0.1")
         self._mockgun._call_rpc = self._call_rpc
         self._mockgun.server_info = {
             "shotgunlocalhost_browser_integration_enabled": True
@@ -109,129 +219,67 @@ class TestServerBase(unittest.TestCase):
 
         # Set up an encryption key.
         self._ws_server_secret = base64.urlsafe_b64encode(os.urandom(32))
-
         self._fernet = Fernet(self._ws_server_secret)
 
         # Create the user who will be making all the requests.
         self._user = self._mockgun.create("HumanUser", {"name": "Gilles Pomerleau"})
 
         # Pretend there is a current bundle loaded.
-        patched = patch(
+        self._patch(
             "sgtk.platform.current_bundle", return_value=Mock(shotgun=self._mockgun)
         )
-        patched.start()
-        self.addCleanup(patched.stop)
 
         from tk_framework_desktopserver import Server, shotgun
 
-        patched = patch.object(Server, "Notifier", new=Mock())
-        patched.start()
-        self.addCleanup(patched.stop)
-
-        port = find_free_port()
-
-        # Initialize the websocket server.
-        self.server = Server(
-            keys_path=os.path.join(fixtures_root, "certificates"),
-            encrypt=use_encryption,
-            host="https://site.shotgunstudio.com",
-            user_id=self._user["id"],
-            host_aliases=host_aliases,
-            port=port,
-            uses_intermediate_certificate_chain=True,
-        )
-
-        patched = patch.object(
+        self._patch.object(Server, "Notifier", new=Mock())
+        self._patch.object(
             shotgun,
             "get_shotgun_api",
             new=lambda _, host, process_manager, wss_key: MockShotgunApi(
                 host, process_manager, wss_key
             ),
         )
-        patched.start()
-        self.addCleanup(patched.stop)
 
-        # Do not call server.start() as this will also launch the reactor, which was already
-        # launched by twisted.trial
-        self.server._start_server()
+        MockShotgunApi.release.clear()
+        MockShotgunApi.started.clear()
+        self.addCleanup(MockShotgunApi.release.set)
 
-        # Create the client connection to the websocket server.
-        context_factory = ssl.DefaultOpenSSLContextFactory(
-            os.path.join(fixtures_root, "certificates", "server.key"),
-            os.path.join(fixtures_root, "certificates", "server.crt"),
+        self._port = find_free_port()
+        self.server = Server(
+            keys_path=self._keys_path,
+            encrypt=self.use_encryption,
+            host="https://site.shotgunstudio.com",
+            user_id=self._user["id"],
+            host_aliases=self.host_aliases,
+            port=self._port,
+            uses_intermediate_certificate_chain=True,
         )
+        self.server.start()
+        self.addCleanup(self.server.tear_down)
 
-        # This will be returned by the setUp method to signify that we're done setuping the test.
-        connection_ready_deferred = Deferred()
-        test_case = self
+        self.client = self._connect()
 
-        class ClientProtocol(WebSocketClientProtocol):
-            """
-            This class will use Deferred instances to notify that the test is ready to start
-            and to notify the test that a payload has arrived.
-            """
+    @property
+    def _patch(self):
+        """
+        Starts a patch and stops it when the test ends. Use like
+        :func:`unittest.mock.patch`.
+        """
 
-            def __init__(self):
-                super().__init__()
-                self._on_message_deferred = None
+        def start(patcher):
+            mock = patcher.start()
+            self.addCleanup(patcher.stop)
+            return mock
 
-            def onConnect(self, response):
-                """
-                Informs the unit test framework that we're connected to the server.
-                """
-                test_case.client_protocol = self
-                connection_ready_deferred.callback(None)
+        def patch_target(*args, **kwargs):
+            return start(patch(*args, **kwargs))
 
-            def sendMessage(self, payload, is_binary):
-                """
-                Sends a message to the websocket server.
-
-                :returns: A deferred that will be called when the associated response comes back.
-
-                .. note::
-                    Only one message can be sent at a time at the moment.
-                """
-                super().sendMessage(payload, isBinary=is_binary)
-                self._on_message_deferred = Deferred()
-                return self._on_message_deferred
-
-            def _get_deferred(self):
-                """
-                Retrieves the current deferred and clears it from the client.
-                """
-                d = self._on_message_deferred
-                self._on_message_deferred = None
-                return d
-
-            def onMessage(self, payload, is_binary):
-                """
-                Invokes any callback attached to the last Deferred returned by sendMessage.
-                """
-                self._get_deferred().callback(payload)
-
-            def onClose(self, was_clean, code, reason):
-                # Only report clean closure, since they are the ones initiated by the server.
-                if was_clean:
-                    self._get_deferred().callback((code, reason))
-
-        # Create the websocket connection to the server.
-        self._port = port
-        client_factory = WebSocketClientFactory(
-            "wss://shotgunlocalhost.com:%s" % self._port
+        patch_target.object = lambda *args, **kwargs: start(
+            patch.object(*args, **kwargs)
         )
-        client_factory.origin = origin
-        client_factory.protocol = ClientProtocol
-        self.client = connectWS(client_factory, context_factory, timeout=2)
+        return patch_target
 
-        # When the test ends, we need to stop listening.
-        self.addCleanup(lambda: self.client.disconnect())
-        self.addCleanup(lambda: self.server._observer.stop())
-        self.addCleanup(lambda: self.server.listener.stopListening())
-
-        # Return the deferred that will be called then the setup is completed.
-        return connection_ready_deferred
-
-    def _call_rpc(self, name, paylad, *args):
+    def _call_rpc(self, name, payload, *args):
         """
         Implements the retrieval of the websocket server secret.
         """
@@ -240,73 +288,95 @@ class TestServerBase(unittest.TestCase):
         else:
             raise NotImplementedError("The RPC %s is not implemented." % name)
 
-    def _chain_calls(self, *calls):
+    def _connect(self, **kwargs):
         """
-        This will chain calls to the websocket server. Each method must follow this pattern:
-
-            def method(result):
-                d = Deferred()
-                ...
-                return d
-
-        The last method must not return.
-
-        If the test doesn't complete under 5 seconds, it will be aborted.
-
-        :returns: The Deferred that will be invoked when the test succeeds or fails.
+        Connects a client to the server. The client only trusts the root
+        certificate, so the server must send the intermediate one.
         """
-        done = Deferred()
-        done.addTimeout(5, reactor)
-        self._call_next(None, list(calls), done)
-        return done
+        client = websocket.create_connection(
+            "wss://127.0.0.1:%d" % self._port,
+            origin=self.origin,
+            sslopt={
+                "ca_certs": self._root_certificate,
+                "server_hostname": HOSTNAME,
+            },
+            timeout=5,
+            **kwargs
+        )
+        self.addCleanup(client.close)
+        return client
 
-    def _call_next(self, payload, calls, done):
+    def _https_get(self, path):
         """
-        Calls the next method in the calls array. Calls ``done`` when there is an error
-        or all the calls have been executed.
+        Sends a plain HTTPS GET request to the server.
+
+        :returns: The :class:`http.client.HTTPResponse`, with its body read.
         """
-        try:
-            # Invoke the next method in the chain.
-            method = calls.pop(0)
-            d = method(payload)
+        context = ssl.create_default_context(cafile=self._root_certificate)
+        context.check_hostname = False
+        connection = http.client.HTTPSConnection(
+            "127.0.0.1", self._port, context=context, timeout=5
+        )
+        self.addCleanup(connection.close)
+        connection.request("GET", path)
+        response = connection.getresponse()
+        response.body = response.read().decode("utf-8")
+        return response
 
-            # If we got a Deferred back
-            if d and len(calls) == 0:
-                # Make sure there are more calls to make
-                done.errback(RuntimeError("Got a Deferred, but call chain is empty."))
-            elif not d and len(calls) != 0:
-                # If we don't have a deferred as a result, simply call the next method.
-                self._call_next(None, calls, done)
-                return
+    def _receive(self, client=None):
+        """
+        Receives the next message.
 
-            # If a deferred is returned, we must invoke the remaining calls when the deferred
-            # is signaled.
-            if d:
-                d.addCallback(lambda payload: self._call_next(payload, calls, done))
-            else:
-                # We didn't get a Deferred and it was the last method, so invoke the done deferred
-                # to tell the test case we're done.
-                done.callback(None)
-        except Exception as e:
-            # There was an error, abort the test right now!
-            done.errback(e)
+        :returns: The text of a message, or a (code, reason) tuple when the server
+            closes the connection.
+        """
+        client = client or self.client
+        opcode, frame = client.recv_data_frame(True)
+        if opcode == websocket.ABNF.OPCODE_CLOSE:
+            # websocket-client answers the close frame but keeps the TCP
+            # connection open. Close it, as browsers do, so the server doesn't
+            # wait for it.
+            client.shutdown()
+            code = struct.unpack("!H", frame.data[:2])[0]
+            return (code, frame.data[2:].decode("utf-8"))
+        # Replies must be text, as the web app expects.
+        self.assertEqual(opcode, websocket.ABNF.OPCODE_TEXT)
+        return frame.data.decode("utf-8")
 
-    def _send_payload(self, payload, encrypt=False, is_binary=False):
+    def _receive_json(self, client=None):
+        """
+        Receives the next message, decrypting it when encryption is on.
+
+        :returns: The decoded JSON payload.
+        """
+        payload = self._receive(client)
+        if self._fernet_active:
+            payload = self._fernet.decrypt(payload.encode("utf-8"))
+        return json.loads(payload)
+
+    _fernet_active = False
+
+    def _send_payload(self, payload, encrypt=False, is_binary=False, client=None):
         """
         Sends a payload as is to the server.
         """
+        if isinstance(payload, str):
+            payload = payload.encode("utf-8")
         if encrypt:
             payload = self._fernet.encrypt(payload)
-        return self.client_protocol.sendMessage(payload, is_binary)
+        opcode = (
+            websocket.ABNF.OPCODE_BINARY if is_binary else websocket.ABNF.OPCODE_TEXT
+        )
+        (client or self.client).send(payload, opcode)
 
     def _send_message(
         self,
         command,
         data,
         encrypt=False,
-        is_binary=False,
         protocol_version=2,
         user_id=AUTHENTICATED_USER,
+        client=None,
     ):
         """
         Sends a message to the websocket server in the expected format.
@@ -326,7 +396,7 @@ class TestServerBase(unittest.TestCase):
         }
         if data:
             payload["command"]["data"].update(data)
-        return self._send_payload(json.dumps(payload).encode("utf-8"), encrypt=encrypt)
+        self._send_payload(json.dumps(payload), encrypt=encrypt, client=client)
 
     def _is_error(self, payload, msg):
         """
@@ -341,425 +411,447 @@ class TestServerBase(unittest.TestCase):
     def _is_not_error(self, payload):
         self.assertNotIn("error", payload)
 
-    def _activate_encryption_if_required(self, _):
+    def _activate_encryption_if_required(self):
         """
         Activate encryption if this test suite needs it.
         """
-        if self._use_encryption:
-            return self._activate_encryption(_)
-        else:
-            return None
+        if self.use_encryption:
+            self._activate_encryption()
 
-    def _activate_encryption(self, _):
+    def _activate_encryption(self):
         """
-        Activates encryption
+        Activates encryption.
         """
-        return self._send_message("get_ws_server_id", None)
+        self._send_message("get_ws_server_id", None)
+        payload = json.loads(self._receive())
+        self.assertEqual(payload["reply"]["ws_server_id"], self.server.ws_server_id)
+        self._fernet_active = True
 
 
 class CommonTests(object):
     """
-    Tests that are common to encrypted and unencrypted servers.
-
-    Mix into a :class:`TestServerBase` subclass, before it in the bases.
+    Tests common to encrypted and unencrypted servers.
     """
-
-    def test_connecting(self):
-        """
-        Makes sure our unit tests framework can connect
-        """
-        self.assertEqual(self.client.state, "connected")
-
-    def test_websocket_with_unknown_intermediate_chain(self):
-        """
-        Make sure we can connect to the site.
-        """
-        # The websocket connection in the websocket module, contrary to Twisted's implementation,
-        # requires the entire certificate chain to be available to connect to shotgunlocalhost.com
-        # So we'll use that to validate that the cert chain is passed entirely on connection.
-
-        # If this test ever fails someone needs to update the copy of the
-        # certificates in the cache:
-        #     OS X: ~/Library/Caches/Shotgun/<site_name>/site.basic.desktop/fw-desktopserver/keys
-        #     Windows: %APPDATA%\Shotgun\<site_name>\site.basic.desktop\fw-desktopserver\keys
-        #     Linux: ~/.shotgun/<site_name>/site.basic.desktop/tk-desktopfw-desktopserver/keys
-        # To the folder: tests/fixtures/certificates
-        raise unittest.SkipTest(
-            "The shotgunlocalhost.com certificate in tests/fixtures/certificates "
-            "expired on 2023-05-02 and needs refreshing."
-        )
-        return threads.deferToThread(
-            lambda: websocket.create_connection(
-                "wss://shotgunlocalhost.com:%s" % self._port
-            ).close()
-        )
 
     def test_binary_unsupported(self):
         """
         Makes sure any payload is rejected if it is sent in binary form.
         """
+        self._send_payload("not_valid_command", is_binary=True)
+        self._is_error(
+            json.loads(self._receive()), "Server does not handle binary requests."
+        )
 
-        def step1(_):
-            return self._send_payload(b"not_valid_command", is_binary=True)
-
-        def step2(payload):
-            payload = json.loads(payload)
-            self._is_error(payload, "Server does not handle binary requests.")
-
-        return self._chain_calls(step1, step2)
-
-    def test_invalid_protocol_version(self):
+    def test_compression_declined(self):
         """
-        Ensures invalid protocol versions are caught.
+        Makes sure the server declines permessage-deflate, like autobahn did.
         """
+        client = self._connect(header=["Sec-WebSocket-Extensions: permessage-deflate"])
+        self.assertNotIn("sec-websocket-extensions", client.getheaders())
 
-        def step1(_):
-            return self._send_message(
-                "repeat_value", {"value": "hello"}, protocol_version=-1
+    def test_concurrent_requests(self):
+        """
+        Makes sure replies sent at the same time from the request threads all
+        arrive.
+        """
+        self._activate_encryption_if_required()
+        for i in range(50):
+            self._send_message(
+                "repeat_value", {"value": str(i)}, encrypt=self.use_encryption
             )
+        values = sorted(self._receive_json()["reply"]["value"] for _ in range(50))
+        self.assertEqual(values, sorted(str(i) * 3 for i in range(50)))
 
-        def step2(payload):
-            payload = json.loads(payload)
-            self._is_error(payload, "Unsupported protocol version: -1.")
+    def test_connecting(self):
+        """
+        Makes sure our unit tests framework can connect.
+        """
+        self.assertTrue(self.client.connected)
 
-        return self._chain_calls(step1, step2)
+    def test_incorrect_user(self):
+        """
+        Ensure incorrect user is caught.
+        """
+        self._activate_encryption_if_required()
+        self._send_message(
+            "repeat_value", {"value": "hello"}, encrypt=self.use_encryption, user_id=666
+        )
+        self.assertEqual(self._receive(), UNAUTHORIZED_USER)
+        self.server.notifier.different_user_requested.emit.assert_called_once_with(
+            self.origin, 666
+        )
 
     def test_incorrectly_formatted_json(self):
         """
         Ensures incorrectly formatted json gets caught.
         """
+        self._send_payload("{'allo':}")
+        self._is_error(
+            json.loads(self._receive()), "Error in decoding the message's json data"
+        )
 
-        def step1(_):
-            return self._send_payload(b"{'allo':}")
+    def test_invalid_protocol_version(self):
+        """
+        Ensures invalid protocol versions are caught.
+        """
+        self._send_message("repeat_value", {"value": "hello"}, protocol_version=-1)
+        self._is_error(json.loads(self._receive()), "Unsupported protocol version: -1.")
 
-        def step2(payload):
-            payload = json.loads(payload)
-            self._is_error(payload, "Error in decoding the message's json data")
+    def test_listens_on_loopback_only(self):
+        """
+        Makes sure other computers can't reach the server.
+        """
+        self.assertEqual(
+            self.server._websocket_server.socket.getsockname()[0], "127.0.0.1"
+        )
 
-        return self._chain_calls(step1, step2)
+    def test_missing_method(self):
+        """
+        Ensures a public method that has a missing matching attribute raises an error.
+        """
+        self._activate_encryption_if_required()
+        self._send_message("missing_attribute", None, encrypt=self.use_encryption)
+        self._is_error(
+            self._receive_json(), "Could not find API method missing_attribute: "
+        )
 
     def test_missing_user(self):
         """
-        Ensures that if the user is missing from a command that the command will be rejected
-        accordingly.
+        Ensures that if the user is missing from a command that the command will be
+        rejected accordingly.
         """
-
-        def step1(_):
-            return self._send_payload(
-                json.dumps(
-                    {
-                        "id": 1,
-                        "protocol_version": 2,
-                        "command": {"name": "repeat_value", "data": {"value": "hello"}},
-                    }
-                ).encode("utf-8"),
-                encrypt=self._use_encryption,
-            )
-
-        def step2(payload):
-            self.assertEqual(
-                payload, (3000, "No user information was found in this request.")
-            )
-
-        return self._chain_calls(self._activate_encryption_if_required, step1, step2)
-
-    def test_incorrect_user(self):
-        """
-        Ensure incorrect user is caught
-        """
-
-        def step1(_):
-            return self._send_message(
-                "repeat_value",
-                {"value": "hello"},
-                encrypt=self._use_encryption,
-                user_id=666,
-            )
-
-        def step2(payload):
-            self.assertEqual(
-                payload,
-                (
-                    3001,
-                    "You are not authorized to make browser integration requests. "
-                    "Please re-authenticate in your desktop application.",
-                ),
-            )
-
-        return self._chain_calls(self._activate_encryption_if_required, step1, step2)
-
-    def test_listener_bound_to_loopback(self):
-        """
-        Ensures the server only listens on the loopback interface.
-        """
-        self.assertEqual(self.server.listener.getHost().host, "127.0.0.1")
-
-    def _assert_unauthorized_user(self, user_id):
-        """
-        Sends a request with the given user id and ensures the server closes the
-        connection as unauthorized, before dispatching the command.
-        """
-
-        def step1(_):
-            return self._send_message(
-                "repeat_value",
-                {"value": "hello"},
-                encrypt=self._use_encryption,
-                user_id=user_id,
-            )
-
-        def step2(payload):
-            self.assertEqual(
-                payload,
-                (
-                    3001,
-                    "You are not authorized to make browser integration requests. "
-                    "Please re-authenticate in your desktop application.",
-                ),
-            )
-
-        return self._chain_calls(self._activate_encryption_if_required, step1, step2)
+        self._activate_encryption_if_required()
+        self._send_payload(
+            json.dumps(
+                {
+                    "id": 1,
+                    "protocol_version": 2,
+                    "command": {"name": "repeat_value", "data": {"value": "hello"}},
+                }
+            ),
+            encrypt=self.use_encryption,
+        )
+        self.assertEqual(
+            self._receive(), (3000, "No user information was found in this request.")
+        )
 
     def test_null_user(self):
         """
         Ensures a request with a null user id is rejected.
         """
-        return self._assert_unauthorized_user(None)
+        self._assert_unauthorized_user(None)
+
+    def test_oversize_message(self):
+        """
+        Makes sure messages over 1 MiB, the websockets default, close the
+        connection with code 1009 (message too big).
+        """
+        self._send_payload("x" * (2**20 + 1))
+        self.assertEqual(self._receive()[0], 1009)
+
+    def test_port_busy(self):
+        """
+        Makes sure a second server on the same port fails with PortBusyError.
+        """
+        from tk_framework_desktopserver import PortBusyError, Server
+
+        server = Server(
+            keys_path=self._keys_path,
+            encrypt=self.use_encryption,
+            host="https://site.shotgunstudio.com",
+            user_id=self._user["id"],
+            host_aliases=self.host_aliases,
+            port=self._port,
+        )
+        with self.assertRaises(PortBusyError):
+            server.start()
 
     def test_protocol_v1_rejected(self):
         """
         Ensures protocol v1 requests, which carry no user id, are rejected as an
         unsupported protocol version, even from an allowed origin.
         """
+        self._activate_encryption_if_required()
+        self._send_message(
+            "repeat_value",
+            {"value": "hello"},
+            encrypt=self.use_encryption,
+            protocol_version=1,
+        )
+        self._is_error(self._receive_json(), "Unsupported protocol version: 1.")
 
-        def step1(_):
-            return self._send_message(
-                "repeat_value",
-                {"value": "hello"},
-                encrypt=self._use_encryption,
-                protocol_version=1,
-            )
-
-        def step2(payload):
-            if self._use_encryption:
-                payload = self._fernet.decrypt(payload)
-            payload = json.loads(payload)
-            self._is_error(payload, "Unsupported protocol version: 1.")
-
-        return self._chain_calls(self._activate_encryption_if_required, step1, step2)
-
-    def test_zero_user(self):
+    def test_redirect(self):
         """
-        Ensures a request with a user id of 0 is rejected.
+        Makes sure ?redirect= redirects right away.
         """
-        return self._assert_unauthorized_user(0)
+        response = self._https_get(
+            "/?redirect=https%3A%2F%2Fsite.shotgunstudio.com%2Fpage%3Fa%3D1"
+        )
+        self.assertEqual(response.status, 303)
+        self.assertEqual(
+            response.getheader("Location"), "https://site.shotgunstudio.com/page?a=1"
+        )
+
+    def test_redirect_after(self):
+        """
+        Makes sure &after= redirects from the status page after a delay.
+        """
+        response = self._https_get(
+            "/?redirect=https%3A%2F%2Fsite.shotgunstudio.com%2F&after=3"
+        )
+        self.assertEqual(response.status, 200)
+        self.assertIn(
+            '<meta http-equiv="refresh" content="3;URL=\'https://site.shotgunstudio.com/\'">',
+            response.body,
+        )
+
+    def test_redirect_escaped(self):
+        """
+        Makes sure a redirect url can't add headers or HTML.
+        """
+        response = self._https_get(
+            "/?redirect=https%3A%2F%2Fsite%0D%0AX-Injected%3A%201%22%3E"
+        )
+        self.assertEqual(response.status, 303)
+        self.assertIsNone(response.getheader("X-Injected"))
+        self.assertEqual(
+            response.getheader("Location"), "https://site%0D%0AX-Injected:%201%22%3E"
+        )
+
+        response = self._https_get(
+            "/?redirect=https%3A%2F%2Fsite%27%3E%3Cscript%3E&after=0"
+        )
+        self.assertNotIn("<script>", response.body)
+
+    def test_restart(self):
+        """
+        Makes sure the server can be started again after tear_down.
+        """
+        self.client.close()
+        self.server.tear_down()
+        self.assertFalse(self.server.is_running())
+        self.server.start()
+        self.assertTrue(self.server.is_running())
+        client = self._connect()
+        self._send_message(
+            "repeat_value", {"value": "hello"}, protocol_version=-1, client=client
+        )
+        self._is_error(
+            json.loads(self._receive(client)), "Unsupported protocol version: -1."
+        )
+
+    def test_shutdown_with_requests_running(self):
+        """
+        Makes sure tear_down closes connections with code 1001 and doesn't wait
+        for running requests.
+        """
+        self._activate_encryption_if_required()
+        self._send_message("wait", None, encrypt=self.use_encryption)
+        self.assertTrue(MockShotgunApi.started.wait(5))
+        # Python doesn't wait for daemon threads at exit, so Desktop can quit.
+        self.assertTrue(MockShotgunApi.wait_thread.daemon)
+
+        # Like a browser, answer the closing handshake while tear_down runs.
+        received = []
+        reader = threading.Thread(target=lambda: received.append(self._receive()))
+        reader.start()
+
+        start = time.monotonic()
+        self.server.tear_down()
+        self.assertLess(time.monotonic() - start, 2)
+        self.assertFalse(self.server.is_running())
+        reader.join(5)
+        self.assertEqual(received, [(1001, "")])
+
+        # The request finishes after the connection closed. Its reply is dropped.
+        MockShotgunApi.release.set()
+
+    def test_status_page(self):
+        """
+        Makes sure a plain HTTPS GET serves the status page.
+        """
+        response = self._https_get("/")
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.getheader("Content-Type"), "text/html; charset=utf-8")
+        self.assertIn("Flow Production Tracking browser integration", response.body)
+        self.assertNotIn("http-equiv", response.body)
 
     def test_unknown_command(self):
         """
         Ensures that a method that is not in the supported list raises an error.
         """
+        self._activate_encryption_if_required()
+        self._send_message("unknown_command", None, encrypt=self.use_encryption)
+        self._is_error(
+            self._receive_json(), "Command unknown_command is not supported."
+        )
 
-        def step1(_):
-            return self._send_message(
-                "unknown_command", None, encrypt=self._use_encryption
+    def test_websocket_with_unknown_intermediate_chain(self):
+        """
+        Makes sure the server sends the intermediate certificate. Clients only
+        trust the root certificate, so the connection fails otherwise.
+        """
+        client = self._connect()
+        self.assertTrue(client.connected)
+
+        # Without the root certificate, the connection fails.
+        with self.assertRaises(ssl.SSLError):
+            websocket.create_connection(
+                "wss://127.0.0.1:%d" % self._port,
+                sslopt={"server_hostname": HOSTNAME},
+                timeout=5,
             )
 
-        def step2(payload):
-            if self._use_encryption:
-                payload = self._fernet.decrypt(payload)
-            payload = json.loads(payload)
-            self._is_error(payload, "Command unknown_command is not supported.")
-
-        return self._chain_calls(self._activate_encryption_if_required, step1, step2)
-
-    def test_missing_method(self):
+    def test_zero_user(self):
         """
-        Ensures a public method that has a missing matching attribute raises an error.
+        Ensures a request with a user id of 0 is rejected.
         """
+        self._assert_unauthorized_user(0)
 
-        def step1(_):
-            return self._send_message(
-                "missing_attribute", None, encrypt=self._use_encryption
-            )
+    def _assert_unauthorized_user(self, user_id):
+        """
+        Sends a request with the given user id and ensures the server closes the
+        connection as unauthorized, before dispatching the command.
 
-        def step2(payload):
-            if self._use_encryption:
-                payload = self._fernet.decrypt(payload)
-            payload = json.loads(payload)
-            self._is_error(payload, "Could not find API method missing_attribute: ")
-
-        return self._chain_calls(self._activate_encryption_if_required, step1, step2)
+        :param user_id: Id of the user sending the request.
+        """
+        self._activate_encryption_if_required()
+        self._send_message(
+            "repeat_value",
+            {"value": "hello"},
+            encrypt=self.use_encryption,
+            user_id=user_id,
+        )
+        self.assertEqual(self._receive(), UNAUTHORIZED_USER)
 
 
 class TestEncryptedServer(CommonTests, TestServerBase):
     """
-    Tests for the server with encryption on.
+    Tests the server when encryption is on.
     """
 
-    def setUp(self):
-        super().setUp()
-        return self.setUpClientServer(use_encryption=True)
+    use_encryption = True
 
     def test_calls_encrypted(self):
         """
-        Ensures that calls are encrypted after get_ws_server_is is invoked.
+        Ensures that calls are encrypted after get_ws_server_id is invoked.
         """
+        self._activate_encryption()
+        self._send_message("repeat_value", {"value": "hello"}, encrypt=True)
+        payload = self._receive_json()
+        self._is_not_error(payload)
+        self.assertEqual(payload["reply"]["value"], "hellohellohello")
 
-        def step1(payload):
-            return self._send_message("repeat_value", {"value": "hello"}, encrypt=True)
-
-        def step2(payload):
-            payload = self._fernet.decrypt(payload)
-            payload = json.loads(payload)
-            self._is_not_error(payload)
-            self.assertEqual(payload["reply"]["value"], "hellohellohello")
-
-            # Same call without encryption should fail.
-            return self._send_message("repeat_value", {"value": "hello"})
-
-        def step3(payload):
-            payload = self._fernet.decrypt(payload)
-            payload = json.loads(payload)
-            self._is_error(payload, "There was an error while decrypting the message:")
-
-        return self._chain_calls(self._activate_encryption, step1, step2, step3)
+        # Same call without encryption should fail.
+        self._send_message("repeat_value", {"value": "hello"})
+        self._is_error(
+            self._receive_json(), "There was an error while decrypting the message:"
+        )
 
     def test_rpc_before_encrypt(self):
         """
         Calling an RPC before doing the encryption handshake should not work.
         """
+        self._send_message("repeat_value", None)
+        self.assertEqual(
+            self._receive(),
+            (3002, "Attempted to communicate without completing encryption handshake."),
+        )
 
-        def step1(payload):
-            return self._send_message("repeat_value", None)
+    def test_secret_retrieved_before_server_id_reply(self):
+        """
+        Ensures the server retrieves its secret before sending its id. Otherwise
+        the client and the server ask for the secret of a new id at the same time,
+        and Flow Production Tracking can give each a different secret.
+        """
+        retrieved = threading.Event()
+        call_rpc = self._mockgun._call_rpc
 
-        def step2(payload):
-            self.assertEqual(
-                payload,
-                (
-                    3002,
-                    "Attempted to communicate without completing encryption handshake.",
-                ),
-            )
+        def slow_call_rpc(name, payload, *args):
+            time.sleep(0.5)
+            result = call_rpc(name, payload, *args)
+            retrieved.set()
+            return result
 
-        return self._chain_calls(step1, step2)
+        self._mockgun._call_rpc = slow_call_rpc
+        self._send_message("get_ws_server_id", None)
+        payload = json.loads(self._receive())
+        self.assertTrue(retrieved.is_set())
+        self.assertEqual(payload["reply"]["ws_server_id"], self.server.ws_server_id)
 
 
 class TestUnencryptedServer(CommonTests, TestServerBase):
     """
-    Tests for the server with encryption off.
+    Tests the server when encryption is off.
     """
 
-    def setUp(self):
-        super().setUp()
-        return self.setUpClientServer(use_encryption=False)
+    use_encryption = False
 
     def test_get_ws_server_id_failure(self):
         """
         Ensures get_ws_server_id does not work when not in encryption mode.
         """
-
-        def step1(_):
-            return self._send_message("get_ws_server_id", None)
-
-        def step2(payload):
-            self.assertEqual(
-                payload,
-                (3003, "Client asked for server id when encryption is not supported."),
-            )
-
-        return self._chain_calls(step1, step2)
+        self._send_message("get_ws_server_id", None)
+        self.assertEqual(
+            self._receive(),
+            (3003, "Client asked for server id when encryption is not supported."),
+        )
 
 
-class DifferentHostBase(object):
+class DifferentHostTests(object):
     """
-    Tests a connection from a different host. The server needs to be launched in different modes,
-    but this can only be done during setUp due to the way twisted unit tests work.
-
-    In order to have the unit test be parameterizable, the base class will expect class level
-    variables to be set that indicate if encryption is required or not, what are the aliases
-    and if the test should fail or not.
+    Tests a connection from a different host. Subclasses set whether encryption
+    is on, the origin, the aliases and whether the request should fail.
     """
 
-    class Impl(TestServerBase):
-        def setUp(self):
-            super().setUp()
-            print((self.__class__))
-            return self.setUpClientServer(
-                use_encryption=self.use_encryption,
-                origin=self.origin,
-                host_aliases=self.host_aliases,
-            )
-
-        def test_origin(self):
-            def step_send_message(payload):
-                return self._send_message(
-                    "repeat_value", {"value": "hello"}, encrypt=self._use_encryption
-                )
-
-            def step_failure(payload):
-                self.assertEqual(
-                    payload,
-                    (
-                        3001,
-                        "You are not authorized to make browser integration "
-                        "requests. Please re-authenticate in your desktop application.",
-                    ),
-                )
-
-            def step_validation(payload):
-                if self.should_fail:
-                    step_failure(payload)
-                else:
-                    self.assertFalse(isinstance(payload, tuple))
-
-                    if self.use_encryption:
-                        payload = self._fernet.decrypt(payload)
-
-                    payload = json.loads(payload)
-                    self.assertEqual(payload["reply"], {"value": "hellohellohello"})
-
+    def test_origin(self):
+        if self.use_encryption and self.should_fail:
             # When using encryption, we won't even be able to enable it because we'll
-            # be on the wrong side. So move straight away to the failure step.
-            if self._use_encryption and self.should_fail:
-                return self._chain_calls(
-                    self._activate_encryption_if_required, step_failure
-                )
-            else:
-                return self._chain_calls(
-                    self._activate_encryption_if_required,
-                    step_send_message,
-                    step_validation,
-                )
+            # be on the wrong side.
+            self._send_message("get_ws_server_id", None)
+            self.assertEqual(self._receive(), UNAUTHORIZED_USER)
+            return
+
+        self._activate_encryption_if_required()
+        self._send_message(
+            "repeat_value", {"value": "hello"}, encrypt=self.use_encryption
+        )
+        if self.should_fail:
+            self.assertEqual(self._receive(), UNAUTHORIZED_USER)
+        else:
+            self.assertEqual(
+                self._receive_json()["reply"], {"value": "hellohellohello"}
+            )
 
 
-class TestInvalidOriginEncrypted(DifferentHostBase.Impl):
+class TestInvalidOriginEncrypted(DifferentHostTests, TestServerBase):
     """
     Make sure that a different origin will fail when encryption is on.
     """
 
+    host_aliases = ["site.shotgunstudio.com"]
+    origin = "https://altsite.shotgunstudio.com"
     should_fail = True
     use_encryption = True
-    origin = "https://altsite.shotgunstudio.com"
-    host_aliases = []
 
 
 class TestInvalidOriginUnencrypted(TestInvalidOriginEncrypted):
     """
-    Make sure that a different origin will fail when encryption is off
+    Make sure that a different origin will fail when encryption is off.
     """
 
     use_encryption = False
 
 
-class TestValidOriginEncrypted(DifferentHostBase.Impl):
+class TestValidOriginEncrypted(DifferentHostTests, TestServerBase):
     """
     Make sure that using an alias will succeed when encryption is on.
     """
 
+    host_aliases = ["altsite.shotgunstudio.com"]
+    origin = "https://altsite.shotgunstudio.com"
     should_fail = False
     use_encryption = True
-    origin = "https://altsite.shotgunstudio.com"
-    host_aliases = ["altsite.shotgunstudio.com"]
 
 
 class TestValidOriginUnencrypted(TestValidOriginEncrypted):

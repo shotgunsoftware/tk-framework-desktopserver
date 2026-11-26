@@ -6,8 +6,6 @@
 #
 # When updating a dependency, follow the process described in README.md.
 # CI handles regeneration automatically.
-# Note: Twisted and attrs are also pinned in azure-pipelines/requirements.txt
-# and must be kept in sync with the versions here.
 
 # ============================================================================ #
 # Direct dependencies
@@ -15,73 +13,8 @@
 #
 
 #-------------------------------------------------------------------------------
-# autobahn
-# CVE-2020-35678 - fixed in 20.12.3
-# CVE-2026-77528 - fixed in 26.7.1 - not upgraded, not exploitable here:
-#   only affects permessage-deflate, which the server never enables (autobahn
-#   declines compression offers by default). 26.7.1 also requires Python 3.11+,
-#   ships binary wheels only (no macOS x86_64) and adds binary dependencies
-#   (cbor2, msgpack, ujson).
-autobahn==22.12.1 ; python_version <  "3.13"
-autobahn~=24.4.2  ; python_version >= "3.13"
-
-#-------------------------------------------------------------------------------
-# pyOpenSSL
-# CVE-2026-27459 - fixed in 26.0.0
-# CVE-2026-40475 - fixed in 26.1.0
-# 26.2.x is the only series supporting cryptography 48 (26.1.x requires
-# cryptography<48, 26.3.0+ requires cryptography>=49). See cryptography below.
-pyopenssl~=26.2.0
-
-#-------------------------------------------------------------------------------
-# Twisted
-# CVE-2022-21712 - fixed in 22.1
-# CVE-2022-24801 - fixed in 22.1
-# CVE-2024-41671 & CVE-2024-41810 - fixed in 24.10.0
-# CVE-2026-42304 - fixed in 26.4.0 - requires Python 3.9.12+
-# CVE-2026-106454 - not fixed in any release - not exploitable here, see below
-# CVE-2026-115774, CVE-2026-115775, CVE-2026-115776, CVE-2026-115778 &
-#   CVE-2026-115877 - fixed in 26.10.0rc1 - not upgraded, not exploitable here,
-#   see below. 26.10.0 is only a release candidate, requiring Python 3.10+.
-# These CVEs only affect the IMAP4 (twisted.mail), IRC and XMPP
-#   (twisted.words), telnet (twisted.conch) and HTTP (twisted.web) servers. We
-#   only use twisted.internet, with autobahn for WebSockets.
-twisted~=26.4.0
-
-# ============================================================================ #
-# Selected sub-level dependencies
-#   CVE-driven: minimum versions (>= x.y.z).
-#   Other reasons (e.g. compatibility, bundling): pinned to a specific version.
-#
-
-#-------------------------------------------------------------------------------
-# attrs
-# Required by:
-#   → service-identity
-#   ↳ Twisted
-# Do not upgrade! The CI pipeline installs attrs==22.2.0 as a system-level test
-# dependency (see extra_test_dependencies in azure-pipelines.yml). pytest also
-# imports attrs early, caching it in sys.modules. From attrs 23.2.0,
-# `attrs/__init__.py` imports `Converter` from `attr`. If the bundled version is
-# newer than the cached one, that import fails with:
-#   ImportError: cannot import name 'Converter' from 'attr'
-# Twisted 24.x and autobahn 24.x only require attrs>=22.2.0, so this is safe.
-attrs==22.2.0
-
-#-------------------------------------------------------------------------------
-# cffi
-# Required by:
-#   → cryptography → autobahn
-#                  ↳ pyOpenSSL
-#                  ↳ service-identity
-cffi>=1.17.1
-
-#-------------------------------------------------------------------------------
 # cryptography
-# Required by:
-#   → autobahn
-#   ↳ pyOpenSSL
-#   ↳ service-identity
+# Used directly: Fernet encrypts the messages with the web app.
 # CVE-2023-2650  - fixed in 41.0.0
 # CVE-2023-4807  - fixed in 41.0.5
 # CVE-2023-5678  - fixed in 41.0.7
@@ -98,44 +31,29 @@ cffi>=1.17.1
 #   and the macOS bundles must include x86_64 (universal for Python 3.10+).
 #   The CVEs fixed in 49.0.0 and 50.0.0 are not exploitable here: they only
 #   affect cryptography's X.509 path validation (cryptography.x509.verification)
-#   and PKCS#7 decryption, which nothing bundled uses. TLS verification goes
-#   through OpenSSL via pyOpenSSL.
+#   and PKCS#7 decryption, which nothing bundled uses. TLS goes through the
+#   Python standard library ssl module.
 cryptography~=48.0.1
 
 #-------------------------------------------------------------------------------
-# hyperlink
-# Required by:
-#   → autobahn
-#   ↳ Twisted
-hyperlink>=21.0.0
+# websockets
+# Bundled as pure Python: install_source_only.sh removes the optional speedups
+#   extension, and websockets falls back to its Python implementation.
+# CVE-2018-1000518 - fixed in 5.0
+# CVE-2021-33880 - fixed in 9.1
+# One series per Python version: 15.x is the last supporting Python 3.9, 16.x
+#   the last supporting Python 3.10 and 17.x requires Python 3.11+.
+websockets>=15.0.1,<16 ; python_version <  "3.10"
+websockets>=16.1.1,<17 ; python_version == "3.10"
+websockets>=17.4,<18   ; python_version >= "3.11"
+
+# ============================================================================ #
+# Selected sub-level dependencies
+#   CVE-driven: minimum versions (>= x.y.z).
+#   Other reasons (e.g. compatibility, bundling): pinned to a specific version.
+#
 
 #-------------------------------------------------------------------------------
-# idna
-# Required by:
-#   → hyperlink → autobahn
-#               ↳ Twisted
-# CVE-2024-3651 - fixed in 3.7
-# CVE-2026-45409 - fixed in 3.15
-idna>=3.15
-
-
-#-------------------------------------------------------------------------------
-# service-identity
-# Required by:
-#   → Twisted
-# 24.2.0 minimum: earlier versions require six, which is no longer bundled
-service-identity>=24.2.0
-
-#-------------------------------------------------------------------------------
-# setuptools
-# Required by: autobahn (24.x, Python 3.13+)
-# Python 3.13 virtualenvs no longer include setuptools, so it gets bundled.
-# CVE-2026-59890 - fixed in 83.0.0
-# GHSA-xmj3-9gf7-h52w - fixed in 84.1.0
-setuptools>=84.1.0 ; python_version >= "3.13"
-
-#-------------------------------------------------------------------------------
-# zope.interface
-# Required by: Twisted
-zope.interface>=5.5.2 ; python_version <  "3.13"
-zope.interface>=7.1.0 ; python_version >= "3.13"
+# cffi
+# Required by: cryptography
+cffi>=1.17.1
