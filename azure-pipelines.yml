@@ -36,7 +36,7 @@ jobs:
       - name: tk-framework-desktopclient
       - name: tk-shotgun
     run_tests_parameters:
-      dependencies:
+      pip_requirements:
         # CI installs dependencies from the dedicated Azure Pipelines
         # requirements file, which must be kept in sync with the unified
         # runtime requirements so CI-installed versions match what pkgs.zip
