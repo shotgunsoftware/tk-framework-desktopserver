@@ -5,7 +5,7 @@ resources:
       type: github
       name: shotgunsoftware/tk-ci-tools
       # Testing the tk-ci-tools branch, revert to master before merging.
-      ref: refs/heads/ticket/SG-47353-toolkit-flag
+      ref: refs/heads/master
       endpoint: shotgunsoftware
 
 # We want builds to trigger for 3 reasons:
