@@ -223,7 +223,7 @@ class ProcessManager(object):
         except Exception as e:
             # call_cmd is not including sentitive information in the error message, so this won't
             # either.
-            raise Exception("Error executing toolkit command: " + e.message)
+            raise Exception(f"Error executing toolkit command: {e}")
 
     def _add_action_output(self, actions, out, err, code):
         """
